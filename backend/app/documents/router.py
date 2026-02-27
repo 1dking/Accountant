@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import Role, User
 from app.core.pagination import PaginationParams, get_pagination
-from app.dependencies import get_current_user, get_db, require_role
+from app.dependencies import get_current_user, get_current_user_or_token, get_db, require_role
 from app.documents.models import DocumentStatus, DocumentType
 from app.documents.schemas import (
     DocumentFilter,
@@ -294,16 +294,20 @@ async def get_doc(
 async def download(
     document_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(get_current_user)],
+    _: Annotated[User, Depends(get_current_user_or_token)],
     storage: Annotated[StorageBackend, Depends(get_storage)],
 ) -> StreamingResponse:
-    """Download a document as a streaming response."""
+    """Download a document as a streaming response.
+
+    Accepts authentication via Bearer header or ?token= query parameter
+    so it can be used in <img>, <iframe>, and <a> tags.
+    """
     data, document = await download_document(db, storage, document_id)
     return StreamingResponse(
         io.BytesIO(data),
         media_type=document.mime_type,
         headers={
-            "Content-Disposition": f'attachment; filename="{document.original_filename}"',
+            "Content-Disposition": f'inline; filename="{document.original_filename}"',
             "Content-Length": str(document.file_size),
         },
     )

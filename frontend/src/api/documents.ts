@@ -4,11 +4,16 @@ import type { Document, DocumentListItem, DocumentVersion, Folder, Tag } from '@
 
 // Documents
 export async function uploadDocuments(files: File[], folderId?: string, tags?: string[]) {
-  const formData = new FormData()
-  files.forEach((file) => formData.append('files', file))
-  if (folderId) formData.append('folder_id', folderId)
-  if (tags?.length) tags.forEach((t) => formData.append('tags', t))
-  return api.upload<ApiResponse<Document[]>>('/documents/upload', formData)
+  const results: Document[] = []
+  for (const file of files) {
+    const formData = new FormData()
+    formData.append('file', file)
+    if (folderId) formData.append('folder_id', folderId)
+    if (tags?.length) tags.forEach((t) => formData.append('tags', t))
+    const res = await api.upload<ApiResponse<Document>>('/documents/upload', formData)
+    results.push(res.data)
+  }
+  return { data: results }
 }
 
 export async function listDocuments(filters: DocumentFilters = {}) {
@@ -33,11 +38,15 @@ export async function deleteDocument(id: string) {
 }
 
 export function getDownloadUrl(id: string) {
-  return `/api/documents/${id}/download`
+  const token = localStorage.getItem('access_token')
+  const params = token ? `?token=${encodeURIComponent(token)}` : ''
+  return `/api/documents/${id}/download${params}`
 }
 
 export function getPreviewUrl(id: string) {
-  return `/api/documents/${id}/preview`
+  const token = localStorage.getItem('access_token')
+  const params = token ? `?token=${encodeURIComponent(token)}` : ''
+  return `/api/documents/${id}/preview${params}`
 }
 
 // Versions
