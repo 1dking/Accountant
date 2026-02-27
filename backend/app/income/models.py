@@ -10,7 +10,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base, TimestampMixin
 
 
-class IncomeCategory(enum.StrEnum):
+class IncomeCategory(str, enum.Enum):
     INVOICE_PAYMENT = "invoice_payment"
     SERVICE = "service"
     PRODUCT = "product"

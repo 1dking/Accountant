@@ -10,7 +10,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base, TimestampMixin
 
 
-class InvoiceStatus(enum.StrEnum):
+class InvoiceStatus(str, enum.Enum):
     DRAFT = "draft"
     SENT = "sent"
     VIEWED = "viewed"

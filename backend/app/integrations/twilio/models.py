@@ -10,7 +10,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base
 
 
-class SmsStatus(enum.StrEnum):
+class SmsStatus(str, enum.Enum):
     SENT = "sent"
     FAILED = "failed"
     DELIVERED = "delivered"

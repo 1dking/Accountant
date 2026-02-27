@@ -9,7 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base, TimestampMixin
 
 
-class PeriodType(enum.StrEnum):
+class PeriodType(str, enum.Enum):
     MONTHLY = "monthly"
     QUARTERLY = "quarterly"
     YEARLY = "yearly"

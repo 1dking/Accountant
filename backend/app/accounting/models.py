@@ -26,7 +26,7 @@ from app.database import Base, TimestampMixin
 # ---------------------------------------------------------------------------
 
 
-class PaymentMethod(enum.StrEnum):
+class PaymentMethod(str, enum.Enum):
     CASH = "cash"
     CREDIT_CARD = "credit_card"
     DEBIT_CARD = "debit_card"
@@ -35,7 +35,7 @@ class PaymentMethod(enum.StrEnum):
     OTHER = "other"
 
 
-class ExpenseStatus(enum.StrEnum):
+class ExpenseStatus(str, enum.Enum):
     DRAFT = "draft"
     PENDING_REVIEW = "pending_review"
     APPROVED = "approved"
@@ -125,7 +125,7 @@ class ExpenseLineItem(Base):
     expense: Mapped[Expense] = relationship("Expense", back_populates="line_items", lazy="selectin")
 
 
-class ApprovalStatusEnum(enum.StrEnum):
+class ApprovalStatusEnum(str, enum.Enum):
     PENDING = "pending"
     APPROVED = "approved"
     REJECTED = "rejected"

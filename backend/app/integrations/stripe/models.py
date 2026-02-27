@@ -10,20 +10,20 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base, TimestampMixin
 
 
-class PaymentLinkStatus(enum.StrEnum):
+class PaymentLinkStatus(str, enum.Enum):
     PENDING = "pending"
     COMPLETED = "completed"
     EXPIRED = "expired"
     CANCELLED = "cancelled"
 
 
-class SubscriptionInterval(enum.StrEnum):
+class SubscriptionInterval(str, enum.Enum):
     MONTHLY = "monthly"
     QUARTERLY = "quarterly"
     YEARLY = "yearly"
 
 
-class SubscriptionStatus(enum.StrEnum):
+class SubscriptionStatus(str, enum.Enum):
     ACTIVE = "active"
     CANCELLED = "cancelled"
     PAST_DUE = "past_due"

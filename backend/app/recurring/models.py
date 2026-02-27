@@ -10,13 +10,13 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base, TimestampMixin
 
 
-class RecurringType(enum.StrEnum):
+class RecurringType(str, enum.Enum):
     EXPENSE = "expense"
     INCOME = "income"
     INVOICE = "invoice"
 
 
-class Frequency(enum.StrEnum):
+class Frequency(str, enum.Enum):
     WEEKLY = "weekly"
     BIWEEKLY = "biweekly"
     MONTHLY = "monthly"

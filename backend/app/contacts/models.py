@@ -9,7 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base, TimestampMixin
 
 
-class ContactType(enum.StrEnum):
+class ContactType(str, enum.Enum):
     CLIENT = "client"
     VENDOR = "vendor"
     BOTH = "both"
