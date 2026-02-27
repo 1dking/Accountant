@@ -1,4 +1,6 @@
 
+from typing import Optional
+
 import uuid
 from datetime import date
 
@@ -113,7 +115,7 @@ async def delete_income(db: AsyncSession, income_id: uuid.UUID) -> None:
 
 
 async def get_income_summary(
-    db: AsyncSession, date_from: date | None = None, date_to: date | None = None
+    db: AsyncSession, date_from: Optional[date] = None, date_to: Optional[date] = None
 ) -> IncomeSummary:
     base = select(Income)
     if date_from:

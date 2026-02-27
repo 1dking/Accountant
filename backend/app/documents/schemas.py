@@ -1,6 +1,8 @@
 """Pydantic schemas for the documents module."""
 
 
+from typing import Optional
+
 import uuid
 from datetime import datetime
 
@@ -183,8 +185,8 @@ class DocumentFilter(BaseModel):
     folder_id: uuid.UUID | None = None
     document_type: DocumentType | None = None
     tag: str | None = None
-    date_from: datetime | None = None
-    date_to: datetime | None = None
+    date_from: Optional[datetime] = None
+    date_to: Optional[datetime] = None
     uploaded_by: uuid.UUID | None = None
     status: DocumentStatus | None = None
 

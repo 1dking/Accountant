@@ -1,4 +1,6 @@
 
+from typing import Optional
+
 import uuid
 from datetime import datetime
 
@@ -20,8 +22,8 @@ class PaymentLinkResponse(BaseModel):
     amount: float
     currency: str
     status: str
-    expires_at: datetime | None = None
-    paid_at: datetime | None = None
+    expires_at: Optional[datetime] = None
+    paid_at: Optional[datetime] = None
     created_at: datetime
 
 
@@ -50,5 +52,5 @@ class SubscriptionResponse(BaseModel):
     currency: str
     interval: str
     status: str
-    current_period_end: datetime | None = None
+    current_period_end: Optional[datetime] = None
     created_at: datetime

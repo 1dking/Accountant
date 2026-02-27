@@ -3,7 +3,7 @@
 
 import uuid
 from datetime import date
-from typing import Annotated
+from typing import Optional, Annotated
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import Response
@@ -99,8 +99,8 @@ async def list_expenses(
     category_id: uuid.UUID | None = None,
     status: ExpenseStatus | None = None,
     payment_method: PaymentMethod | None = None,
-    date_from: date | None = None,
-    date_to: date | None = None,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
     min_amount: float | None = None,
     max_amount: float | None = None,
     user_id: uuid.UUID | None = None,
@@ -184,8 +184,8 @@ async def delete_expense(
 async def get_summary(
     db: Annotated[AsyncSession, Depends(get_db)],
     _: Annotated[User, Depends(get_current_user)],
-    date_from: date | None = None,
-    date_to: date | None = None,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
     user_id: uuid.UUID | None = None,
     year: int | None = None,
 ) -> dict:
@@ -218,8 +218,8 @@ async def get_summary(
 async def export_csv(
     db: Annotated[AsyncSession, Depends(get_db)],
     _: Annotated[User, Depends(get_current_user)],
-    date_from: date | None = None,
-    date_to: date | None = None,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
     category_id: uuid.UUID | None = None,
     status: ExpenseStatus | None = None,
 ) -> Response:
@@ -242,8 +242,8 @@ async def export_csv(
 async def export_xlsx(
     db: Annotated[AsyncSession, Depends(get_db)],
     _: Annotated[User, Depends(get_current_user)],
-    date_from: date | None = None,
-    date_to: date | None = None,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
     category_id: uuid.UUID | None = None,
     status: ExpenseStatus | None = None,
 ) -> Response:

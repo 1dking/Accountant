@@ -1,4 +1,6 @@
 
+from typing import Optional
+
 import uuid
 from datetime import date, datetime
 
@@ -22,7 +24,7 @@ class PlaidConnectionResponse(BaseModel):
     institution_name: str
     institution_id: str
     is_active: bool
-    last_sync_at: datetime | None = None
+    last_sync_at: Optional[datetime] = None
     accounts: list[dict] | None = None
     created_at: datetime
 
@@ -52,8 +54,8 @@ class PlaidTransactionFilters(BaseModel):
     connection_id: uuid.UUID | None = None
     is_categorized: bool | None = None
     is_income: bool | None = None
-    date_from: date | None = None
-    date_to: date | None = None
+    date_from: Optional[date] = None
+    date_to: Optional[date] = None
     page: int = 1
     page_size: int = 50
 

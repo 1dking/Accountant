@@ -1,4 +1,6 @@
 
+from typing import Optional
+
 import uuid
 from datetime import datetime
 
@@ -11,7 +13,7 @@ class GmailAccountResponse(BaseModel):
     id: uuid.UUID
     email: str
     is_active: bool
-    last_sync_at: datetime | None
+    last_sync_at: Optional[datetime]
     created_at: datetime
 
 
@@ -32,7 +34,7 @@ class GmailScanResultResponse(BaseModel):
     message_id: str
     subject: str | None
     sender: str | None
-    date: datetime | None
+    date: Optional[datetime]
     snippet: str | None
     has_attachments: bool
     is_processed: bool

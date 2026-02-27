@@ -1,7 +1,7 @@
 
 import uuid
 from datetime import date
-from typing import Annotated
+from typing import Optional, Annotated
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,8 +30,8 @@ async def list_income(
     search: str | None = Query(None),
     category: IncomeCategory | None = Query(None),
     contact_id: uuid.UUID | None = Query(None),
-    date_from: date | None = Query(None),
-    date_to: date | None = Query(None),
+    date_from: Optional[date] = Query(None),
+    date_to: Optional[date] = Query(None),
 ) -> dict:
     filters = IncomeFilter(
         search=search, category=category, contact_id=contact_id,
@@ -45,8 +45,8 @@ async def list_income(
 async def income_summary(
     db: Annotated[AsyncSession, Depends(get_db)],
     _: Annotated[User, Depends(get_current_user)],
-    date_from: date | None = Query(None),
-    date_to: date | None = Query(None),
+    date_from: Optional[date] = Query(None),
+    date_to: Optional[date] = Query(None),
 ) -> dict:
     summary = await service.get_income_summary(db, date_from, date_to)
     return {"data": summary.model_dump()}

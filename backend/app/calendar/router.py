@@ -1,7 +1,7 @@
 
 import uuid
 from datetime import date
-from typing import Annotated
+from typing import Optional, Annotated
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,8 +30,8 @@ async def get_calendar_events(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
     pagination: Annotated[PaginationParams, Depends(get_pagination)],
-    date_from: date | None = Query(None),
-    date_to: date | None = Query(None),
+    date_from: Optional[date] = Query(None),
+    date_to: Optional[date] = Query(None),
 ) -> dict:
     events, total_count = await list_events(db, date_from, date_to, pagination)
     return {

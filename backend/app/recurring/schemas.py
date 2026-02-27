@@ -1,4 +1,6 @@
 
+from typing import Optional
+
 import uuid
 from datetime import date, datetime
 
@@ -12,15 +14,15 @@ class RecurringRuleCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     frequency: Frequency
     next_run_date: date
-    end_date: date | None = None
+    end_date: Optional[date] = None
     template_data: dict
 
 
 class RecurringRuleUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=255)
     frequency: Frequency | None = None
-    next_run_date: date | None = None
-    end_date: date | None = None
+    next_run_date: Optional[date] = None
+    end_date: Optional[date] = None
     is_active: bool | None = None
     template_data: dict | None = None
 
@@ -31,10 +33,10 @@ class RecurringRuleResponse(BaseModel):
     name: str
     frequency: Frequency
     next_run_date: date
-    end_date: date | None
+    end_date: Optional[date]
     is_active: bool
     template_data: dict
-    last_run_date: date | None
+    last_run_date: Optional[date]
     run_count: int
     created_by: uuid.UUID
     created_at: datetime
@@ -49,9 +51,9 @@ class RecurringRuleListItem(BaseModel):
     name: str
     frequency: Frequency
     next_run_date: date
-    end_date: date | None
+    end_date: Optional[date]
     is_active: bool
-    last_run_date: date | None
+    last_run_date: Optional[date]
     run_count: int
     created_at: datetime
 

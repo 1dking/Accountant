@@ -1,4 +1,6 @@
 
+from typing import Optional
+
 import uuid
 from datetime import date, datetime
 
@@ -64,8 +66,8 @@ class InvoiceCreate(BaseModel):
 
 class InvoiceUpdate(BaseModel):
     contact_id: uuid.UUID | None = None
-    issue_date: date | None = None
-    due_date: date | None = None
+    issue_date: Optional[date] = None
+    due_date: Optional[date] = None
     status: InvoiceStatus | None = None
     tax_rate: float | None = None
     discount_amount: float | None = None
@@ -119,8 +121,8 @@ class InvoiceFilter(BaseModel):
     search: str | None = None
     status: InvoiceStatus | None = None
     contact_id: uuid.UUID | None = None
-    date_from: date | None = None
-    date_to: date | None = None
+    date_from: Optional[date] = None
+    date_to: Optional[date] = None
 
 
 class InvoiceDashboardStats(BaseModel):

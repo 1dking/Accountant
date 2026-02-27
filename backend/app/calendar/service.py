@@ -1,4 +1,6 @@
 
+from typing import Optional
+
 import uuid
 from datetime import date, timedelta
 
@@ -46,8 +48,8 @@ async def create_event(
 
 async def list_events(
     db: AsyncSession,
-    date_from: date | None = None,
-    date_to: date | None = None,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
     pagination: PaginationParams | None = None,
 ) -> tuple[list[CalendarEvent], int]:
     """List calendar events with optional date range filter, paginated."""

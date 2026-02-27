@@ -1,4 +1,6 @@
 
+from typing import Optional
+
 import csv
 import io
 from datetime import date
@@ -14,8 +16,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 async def export_to_csv(
     db: AsyncSession,
-    date_from: date | None,
-    date_to: date | None,
+    date_from: Optional[date],
+    date_to: Optional[date],
     include: str,
 ) -> str:
     """Generate a QuickBooks-compatible CSV export."""
@@ -43,8 +45,8 @@ async def export_to_csv(
 async def _write_expenses_csv(
     db: AsyncSession,
     writer: csv.writer,
-    date_from: date | None,
-    date_to: date | None,
+    date_from: Optional[date],
+    date_to: Optional[date],
 ) -> None:
     from app.accounting.models import Expense
 
@@ -71,8 +73,8 @@ async def _write_expenses_csv(
 async def _write_income_csv(
     db: AsyncSession,
     writer: csv.writer,
-    date_from: date | None,
-    date_to: date | None,
+    date_from: Optional[date],
+    date_to: Optional[date],
 ) -> None:
     from app.income.models import Income
 
@@ -99,8 +101,8 @@ async def _write_income_csv(
 async def _write_invoices_csv(
     db: AsyncSession,
     writer: csv.writer,
-    date_from: date | None,
-    date_to: date | None,
+    date_from: Optional[date],
+    date_to: Optional[date],
 ) -> None:
     from app.invoicing.models import Invoice
 
@@ -134,8 +136,8 @@ async def _write_invoices_csv(
 
 async def export_to_iif(
     db: AsyncSession,
-    date_from: date | None,
-    date_to: date | None,
+    date_from: Optional[date],
+    date_to: Optional[date],
     include: str,
 ) -> str:
     """Generate an IIF (Intuit Interchange Format) file for QuickBooks import."""
@@ -156,8 +158,8 @@ async def export_to_iif(
 async def _write_expenses_iif(
     db: AsyncSession,
     lines: list[str],
-    date_from: date | None,
-    date_to: date | None,
+    date_from: Optional[date],
+    date_to: Optional[date],
 ) -> None:
     from app.accounting.models import Expense
 
@@ -184,8 +186,8 @@ async def _write_expenses_iif(
 async def _write_income_iif(
     db: AsyncSession,
     lines: list[str],
-    date_from: date | None,
-    date_to: date | None,
+    date_from: Optional[date],
+    date_to: Optional[date],
 ) -> None:
     from app.income.models import Income
 
@@ -211,8 +213,8 @@ async def _write_income_iif(
 async def _write_invoices_iif(
     db: AsyncSession,
     lines: list[str],
-    date_from: date | None,
-    date_to: date | None,
+    date_from: Optional[date],
+    date_to: Optional[date],
 ) -> None:
     from app.invoicing.models import Invoice
 

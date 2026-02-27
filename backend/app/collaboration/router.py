@@ -1,7 +1,7 @@
 
 import uuid
 from datetime import datetime
-from typing import Annotated
+from typing import Optional, Annotated
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -107,8 +107,8 @@ async def get_activity_feed(
     user_id: uuid.UUID | None = Query(None),
     action: str | None = Query(None),
     resource_type: str | None = Query(None),
-    date_from: datetime | None = Query(None),
-    date_to: datetime | None = Query(None),
+    date_from: Optional[datetime] = Query(None),
+    date_to: Optional[datetime] = Query(None),
 ) -> dict:
     filters = ActivityFilter(
         user_id=user_id,

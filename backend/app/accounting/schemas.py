@@ -1,6 +1,8 @@
 """Pydantic schemas for the accounting module."""
 
 
+from typing import Optional
+
 import uuid
 from datetime import date, datetime
 
@@ -87,7 +89,7 @@ class ExpenseUpdate(BaseModel):
     amount: float | None = Field(None, gt=0)
     currency: str | None = Field(None, max_length=3)
     tax_amount: float | None = None
-    date: date | None = None
+    date: Optional[date] = None
     payment_method: PaymentMethod | None = None
     status: ExpenseStatus | None = None
     category_id: uuid.UUID | None = None
@@ -150,8 +152,8 @@ class ExpenseFilter(BaseModel):
     category_id: uuid.UUID | None = None
     status: ExpenseStatus | None = None
     payment_method: PaymentMethod | None = None
-    date_from: date | None = None
-    date_to: date | None = None
+    date_from: Optional[date] = None
+    date_to: Optional[date] = None
     min_amount: float | None = None
     max_amount: float | None = None
     user_id: uuid.UUID | None = None
@@ -208,6 +210,6 @@ class ExpenseApprovalResponse(BaseModel):
     status: ApprovalStatusEnum
     comment: str | None
     created_at: datetime
-    resolved_at: datetime | None
+    resolved_at: Optional[datetime]
 
     model_config = {"from_attributes": True}

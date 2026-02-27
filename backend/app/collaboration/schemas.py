@@ -1,4 +1,6 @@
 
+from typing import Optional
+
 import uuid
 from datetime import datetime
 
@@ -53,8 +55,8 @@ class ActivityFilter(BaseModel):
     user_id: uuid.UUID | None = None
     action: str | None = None
     resource_type: str | None = None
-    date_from: datetime | None = None
-    date_to: datetime | None = None
+    date_from: Optional[datetime] = None
+    date_to: Optional[datetime] = None
 
 
 # ── Approvals ─────────────────────────────────────────────────────────────────
@@ -79,6 +81,6 @@ class ApprovalResponse(BaseModel):
     status: ApprovalStatus
     comment: str | None = None
     created_at: datetime
-    resolved_at: datetime | None = None
+    resolved_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}

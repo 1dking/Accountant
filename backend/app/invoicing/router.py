@@ -1,7 +1,7 @@
 
 import uuid
 from datetime import date
-from typing import Annotated
+from typing import Optional, Annotated
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
@@ -34,8 +34,8 @@ async def list_invoices(
     search: str | None = Query(None),
     status: InvoiceStatus | None = Query(None),
     contact_id: uuid.UUID | None = Query(None),
-    date_from: date | None = Query(None),
-    date_to: date | None = Query(None),
+    date_from: Optional[date] = Query(None),
+    date_to: Optional[date] = Query(None),
 ) -> dict:
     filters = InvoiceFilter(
         search=search, status=status, contact_id=contact_id,

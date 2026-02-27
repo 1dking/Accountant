@@ -1,6 +1,8 @@
 """Business logic for the accounting module."""
 
 
+from typing import Optional
+
 import uuid
 from datetime import date, datetime, timezone
 
@@ -419,8 +421,8 @@ async def delete_expense(db: AsyncSession, expense_id: uuid.UUID) -> None:
 async def get_spending_by_category(
     db: AsyncSession,
     user_id: uuid.UUID | None = None,
-    date_from: date | None = None,
-    date_to: date | None = None,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
 ) -> list[CategorySpend]:
     query = (
         select(
@@ -496,8 +498,8 @@ async def get_spending_by_month(
 async def get_spending_by_vendor(
     db: AsyncSession,
     user_id: uuid.UUID | None = None,
-    date_from: date | None = None,
-    date_to: date | None = None,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
     limit: int = 10,
 ) -> list[VendorSpend]:
     query = (

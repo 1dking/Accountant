@@ -1,4 +1,6 @@
 
+from typing import Optional
+
 import base64
 import mimetypes
 import os
@@ -261,7 +263,7 @@ async def scan_emails(
         sender = _extract_header(headers, "From")
         date_str = _extract_header(headers, "Date")
 
-        parsed_date: datetime | None = None
+        parsed_date: Optional[datetime] = None
         if date_str:
             try:
                 parsed_date = parsedate_to_datetime(date_str)

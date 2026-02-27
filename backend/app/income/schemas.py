@@ -1,4 +1,6 @@
 
+from typing import Optional
+
 import uuid
 from datetime import date, datetime
 
@@ -27,7 +29,7 @@ class IncomeUpdate(BaseModel):
     description: str | None = Field(None, min_length=1, max_length=1000)
     amount: float | None = Field(None, gt=0)
     currency: str | None = Field(None, max_length=3)
-    date: date | None = None
+    date: Optional[date] = None
     payment_method: str | None = Field(None, max_length=50)
     reference: str | None = Field(None, max_length=255)
     notes: str | None = None
@@ -71,8 +73,8 @@ class IncomeFilter(BaseModel):
     search: str | None = None
     category: IncomeCategory | None = None
     contact_id: uuid.UUID | None = None
-    date_from: date | None = None
-    date_to: date | None = None
+    date_from: Optional[date] = None
+    date_to: Optional[date] = None
 
 
 class IncomeCategorySummary(BaseModel):
