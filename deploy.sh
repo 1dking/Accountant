@@ -114,15 +114,14 @@ ok "Python $(python3 --version)"
 # Create virtual environment
 if python3 -m venv .venv 2>/dev/null; then
     ok "Created venv"
-    source .venv/bin/activate
-    pip install --upgrade pip -q
 else
-    warn "python3-venv/ensurepip not available, bootstrapping manually..."
-    python3 -m venv --without-pip .venv
-    source .venv/bin/activate
-    curl -fsSL https://bootstrap.pypa.io/get-pip.py | python3
-    ok "Created venv + bootstrapped pip"
+    warn "python3-venv not available, using standalone virtualenv..."
+    curl -fsSL https://bootstrap.pypa.io/virtualenv.pyz -o /tmp/virtualenv.pyz
+    python3 /tmp/virtualenv.pyz .venv
+    ok "Created virtualenv"
 fi
+source .venv/bin/activate
+pip install --upgrade pip -q
 pip install -e ".[dev]" -q
 ok "Python dependencies installed"
 
