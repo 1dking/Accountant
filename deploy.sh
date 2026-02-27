@@ -111,7 +111,15 @@ if ! command -v python3 &>/dev/null; then
 fi
 ok "Python $(python3 --version)"
 
-python3 -m venv .venv
+# Create virtual environment (try venv first, fall back to virtualenv)
+if python3 -m venv .venv 2>/dev/null; then
+    ok "Created venv"
+else
+    warn "python3-venv not available, using virtualenv..."
+    pip3 install --user virtualenv 2>/dev/null || python3 -m pip install --user virtualenv
+    python3 -m virtualenv .venv
+    ok "Created virtualenv"
+fi
 source .venv/bin/activate
 pip install --upgrade pip -q
 pip install -e ".[dev]" -q
