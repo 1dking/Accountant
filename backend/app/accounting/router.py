@@ -144,6 +144,16 @@ async def create_expense_from_document(
     return {"data": ExpenseResponse.model_validate(expense)}
 
 
+@router.get("/expenses/pending-approvals")
+async def list_pending_approvals(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    """Return expense approvals assigned to the current user that are still pending."""
+    approvals = await service.list_pending_expense_approvals(db, current_user.id)
+    return {"data": [ExpenseApprovalResponse.model_validate(a) for a in approvals]}
+
+
 @router.get("/expenses/{expense_id}")
 async def get_expense(
     expense_id: uuid.UUID,
@@ -265,16 +275,6 @@ async def export_xlsx(
 # ---------------------------------------------------------------------------
 # Expense Approval endpoints
 # ---------------------------------------------------------------------------
-
-
-@router.get("/expenses/pending-approvals")
-async def list_pending_approvals(
-    db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
-) -> dict:
-    """Return expense approvals assigned to the current user that are still pending."""
-    approvals = await service.list_pending_expense_approvals(db, current_user.id)
-    return {"data": [ExpenseApprovalResponse.model_validate(a) for a in approvals]}
 
 
 @router.get("/expenses/{expense_id}/approval")
