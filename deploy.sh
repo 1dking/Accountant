@@ -39,22 +39,31 @@ echo -e "${NC}"
 VPS_USER=$(whoami)
 APP_DIR="/home/${VPS_USER}/Accountant"
 
-read -rp "GitHub repo URL [https://github.com/1dking/Accountant.git]: " REPO_URL
+# Use environment variables if set, otherwise prompt
+if [[ -z "${REPO_URL:-}" ]]; then
+    read -rp "GitHub repo URL [https://github.com/1dking/Accountant.git]: " REPO_URL
+fi
 REPO_URL=${REPO_URL:-https://github.com/1dking/Accountant.git}
 
-read -rp "Domain name (e.g. accountant.example.com): " DOMAIN
+if [[ -z "${DOMAIN:-}" ]]; then
+    read -rp "Domain name (e.g. accountant.example.com): " DOMAIN
+fi
 [[ -z "$DOMAIN" ]] && fail "Domain name is required."
 
-echo ""
-echo "Paste your Supabase DATABASE_URL (starts with postgresql://...)"
-echo "Find it in: Supabase Dashboard → Settings → Database → Connection string → URI"
-read -rp "DATABASE_URL: " SUPABASE_URL
+if [[ -z "${SUPABASE_URL:-}" ]]; then
+    echo ""
+    echo "Paste your Supabase DATABASE_URL (starts with postgresql://...)"
+    echo "Find it in: Supabase Dashboard → Settings → Database → Connection string → URI"
+    read -rp "DATABASE_URL: " SUPABASE_URL
+fi
 [[ -z "$SUPABASE_URL" ]] && fail "DATABASE_URL is required."
 
 # Convert postgresql:// to postgresql+asyncpg:// for SQLAlchemy async
 DB_URL="${SUPABASE_URL/postgresql:\/\//postgresql+asyncpg:\/\/}"
 
-read -rp "Anthropic API key (sk-ant-...): " ANTHROPIC_KEY
+if [[ -z "${ANTHROPIC_KEY:-}" ]]; then
+    read -rp "Anthropic API key (sk-ant-...): " ANTHROPIC_KEY
+fi
 [[ -z "$ANTHROPIC_KEY" ]] && fail "Anthropic API key is required."
 
 echo ""
