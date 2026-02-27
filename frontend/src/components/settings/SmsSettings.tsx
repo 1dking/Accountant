@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { MessageSquare, Send, Save } from 'lucide-react'
+import { Send, Save } from 'lucide-react'
 import { listSmsLogs, sendSms, getIntegrationSettings, saveIntegrationSettings } from '@/api/integrations'
 import { formatDate } from '@/lib/utils'
 

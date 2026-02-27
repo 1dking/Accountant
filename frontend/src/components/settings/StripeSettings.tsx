@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { CreditCard, Trash2, Save } from 'lucide-react'
-import { getStripeConfig, listStripeSubscriptions, cancelStripeSubscription, getIntegrationSettings, saveIntegrationSettings } from '@/api/integrations'
+import { listStripeSubscriptions, cancelStripeSubscription, getIntegrationSettings, saveIntegrationSettings } from '@/api/integrations'
 import { formatDate } from '@/lib/utils'
 
 const formatCurrency = (amount: number, currency = 'USD') =>
@@ -53,11 +53,6 @@ export default function StripeSettings() {
       setMsg('Failed to save settings')
       setTimeout(() => setMsg(''), 3000)
     },
-  })
-
-  const { data: configData } = useQuery({
-    queryKey: ['stripe-config'],
-    queryFn: getStripeConfig,
   })
 
   const { data: subsData } = useQuery({
