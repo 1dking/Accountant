@@ -68,9 +68,12 @@ class FolderTreeResponse(BaseModel):
     created_by: uuid.UUID
     created_at: datetime
     updated_at: datetime
-    children: list[FolderTreeResponse] = []
+    children: list["FolderTreeResponse"] = []
 
     model_config = {"from_attributes": True}
+
+
+FolderTreeResponse.model_rebuild()
 
 
 # ---------------------------------------------------------------------------
