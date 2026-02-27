@@ -11,7 +11,7 @@ import PlaidSettings from '@/components/settings/PlaidSettings'
 import StripeSettings from '@/components/settings/StripeSettings'
 import SmsSettings from '@/components/settings/SmsSettings'
 
-const TABS = [
+const TABS: { id: string; label: string; icon: typeof User; adminOnly?: boolean }[] = [
   { id: 'profile', label: 'Profile', icon: User },
   { id: 'users', label: 'Users', icon: User, adminOnly: true },
   { id: 'email', label: 'Email (SMTP)', icon: Mail },
@@ -19,7 +19,7 @@ const TABS = [
   { id: 'banking', label: 'Banking', icon: Landmark },
   { id: 'payments', label: 'Payments', icon: CreditCard },
   { id: 'sms', label: 'SMS', icon: MessageSquare },
-] as const
+]
 
 export default function SettingsPage() {
   const { user } = useAuthStore()

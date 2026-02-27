@@ -228,7 +228,7 @@ export async function listSmsLogs() {
 // QuickBooks Export
 // ---------------------------------------------------------------------------
 
-export function getExportUrl(format: 'csv' | 'iif', include: string, dateFrom?: string, dateTo?: string) {
+export function getExportUrl(_format: 'csv' | 'iif', _include: string, _dateFrom?: string, _dateTo?: string) {
   return `/api/export/quickbooks`
 }
 

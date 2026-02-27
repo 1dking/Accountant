@@ -11,7 +11,6 @@ import {
   Mail,
   Link,
   MessageSquare,
-  FileDown,
   Bell,
 } from 'lucide-react';
 import {
@@ -26,7 +25,6 @@ import {
   createPaymentLink,
   sendPaymentReminderEmail,
   sendInvoiceSms,
-  exportQuickBooks,
 } from '@/api/integrations';
 import { useAuthStore } from '@/stores/authStore';
 import { INVOICE_STATUSES, PAYMENT_METHODS } from '@/lib/constants';

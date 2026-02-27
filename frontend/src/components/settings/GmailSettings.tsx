@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Mail, Trash2, ExternalLink } from 'lucide-react'
+import { Mail, Trash2 } from 'lucide-react'
 import { connectGmail, listGmailAccounts, disconnectGmailAccount } from '@/api/integrations'
 import { formatDate } from '@/lib/utils'
 

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Inbox, Search, Download, RefreshCw, FileText, CheckCircle } from 'lucide-react'
+import { Inbox, Download, RefreshCw, FileText, CheckCircle } from 'lucide-react'
 import {
   listGmailAccounts,
   listGmailScanResults,
