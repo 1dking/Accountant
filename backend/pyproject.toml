@@ -2,7 +2,7 @@
 name = "accountant-backend"
 version = "0.1.0"
 description = "Document vault & accounting suite - backend API"
-requires-python = ">=3.12"
+requires-python = ">=3.10"
 dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.34.0",
@@ -49,7 +49,7 @@ dev = [
 include = ["app*"]
 
 [tool.ruff]
-target-version = "py312"
+target-version = "py310"
 line-length = 100
 
 [tool.ruff.lint]
