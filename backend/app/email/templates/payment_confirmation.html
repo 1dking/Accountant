@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 style="margin-top:0;">Payment Received</h2>
+
+<p>Thank you! We have received your payment.</p>
+
+<div style="padding:20px;background:#f0fdf4;border-radius:8px;border:1px solid #bbf7d0;margin:20px 0;">
+  <div class="detail-row"><span class="detail-label">Invoice Number</span><span class="detail-value">{{ invoice.invoice_number }}</span></div>
+  <div class="detail-row"><span class="detail-label">Amount Paid</span><span class="detail-value" style="font-size:18px;color:#16a34a;">${{ "%.2f" | format(amount) }} {{ invoice.currency }}</span></div>
+  <div class="detail-row"><span class="detail-label">Payment Date</span><span class="detail-value">{{ payment_date }}</span></div>
+  {% if payment_method %}
+  <div class="detail-row"><span class="detail-label">Payment Method</span><span class="detail-value">{{ payment_method }}</span></div>
+  {% endif %}
+  <div class="detail-row"><span class="detail-label">Status</span><span class="badge badge-success">PAID</span></div>
+</div>
+
+<p style="font-size:14px;color:#64748b;">
+  A receipt has been recorded in our system. If you have any questions,
+  please don't hesitate to contact us.
+</p>
+{% endblock %}

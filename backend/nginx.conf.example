@@ -1,0 +1,70 @@
+# Nginx configuration for the Accountant app.
+#
+# Installation:
+#   1. Edit this file -- replace <vps-user> and yourdomain.com with actual values
+#   2. sudo cp nginx.conf.example /etc/nginx/sites-available/accountant
+#   3. sudo ln -s /etc/nginx/sites-available/accountant /etc/nginx/sites-enabled/
+#   4. sudo rm /etc/nginx/sites-enabled/default   (if present)
+#   5. sudo nginx -t && sudo systemctl reload nginx
+#   6. sudo certbot --nginx -d yourdomain.com      (sets up SSL automatically)
+
+server {
+    listen 80;
+    server_name yourdomain.com;
+
+    # Certbot will add SSL redirect here after running certbot --nginx
+
+    # --- API reverse proxy ---
+    location /api/ {
+        proxy_pass http://127.0.0.1:8000/api/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Allow large file uploads (matches backend MAX_UPLOAD_SIZE)
+        client_max_body_size 50M;
+    }
+
+    # --- WebSocket reverse proxy ---
+    location /ws {
+        proxy_pass http://127.0.0.1:8000/ws;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Keep WebSocket alive
+        proxy_read_timeout 86400;
+    }
+
+    # --- Frontend static files ---
+    root /home/<vps-user>/Accountant/frontend/dist;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Cache static assets
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff2?)$ {
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # PWA manifest and service worker -- no cache
+    location = /manifest.webmanifest {
+        add_header Cache-Control "no-cache";
+    }
+    location = /sw.js {
+        add_header Cache-Control "no-cache";
+    }
+
+    # Gzip
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml image/svg+xml;
+    gzip_min_length 256;
+}

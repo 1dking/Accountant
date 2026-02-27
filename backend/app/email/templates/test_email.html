@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 style="margin-top:0;">SMTP Test Email</h2>
+
+<p>If you're reading this, your SMTP configuration is working correctly.</p>
+
+<div style="padding:16px;background:#f0f9ff;border-radius:8px;border:1px solid #bae6fd;margin:20px 0;">
+  <p style="margin:0;font-size:14px;color:#0369a1;">
+    This is an automated test email sent from <strong>{{ company_name | default("Accountant") }}</strong>.
+    No action is required.
+  </p>
+</div>
+{% endblock %}

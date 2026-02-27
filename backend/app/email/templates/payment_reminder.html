@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 style="margin-top:0;">Payment Reminder</h2>
+
+<p>This is a friendly reminder that payment for the following invoice is
+{% if days_overdue > 0 %}
+<span class="badge badge-danger">{{ days_overdue }} day{{ "s" if days_overdue != 1 }} overdue</span>
+{% else %}
+due soon
+{% endif %}.</p>
+
+<div style="padding:20px;background:#f8fafc;border-radius:8px;margin:20px 0;">
+  <div class="detail-row"><span class="detail-label">Invoice Number</span><span class="detail-value">{{ invoice.invoice_number }}</span></div>
+  <div class="detail-row"><span class="detail-label">Due Date</span><span class="detail-value">{{ invoice.due_date }}</span></div>
+  <div class="detail-row"><span class="detail-label">Amount Due</span><span class="detail-value" style="font-size:18px;color:#dc2626;">${{ "%.2f" | format(invoice.total) }} {{ invoice.currency }}</span></div>
+</div>
+
+{% if payment_url %}
+<div style="text-align:center;">
+  <a href="{{ payment_url }}" class="btn">Pay Now</a>
+</div>
+{% endif %}
+
+<p style="font-size:14px;color:#64748b;">
+  If you have already made this payment, please disregard this reminder.
+  For any questions, please contact us directly.
+</p>
+{% endblock %}

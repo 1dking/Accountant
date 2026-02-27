@@ -1,0 +1,28 @@
+# Systemd service for the Accountant FastAPI backend.
+#
+# Installation:
+#   1. Edit this file -- replace <vps-user> with your actual Linux username
+#   2. sudo cp accountant.service /etc/systemd/system/
+#   3. sudo systemctl daemon-reload
+#   4. sudo systemctl enable accountant
+#   5. sudo systemctl start accountant
+#
+# Logs: sudo journalctl -u accountant -f
+
+[Unit]
+Description=Accountant FastAPI Backend
+After=network.target
+
+[Service]
+User=<vps-user>
+Group=<vps-user>
+WorkingDirectory=/home/<vps-user>/Accountant/backend
+EnvironmentFile=/home/<vps-user>/Accountant/backend/.env
+ExecStart=/home/<vps-user>/Accountant/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

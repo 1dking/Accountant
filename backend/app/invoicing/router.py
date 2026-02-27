@@ -1,0 +1,134 @@
+from __future__ import annotations
+
+import uuid
+from datetime import date
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Query
+from fastapi.responses import Response
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.auth.models import Role, User
+from app.core.pagination import PaginationParams, get_pagination
+from app.dependencies import get_current_user, get_db, require_role
+from app.invoicing import service
+from app.invoicing.models import InvoiceStatus
+from app.invoicing.pdf import generate_invoice_pdf
+from app.invoicing.schemas import (
+    InvoiceCreate,
+    InvoiceFilter,
+    InvoiceListItem,
+    InvoicePaymentCreate,
+    InvoicePaymentResponse,
+    InvoiceResponse,
+    InvoiceUpdate,
+)
+
+router = APIRouter()
+
+
+@router.get("")
+async def list_invoices(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(get_current_user)],
+    pagination: Annotated[PaginationParams, Depends(get_pagination)],
+    search: str | None = Query(None),
+    status: InvoiceStatus | None = Query(None),
+    contact_id: uuid.UUID | None = Query(None),
+    date_from: date | None = Query(None),
+    date_to: date | None = Query(None),
+) -> dict:
+    filters = InvoiceFilter(
+        search=search, status=status, contact_id=contact_id,
+        date_from=date_from, date_to=date_to,
+    )
+    invoices, meta = await service.list_invoices(db, filters, pagination)
+    return {"data": [InvoiceListItem.model_validate(inv) for inv in invoices], "meta": meta}
+
+
+@router.get("/stats")
+async def invoice_stats(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    stats = await service.get_invoice_stats(db)
+    return {"data": stats}
+
+
+@router.post("", status_code=201)
+async def create_invoice(
+    data: InvoiceCreate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+) -> dict:
+    invoice = await service.create_invoice(db, data, current_user)
+    return {"data": InvoiceResponse.model_validate(invoice)}
+
+
+@router.get("/{invoice_id}")
+async def get_invoice(
+    invoice_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    invoice = await service.get_invoice(db, invoice_id)
+    return {"data": InvoiceResponse.model_validate(invoice)}
+
+
+@router.put("/{invoice_id}")
+async def update_invoice(
+    invoice_id: uuid.UUID,
+    data: InvoiceUpdate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+) -> dict:
+    invoice = await service.update_invoice(db, invoice_id, data, current_user)
+    return {"data": InvoiceResponse.model_validate(invoice)}
+
+
+@router.delete("/{invoice_id}")
+async def delete_invoice(
+    invoice_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(require_role([Role.ADMIN]))],
+) -> dict:
+    await service.delete_invoice(db, invoice_id)
+    return {"data": {"message": "Invoice deleted"}}
+
+
+@router.post("/{invoice_id}/send")
+async def send_invoice(
+    invoice_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+) -> dict:
+    invoice = await service.send_invoice(db, invoice_id)
+    return {"data": InvoiceResponse.model_validate(invoice)}
+
+
+@router.post("/{invoice_id}/payments", status_code=201)
+async def record_payment(
+    invoice_id: uuid.UUID,
+    data: InvoicePaymentCreate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+) -> dict:
+    payment = await service.record_payment(db, invoice_id, data, current_user)
+    return {"data": InvoicePaymentResponse.model_validate(payment)}
+
+
+@router.get("/{invoice_id}/pdf")
+async def get_invoice_pdf(
+    invoice_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(get_current_user)],
+) -> Response:
+    invoice = await service.get_invoice(db, invoice_id)
+    pdf_bytes = generate_invoice_pdf(invoice)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="invoice-{invoice.invoice_number}.pdf"'
+        },
+    )
