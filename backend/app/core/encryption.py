@@ -5,7 +5,7 @@ from cryptography.fernet import Fernet
 
 logger = logging.getLogger(__name__)
 
-_service: EncryptionService | None = None
+_service: "EncryptionService | None" = None
 
 
 class EncryptionService:
