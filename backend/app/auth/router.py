@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.models import Role, User
 from app.auth.schemas import (
     AdminUserCreate,
+    AdminUserUpdate,
     TokenRefreshRequest,
     TokenResponse,
     UserCreate,
@@ -24,7 +25,7 @@ from app.auth.service import (
     revoke_refresh_token,
 )
 from app.auth.utils import hash_password
-from app.core.exceptions import NotFoundError
+from app.core.exceptions import ConflictError, NotFoundError
 from app.dependencies import get_current_user, get_db, require_role
 
 router = APIRouter()
@@ -109,6 +110,31 @@ async def admin_create_user(
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     user = await create_user(db, body.email, body.password, body.full_name, body.role)
+    return {"data": UserResponse.model_validate(user)}
+
+
+@router.put("/users/{user_id}")
+async def admin_update_user(
+    user_id: str,
+    body: AdminUserUpdate,
+    _: Annotated[User, Depends(require_role([Role.ADMIN]))],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise NotFoundError("User", user_id)
+    if body.email is not None and body.email != user.email:
+        existing = await db.execute(select(User).where(User.email == body.email))
+        if existing.scalar_one_or_none() is not None:
+            raise ConflictError(f"A user with email {body.email} already exists.")
+        user.email = body.email
+    if body.full_name is not None:
+        user.full_name = body.full_name
+    if body.password is not None:
+        user.hashed_password = hash_password(body.password)
+    await db.commit()
+    await db.refresh(user)
     return {"data": UserResponse.model_validate(user)}
 
 

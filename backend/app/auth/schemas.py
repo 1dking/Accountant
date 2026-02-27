@@ -2,6 +2,8 @@
 import uuid
 from datetime import datetime
 
+from typing import Optional
+
 from pydantic import BaseModel, EmailStr, Field
 
 from app.auth.models import Role
@@ -43,6 +45,12 @@ class AdminUserCreate(BaseModel):
     password: str = Field(min_length=8, max_length=128)
     full_name: str = Field(min_length=1, max_length=255)
     role: Role = Role.VIEWER
+
+
+class AdminUserUpdate(BaseModel):
+    email: Optional[EmailStr] = None
+    password: Optional[str] = Field(None, min_length=8, max_length=128)
+    full_name: Optional[str] = Field(None, min_length=1, max_length=255)
 
 
 class TokenResponse(BaseModel):

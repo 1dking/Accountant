@@ -225,6 +225,20 @@ export async function listSmsLogs() {
 }
 
 // ---------------------------------------------------------------------------
+// Integration Settings (admin config for Twilio, Stripe, Plaid)
+// ---------------------------------------------------------------------------
+
+export async function getIntegrationSettings(type: string) {
+  return api.get<{ data: Record<string, string>; meta: { is_configured: boolean } }>(
+    `/integrations/settings/${type}`
+  )
+}
+
+export async function saveIntegrationSettings(type: string, config: Record<string, string>) {
+  return api.put<ApiResponse<{ message: string }>>(`/integrations/settings/${type}`, { config })
+}
+
+// ---------------------------------------------------------------------------
 // QuickBooks Export
 // ---------------------------------------------------------------------------
 

@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { useQuery, useMutation } from '@tanstack/react-query'
-import { MessageSquare, Send } from 'lucide-react'
-import { listSmsLogs, sendSms } from '@/api/integrations'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { MessageSquare, Send, Save } from 'lucide-react'
+import { listSmsLogs, sendSms, getIntegrationSettings, saveIntegrationSettings } from '@/api/integrations'
 import { formatDate } from '@/lib/utils'
 
 const statusColors: Record<string, string> = {
@@ -11,9 +11,47 @@ const statusColors: Record<string, string> = {
 }
 
 export default function SmsSettings() {
+  const queryClient = useQueryClient()
   const [to, setTo] = useState('')
   const [message, setMessage] = useState('')
   const [msg, setMsg] = useState('')
+
+  // Config form
+  const [configForm, setConfigForm] = useState({
+    account_sid: '',
+    auth_token: '',
+    from_number: '',
+  })
+  const [configLoaded, setConfigLoaded] = useState(false)
+
+  const { data: configData } = useQuery({
+    queryKey: ['integration-settings', 'twilio'],
+    queryFn: () => getIntegrationSettings('twilio'),
+  })
+
+  // Populate form when config loads
+  if (configData && !configLoaded) {
+    setConfigForm({
+      account_sid: configData.data?.account_sid || '',
+      auth_token: configData.data?.auth_token || '',
+      from_number: configData.data?.from_number || '',
+    })
+    setConfigLoaded(true)
+  }
+
+  const saveMutation = useMutation({
+    mutationFn: () => saveIntegrationSettings('twilio', configForm),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['integration-settings', 'twilio'] })
+      setConfigLoaded(false)
+      setMsg('Twilio settings saved!')
+      setTimeout(() => setMsg(''), 3000)
+    },
+    onError: () => {
+      setMsg('Failed to save settings')
+      setTimeout(() => setMsg(''), 3000)
+    },
+  })
 
   const { data } = useQuery({
     queryKey: ['sms-logs'],
@@ -35,6 +73,7 @@ export default function SmsSettings() {
   })
 
   const logs = data?.data ?? []
+  const isConfigured = configData?.meta?.is_configured ?? false
 
   return (
     <div className="space-y-4">
@@ -43,6 +82,59 @@ export default function SmsSettings() {
       {msg && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">{msg}</div>
       )}
+
+      {/* Twilio Config Form */}
+      <form
+        onSubmit={(e) => { e.preventDefault(); saveMutation.mutate() }}
+        className="bg-white border rounded-lg p-5 space-y-4"
+      >
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-medium text-gray-700">Twilio Configuration</h3>
+          {isConfigured && (
+            <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Configured</span>
+          )}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Account SID</label>
+            <input
+              type="text"
+              value={configForm.account_sid}
+              onChange={(e) => setConfigForm({ ...configForm, account_sid: e.target.value })}
+              placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              className="w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Auth Token</label>
+            <input
+              type="password"
+              value={configForm.auth_token}
+              onChange={(e) => setConfigForm({ ...configForm, auth_token: e.target.value })}
+              placeholder="Your auth token"
+              className="w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">From Number</label>
+            <input
+              type="tel"
+              value={configForm.from_number}
+              onChange={(e) => setConfigForm({ ...configForm, from_number: e.target.value })}
+              placeholder="+1234567890"
+              className="w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+        <button
+          type="submit"
+          disabled={saveMutation.isPending}
+          className="flex items-center gap-1.5 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+        >
+          <Save className="w-4 h-4" />
+          {saveMutation.isPending ? 'Saving...' : 'Save Configuration'}
+        </button>
+      </form>
 
       {/* Send test SMS */}
       <div className="bg-white border rounded-lg p-5">
@@ -103,16 +195,6 @@ export default function SmsSettings() {
               ))}
             </tbody>
           </table>
-        </div>
-      )}
-
-      {logs.length === 0 && (
-        <div className="text-center py-12 bg-white border rounded-lg">
-          <MessageSquare className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500 text-sm">No SMS messages sent yet.</p>
-          <p className="text-gray-400 text-xs mt-1">
-            Configure TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_FROM_NUMBER in .env.
-          </p>
         </div>
       )}
 

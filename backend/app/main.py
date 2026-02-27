@@ -29,6 +29,7 @@ import app.integrations.gmail.models  # noqa: F401
 import app.integrations.plaid.models  # noqa: F401
 import app.integrations.stripe.models  # noqa: F401
 import app.integrations.twilio.models  # noqa: F401
+import app.integrations.settings_models  # noqa: F401
 
 
 @asynccontextmanager
@@ -60,6 +61,11 @@ async def lifespan(application: FastAPI):
     from app.core.scheduler import setup_scheduler, shutdown_scheduler
 
     setup_scheduler(application.state.session_factory, settings)
+
+    # Load saved integration configs (Twilio, Stripe, Plaid) from DB
+    from app.integrations.settings_router import load_integration_configs
+
+    await load_integration_configs(application.state.session_factory, settings)
 
     yield
 
@@ -106,6 +112,7 @@ def create_app() -> FastAPI:
     from app.integrations.plaid.router import router as plaid_router
     from app.integrations.stripe.router import router as stripe_router
     from app.integrations.twilio.router import router as twilio_router
+    from app.integrations.settings_router import router as integration_settings_router
     from app.export.router import router as export_router
 
     fastapi_app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
@@ -126,6 +133,7 @@ def create_app() -> FastAPI:
     fastapi_app.include_router(plaid_router, prefix="/api/integrations/plaid", tags=["plaid"])
     fastapi_app.include_router(stripe_router, prefix="/api/integrations/stripe", tags=["stripe"])
     fastapi_app.include_router(twilio_router, prefix="/api/integrations/sms", tags=["sms"])
+    fastapi_app.include_router(integration_settings_router, prefix="/api/integrations", tags=["integration-settings"])
     fastapi_app.include_router(export_router, prefix="/api/export", tags=["export"])
 
     # WebSocket endpoint

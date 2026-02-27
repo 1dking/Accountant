@@ -14,6 +14,10 @@ export async function createUser(data: { email: string; password: string; full_n
   return api.post<ApiResponse<User>>('/auth/users', data)
 }
 
+export async function updateUser(userId: string, data: { email?: string; password?: string; full_name?: string }) {
+  return api.put<ApiResponse<User>>(`/auth/users/${userId}`, data)
+}
+
 export async function deactivateUser(userId: string) {
   return api.delete<ApiResponse<{ message: string }>>(`/auth/users/${userId}`)
 }

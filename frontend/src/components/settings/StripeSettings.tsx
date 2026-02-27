@@ -1,6 +1,7 @@
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { CreditCard, Trash2, CheckCircle, XCircle } from 'lucide-react'
-import { getStripeConfig, listStripeSubscriptions, cancelStripeSubscription } from '@/api/integrations'
+import { CreditCard, Trash2, Save } from 'lucide-react'
+import { getStripeConfig, listStripeSubscriptions, cancelStripeSubscription, getIntegrationSettings, saveIntegrationSettings } from '@/api/integrations'
 import { formatDate } from '@/lib/utils'
 
 const formatCurrency = (amount: number, currency = 'USD') =>
@@ -15,6 +16,44 @@ const statusColors: Record<string, string> = {
 
 export default function StripeSettings() {
   const queryClient = useQueryClient()
+  const [msg, setMsg] = useState('')
+
+  // Config form
+  const [configForm, setConfigForm] = useState({
+    secret_key: '',
+    publishable_key: '',
+    webhook_secret: '',
+  })
+  const [configLoaded, setConfigLoaded] = useState(false)
+
+  const { data: settingsData } = useQuery({
+    queryKey: ['integration-settings', 'stripe'],
+    queryFn: () => getIntegrationSettings('stripe'),
+  })
+
+  if (settingsData && !configLoaded) {
+    setConfigForm({
+      secret_key: settingsData.data?.secret_key || '',
+      publishable_key: settingsData.data?.publishable_key || '',
+      webhook_secret: settingsData.data?.webhook_secret || '',
+    })
+    setConfigLoaded(true)
+  }
+
+  const saveMutation = useMutation({
+    mutationFn: () => saveIntegrationSettings('stripe', configForm),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['integration-settings', 'stripe'] })
+      queryClient.invalidateQueries({ queryKey: ['stripe-config'] })
+      setConfigLoaded(false)
+      setMsg('Stripe settings saved!')
+      setTimeout(() => setMsg(''), 3000)
+    },
+    onError: () => {
+      setMsg('Failed to save settings')
+      setTimeout(() => setMsg(''), 3000)
+    },
+  })
 
   const { data: configData } = useQuery({
     queryKey: ['stripe-config'],
@@ -31,35 +70,69 @@ export default function StripeSettings() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['stripe-subscriptions'] }),
   })
 
-  const config = configData?.data
   const subscriptions = subsData?.data ?? []
+  const isConfigured = settingsData?.meta?.is_configured ?? false
 
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-medium text-gray-900">Stripe Payments</h2>
 
-      {/* Status */}
-      <div className="bg-white border rounded-lg p-4 flex items-center gap-3">
-        {config?.is_configured ? (
-          <>
-            <CheckCircle className="w-5 h-5 text-green-500" />
-            <div>
-              <p className="font-medium text-gray-900">Stripe is configured</p>
-              <p className="text-sm text-gray-500">Payment links and subscriptions are available.</p>
-            </div>
-          </>
-        ) : (
-          <>
-            <XCircle className="w-5 h-5 text-gray-400" />
-            <div>
-              <p className="font-medium text-gray-900">Stripe is not configured</p>
-              <p className="text-sm text-gray-500">
-                Set STRIPE_SECRET_KEY and STRIPE_PUBLISHABLE_KEY in your .env file.
-              </p>
-            </div>
-          </>
-        )}
-      </div>
+      {msg && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">{msg}</div>
+      )}
+
+      {/* Stripe Config Form */}
+      <form
+        onSubmit={(e) => { e.preventDefault(); saveMutation.mutate() }}
+        className="bg-white border rounded-lg p-5 space-y-4"
+      >
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-medium text-gray-700">Stripe Configuration</h3>
+          {isConfigured && (
+            <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Configured</span>
+          )}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Secret Key</label>
+            <input
+              type="password"
+              value={configForm.secret_key}
+              onChange={(e) => setConfigForm({ ...configForm, secret_key: e.target.value })}
+              placeholder="sk_live_..."
+              className="w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Publishable Key</label>
+            <input
+              type="text"
+              value={configForm.publishable_key}
+              onChange={(e) => setConfigForm({ ...configForm, publishable_key: e.target.value })}
+              placeholder="pk_live_..."
+              className="w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Webhook Secret</label>
+            <input
+              type="password"
+              value={configForm.webhook_secret}
+              onChange={(e) => setConfigForm({ ...configForm, webhook_secret: e.target.value })}
+              placeholder="whsec_..."
+              className="w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+        <button
+          type="submit"
+          disabled={saveMutation.isPending}
+          className="flex items-center gap-1.5 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+        >
+          <Save className="w-4 h-4" />
+          {saveMutation.isPending ? 'Saving...' : 'Save Configuration'}
+        </button>
+      </form>
 
       {/* Subscriptions */}
       {subscriptions.length > 0 && (

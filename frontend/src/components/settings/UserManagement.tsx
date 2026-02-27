@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { listUsers, createUser, updateUserRole, deactivateUser } from '@/api/auth'
+import { listUsers, createUser, updateUser, updateUserRole, deactivateUser } from '@/api/auth'
 import { useAuthStore } from '@/stores/authStore'
 import { ROLES } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
-import { UserPlus } from 'lucide-react'
+import { UserPlus, Pencil, X } from 'lucide-react'
 
 export default function UserManagement() {
   const { user } = useAuthStore()
@@ -15,6 +15,13 @@ export default function UserManagement() {
   const [password, setPassword] = useState('')
   const [role, setRole] = useState('viewer')
   const [formError, setFormError] = useState('')
+
+  // Edit state
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editEmail, setEditEmail] = useState('')
+  const [editFullName, setEditFullName] = useState('')
+  const [editPassword, setEditPassword] = useState('')
+  const [editError, setEditError] = useState('')
 
   const { data } = useQuery({
     queryKey: ['users'],
@@ -47,10 +54,46 @@ export default function UserManagement() {
     },
   })
 
+  const editMutation = useMutation({
+    mutationFn: ({ userId, data }: { userId: string; data: { email?: string; password?: string; full_name?: string } }) =>
+      updateUser(userId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+      setEditingId(null)
+      setEditError('')
+    },
+    onError: (err: any) => {
+      setEditError(err.message || 'Failed to update user')
+    },
+  })
+
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault()
     setFormError('')
     createMutation.mutate({ email, password, full_name: fullName, role })
+  }
+
+  const startEdit = (u: any) => {
+    setEditingId(u.id)
+    setEditEmail(u.email)
+    setEditFullName(u.full_name)
+    setEditPassword('')
+    setEditError('')
+  }
+
+  const handleEdit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingId) return
+    const data: { email?: string; password?: string; full_name?: string } = {}
+    const currentUser = users.find((u) => u.id === editingId)
+    if (editEmail !== currentUser?.email) data.email = editEmail
+    if (editFullName !== currentUser?.full_name) data.full_name = editFullName
+    if (editPassword) data.password = editPassword
+    if (Object.keys(data).length === 0) {
+      setEditingId(null)
+      return
+    }
+    editMutation.mutate({ userId: editingId, data })
   }
 
   const users = data?.data ?? []
@@ -129,6 +172,70 @@ export default function UserManagement() {
         </form>
       )}
 
+      {/* Edit form */}
+      {editingId && (
+        <form onSubmit={handleEdit} className="mb-6 p-4 bg-blue-50 rounded-lg space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-medium text-gray-700">Edit User</h3>
+            <button type="button" onClick={() => setEditingId(null)} className="text-gray-400 hover:text-gray-600">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Full Name</label>
+              <input
+                type="text"
+                value={editFullName}
+                onChange={(e) => setEditFullName(e.target.value)}
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Email</label>
+              <input
+                type="email"
+                value={editEmail}
+                onChange={(e) => setEditEmail(e.target.value)}
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">New Password (leave blank to keep)</label>
+              <input
+                type="password"
+                value={editPassword}
+                onChange={(e) => setEditPassword(e.target.value)}
+                minLength={8}
+                placeholder="••••••••"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900"
+              />
+            </div>
+          </div>
+          {editError && (
+            <p className="text-sm text-red-600">{editError}</p>
+          )}
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={editMutation.isPending}
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
+            >
+              {editMutation.isPending ? 'Saving...' : 'Save Changes'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditingId(null)}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -143,7 +250,7 @@ export default function UserManagement() {
           </thead>
           <tbody>
             {users.map((u) => (
-              <tr key={u.id} className="border-b">
+              <tr key={u.id} className={`border-b ${editingId === u.id ? 'bg-blue-50' : ''}`}>
                 <td className="py-2 text-gray-900">{u.full_name}</td>
                 <td className="py-2 text-gray-600">{u.email}</td>
                 <td className="py-2">
@@ -165,14 +272,25 @@ export default function UserManagement() {
                   </span>
                 </td>
                 <td className="py-2">
-                  {u.id !== user?.id && u.is_active && (
-                    <button
-                      onClick={() => { if (confirm(`Deactivate ${u.full_name}?`)) deactivateMutation.mutate(u.id) }}
-                      className="text-xs text-red-600 hover:underline"
-                    >
-                      Deactivate
-                    </button>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {u.id !== user?.id && (
+                      <button
+                        onClick={() => startEdit(u)}
+                        className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                      >
+                        <Pencil className="w-3 h-3" />
+                        Edit
+                      </button>
+                    )}
+                    {u.id !== user?.id && u.is_active && (
+                      <button
+                        onClick={() => { if (confirm(`Deactivate ${u.full_name}?`)) deactivateMutation.mutate(u.id) }}
+                        className="text-xs text-red-600 hover:underline"
+                      >
+                        Deactivate
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
