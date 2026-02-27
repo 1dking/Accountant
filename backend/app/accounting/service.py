@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, date
+from datetime import date, datetime, timezone
 
 from sqlalchemy import delete, extract, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -627,12 +627,10 @@ async def resolve_expense_approval(
     if approval.assigned_to != resolver_id:
         raise ForbiddenError("Only the assigned reviewer can resolve this approval.")
 
-    from datetime import datetime
-
     new_status = ApprovalStatusEnum.APPROVED if approve else ApprovalStatusEnum.REJECTED
     approval.status = new_status
     approval.comment = comment
-    approval.resolved_at = datetime.now(UTC)
+    approval.resolved_at = datetime.now(timezone.utc)
 
     # Update expense status
     expense = await get_expense(db, expense_id)
