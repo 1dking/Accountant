@@ -1,6 +1,5 @@
 """Business logic for the documents module."""
 
-from __future__ import annotations
 
 import hashlib
 import os

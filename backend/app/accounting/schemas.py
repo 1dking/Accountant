@@ -1,6 +1,5 @@
 """Pydantic schemas for the accounting module."""
 
-from __future__ import annotations
 
 import uuid
 from datetime import date, datetime

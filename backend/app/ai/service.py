@@ -1,6 +1,5 @@
 """Business logic for the AI module -- receipt/invoice extraction via Claude Vision."""
 
-from __future__ import annotations
 
 import base64
 import io

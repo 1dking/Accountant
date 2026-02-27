@@ -1,6 +1,5 @@
 """Pydantic schemas for the AI module."""
 
-from __future__ import annotations
 
 import uuid
 

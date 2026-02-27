@@ -1,6 +1,5 @@
 """Export services for accounting data (CSV, XLSX)."""
 
-from __future__ import annotations
 
 import csv
 import io

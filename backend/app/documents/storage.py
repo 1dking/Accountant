@@ -1,6 +1,5 @@
 """Storage backend abstraction for document file storage."""
 
-from __future__ import annotations
 
 import asyncio
 import os

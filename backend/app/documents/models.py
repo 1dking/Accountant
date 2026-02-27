@@ -1,6 +1,5 @@
 """SQLAlchemy models for the documents module."""
 
-from __future__ import annotations
 
 import enum
 import uuid
