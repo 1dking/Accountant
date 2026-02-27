@@ -45,6 +45,11 @@ def _calculate_invoice_totals(
 async def create_invoice(
     db: AsyncSession, data: InvoiceCreate, user: User
 ) -> Invoice:
+    # Ensure the accounting period is open for the issue date
+    from app.accounting.period_service import assert_period_open
+
+    await assert_period_open(db, data.issue_date)
+
     invoice_number = await generate_invoice_number(db)
     subtotal, tax_amount, total = _calculate_invoice_totals(
         data.line_items, data.tax_rate, data.discount_amount
@@ -136,6 +141,14 @@ async def update_invoice(
     db: AsyncSession, invoice_id: uuid.UUID, data: InvoiceUpdate, user: User
 ) -> Invoice:
     invoice = await get_invoice(db, invoice_id)
+
+    # Check the current invoice date's period and the new date's period (if changing)
+    from app.accounting.period_service import assert_period_open
+
+    await assert_period_open(db, invoice.issue_date)
+    if data.issue_date is not None and data.issue_date != invoice.issue_date:
+        await assert_period_open(db, data.issue_date)
+
     update_data = data.model_dump(exclude_unset=True)
     line_items_data = update_data.pop("line_items", None)
 

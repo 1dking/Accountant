@@ -72,6 +72,15 @@ export const INVOICE_STATUSES = [
   { value: 'cancelled', label: 'Cancelled', color: 'bg-gray-200 text-gray-500' },
 ] as const
 
+export const ESTIMATE_STATUSES = [
+  { value: 'draft', label: 'Draft', color: 'bg-gray-100 text-gray-700' },
+  { value: 'sent', label: 'Sent', color: 'bg-blue-100 text-blue-700' },
+  { value: 'accepted', label: 'Accepted', color: 'bg-green-100 text-green-700' },
+  { value: 'rejected', label: 'Rejected', color: 'bg-red-100 text-red-700' },
+  { value: 'expired', label: 'Expired', color: 'bg-yellow-100 text-yellow-700' },
+  { value: 'converted', label: 'Converted', color: 'bg-purple-100 text-purple-700' },
+] as const
+
 export const INCOME_CATEGORIES = [
   { value: 'invoice_payment', label: 'Invoice Payment' },
   { value: 'service', label: 'Service' },

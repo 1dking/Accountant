@@ -171,6 +171,11 @@ async def create_expense(
     data: ExpenseCreate,
     user: User,
 ) -> Expense:
+    # Ensure the accounting period is open
+    from app.accounting.period_service import assert_period_open
+
+    await assert_period_open(db, data.date)
+
     expense = Expense(
         document_id=data.document_id,
         category_id=data.category_id,
@@ -376,6 +381,13 @@ async def update_expense(
     user: User,
 ) -> Expense:
     expense = await get_expense(db, expense_id)
+
+    # Check the current expense date's period and the new date's period (if changing)
+    from app.accounting.period_service import assert_period_open
+
+    await assert_period_open(db, expense.date)
+    if updates.date is not None and updates.date != expense.date:
+        await assert_period_open(db, updates.date)
 
     update_data = updates.model_dump(exclude_unset=True)
 

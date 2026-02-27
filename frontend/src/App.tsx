@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import ErrorBoundary from '@/components/ErrorBoundary'
 import { useAuthStore } from '@/stores/authStore'
 import { useNotificationStore } from '@/stores/notificationStore'
 import { wsClient } from '@/api/websocket'
@@ -31,6 +32,9 @@ import ReportsPage from '@/pages/ReportsPage'
 import CapturePage from '@/pages/CapturePage'
 import EmailScanPage from '@/pages/EmailScanPage'
 import BankTransactionsPage from '@/pages/BankTransactionsPage'
+import EstimatesPage from '@/pages/EstimatesPage'
+import NewEstimatePage from '@/pages/NewEstimatePage'
+import EstimateDetailPage from '@/pages/EstimateDetailPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -95,6 +99,9 @@ function AuthenticatedApp() {
         <Route path="/invoices" element={<InvoicesPage />} />
         <Route path="/invoices/new" element={<NewInvoicePage />} />
         <Route path="/invoices/:id" element={<InvoiceDetailPage />} />
+        <Route path="/estimates" element={<EstimatesPage />} />
+        <Route path="/estimates/new" element={<NewEstimatePage />} />
+        <Route path="/estimates/:id" element={<EstimateDetailPage />} />
         <Route path="/income" element={<IncomePage />} />
         <Route path="/income/new" element={<NewIncomePage />} />
         <Route path="/recurring" element={<RecurringPage />} />
@@ -121,20 +128,22 @@ export default function App() {
   }, [initialize])
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route
-            path="/*"
-            element={
-              <ProtectedRoute>
-                <AuthenticatedApp />
-              </ProtectedRoute>
-            }
-          />
-        </Routes>
-      </BrowserRouter>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route
+              path="/*"
+              element={
+                <ProtectedRoute>
+                  <AuthenticatedApp />
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
+        </BrowserRouter>
+      </QueryClientProvider>
+    </ErrorBoundary>
   )
 }

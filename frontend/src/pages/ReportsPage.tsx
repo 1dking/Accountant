@@ -28,6 +28,8 @@ import {
   getTaxSummary,
   getCashFlow,
   getAccountsSummary,
+  getARaging,
+  getAPaging,
   getProfitLossPdfUrl,
   getTaxSummaryPdfUrl,
 } from '@/api/reports'
@@ -36,13 +38,15 @@ import type {
   TaxSummary,
   CashFlowReport,
   AccountsSummary,
+  AgingReport,
+  AgingBucket,
   CategoryAmount,
 } from '@/types/models'
 
 const formatCurrency = (amount: number): string =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
 
-const tabs = ['Profit & Loss', 'Tax Summary', 'Cash Flow', 'Accounts'] as const
+const tabs = ['Profit & Loss', 'Tax Summary', 'Cash Flow', 'Accounts', 'AR Aging', 'AP Aging'] as const
 type Tab = (typeof tabs)[number]
 
 const currentYear = new Date().getFullYear()
@@ -504,6 +508,277 @@ function AccountsTab() {
   )
 }
 
+// ─── AR Aging Tab ───────────────────────────────────────────────────────────
+
+function ARAgingTab() {
+  const [asOfDate, setAsOfDate] = useState(today)
+
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['arAging', asOfDate],
+    queryFn: () => getARaging(asOfDate),
+    enabled: !!asOfDate,
+  })
+
+  const report: AgingReport | undefined = data?.data
+
+  return (
+    <div className="space-y-6">
+      {/* Controls */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <div className="flex flex-wrap items-end gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">As of Date</label>
+            <input
+              type="date"
+              value={asOfDate}
+              onChange={(e) => setAsOfDate(e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+      </div>
+
+      {isLoading && <LoadingState />}
+      {isError && <ErrorState message="Failed to load AR Aging report." />}
+
+      {report && (
+        <>
+          {/* Summary Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <StatCard
+              label="Current"
+              value={formatCurrency(report.grand_totals.current)}
+              icon={<DollarSign className="w-5 h-5" />}
+              color="green"
+            />
+            <StatCard
+              label="1-30 Days"
+              value={formatCurrency(report.grand_totals.days_1_30)}
+              icon={<AlertTriangle className="w-5 h-5" />}
+              color="amber"
+            />
+            <StatCard
+              label="31-60 Days"
+              value={formatCurrency(report.grand_totals.days_31_60)}
+              icon={<AlertTriangle className="w-5 h-5" />}
+              color="amber"
+            />
+            <StatCard
+              label="61-90 Days"
+              value={formatCurrency(report.grand_totals.days_61_90)}
+              icon={<AlertTriangle className="w-5 h-5" />}
+              color="red"
+            />
+            <StatCard
+              label="90+ Days"
+              value={formatCurrency(report.grand_totals.days_90_plus)}
+              icon={<AlertTriangle className="w-5 h-5" />}
+              color="red"
+            />
+            <StatCard
+              label="Total Outstanding"
+              value={formatCurrency(report.grand_totals.total)}
+              icon={<Wallet className="w-5 h-5" />}
+              color="blue"
+            />
+          </div>
+
+          {/* Aging Table */}
+          <AgingTable
+            title="Accounts Receivable Aging"
+            buckets={report.buckets}
+            grandTotals={report.grand_totals}
+            nameLabel="Customer"
+          />
+        </>
+      )}
+    </div>
+  )
+}
+
+// ─── AP Aging Tab ───────────────────────────────────────────────────────────
+
+function APAgingTab() {
+  const [asOfDate, setAsOfDate] = useState(today)
+
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['apAging', asOfDate],
+    queryFn: () => getAPaging(asOfDate),
+    enabled: !!asOfDate,
+  })
+
+  const report: AgingReport | undefined = data?.data
+
+  return (
+    <div className="space-y-6">
+      {/* Controls */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <div className="flex flex-wrap items-end gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">As of Date</label>
+            <input
+              type="date"
+              value={asOfDate}
+              onChange={(e) => setAsOfDate(e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+      </div>
+
+      {isLoading && <LoadingState />}
+      {isError && <ErrorState message="Failed to load AP Aging report." />}
+
+      {report && (
+        <>
+          {/* Summary Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <StatCard
+              label="Current"
+              value={formatCurrency(report.grand_totals.current)}
+              icon={<DollarSign className="w-5 h-5" />}
+              color="green"
+            />
+            <StatCard
+              label="1-30 Days"
+              value={formatCurrency(report.grand_totals.days_1_30)}
+              icon={<AlertTriangle className="w-5 h-5" />}
+              color="amber"
+            />
+            <StatCard
+              label="31-60 Days"
+              value={formatCurrency(report.grand_totals.days_31_60)}
+              icon={<AlertTriangle className="w-5 h-5" />}
+              color="amber"
+            />
+            <StatCard
+              label="61-90 Days"
+              value={formatCurrency(report.grand_totals.days_61_90)}
+              icon={<AlertTriangle className="w-5 h-5" />}
+              color="red"
+            />
+            <StatCard
+              label="90+ Days"
+              value={formatCurrency(report.grand_totals.days_90_plus)}
+              icon={<AlertTriangle className="w-5 h-5" />}
+              color="red"
+            />
+            <StatCard
+              label="Total Outstanding"
+              value={formatCurrency(report.grand_totals.total)}
+              icon={<Wallet className="w-5 h-5" />}
+              color="blue"
+            />
+          </div>
+
+          {/* Aging Table */}
+          <AgingTable
+            title="Accounts Payable Aging"
+            buckets={report.buckets}
+            grandTotals={report.grand_totals}
+            nameLabel="Vendor"
+          />
+        </>
+      )}
+    </div>
+  )
+}
+
+// ─── Aging Table Component ──────────────────────────────────────────────────
+
+function AgingTable({
+  title,
+  buckets,
+  grandTotals,
+  nameLabel,
+}: {
+  title: string
+  buckets: AgingBucket[]
+  grandTotals: AgingBucket | { current: number; days_1_30: number; days_31_60: number; days_61_90: number; days_90_plus: number; total: number }
+  nameLabel: string
+}) {
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="px-5 py-4 border-b border-gray-100">
+        <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead>
+            <tr className="bg-gray-50 text-left text-sm text-gray-500">
+              <th className="px-5 py-3 font-medium">{nameLabel}</th>
+              <th className="px-5 py-3 font-medium text-right">Current</th>
+              <th className="px-5 py-3 font-medium text-right">1-30 Days</th>
+              <th className="px-5 py-3 font-medium text-right">31-60 Days</th>
+              <th className="px-5 py-3 font-medium text-right">61-90 Days</th>
+              <th className="px-5 py-3 font-medium text-right">90+ Days</th>
+              <th className="px-5 py-3 font-medium text-right">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {buckets.length === 0 && (
+              <tr>
+                <td colSpan={7} className="px-5 py-8 text-center text-sm text-gray-400">
+                  No outstanding items found.
+                </td>
+              </tr>
+            )}
+            {buckets.map((bucket) => (
+              <tr
+                key={bucket.name}
+                className="border-t border-gray-50 hover:bg-gray-50 transition-colors"
+              >
+                <td className="px-5 py-3 text-sm text-gray-700 font-medium">{bucket.name}</td>
+                <td className="px-5 py-3 text-sm text-right text-green-600">
+                  {bucket.current > 0 ? formatCurrency(bucket.current) : '-'}
+                </td>
+                <td className="px-5 py-3 text-sm text-right text-amber-600">
+                  {bucket.days_1_30 > 0 ? formatCurrency(bucket.days_1_30) : '-'}
+                </td>
+                <td className="px-5 py-3 text-sm text-right text-amber-600">
+                  {bucket.days_31_60 > 0 ? formatCurrency(bucket.days_31_60) : '-'}
+                </td>
+                <td className="px-5 py-3 text-sm text-right text-red-600">
+                  {bucket.days_61_90 > 0 ? formatCurrency(bucket.days_61_90) : '-'}
+                </td>
+                <td className="px-5 py-3 text-sm text-right text-red-700 font-medium">
+                  {bucket.days_90_plus > 0 ? formatCurrency(bucket.days_90_plus) : '-'}
+                </td>
+                <td className="px-5 py-3 text-sm text-right text-gray-900 font-semibold">
+                  {formatCurrency(bucket.total)}
+                </td>
+              </tr>
+            ))}
+            {buckets.length > 0 && (
+              <tr className="border-t-2 border-gray-200 bg-gray-50 font-semibold">
+                <td className="px-5 py-3 text-sm text-gray-800">Grand Total</td>
+                <td className="px-5 py-3 text-sm text-right text-green-700">
+                  {formatCurrency(grandTotals.current)}
+                </td>
+                <td className="px-5 py-3 text-sm text-right text-amber-700">
+                  {formatCurrency(grandTotals.days_1_30)}
+                </td>
+                <td className="px-5 py-3 text-sm text-right text-amber-700">
+                  {formatCurrency(grandTotals.days_31_60)}
+                </td>
+                <td className="px-5 py-3 text-sm text-right text-red-700">
+                  {formatCurrency(grandTotals.days_61_90)}
+                </td>
+                <td className="px-5 py-3 text-sm text-right text-red-800">
+                  {formatCurrency(grandTotals.days_90_plus)}
+                </td>
+                <td className="px-5 py-3 text-sm text-right text-gray-900">
+                  {formatCurrency(grandTotals.total)}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
 // ─── Shared Components ───────────────────────────────────────────────────────
 
 const colorMap = {
@@ -596,6 +871,8 @@ export default function ReportsPage() {
       {activeTab === 'Tax Summary' && <TaxSummaryTab />}
       {activeTab === 'Cash Flow' && <CashFlowTab />}
       {activeTab === 'Accounts' && <AccountsTab />}
+      {activeTab === 'AR Aging' && <ARAgingTab />}
+      {activeTab === 'AP Aging' && <APAgingTab />}
     </div>
   )
 }

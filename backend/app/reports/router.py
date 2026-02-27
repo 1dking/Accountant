@@ -1,6 +1,6 @@
 
 from datetime import date
-from typing import Annotated
+from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
@@ -84,3 +84,27 @@ async def accounts_summary(
 ) -> dict:
     summary = await service.get_accounts_summary(db)
     return {"data": summary.model_dump()}
+
+
+@router.get("/ar-aging")
+async def ar_aging(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(get_current_user)],
+    as_of_date: Optional[date] = Query(None),
+) -> dict:
+    if as_of_date is None:
+        as_of_date = date.today()
+    report = await service.get_ar_aging(db, as_of_date)
+    return {"data": report.model_dump()}
+
+
+@router.get("/ap-aging")
+async def ap_aging(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(get_current_user)],
+    as_of_date: Optional[date] = Query(None),
+) -> dict:
+    if as_of_date is None:
+        as_of_date = date.today()
+    report = await service.get_ap_aging(db, as_of_date)
+    return {"data": report.model_dump()}

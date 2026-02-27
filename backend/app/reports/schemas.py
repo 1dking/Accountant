@@ -45,3 +45,22 @@ class AccountsSummary(BaseModel):
     total_payable: float
     overdue_receivable: float
     net_position: float
+
+
+class AgingBucketTotals(BaseModel):
+    current: float
+    days_1_30: float
+    days_31_60: float
+    days_61_90: float
+    days_90_plus: float
+    total: float
+
+
+class AgingBucket(AgingBucketTotals):
+    name: str
+
+
+class AgingReport(BaseModel):
+    as_of_date: date
+    buckets: list[AgingBucket]
+    grand_totals: AgingBucketTotals

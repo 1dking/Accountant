@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router'
-import { User, Mail, Inbox, Landmark, CreditCard, MessageSquare } from 'lucide-react'
+import { User, Mail, Inbox, Landmark, CreditCard, MessageSquare, Bell, Lock, Receipt } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/authStore'
 import ProfileSettings from '@/components/settings/ProfileSettings'
@@ -10,6 +10,10 @@ import GmailSettings from '@/components/settings/GmailSettings'
 import PlaidSettings from '@/components/settings/PlaidSettings'
 import StripeSettings from '@/components/settings/StripeSettings'
 import SmsSettings from '@/components/settings/SmsSettings'
+import CategorizationRules from '@/components/settings/CategorizationRules'
+import ReminderSettings from '@/components/settings/ReminderSettings'
+import PeriodSettings from '@/components/settings/PeriodSettings'
+import TaxSettings from '@/components/settings/TaxSettings'
 
 const TABS: { id: string; label: string; icon: typeof User; adminOnly?: boolean }[] = [
   { id: 'profile', label: 'Profile', icon: User },
@@ -18,7 +22,10 @@ const TABS: { id: string; label: string; icon: typeof User; adminOnly?: boolean 
   { id: 'gmail', label: 'Gmail', icon: Inbox },
   { id: 'banking', label: 'Banking', icon: Landmark },
   { id: 'payments', label: 'Payments', icon: CreditCard },
+  { id: 'tax', label: 'Sales Tax', icon: Receipt },
   { id: 'sms', label: 'SMS', icon: MessageSquare },
+  { id: 'reminders', label: 'Reminders', icon: Bell },
+  { id: 'periods', label: 'Periods', icon: Lock, adminOnly: true },
 ]
 
 export default function SettingsPage() {
@@ -73,9 +80,19 @@ export default function SettingsPage() {
           {activeTab === 'users' && user?.role === 'admin' && <UserManagement />}
           {activeTab === 'email' && <SmtpSettings />}
           {activeTab === 'gmail' && <GmailSettings />}
-          {activeTab === 'banking' && <PlaidSettings />}
+          {activeTab === 'banking' && (
+            <>
+              <PlaidSettings />
+              <div className="mt-8">
+                <CategorizationRules />
+              </div>
+            </>
+          )}
           {activeTab === 'payments' && <StripeSettings />}
+          {activeTab === 'tax' && <TaxSettings />}
           {activeTab === 'sms' && <SmsSettings />}
+          {activeTab === 'reminders' && <ReminderSettings />}
+          {activeTab === 'periods' && user?.role === 'admin' && <PeriodSettings />}
         </div>
       </div>
     </div>

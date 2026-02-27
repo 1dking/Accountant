@@ -69,6 +69,19 @@ async def _sync_plaid_transactions() -> None:
         logger.exception("Error syncing Plaid transactions")
 
 
+async def _process_payment_reminders() -> None:
+    """Job: send payment reminders based on active reminder rules."""
+    try:
+        async with _session_factory() as db:
+            from app.invoicing.reminder_service import process_reminders
+
+            count = await process_reminders(db, _settings)
+            if count > 0:
+                logger.info("Sent %d payment reminders", count)
+    except Exception:
+        logger.exception("Error processing payment reminders")
+
+
 def setup_scheduler(session_factory: Any, settings: Any = None) -> None:
     """Register all periodic jobs and start the scheduler."""
     global _session_factory, _settings
@@ -100,6 +113,13 @@ def setup_scheduler(session_factory: Any, settings: Any = None) -> None:
         _sync_plaid_transactions,
         IntervalTrigger(hours=4),
         id="sync_plaid_transactions",
+        replace_existing=True,
+    )
+
+    scheduler.add_job(
+        _process_payment_reminders,
+        CronTrigger(hour=8, minute=0),
+        id="process_payment_reminders",
         replace_existing=True,
     )
 

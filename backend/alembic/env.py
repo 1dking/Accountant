@@ -25,8 +25,15 @@ import app.budgets.models  # noqa: F401
 import app.email.models  # noqa: F401
 import app.integrations.gmail.models  # noqa: F401
 import app.integrations.plaid.models  # noqa: F401
+import app.integrations.plaid.categorization_models  # noqa: F401
 import app.integrations.stripe.models  # noqa: F401
 import app.integrations.twilio.models  # noqa: F401
+import app.estimates.models  # noqa: F401
+import app.invoicing.reminder_models  # noqa: F401
+import app.invoicing.credit_models  # noqa: F401
+import app.integrations.settings_models  # noqa: F401
+import app.accounting.period_models  # noqa: F401
+import app.accounting.tax_models  # noqa: F401
 
 config = context.config
 if config.config_file_name is not None:

@@ -27,9 +27,15 @@ import app.budgets.models  # noqa: F401
 import app.email.models  # noqa: F401
 import app.integrations.gmail.models  # noqa: F401
 import app.integrations.plaid.models  # noqa: F401
+import app.integrations.plaid.categorization_models  # noqa: F401
 import app.integrations.stripe.models  # noqa: F401
 import app.integrations.twilio.models  # noqa: F401
+import app.estimates.models  # noqa: F401
+import app.invoicing.reminder_models  # noqa: F401
 import app.integrations.settings_models  # noqa: F401
+import app.accounting.period_models  # noqa: F401
+import app.invoicing.credit_models  # noqa: F401
+import app.accounting.tax_models  # noqa: F401
 
 
 @asynccontextmanager
@@ -110,10 +116,16 @@ def create_app() -> FastAPI:
     from app.email.router import router as email_router
     from app.integrations.gmail.router import router as gmail_router
     from app.integrations.plaid.router import router as plaid_router
+    from app.integrations.plaid.categorization_router import router as categorization_rules_router
     from app.integrations.stripe.router import router as stripe_router
     from app.integrations.twilio.router import router as twilio_router
+    from app.estimates.router import router as estimates_router
+    from app.invoicing.reminder_router import router as reminder_router
     from app.integrations.settings_router import router as integration_settings_router
     from app.export.router import router as export_router
+    from app.accounting.period_router import router as period_router
+    from app.invoicing.credit_router import router as credit_notes_router
+    from app.accounting.tax_router import router as tax_router
 
     fastapi_app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
     fastapi_app.include_router(documents_router, prefix="/api/documents", tags=["documents"])
@@ -124,6 +136,8 @@ def create_app() -> FastAPI:
     fastapi_app.include_router(accounting_router, prefix="/api/accounting", tags=["accounting"])
     fastapi_app.include_router(contacts_router, prefix="/api/contacts", tags=["contacts"])
     fastapi_app.include_router(invoicing_router, prefix="/api/invoices", tags=["invoices"])
+    fastapi_app.include_router(reminder_router, prefix="/api/invoices", tags=["payment-reminders"])
+    fastapi_app.include_router(estimates_router, prefix="/api/estimates", tags=["estimates"])
     fastapi_app.include_router(income_router, prefix="/api/income", tags=["income"])
     fastapi_app.include_router(recurring_router, prefix="/api/recurring", tags=["recurring"])
     fastapi_app.include_router(budgets_router, prefix="/api/budgets", tags=["budgets"])
@@ -131,10 +145,14 @@ def create_app() -> FastAPI:
     fastapi_app.include_router(email_router, prefix="/api/email", tags=["email"])
     fastapi_app.include_router(gmail_router, prefix="/api/integrations/gmail", tags=["gmail"])
     fastapi_app.include_router(plaid_router, prefix="/api/integrations/plaid", tags=["plaid"])
+    fastapi_app.include_router(categorization_rules_router, prefix="/api/integrations/plaid", tags=["categorization-rules"])
     fastapi_app.include_router(stripe_router, prefix="/api/integrations/stripe", tags=["stripe"])
     fastapi_app.include_router(twilio_router, prefix="/api/integrations/sms", tags=["sms"])
     fastapi_app.include_router(integration_settings_router, prefix="/api/integrations", tags=["integration-settings"])
     fastapi_app.include_router(export_router, prefix="/api/export", tags=["export"])
+    fastapi_app.include_router(period_router, prefix="/api/accounting", tags=["accounting-periods"])
+    fastapi_app.include_router(credit_notes_router, prefix="/api/invoices", tags=["credit-notes"])
+    fastapi_app.include_router(tax_router, prefix="/api", tags=["sales-tax"])
 
     # WebSocket endpoint
     @fastapi_app.websocket("/ws")

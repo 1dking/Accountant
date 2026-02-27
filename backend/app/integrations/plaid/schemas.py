@@ -64,3 +64,44 @@ class CategorizeTransactionRequest(BaseModel):
     as_type: str  # "expense" | "income" | "ignore"
     expense_category_id: uuid.UUID | None = None
     description: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Categorization Rules
+# ---------------------------------------------------------------------------
+
+
+class CategorizationRuleCreate(BaseModel):
+    name: str
+    match_field: str  # "name" | "merchant_name" | "category"
+    match_type: str  # "contains" | "exact" | "starts_with" | "regex"
+    match_value: str
+    assign_category_id: uuid.UUID
+    priority: int = 0
+    is_active: bool = True
+
+
+class CategorizationRuleUpdate(BaseModel):
+    name: Optional[str] = None
+    match_field: Optional[str] = None
+    match_type: Optional[str] = None
+    match_value: Optional[str] = None
+    assign_category_id: Optional[uuid.UUID] = None
+    priority: Optional[int] = None
+    is_active: Optional[bool] = None
+
+
+class CategorizationRuleResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    name: str
+    match_field: str
+    match_type: str
+    match_value: str
+    assign_category_id: uuid.UUID
+    priority: int
+    is_active: bool
+    created_by: uuid.UUID
+    created_at: datetime
+    updated_at: datetime

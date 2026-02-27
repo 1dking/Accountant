@@ -7,8 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.accounting.models import Expense, ExpenseCategory
 from app.income.models import Income, IncomeCategory
 from app.invoicing.models import Invoice, InvoicePayment, InvoiceStatus
+from app.contacts.models import Contact
 from app.reports.schemas import (
     AccountsSummary,
+    AgingBucket,
+    AgingBucketTotals,
+    AgingReport,
     CashFlowPeriod,
     CashFlowReport,
     CategoryAmount,
@@ -172,4 +176,139 @@ async def get_accounts_summary(db: AsyncSession) -> AccountsSummary:
         total_payable=total_payable,
         overdue_receivable=overdue_receivable,
         net_position=total_receivable - total_payable,
+    )
+
+
+def _classify_days_overdue(days_overdue: int) -> str:
+    """Return the bucket key for a given number of days overdue."""
+    if days_overdue <= 0:
+        return "current"
+    elif days_overdue <= 30:
+        return "days_1_30"
+    elif days_overdue <= 60:
+        return "days_31_60"
+    elif days_overdue <= 90:
+        return "days_61_90"
+    else:
+        return "days_90_plus"
+
+
+def _empty_buckets() -> dict[str, float]:
+    return {
+        "current": 0.0,
+        "days_1_30": 0.0,
+        "days_31_60": 0.0,
+        "days_61_90": 0.0,
+        "days_90_plus": 0.0,
+    }
+
+
+async def get_ar_aging(db: AsyncSession, as_of_date: date) -> AgingReport:
+    """Accounts Receivable aging: outstanding invoices grouped by contact and age bucket."""
+
+    # Fetch unpaid / partially paid invoices with their contacts
+    q = (
+        select(
+            Invoice.id,
+            Invoice.due_date,
+            Invoice.total,
+            Invoice.status,
+            Contact.company_name,
+        )
+        .join(Contact, Invoice.contact_id == Contact.id)
+        .where(
+            Invoice.status.in_([
+                InvoiceStatus.SENT,
+                InvoiceStatus.VIEWED,
+                InvoiceStatus.PARTIALLY_PAID,
+                InvoiceStatus.OVERDUE,
+            ])
+        )
+    )
+    rows = (await db.execute(q)).all()
+
+    # Build a map of partial payments per invoice
+    payment_q = (
+        select(
+            InvoicePayment.invoice_id,
+            func.coalesce(func.sum(InvoicePayment.amount), 0),
+        )
+        .group_by(InvoicePayment.invoice_id)
+    )
+    payment_rows = (await db.execute(payment_q)).all()
+    payments_by_invoice: dict[str, float] = {
+        str(r[0]): float(r[1]) for r in payment_rows
+    }
+
+    # Group by contact
+    contact_buckets: dict[str, dict[str, float]] = {}
+    for row in rows:
+        invoice_id, due_date_val, total, status, company_name = row
+        outstanding = float(total) - payments_by_invoice.get(str(invoice_id), 0.0)
+        if outstanding <= 0:
+            continue
+        days_overdue = (as_of_date - due_date_val).days
+        bucket_key = _classify_days_overdue(days_overdue)
+        if company_name not in contact_buckets:
+            contact_buckets[company_name] = _empty_buckets()
+        contact_buckets[company_name][bucket_key] += outstanding
+
+    # Build response
+    buckets: list[AgingBucket] = []
+    grand = _empty_buckets()
+    for name in sorted(contact_buckets.keys()):
+        b = contact_buckets[name]
+        row_total = sum(b.values())
+        buckets.append(AgingBucket(name=name, total=row_total, **b))
+        for key in grand:
+            grand[key] += b[key]
+
+    grand_total = sum(grand.values())
+    return AgingReport(
+        as_of_date=as_of_date,
+        buckets=buckets,
+        grand_totals=AgingBucketTotals(total=grand_total, **grand),
+    )
+
+
+async def get_ap_aging(db: AsyncSession, as_of_date: date) -> AgingReport:
+    """Accounts Payable aging: outstanding expenses grouped by vendor and age bucket."""
+
+    # Fetch unpaid expenses (pending_review or approved)
+    q = (
+        select(
+            Expense.id,
+            Expense.date,
+            Expense.amount,
+            func.coalesce(Expense.vendor_name, "Unknown Vendor"),
+        )
+        .where(Expense.status.in_(["pending_review", "approved"]))
+    )
+    rows = (await db.execute(q)).all()
+
+    # Group by vendor
+    vendor_buckets: dict[str, dict[str, float]] = {}
+    for row in rows:
+        _expense_id, expense_date, amount, vendor_name = row
+        days_overdue = (as_of_date - expense_date).days
+        bucket_key = _classify_days_overdue(days_overdue)
+        if vendor_name not in vendor_buckets:
+            vendor_buckets[vendor_name] = _empty_buckets()
+        vendor_buckets[vendor_name][bucket_key] += float(amount)
+
+    # Build response
+    buckets: list[AgingBucket] = []
+    grand = _empty_buckets()
+    for name in sorted(vendor_buckets.keys()):
+        b = vendor_buckets[name]
+        row_total = sum(b.values())
+        buckets.append(AgingBucket(name=name, total=row_total, **b))
+        for key in grand:
+            grand[key] += b[key]
+
+    grand_total = sum(grand.values())
+    return AgingReport(
+        as_of_date=as_of_date,
+        buckets=buckets,
+        grand_totals=AgingBucketTotals(total=grand_total, **grand),
     )

@@ -9,6 +9,7 @@ import type {
   ExpenseUpdate,
   ExpenseFilters,
   ExpenseApproval,
+  AccountingPeriod,
 } from '@/types/models'
 
 // Categories
@@ -101,4 +102,17 @@ export async function rejectExpense(expenseId: string, comment?: string) {
 
 export async function listPendingApprovals() {
   return api.get<ApiResponse<ExpenseApproval[]>>('/accounting/expenses/pending-approvals')
+}
+
+// Accounting Periods
+export async function listPeriods() {
+  return api.get<ApiResponse<AccountingPeriod[]>>('/accounting/periods')
+}
+
+export async function closePeriod(data: { year: number; month: number; notes?: string }) {
+  return api.post<ApiResponse<AccountingPeriod>>('/accounting/periods/close', data)
+}
+
+export async function reopenPeriod(periodId: string, data: { notes?: string }) {
+  return api.post<ApiResponse<AccountingPeriod>>(`/accounting/periods/${periodId}/reopen`, data)
 }

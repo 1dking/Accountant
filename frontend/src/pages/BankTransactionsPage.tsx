@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Landmark, RefreshCw, ArrowUpRight, ArrowDownRight, Check, Filter } from 'lucide-react'
+import { Landmark, RefreshCw, ArrowUpRight, ArrowDownRight, Check, Filter, Sparkles, ListChecks } from 'lucide-react'
 import {
   listPlaidConnections,
   listPlaidTransactions,
   categorizePlaidTransaction,
   syncPlaidTransactions,
+  applyCategorizationRules,
+  aiCategorizeTransactions,
 } from '@/api/integrations'
 import { formatDate } from '@/lib/utils'
 import type { PlaidTransaction } from '@/types/models'
@@ -50,6 +52,16 @@ export default function BankTransactionsPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['plaid-transactions'] }),
   })
 
+  const applyRulesMutation = useMutation({
+    mutationFn: applyCategorizationRules,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['plaid-transactions'] }),
+  })
+
+  const aiCategorizeMutation = useMutation({
+    mutationFn: aiCategorizeTransactions,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['plaid-transactions'] }),
+  })
+
   const connections = connectionsData?.data ?? []
   const transactions: PlaidTransaction[] = txnData?.data ?? []
   const meta = txnData?.meta ?? { total: 0, page: 1, page_size: 50 }
@@ -65,17 +77,35 @@ export default function BankTransactionsPage() {
           </p>
         </div>
         {connections.length > 0 && (
-          <button
-            onClick={() => {
-              if (connectionId) syncMutation.mutate(connectionId)
-              else connections.forEach((c) => syncMutation.mutate(c.id))
-            }}
-            disabled={syncMutation.isPending}
-            className="flex items-center gap-1.5 px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-          >
-            <RefreshCw className={`w-4 h-4 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
-            Sync
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => applyRulesMutation.mutate()}
+              disabled={applyRulesMutation.isPending}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+            >
+              <ListChecks className="w-4 h-4" />
+              {applyRulesMutation.isPending ? 'Applying...' : 'Apply Rules'}
+            </button>
+            <button
+              onClick={() => aiCategorizeMutation.mutate()}
+              disabled={aiCategorizeMutation.isPending}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm border border-purple-300 text-purple-700 rounded-lg hover:bg-purple-50 disabled:opacity-50"
+            >
+              <Sparkles className={`w-4 h-4 ${aiCategorizeMutation.isPending ? 'animate-pulse' : ''}`} />
+              {aiCategorizeMutation.isPending ? 'Categorizing...' : 'AI Categorize'}
+            </button>
+            <button
+              onClick={() => {
+                if (connectionId) syncMutation.mutate(connectionId)
+                else connections.forEach((c) => syncMutation.mutate(c.id))
+              }}
+              disabled={syncMutation.isPending}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            >
+              <RefreshCw className={`w-4 h-4 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
+              Sync
+            </button>
+          </div>
         )}
       </div>
 

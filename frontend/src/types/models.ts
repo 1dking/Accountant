@@ -253,6 +253,54 @@ export interface InvoiceListItem {
   created_at: string
 }
 
+// Estimates
+export type EstimateStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired' | 'converted'
+
+export interface EstimateLineItem {
+  id: string
+  estimate_id: string
+  description: string
+  quantity: number
+  unit_price: number
+  tax_rate: number | null
+  total: number
+}
+
+export interface Estimate {
+  id: string
+  estimate_number: string
+  contact_id: string
+  issue_date: string
+  expiry_date: string
+  status: EstimateStatus
+  subtotal: number
+  tax_rate: number | null
+  tax_amount: number | null
+  discount_amount: number
+  total: number
+  currency: string
+  notes: string | null
+  converted_invoice_id: string | null
+  created_by: string
+  contact: Contact | null
+  line_items: EstimateLineItem[]
+  created_at: string
+  updated_at: string
+}
+
+export interface EstimateListItem {
+  id: string
+  estimate_number: string
+  contact_id: string
+  issue_date: string
+  expiry_date: string
+  status: EstimateStatus
+  total: number
+  currency: string
+  contact: Contact | null
+  created_at: string
+}
+
 // Income
 export type IncomeCategory = 'invoice_payment' | 'service' | 'product' | 'interest' | 'refund' | 'other'
 
@@ -382,6 +430,25 @@ export interface AccountsSummary {
   total_payable: number
   overdue_receivable: number
   net_position: number
+}
+
+export interface AgingBucketTotals {
+  current: number
+  days_1_30: number
+  days_31_60: number
+  days_61_90: number
+  days_90_plus: number
+  total: number
+}
+
+export interface AgingBucket extends AgingBucketTotals {
+  name: string
+}
+
+export interface AgingReport {
+  as_of_date: string
+  buckets: AgingBucket[]
+  grand_totals: AgingBucketTotals
 }
 
 // Accounting - Expenses
@@ -573,6 +640,44 @@ export interface GmailScanResult {
   created_at: string
 }
 
+// Categorization Rules
+export type CategorizationMatchField = 'name' | 'merchant_name' | 'category'
+export type CategorizationMatchType = 'contains' | 'exact' | 'starts_with' | 'regex'
+
+export interface CategorizationRule {
+  id: string
+  name: string
+  match_field: CategorizationMatchField
+  match_type: CategorizationMatchType
+  match_value: string
+  assign_category_id: string
+  priority: number
+  is_active: boolean
+  created_by: string
+  created_at: string
+  updated_at: string
+}
+
+export interface CategorizationRuleCreate {
+  name: string
+  match_field: CategorizationMatchField
+  match_type: CategorizationMatchType
+  match_value: string
+  assign_category_id: string
+  priority?: number
+  is_active?: boolean
+}
+
+export interface CategorizationRuleUpdate {
+  name?: string
+  match_field?: CategorizationMatchField
+  match_type?: CategorizationMatchType
+  match_value?: string
+  assign_category_id?: string
+  priority?: number
+  is_active?: boolean
+}
+
 // Plaid Banking
 export interface PlaidConnection {
   id: string
@@ -651,4 +756,87 @@ export interface SmsLog {
   related_invoice_id: string | null
   twilio_sid: string | null
   created_at: string
+}
+
+// Payment Reminders
+export type ReminderChannel = 'email' | 'sms' | 'both'
+export type ReminderStatus = 'sent' | 'failed' | 'skipped'
+
+export interface ReminderRule {
+  id: string
+  name: string
+  days_offset: number
+  channel: ReminderChannel
+  email_subject: string | null
+  email_body: string | null
+  sms_body: string | null
+  is_active: boolean
+  created_by: string
+  created_at: string
+  updated_at: string
+}
+
+export interface PaymentReminder {
+  id: string
+  invoice_id: string
+  contact_id: string
+  reminder_rule_id: string | null
+  reminder_type: string
+  channel: ReminderChannel
+  status: ReminderStatus
+  sent_at: string | null
+  error_message: string | null
+  created_at: string
+}
+
+// Accounting Periods
+export type PeriodStatus = 'open' | 'closed'
+
+export interface AccountingPeriod {
+  id: string
+  year: number
+  month: number
+  status: PeriodStatus
+  closed_by: string | null
+  closed_at: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+// Credit Notes
+export type CreditNoteStatus = 'draft' | 'issued' | 'applied'
+
+export interface CreditNote {
+  id: string
+  credit_note_number: string
+  invoice_id: string
+  contact_id: string
+  amount: number
+  reason: string | null
+  status: CreditNoteStatus
+  issue_date: string
+  applied_at: string | null
+  created_by: string
+  created_at: string
+  updated_at: string
+}
+
+export interface CreditNoteListItem {
+  id: string
+  credit_note_number: string
+  invoice_id: string
+  contact_id: string
+  amount: number
+  reason: string | null
+  status: CreditNoteStatus
+  issue_date: string
+  created_at: string
+}
+
+export interface ContactCreditBalance {
+  contact_id: string
+  total_issued: number
+  total_applied: number
+  available_balance: number
 }

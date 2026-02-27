@@ -6,6 +6,9 @@ import type {
   GmailScanResult,
   PlaidConnection,
   PlaidTransaction,
+  CategorizationRule,
+  CategorizationRuleCreate,
+  CategorizationRuleUpdate,
   StripePaymentLink,
   StripeSubscription,
   StripeConfig,
@@ -168,6 +171,34 @@ export async function categorizePlaidTransaction(txnId: string, data: {
   description?: string
 }) {
   return api.post<ApiResponse<PlaidTransaction>>(`/integrations/plaid/transactions/${txnId}/categorize`, data)
+}
+
+// ---------------------------------------------------------------------------
+// Categorization Rules
+// ---------------------------------------------------------------------------
+
+export async function listCategorizationRules() {
+  return api.get<{ data: CategorizationRule[] }>('/integrations/plaid/categorization-rules')
+}
+
+export async function createCategorizationRule(data: CategorizationRuleCreate) {
+  return api.post<ApiResponse<CategorizationRule>>('/integrations/plaid/categorization-rules', data)
+}
+
+export async function updateCategorizationRule(ruleId: string, data: CategorizationRuleUpdate) {
+  return api.put<ApiResponse<CategorizationRule>>(`/integrations/plaid/categorization-rules/${ruleId}`, data)
+}
+
+export async function deleteCategorizationRule(ruleId: string) {
+  return api.delete<ApiResponse<{ detail: string }>>(`/integrations/plaid/categorization-rules/${ruleId}`)
+}
+
+export async function applyCategorizationRules() {
+  return api.post<ApiResponse<{ detail: string }>>('/integrations/plaid/apply-rules')
+}
+
+export async function aiCategorizeTransactions() {
+  return api.post<ApiResponse<{ detail: string }>>('/integrations/plaid/ai-categorize')
 }
 
 // ---------------------------------------------------------------------------
