@@ -3,12 +3,17 @@
 # Accountant — DreamHost Managed VPS Deploy Script (No Sudo Required)
 # ============================================================================
 # Usage:  SSH into your DreamHost VPS and run:
-#   curl -fsSL https://raw.githubusercontent.com/1dking/Accountant/main/deploy.sh | bash
-#   -- or --
-#   Copy-paste this entire script into your terminal.
+#   curl -fsSL https://raw.githubusercontent.com/1dking/Accountant/main/deploy.sh -o deploy.sh
+#   bash deploy.sh
 #
 # Works on DreamHost managed VPS where you do NOT have sudo/root access.
 # ============================================================================
+
+# Fix Windows CRLF line endings if present
+if head -1 "$0" | grep -q $'\r'; then
+    sed -i 's/\r$//' "$0"
+    exec bash "$0" "$@"
+fi
 
 set -euo pipefail
 
