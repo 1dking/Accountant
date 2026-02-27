@@ -7,10 +7,8 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [isRegister, setIsRegister] = useState(false)
-  const [fullName, setFullName] = useState('')
   const navigate = useNavigate()
-  const { login, register } = useAuthStore()
+  const { login } = useAuthStore()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -18,9 +16,6 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
-      if (isRegister) {
-        await register(email, password, fullName)
-      }
       await login(email, password)
       navigate('/')
     } catch (err: any) {
@@ -34,27 +29,10 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="w-full max-w-md p-8 bg-white rounded-lg shadow-md">
         <h1 className="text-2xl font-bold text-center mb-6 text-gray-900">
-          {isRegister ? 'Create Account' : 'Sign In'}
+          Sign In
         </h1>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {isRegister && (
-            <div>
-              <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-1">
-                Full Name
-              </label>
-              <input
-                id="fullName"
-                type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                placeholder="John Doe"
-              />
-            </div>
-          )}
-
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
               Email
@@ -97,22 +75,9 @@ export default function LoginPage() {
             disabled={isLoading}
             className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
           >
-            {isLoading ? 'Loading...' : isRegister ? 'Create Account' : 'Sign In'}
+            {isLoading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
-
-        <p className="mt-4 text-center text-sm text-gray-600">
-          {isRegister ? 'Already have an account?' : "Don't have an account?"}{' '}
-          <button
-            onClick={() => {
-              setIsRegister(!isRegister)
-              setError('')
-            }}
-            className="text-blue-600 hover:underline font-medium"
-          >
-            {isRegister ? 'Sign in' : 'Create one'}
-          </button>
-        </p>
       </div>
     </div>
   )

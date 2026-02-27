@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import Role, User
 from app.auth.schemas import (
+    AdminUserCreate,
     TokenRefreshRequest,
     TokenResponse,
     UserCreate,
@@ -17,6 +18,7 @@ from app.auth.schemas import (
 )
 from app.auth.service import (
     authenticate_user,
+    create_user,
     refresh_tokens,
     register_user,
     revoke_refresh_token,
@@ -98,6 +100,16 @@ async def list_users(
     result = await db.execute(select(User).order_by(User.created_at))
     users = result.scalars().all()
     return {"data": [UserResponse.model_validate(u) for u in users]}
+
+
+@router.post("/users", status_code=201)
+async def admin_create_user(
+    body: AdminUserCreate,
+    _: Annotated[User, Depends(require_role([Role.ADMIN]))],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    user = await create_user(db, body.email, body.password, body.full_name, body.role)
+    return {"data": UserResponse.model_validate(user)}
 
 
 @router.put("/users/{user_id}/role")

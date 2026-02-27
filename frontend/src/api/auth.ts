@@ -10,6 +10,10 @@ export async function updateUserRole(userId: string, role: string) {
   return api.put<ApiResponse<User>>(`/auth/users/${userId}/role`, { role })
 }
 
+export async function createUser(data: { email: string; password: string; full_name: string; role: string }) {
+  return api.post<ApiResponse<User>>('/auth/users', data)
+}
+
 export async function deactivateUser(userId: string) {
   return api.delete<ApiResponse<{ message: string }>>(`/auth/users/${userId}`)
 }

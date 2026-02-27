@@ -15,7 +15,7 @@ from app.auth.utils import (
     verify_password,
 )
 from app.config import Settings
-from app.core.exceptions import ConflictError, NotFoundError, ValidationError
+from app.core.exceptions import ConflictError, ForbiddenError, NotFoundError, ValidationError
 
 
 async def register_user(
@@ -23,19 +23,43 @@ async def register_user(
     user_data: UserCreate,
     settings: Settings,
 ) -> User:
+    # Only allow registration when no users exist (first-time setup)
+    user_count = await db.scalar(select(func.count()).select_from(User))
+    if user_count > 0:
+        raise ForbiddenError("Registration is closed. Contact an admin to get an account.")
+
     # Check if email already exists
     result = await db.execute(select(User).where(User.email == user_data.email))
     if result.scalar_one_or_none() is not None:
         raise ConflictError(f"A user with email {user_data.email} already exists.")
 
-    # First user becomes admin
-    user_count = await db.scalar(select(func.count()).select_from(User))
-    role = Role.ADMIN if user_count == 0 else Role.VIEWER
-
     user = User(
         email=user_data.email,
         hashed_password=hash_password(user_data.password),
         full_name=user_data.full_name,
+        role=Role.ADMIN,
+    )
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
+async def create_user(
+    db: AsyncSession,
+    email: str,
+    password: str,
+    full_name: str,
+    role: Role,
+) -> User:
+    result = await db.execute(select(User).where(User.email == email))
+    if result.scalar_one_or_none() is not None:
+        raise ConflictError(f"A user with email {email} already exists.")
+
+    user = User(
+        email=email,
+        hashed_password=hash_password(password),
+        full_name=full_name,
         role=role,
     )
     db.add(user)
