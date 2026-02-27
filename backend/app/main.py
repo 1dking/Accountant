@@ -3,6 +3,8 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func, select
 
 from app.config import Settings
@@ -183,6 +185,23 @@ def create_app() -> FastAPI:
 
     # Register exception handlers
     register_exception_handlers(fastapi_app)
+
+    # Serve frontend static files in production
+    # The built frontend at ../frontend/dist/ is served at /
+    frontend_dist = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
+    if frontend_dist.is_dir():
+        # Serve static assets (JS, CSS, images)
+        fastapi_app.mount("/assets", StaticFiles(directory=frontend_dist / "assets"), name="assets")
+
+        # Catch-all: serve index.html for SPA client-side routing
+        @fastapi_app.get("/{path:path}")
+        async def spa_fallback(path: str):
+            # If the file exists in dist/, serve it (e.g. favicon, manifest, icons)
+            file_path = frontend_dist / path
+            if path and file_path.is_file():
+                return FileResponse(file_path)
+            # Otherwise return index.html for client-side routing
+            return FileResponse(frontend_dist / "index.html")
 
     return fastapi_app
 

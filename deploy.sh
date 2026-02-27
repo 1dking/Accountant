@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # ============================================================================
-# Accountant — One-Paste VPS Deploy Script
+# Accountant — DreamHost Managed VPS Deploy Script (No Sudo Required)
 # ============================================================================
 # Usage:  SSH into your DreamHost VPS and run:
 #   curl -fsSL https://raw.githubusercontent.com/1dking/Accountant/main/deploy.sh | bash
 #   -- or --
 #   Copy-paste this entire script into your terminal.
 #
-# Prerequisites: Ubuntu/Debian VPS with sudo access.
+# Works on DreamHost managed VPS where you do NOT have sudo/root access.
 # ============================================================================
 
 set -euo pipefail
@@ -55,29 +55,7 @@ read -rp "Anthropic API key (sk-ant-...): " ANTHROPIC_KEY
 echo ""
 ok "Configuration collected. Starting deployment..."
 
-# ---- 1. System packages ----
-step "Installing system packages..."
-sudo apt-get update -qq
-sudo apt-get install -y -qq \
-    python3 python3-venv python3-pip \
-    nginx certbot python3-certbot-nginx \
-    poppler-utils libmagic1 \
-    curl git build-essential
-
-# ---- 2. Install Node.js (LTS) + pnpm ----
-step "Installing Node.js LTS..."
-if ! command -v node &>/dev/null || [[ $(node -v | cut -d. -f1 | tr -d v) -lt 20 ]]; then
-    curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-    sudo apt-get install -y -qq nodejs
-fi
-ok "Node.js $(node -v)"
-
-if ! command -v pnpm &>/dev/null; then
-    sudo npm install -g pnpm
-fi
-ok "pnpm $(pnpm -v)"
-
-# ---- 3. Clone repository ----
+# ---- 1. Clone repository ----
 step "Cloning repository..."
 if [[ -d "$APP_DIR" ]]; then
     warn "Directory $APP_DIR already exists — pulling latest..."
@@ -88,22 +66,50 @@ fi
 cd "$APP_DIR"
 ok "Repository ready at $APP_DIR"
 
-# ---- 4. Python virtual environment + dependencies ----
+# ---- 2. Install Node.js via nvm (no sudo needed) ----
+step "Setting up Node.js..."
+export NVM_DIR="$HOME/.nvm"
+if [[ ! -d "$NVM_DIR" ]]; then
+    curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+fi
+# Load nvm
+[ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
+
+if ! command -v node &>/dev/null || [[ $(node -v | cut -d. -f1 | tr -d v) -lt 20 ]]; then
+    nvm install 22
+    nvm use 22
+fi
+ok "Node.js $(node -v)"
+
+# Install pnpm
+if ! command -v pnpm &>/dev/null; then
+    npm install -g pnpm 2>/dev/null || corepack enable pnpm 2>/dev/null || npm install -g pnpm
+fi
+ok "pnpm $(pnpm -v)"
+
+# ---- 3. Python virtual environment + dependencies ----
 step "Setting up Python backend..."
 cd "$APP_DIR/backend"
+
+# Check python3 is available
+if ! command -v python3 &>/dev/null; then
+    fail "python3 is not installed. Contact DreamHost support to enable Python 3."
+fi
+ok "Python $(python3 --version)"
+
 python3 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip -q
 pip install -e ".[dev]" -q
 ok "Python dependencies installed"
 
-# ---- 5. Generate secrets ----
+# ---- 4. Generate secrets ----
 step "Generating secrets..."
 SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_urlsafe(64))")
 FERNET_KEY=$(python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
 ok "SECRET_KEY and FERNET_KEY generated"
 
-# ---- 6. Write .env file ----
+# ---- 5. Write .env file ----
 step "Writing backend .env file..."
 cat > "$APP_DIR/backend/.env" <<ENVEOF
 # Database (Supabase PostgreSQL)
@@ -120,7 +126,7 @@ STORAGE_PATH=./data/documents
 MAX_UPLOAD_SIZE=52428800
 
 # Server
-HOST=127.0.0.1
+HOST=0.0.0.0
 PORT=8000
 CORS_ORIGINS=https://${DOMAIN}
 
@@ -139,114 +145,168 @@ GOOGLE_REDIRECT_URI=https://${DOMAIN}/api/integrations/gmail/callback
 ENVEOF
 ok ".env written"
 
-# ---- 7. Create data directory ----
+# ---- 6. Create data directory ----
 mkdir -p "$APP_DIR/backend/data/documents"
 
-# ---- 8. Run database migrations ----
+# ---- 7. Run database migrations ----
 step "Running database migrations..."
 cd "$APP_DIR/backend"
 source .venv/bin/activate
 alembic upgrade head
 ok "Database migrated"
 
-# ---- 9. Build frontend ----
+# ---- 8. Build frontend ----
 step "Building frontend..."
 cd "$APP_DIR/frontend"
+# Load nvm in case it's not in PATH
+[ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
 pnpm install --frozen-lockfile
 pnpm build
 ok "Frontend built → $APP_DIR/frontend/dist"
 
-# ---- 10. Install systemd service ----
-step "Installing systemd service..."
-sed "s|<vps-user>|${VPS_USER}|g" "$APP_DIR/backend/accountant.service" \
-    | sudo tee /etc/systemd/system/accountant.service > /dev/null
-sudo systemctl daemon-reload
-sudo systemctl enable accountant
-sudo systemctl restart accountant
-ok "systemd service installed and started"
-
-# Give the backend a moment to start
-sleep 2
-
-# Verify backend is running
-if curl -sf http://127.0.0.1:8000/api/system/health > /dev/null 2>&1 || \
-   curl -sf http://127.0.0.1:8000/docs > /dev/null 2>&1; then
-    ok "Backend is responding on port 8000"
-else
-    warn "Backend may still be starting. Check: sudo journalctl -u accountant -f"
+# ---- 9. Stop any existing instance ----
+step "Starting backend server..."
+if [[ -f "$APP_DIR/backend/uvicorn.pid" ]]; then
+    OLD_PID=$(cat "$APP_DIR/backend/uvicorn.pid" 2>/dev/null || echo "")
+    if [[ -n "$OLD_PID" ]] && kill -0 "$OLD_PID" 2>/dev/null; then
+        kill "$OLD_PID" 2>/dev/null || true
+        sleep 2
+        ok "Stopped previous instance (PID $OLD_PID)"
+    fi
 fi
 
-# ---- 11. Install nginx config ----
-step "Configuring nginx..."
-sed -e "s|<vps-user>|${VPS_USER}|g" \
-    -e "s|yourdomain.com|${DOMAIN}|g" \
-    "$APP_DIR/backend/nginx.conf.example" \
-    | sudo tee /etc/nginx/sites-available/accountant > /dev/null
+# ---- 10. Start uvicorn in background ----
+cd "$APP_DIR/backend"
+source .venv/bin/activate
+nohup "$APP_DIR/backend/.venv/bin/uvicorn" app.main:app \
+    --host 0.0.0.0 --port 8000 \
+    > "$APP_DIR/backend/uvicorn.log" 2>&1 &
+UVICORN_PID=$!
+echo "$UVICORN_PID" > "$APP_DIR/backend/uvicorn.pid"
+ok "uvicorn started (PID $UVICORN_PID)"
 
-# Enable site, disable default
-sudo ln -sf /etc/nginx/sites-available/accountant /etc/nginx/sites-enabled/accountant
-sudo rm -f /etc/nginx/sites-enabled/default
+# Give it a moment to start
+sleep 3
 
-sudo nginx -t && sudo systemctl reload nginx
-ok "nginx configured for ${DOMAIN}"
+# Verify backend is running
+if curl -sf http://127.0.0.1:8000/api/system/health > /dev/null 2>&1; then
+    ok "Backend is responding on port 8000"
+else
+    warn "Backend may still be starting. Check: tail -f $APP_DIR/backend/uvicorn.log"
+fi
 
-# ---- 12. SSL certificate ----
-step "Obtaining SSL certificate..."
-echo "Certbot will ask for your email and agreement to terms."
-sudo certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --register-unsafely-without-email || {
-    warn "Certbot failed. You can run it manually later:"
-    warn "  sudo certbot --nginx -d ${DOMAIN}"
-}
+# ---- 11. Set up cron job for auto-restart on reboot ----
+step "Setting up auto-restart cron job..."
+CRON_CMD="@reboot cd $APP_DIR/backend && source .venv/bin/activate && nohup .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 > uvicorn.log 2>&1 & echo \$! > uvicorn.pid"
 
-# ---- Done! ----
-echo ""
-echo -e "${GREEN}"
-echo "╔══════════════════════════════════════════════════╗"
-echo "║           Deployment complete!                   ║"
-echo "╚══════════════════════════════════════════════════╝"
-echo -e "${NC}"
-echo "  App URL:       https://${DOMAIN}"
-echo "  API docs:      https://${DOMAIN}/api/docs"
-echo "  Backend logs:  sudo journalctl -u accountant -f"
-echo ""
-echo "  Useful commands:"
-echo "    sudo systemctl restart accountant    # Restart backend"
-echo "    sudo systemctl reload nginx          # Reload nginx"
-echo "    cd ${APP_DIR} && git pull            # Pull latest code"
-echo ""
-echo -e "${YELLOW}  Next steps:${NC}"
-echo "  1. Open https://${DOMAIN} and register your admin account"
-echo "  2. Upload a document to test AI extraction"
-echo "  3. Try the mobile receipt capture on your phone"
-echo ""
+# Add cron job if not already present
+(crontab -l 2>/dev/null | grep -v "Accountant/backend" || true; echo "$CRON_CMD") | crontab -
+ok "Cron job installed — backend will auto-start on VPS reboot"
 
-# ---- Update helper script ----
+# ---- 12. Create helper scripts ----
+cat > "$APP_DIR/start.sh" <<'STARTEOF'
+#!/usr/bin/env bash
+# Start the Accountant backend
+set -euo pipefail
+APP_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$APP_DIR/backend"
+
+# Stop existing instance
+if [[ -f uvicorn.pid ]]; then
+    OLD_PID=$(cat uvicorn.pid 2>/dev/null || echo "")
+    if [[ -n "$OLD_PID" ]] && kill -0 "$OLD_PID" 2>/dev/null; then
+        kill "$OLD_PID" 2>/dev/null || true
+        sleep 2
+        echo "Stopped previous instance"
+    fi
+fi
+
+source .venv/bin/activate
+nohup .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 > uvicorn.log 2>&1 &
+echo $! > uvicorn.pid
+echo "Backend started (PID $(cat uvicorn.pid))"
+STARTEOF
+chmod +x "$APP_DIR/start.sh"
+
+cat > "$APP_DIR/stop.sh" <<'STOPEOF'
+#!/usr/bin/env bash
+# Stop the Accountant backend
+APP_DIR="$(cd "$(dirname "$0")" && pwd)"
+if [[ -f "$APP_DIR/backend/uvicorn.pid" ]]; then
+    PID=$(cat "$APP_DIR/backend/uvicorn.pid")
+    kill "$PID" 2>/dev/null && echo "Stopped (PID $PID)" || echo "Not running"
+    rm -f "$APP_DIR/backend/uvicorn.pid"
+else
+    echo "No PID file found"
+fi
+STOPEOF
+chmod +x "$APP_DIR/stop.sh"
+
 cat > "$APP_DIR/update.sh" <<'UPDATEEOF'
 #!/usr/bin/env bash
-# Quick update script — pull latest code and rebuild
+# Pull latest code, rebuild, and restart
 set -euo pipefail
-
 APP_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 echo "Pulling latest code..."
 cd "$APP_DIR" && git pull
 
-echo "Updating backend dependencies..."
+echo "Updating backend..."
 cd "$APP_DIR/backend"
 source .venv/bin/activate
 pip install -e ".[dev]" -q
-
-echo "Running migrations..."
 alembic upgrade head
 
 echo "Rebuilding frontend..."
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
 cd "$APP_DIR/frontend"
 pnpm install --frozen-lockfile
 pnpm build
 
 echo "Restarting backend..."
-sudo systemctl restart accountant
+"$APP_DIR/stop.sh"
+"$APP_DIR/start.sh"
 
 echo "Done! App updated."
 UPDATEEOF
 chmod +x "$APP_DIR/update.sh"
-ok "Created update.sh for future deployments — just run: ~/Accountant/update.sh"
+
+cat > "$APP_DIR/logs.sh" <<'LOGSEOF'
+#!/usr/bin/env bash
+# View backend logs
+APP_DIR="$(cd "$(dirname "$0")" && pwd)"
+tail -f "$APP_DIR/backend/uvicorn.log"
+LOGSEOF
+chmod +x "$APP_DIR/logs.sh"
+
+# ---- Done! ----
+echo ""
+echo -e "${GREEN}"
+echo "╔══════════════════════════════════════════════════╗"
+echo "║        Server setup complete!                    ║"
+echo "╚══════════════════════════════════════════════════╝"
+echo -e "${NC}"
+echo "  Backend running at: http://localhost:8000"
+echo ""
+echo -e "${YELLOW}  ⚡ IMPORTANT — Complete these 2 steps in the DreamHost panel:${NC}"
+echo ""
+echo "  1. SET UP PROXY:"
+echo "     Go to: Servers → your VPS → Proxy Server"
+echo "     URL:  accountant.ocidm.io   (leave path blank)"
+echo "     Port: 8000"
+echo "     Click 'Add Proxy'"
+echo ""
+echo "  2. ENABLE SSL:"
+echo "     Go to: Websites → Secure Certificates"
+echo "     Add a free Let's Encrypt certificate for accountant.ocidm.io"
+echo ""
+echo -e "  Once proxy is active, your app will be live at:"
+echo -e "  ${GREEN}https://${DOMAIN}${NC}"
+echo ""
+echo "  Helper commands:"
+echo "    ~/Accountant/start.sh     # Start the backend"
+echo "    ~/Accountant/stop.sh      # Stop the backend"
+echo "    ~/Accountant/update.sh    # Pull + rebuild + restart"
+echo "    ~/Accountant/logs.sh      # View live logs"
+echo ""
