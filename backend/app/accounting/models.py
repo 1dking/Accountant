@@ -60,7 +60,7 @@ class ExpenseCategory(TimestampMixin, Base):
     )
 
     # Relationships
-    expenses: Mapped[list[Expense]] = relationship(
+    expenses: Mapped[list["Expense"]] = relationship(
         "Expense", back_populates="category", lazy="selectin"
     )
 
@@ -100,7 +100,7 @@ class Expense(TimestampMixin, Base):
     category: Mapped[ExpenseCategory | None] = relationship(
         "ExpenseCategory", back_populates="expenses", lazy="selectin"
     )
-    line_items: Mapped[list[ExpenseLineItem]] = relationship(
+    line_items: Mapped[list["ExpenseLineItem"]] = relationship(
         "ExpenseLineItem",
         back_populates="expense",
         lazy="selectin",

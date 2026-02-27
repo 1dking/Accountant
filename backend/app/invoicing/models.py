@@ -43,11 +43,11 @@ class Invoice(TimestampMixin, Base):
     created_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
 
     # Relationships
-    contact: Mapped[Contact] = relationship("Contact", lazy="selectin")
-    line_items: Mapped[list[InvoiceLineItem]] = relationship(
+    contact: Mapped["Contact"] = relationship("Contact", lazy="selectin")
+    line_items: Mapped[list["InvoiceLineItem"]] = relationship(
         "InvoiceLineItem", back_populates="invoice", lazy="selectin", cascade="all, delete-orphan"
     )
-    payments: Mapped[list[InvoicePayment]] = relationship(
+    payments: Mapped[list["InvoicePayment"]] = relationship(
         "InvoicePayment", back_populates="invoice", lazy="selectin", cascade="all, delete-orphan"
     )
 
