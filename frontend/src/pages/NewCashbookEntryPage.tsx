@@ -1,9 +1,12 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { listAccounts, listCategories, createEntry } from '@/api/cashbook'
-import { ArrowLeft } from 'lucide-react'
-import type { EntryType } from '@/types/models'
+import { listDocuments, getDocument } from '@/api/documents'
+import { useDebounce } from '@/hooks/useDebounce'
+import { formatFileSize } from '@/lib/utils'
+import { ArrowLeft, Paperclip, X } from 'lucide-react'
+import type { EntryType, DocumentListItem } from '@/types/models'
 
 function formatCurrency(amount: number): string {
   return (
@@ -30,6 +33,10 @@ export default function NewCashbookEntryPage() {
   const [notes, setNotes] = useState('')
   const [taxOverride, setTaxOverride] = useState(false)
   const [manualTax, setManualTax] = useState('')
+  const [documentSearch, setDocumentSearch] = useState('')
+  const [selectedDocument, setSelectedDocument] = useState<DocumentListItem | null>(null)
+  const [showDocDropdown, setShowDocDropdown] = useState(false)
+  const docSearchRef = useRef<HTMLDivElement>(null)
 
   // Fetch accounts
   const { data: accountsData } = useQuery({
@@ -55,6 +62,26 @@ export default function NewCashbookEntryPage() {
     )
   }, [allCategories, entryType])
 
+  // Document search
+  const debouncedDocSearch = useDebounce(documentSearch, 300)
+  const { data: docsData } = useQuery({
+    queryKey: ['documents', { search: debouncedDocSearch }],
+    queryFn: () => listDocuments({ search: debouncedDocSearch || undefined, page_size: 5 }),
+    enabled: showDocDropdown && documentSearch.length > 0,
+  })
+  const searchedDocs = docsData?.data ?? []
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (docSearchRef.current && !docSearchRef.current.contains(e.target as Node)) {
+        setShowDocDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
   // Calculate tax: tax = total - (total / 1.13)
   const parsedAmount = parseFloat(amount) || 0
   const calculatedTax =
@@ -78,6 +105,7 @@ export default function NewCashbookEntryPage() {
         tax_amount: displayTax > 0 ? displayTax : undefined,
         tax_override: taxOverride,
         category_id: categoryId || undefined,
+        document_id: selectedDocument?.id || undefined,
         notes: notes || undefined,
       }),
     onSuccess: () => {
@@ -226,6 +254,94 @@ export default function NewCashbookEntryPage() {
               </option>
             ))}
           </select>
+        </div>
+
+        {/* Linked Document */}
+        <div ref={docSearchRef} className="relative">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            <Paperclip className="inline h-3.5 w-3.5 mr-1" />
+            Linked Document
+          </label>
+          {selectedDocument ? (
+            <div className="flex items-center gap-2 w-full px-3 py-2 text-sm border rounded-md bg-gray-50">
+              <span className="flex-1 truncate">
+                {selectedDocument.title || selectedDocument.original_filename}
+                <span className="text-gray-400 ml-2">
+                  {formatFileSize(selectedDocument.file_size)}
+                </span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedDocument(null)}
+                className="text-gray-400 hover:text-red-500"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ) : (
+            <>
+              <input
+                type="text"
+                value={documentSearch}
+                onChange={(e) => {
+                  setDocumentSearch(e.target.value)
+                  setShowDocDropdown(true)
+                }}
+                onFocus={() => { if (documentSearch) setShowDocDropdown(true) }}
+                placeholder="Search documents..."
+                className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              {showDocDropdown && documentSearch && (
+                <div className="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                  {searchedDocs.length === 0 ? (
+                    <div className="px-3 py-2 text-sm text-gray-500">No documents found</div>
+                  ) : (
+                    searchedDocs.map((doc) => (
+                      <button
+                        key={doc.id}
+                        type="button"
+                        onClick={async () => {
+                          setSelectedDocument(doc)
+                          setDocumentSearch('')
+                          setShowDocDropdown(false)
+                          // Fetch full document to get extracted metadata for auto-fill
+                          try {
+                            const res = await getDocument(doc.id)
+                            const meta = res.data?.extracted_metadata
+                            if (meta) {
+                              if (meta.total_amount) setAmount(String(meta.total_amount))
+                              if (meta.date) setEntryDate(meta.date as string)
+                              if (meta.vendor_name) setDescription(`Payment to ${meta.vendor_name}`)
+                              if (meta.tax_amount) {
+                                setTaxOverride(true)
+                                setManualTax(String(meta.tax_amount))
+                              }
+                              // Try to match category by name
+                              if (meta.category) {
+                                const catName = (meta.category as string).replace(/_/g, ' ').toLowerCase()
+                                const match = allCategories.find(
+                                  (c) => c.name.toLowerCase() === catName
+                                )
+                                if (match) setCategoryId(match.id)
+                              }
+                            }
+                          } catch {
+                            // Auto-fill is best-effort; document is still linked
+                          }
+                        }}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 flex items-center justify-between"
+                      >
+                        <span className="truncate">{doc.title || doc.original_filename}</span>
+                        <span className="text-xs text-gray-400 ml-2 shrink-0">
+                          {formatFileSize(doc.file_size)}
+                        </span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </>
+          )}
         </div>
 
         {/* Tax Auto-split */}
