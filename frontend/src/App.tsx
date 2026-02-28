@@ -35,6 +35,8 @@ import BankTransactionsPage from '@/pages/BankTransactionsPage'
 import EstimatesPage from '@/pages/EstimatesPage'
 import NewEstimatePage from '@/pages/NewEstimatePage'
 import EstimateDetailPage from '@/pages/EstimateDetailPage'
+import CashbookPage from '@/pages/CashbookPage'
+import NewCashbookEntryPage from '@/pages/NewCashbookEntryPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -92,6 +94,8 @@ function AuthenticatedApp() {
         <Route path="/contacts" element={<ContactsPage />} />
         <Route path="/contacts/new" element={<NewContactPage />} />
         <Route path="/contacts/:id" element={<ContactDetailPage />} />
+        <Route path="/cashbook" element={<CashbookPage />} />
+        <Route path="/cashbook/new" element={<NewCashbookEntryPage />} />
         <Route path="/expenses" element={<ExpensesPage />} />
         <Route path="/expenses/new" element={<NewExpensePage />} />
         <Route path="/expenses/dashboard" element={<ExpenseDashboardPage />} />

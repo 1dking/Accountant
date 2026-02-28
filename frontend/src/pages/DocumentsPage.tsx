@@ -34,7 +34,7 @@ export default function DocumentsPage() {
     sort_order: 'desc',
   }
 
-  const { data: docsData, isLoading } = useQuery({
+  const { data: docsData, isLoading, error } = useQuery({
     queryKey: ['documents', filters],
     queryFn: () => listDocuments(filters),
   })
@@ -142,6 +142,20 @@ export default function DocumentsPage() {
               {[...Array(5)].map((_, i) => (
                 <div key={i} className="h-20 bg-gray-100 rounded-lg animate-pulse" />
               ))}
+            </div>
+          ) : error ? (
+            <div className="text-center py-12">
+              <div className="text-4xl mb-3">&#9888;</div>
+              <h3 className="text-red-600 font-medium">Failed to load documents</h3>
+              <p className="text-sm text-gray-500 mt-1">
+                {error instanceof Error ? error.message : 'Unknown error'}
+              </p>
+              <button
+                onClick={() => queryClient.invalidateQueries({ queryKey: ['documents'] })}
+                className="mt-3 px-4 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+              >
+                Retry
+              </button>
             </div>
           ) : documents.length === 0 ? (
             <div className="text-center py-12">

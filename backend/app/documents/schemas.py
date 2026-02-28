@@ -189,6 +189,8 @@ class DocumentFilter(BaseModel):
     date_to: Optional[datetime] = None
     uploaded_by: uuid.UUID | None = None
     status: DocumentStatus | None = None
+    sort_by: str = "created_at"
+    sort_order: str = "desc"
 
 
 # ---------------------------------------------------------------------------

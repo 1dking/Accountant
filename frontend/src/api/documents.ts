@@ -62,36 +62,36 @@ export async function uploadVersion(documentId: string, file: File) {
 
 // Folders
 export async function getFolderTree() {
-  return api.get<ApiResponse<Folder[]>>('/folders')
+  return api.get<ApiResponse<Folder[]>>('/documents/folders')
 }
 
 export async function createFolder(data: { name: string; parent_id?: string; description?: string }) {
-  return api.post<ApiResponse<Folder>>('/folders', data)
+  return api.post<ApiResponse<Folder>>('/documents/folders', data)
 }
 
 export async function updateFolder(id: string, data: { name?: string; parent_id?: string }) {
-  return api.put<ApiResponse<Folder>>(`/folders/${id}`, data)
+  return api.put<ApiResponse<Folder>>(`/documents/folders/${id}`, data)
 }
 
 export async function deleteFolder(id: string) {
-  return api.delete<ApiResponse<{ message: string }>>(`/folders/${id}`)
+  return api.delete<ApiResponse<{ message: string }>>(`/documents/folders/${id}`)
 }
 
 // Tags
 export async function listTags() {
-  return api.get<ApiResponse<Tag[]>>('/tags')
+  return api.get<ApiResponse<Tag[]>>('/documents/tags')
 }
 
 export async function createTag(data: { name: string; color?: string }) {
-  return api.post<ApiResponse<Tag>>('/tags', data)
+  return api.post<ApiResponse<Tag>>('/documents/tags', data)
 }
 
 export async function updateTag(id: string, data: { name?: string; color?: string }) {
-  return api.put<ApiResponse<Tag>>(`/tags/${id}`, data)
+  return api.put<ApiResponse<Tag>>(`/documents/tags/${id}`, data)
 }
 
 export async function deleteTag(id: string) {
-  return api.delete<ApiResponse<{ message: string }>>(`/tags/${id}`)
+  return api.delete<ApiResponse<{ message: string }>>(`/documents/tags/${id}`)
 }
 
 export async function addTagsToDocument(documentId: string, tagIds: string[]) {

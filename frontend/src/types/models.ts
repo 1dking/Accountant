@@ -840,3 +840,139 @@ export interface ContactCreditBalance {
   total_applied: number
   available_balance: number
 }
+
+// Cashbook
+export type AccountType = 'bank' | 'credit_card'
+export type EntryType = 'income' | 'expense'
+export type CategoryTypeEnum = 'income' | 'expense' | 'both'
+
+export interface TransactionCategory {
+  id: string
+  name: string
+  category_type: CategoryTypeEnum
+  color: string | null
+  icon: string | null
+  is_system: boolean
+  display_order: number
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface PaymentAccount {
+  id: string
+  user_id: string
+  name: string
+  account_type: AccountType
+  opening_balance: number
+  opening_balance_date: string
+  default_tax_rate_id: string | null
+  is_active: boolean
+  current_balance: number | null
+  created_at: string
+  updated_at: string
+}
+
+export interface CashbookEntry {
+  id: string
+  account_id: string
+  entry_type: EntryType
+  date: string
+  description: string
+  total_amount: number
+  tax_amount: number | null
+  tax_rate_used: number | null
+  tax_override: boolean
+  category_id: string | null
+  contact_id: string | null
+  document_id: string | null
+  source: string | null
+  source_id: string | null
+  notes: string | null
+  user_id: string
+  bank_balance: number | null
+  category: TransactionCategory | null
+  created_at: string
+  updated_at: string
+}
+
+export interface CashbookEntryCreate {
+  account_id: string
+  entry_type: EntryType
+  date: string
+  description: string
+  total_amount: number
+  tax_amount?: number
+  tax_override?: boolean
+  category_id?: string
+  contact_id?: string
+  document_id?: string
+  notes?: string
+}
+
+export interface CashbookEntryUpdate {
+  entry_type?: EntryType
+  date?: string
+  description?: string
+  total_amount?: number
+  tax_amount?: number
+  tax_override?: boolean
+  category_id?: string
+  contact_id?: string
+  document_id?: string
+  notes?: string
+}
+
+export interface CashbookEntryFilters {
+  account_id?: string
+  entry_type?: EntryType
+  category_id?: string
+  date_from?: string
+  date_to?: string
+  search?: string
+  page?: number
+  page_size?: number
+}
+
+export interface CashbookCategoryTotal {
+  category_id: string | null
+  category_name: string
+  category_type: CategoryTypeEnum | null
+  entry_type: EntryType
+  total_amount: number
+  total_tax: number
+  count: number
+}
+
+export interface CashbookSummary {
+  opening_balance: number
+  closing_balance: number
+  total_income: number
+  total_expenses: number
+  net_change: number
+  total_tax_collected: number
+  total_tax_paid: number
+  category_totals: CashbookCategoryTotal[]
+  period_start: string
+  period_end: string
+}
+
+export interface ParsedExcelRow {
+  row_number: number
+  sheet_name: string
+  date: string | null
+  description: string
+  total_amount: number
+  category_name: string | null
+  entry_type: EntryType
+  tax_amount: number | null
+  errors: string[]
+}
+
+export interface ImportPreview {
+  rows: ParsedExcelRow[]
+  total_rows: number
+  valid_rows: number
+  error_rows: number
+  sheets_found: string[]
+}

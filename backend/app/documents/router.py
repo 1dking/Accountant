@@ -189,6 +189,8 @@ async def list_docs(
     date_to: str | None = None,
     uploaded_by: uuid.UUID | None = None,
     status: DocumentStatus | None = None,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
 ) -> dict:
     """List documents with filtering and pagination."""
     filters = DocumentFilter(
@@ -200,6 +202,8 @@ async def list_docs(
         date_to=date_to,
         uploaded_by=uploaded_by,
         status=status,
+        sort_by=sort_by,
+        sort_order=sort_order,
     )
     documents, meta = await list_documents(db, filters, pagination)
     return {

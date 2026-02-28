@@ -18,6 +18,7 @@ import {
   X,
   Inbox,
   Landmark,
+  BookOpen,
 } from 'lucide-react'
 import { useUiStore } from '@/stores/uiStore'
 import { useAuthStore } from '@/stores/authStore'
@@ -36,6 +37,7 @@ const NAV_ITEMS: NavItem[] = [
   { path: '/contacts', label: 'Contacts', icon: Users },
   { path: '/invoices', label: 'Invoices', icon: FileOutput },
   { path: '/estimates', label: 'Estimates', icon: ClipboardList },
+  { path: '/cashbook', label: 'Cashbook', icon: BookOpen },
   { path: '/expenses', label: 'Expenses', icon: Receipt },
   { path: '/income', label: 'Income', icon: TrendingUp },
   { path: '/recurring', label: 'Recurring', icon: RefreshCw },

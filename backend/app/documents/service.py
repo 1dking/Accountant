@@ -223,7 +223,11 @@ async def list_documents(
     total_count = await db.scalar(count_query) or 0
 
     # Order and paginate
-    query = query.order_by(Document.created_at.desc())
+    sort_column = getattr(Document, filters.sort_by, Document.created_at)
+    if filters.sort_order == "asc":
+        query = query.order_by(sort_column.asc())
+    else:
+        query = query.order_by(sort_column.desc())
     query = query.offset(pagination.offset).limit(pagination.page_size)
 
     result = await db.execute(query)

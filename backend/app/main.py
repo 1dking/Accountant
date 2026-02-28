@@ -36,6 +36,7 @@ import app.integrations.settings_models  # noqa: F401
 import app.accounting.period_models  # noqa: F401
 import app.invoicing.credit_models  # noqa: F401
 import app.accounting.tax_models  # noqa: F401
+import app.cashbook.models  # noqa: F401
 
 
 @asynccontextmanager
@@ -126,6 +127,7 @@ def create_app() -> FastAPI:
     from app.accounting.period_router import router as period_router
     from app.invoicing.credit_router import router as credit_notes_router
     from app.accounting.tax_router import router as tax_router
+    from app.cashbook.router import router as cashbook_router
 
     fastapi_app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
     fastapi_app.include_router(documents_router, prefix="/api/documents", tags=["documents"])
@@ -153,6 +155,7 @@ def create_app() -> FastAPI:
     fastapi_app.include_router(period_router, prefix="/api/accounting", tags=["accounting-periods"])
     fastapi_app.include_router(credit_notes_router, prefix="/api/invoices", tags=["credit-notes"])
     fastapi_app.include_router(tax_router, prefix="/api", tags=["sales-tax"])
+    fastapi_app.include_router(cashbook_router, prefix="/api/cashbook", tags=["cashbook"])
 
     # WebSocket endpoint
     @fastapi_app.websocket("/ws")

@@ -109,3 +109,13 @@ export const PERIOD_TYPES = [
   { value: 'quarterly', label: 'Quarterly' },
   { value: 'yearly', label: 'Yearly' },
 ] as const
+
+export const ACCOUNT_TYPES = [
+  { value: 'bank', label: 'Bank Account' },
+  { value: 'credit_card', label: 'Credit Card' },
+] as const
+
+export const ENTRY_TYPES = [
+  { value: 'income', label: 'Income', color: 'bg-green-100 text-green-700' },
+  { value: 'expense', label: 'Expense', color: 'bg-red-100 text-red-700' },
+] as const
