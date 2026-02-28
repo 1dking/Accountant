@@ -5,6 +5,7 @@ import { listDocuments, getFolderTree } from '@/api/documents'
 import DocumentCard from '@/components/documents/DocumentCard'
 import FolderTree from '@/components/documents/FolderTree'
 import UploadZone from '@/components/documents/UploadZone'
+import UploadBookingDialog from '@/components/documents/UploadBookingDialog'
 import { useDebounce } from '@/hooks/useDebounce'
 import { DOCUMENT_TYPES, DOCUMENT_STATUSES } from '@/lib/constants'
 import type { DocumentFilters } from '@/types/api'
@@ -14,6 +15,8 @@ export default function DocumentsPage() {
   const queryClient = useQueryClient()
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [showUpload, setShowUpload] = useState(false)
+  const [pendingFiles, setPendingFiles] = useState<File[]>([])
+  const [showBookingDialog, setShowBookingDialog] = useState(false)
 
   const [search, setSearch] = useState(searchParams.get('search') || '')
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null)
@@ -60,6 +63,25 @@ export default function DocumentsPage() {
   const handleUploadComplete = () => {
     queryClient.invalidateQueries({ queryKey: ['documents'] })
     setShowUpload(false)
+  }
+
+  const handleFilesSelected = (files: File[]) => {
+    setPendingFiles(files)
+    setShowBookingDialog(true)
+  }
+
+  const handleBookingComplete = () => {
+    setShowBookingDialog(false)
+    setPendingFiles([])
+    queryClient.invalidateQueries({ queryKey: ['documents'] })
+    queryClient.invalidateQueries({ queryKey: ['cashbook-entries'] })
+    queryClient.invalidateQueries({ queryKey: ['cashbook-summary'] })
+    setShowUpload(false)
+  }
+
+  const handleBookingClose = () => {
+    setShowBookingDialog(false)
+    setPendingFiles([])
   }
 
   return (
@@ -131,7 +153,7 @@ export default function DocumentsPage() {
         {/* Upload zone */}
         {showUpload && (
           <div className="bg-gray-50 border-b p-4">
-            <UploadZone folderId={selectedFolder ?? undefined} onUploadComplete={handleUploadComplete} />
+            <UploadZone folderId={selectedFolder ?? undefined} onFilesSelected={handleFilesSelected} onUploadComplete={handleUploadComplete} />
           </div>
         )}
 
@@ -204,6 +226,14 @@ export default function DocumentsPage() {
           )}
         </div>
       </div>
+
+      <UploadBookingDialog
+        isOpen={showBookingDialog}
+        files={pendingFiles}
+        folderId={selectedFolder ?? undefined}
+        onClose={handleBookingClose}
+        onComplete={handleBookingComplete}
+      />
     </div>
   )
 }

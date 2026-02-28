@@ -203,3 +203,21 @@ class ImportPreview(BaseModel):
 class ImportConfirm(BaseModel):
     account_id: uuid.UUID
     rows: list[ParsedExcelRow]
+
+
+# ---------------------------------------------------------------------------
+# Capture (upload-and-book) schemas
+# ---------------------------------------------------------------------------
+
+
+class CashbookCaptureResponse(BaseModel):
+    document_id: uuid.UUID
+    document_title: str
+    entry_id: uuid.UUID | None = None
+    entry_type: EntryType | None = None
+    entry_amount: float | None = None
+    entry_description: str | None = None
+    entry_date: str | None = None
+    category_name: str | None = None
+    extraction: dict | None = None
+    processing_time_ms: int

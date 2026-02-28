@@ -108,3 +108,31 @@ export function importExcelConfirm(data: { account_id: string; rows: unknown[] }
     data
   )
 }
+
+// Capture (upload-and-book)
+export interface CashbookCaptureResult {
+  document_id: string
+  document_title: string
+  entry_id: string | null
+  entry_type: string | null
+  entry_amount: number | null
+  entry_description: string | null
+  entry_date: string | null
+  category_name: string | null
+  extraction: Record<string, unknown> | null
+  processing_time_ms: number
+}
+
+export function cashbookCapture(
+  file: File,
+  entryType: 'income' | 'expense',
+  accountId: string,
+  folderId?: string
+) {
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('entry_type', entryType)
+  formData.append('account_id', accountId)
+  if (folderId) formData.append('folder_id', folderId)
+  return api.upload<ApiResponse<CashbookCaptureResult>>('/cashbook/capture', formData)
+}

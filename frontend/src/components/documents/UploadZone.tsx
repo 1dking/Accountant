@@ -7,6 +7,7 @@ import { formatFileSize } from '@/lib/utils'
 interface UploadZoneProps {
   folderId?: string
   onUploadComplete?: () => void
+  onFilesSelected?: (files: File[]) => void
   compact?: boolean
 }
 
@@ -16,13 +17,19 @@ interface UploadProgress {
   error?: string
 }
 
-export default function UploadZone({ folderId, onUploadComplete, compact }: UploadZoneProps) {
+export default function UploadZone({ folderId, onUploadComplete, onFilesSelected, compact }: UploadZoneProps) {
   const [uploads, setUploads] = useState<UploadProgress[]>([])
   const [isUploading, setIsUploading] = useState(false)
 
   const onDrop = useCallback(
     async (acceptedFiles: File[]) => {
       if (acceptedFiles.length === 0) return
+
+      // If parent wants to intercept file selection, delegate to it
+      if (onFilesSelected) {
+        onFilesSelected(acceptedFiles)
+        return
+      }
 
       const items: UploadProgress[] = acceptedFiles.map((file) => ({
         file,
@@ -44,7 +51,7 @@ export default function UploadZone({ folderId, onUploadComplete, compact }: Uplo
         setIsUploading(false)
       }
     },
-    [folderId, onUploadComplete]
+    [folderId, onUploadComplete, onFilesSelected]
   )
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({

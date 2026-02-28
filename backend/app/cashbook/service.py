@@ -1,8 +1,10 @@
 """Business logic for the cashbook module."""
 
+import logging
+import time
 import uuid
 from datetime import date
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,6 +29,12 @@ from app.cashbook.schemas import (
 )
 from app.core.exceptions import ConflictError, ForbiddenError, NotFoundError, ValidationError
 from app.core.pagination import PaginationParams, build_pagination_meta
+
+if TYPE_CHECKING:
+    from app.documents.models import Document
+    from app.documents.storage import StorageBackend
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -726,3 +734,166 @@ async def get_summary(
         "period_start": date_from,
         "period_end": date_to,
     }
+
+
+# ---------------------------------------------------------------------------
+# Document Capture → Cashbook Entry
+# ---------------------------------------------------------------------------
+
+# Maps AI extraction categories to TransactionCategory names
+AI_TO_TRANSACTION_CATEGORY: dict[str, dict[str, str]] = {
+    "food_dining": {"expense": "Meals", "income": "Other Income"},
+    "transportation": {"expense": "Vehicle Fuel", "income": "Other Income"},
+    "office_supplies": {"expense": "Office Supplies", "income": "Other Income"},
+    "travel": {"expense": "Travel", "income": "Other Income"},
+    "utilities": {"expense": "Utilities", "income": "Other Income"},
+    "insurance": {"expense": "Insurance General", "income": "Other Income"},
+    "professional_services": {"expense": "Professional Fees", "income": "Fees"},
+    "software_subscriptions": {"expense": "Dues & Subscriptions", "income": "Other Income"},
+    "marketing": {"expense": "Advertising", "income": "Other Income"},
+    "equipment": {"expense": "Repairs & Maintenance", "income": "Other Income"},
+    "taxes": {"expense": "HST/GST Paid", "income": "HST/GST Collected"},
+    "entertainment": {"expense": "Meals & Entertainment", "income": "Other Income"},
+    "healthcare": {"expense": "Other Expense", "income": "Other Income"},
+    "education": {"expense": "Education & Training", "income": "Other Income"},
+    "other": {"expense": "Other Expense", "income": "Other Income"},
+}
+
+
+async def _create_entry_from_extraction(
+    db: AsyncSession,
+    document: "Document",
+    extraction: dict,
+    entry_type: EntryType,
+    account_id: uuid.UUID,
+    user: User,
+) -> CashbookEntry:
+    """Create a CashbookEntry from AI-extracted metadata."""
+    # Map AI category to TransactionCategory
+    category_id = None
+    ai_category = extraction.get("category")
+    if ai_category:
+        mapping = AI_TO_TRANSACTION_CATEGORY.get(ai_category, {})
+        target_name = mapping.get(entry_type.value)
+        if target_name:
+            result = await db.execute(
+                select(TransactionCategory).where(
+                    TransactionCategory.name == target_name
+                )
+            )
+            cat = result.scalar_one_or_none()
+            if cat:
+                category_id = cat.id
+
+    # Parse date
+    entry_date = date.today()
+    date_str = extraction.get("date")
+    if date_str:
+        try:
+            entry_date = date.fromisoformat(date_str)
+        except ValueError:
+            pass
+
+    # Build description
+    vendor = extraction.get("vendor_name") or ""
+    description = vendor or f"From {document.title or document.original_filename}"
+    if len(description) > 500:
+        description = description[:497] + "..."
+
+    # Determine tax handling
+    tax_amount = extraction.get("tax_amount")
+    tax_override = tax_amount is not None
+
+    entry_data = CashbookEntryCreate(
+        account_id=account_id,
+        entry_type=entry_type,
+        date=entry_date,
+        description=description,
+        total_amount=extraction["total_amount"],
+        tax_amount=tax_amount,
+        tax_override=tax_override,
+        category_id=category_id,
+        document_id=document.id,
+    )
+
+    return await create_entry(db, entry_data, user)
+
+
+async def capture_and_book(
+    db: AsyncSession,
+    storage: "StorageBackend",
+    file_data: bytes,
+    filename: str,
+    content_type: str,
+    user: User,
+    settings: object,
+    entry_type: EntryType,
+    account_id: uuid.UUID,
+    folder_id: uuid.UUID | None = None,
+) -> tuple["Document", dict | None, CashbookEntry | None, int]:
+    """Upload a document, extract data with AI, and create a cashbook entry.
+
+    Each step is independent: if AI fails the document is still saved,
+    and if entry creation fails the document + extraction are still saved.
+    """
+    from app.documents.service import upload_document
+
+    start = time.monotonic()
+
+    # Step 1: Upload the document
+    doc_type = "receipt" if entry_type == EntryType.EXPENSE else "invoice"
+    document = await upload_document(
+        db=db,
+        storage=storage,
+        file_data=file_data,
+        filename=filename,
+        content_type=content_type,
+        user=user,
+        folder_id=folder_id,
+        settings=settings,
+        document_type=doc_type,
+        title=None,
+    )
+
+    extraction_dict: dict | None = None
+    entry: CashbookEntry | None = None
+
+    # Step 2: AI extraction (synchronous, not background)
+    extractable_types = {
+        "image/png", "image/jpeg", "image/webp", "image/gif", "application/pdf",
+    }
+    if content_type in extractable_types and getattr(settings, "anthropic_api_key", None):
+        try:
+            from app.ai.service import process_document_ai
+
+            _doc, extraction_result = await process_document_ai(
+                db, storage, document.id, settings,
+            )
+            extraction_dict = extraction_result.model_dump(mode="json")
+        except Exception:
+            logger.warning(
+                "Cashbook capture: AI extraction failed for document %s",
+                document.id,
+                exc_info=True,
+            )
+
+    # Step 3: Create cashbook entry from extraction
+    if extraction_dict and extraction_dict.get("total_amount"):
+        try:
+            entry = await _create_entry_from_extraction(
+                db=db,
+                document=document,
+                extraction=extraction_dict,
+                entry_type=entry_type,
+                account_id=account_id,
+                user=user,
+            )
+        except Exception:
+            logger.warning(
+                "Cashbook capture: entry creation failed for document %s",
+                document.id,
+                exc_info=True,
+            )
+
+    elapsed_ms = int((time.monotonic() - start) * 1000)
+    return document, extraction_dict, entry, elapsed_ms

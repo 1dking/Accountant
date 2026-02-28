@@ -5,7 +5,7 @@ import uuid
 from datetime import date
 from typing import Annotated, Optional
 
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,6 +14,7 @@ from app.cashbook import service
 from app.cashbook.excel_import import parse_excel_file
 from app.cashbook.models import CategoryType, EntryType
 from app.cashbook.schemas import (
+    CashbookCaptureResponse,
     CashbookEntryCreate,
     CashbookEntryFilter,
     CashbookEntryResponse,
@@ -30,8 +31,15 @@ from app.cashbook.schemas import (
 )
 from app.core.pagination import PaginationParams, get_pagination
 from app.dependencies import get_current_user, get_db, require_role
+from app.documents.storage import LocalStorage, StorageBackend
 
 router = APIRouter()
+
+
+def get_storage(request: Request) -> StorageBackend:
+    """Resolve the storage backend from application settings."""
+    settings = request.app.state.settings
+    return LocalStorage(settings.storage_path)
 
 
 # ---------------------------------------------------------------------------
@@ -229,6 +237,60 @@ async def delete_entry(
 ) -> dict:
     await service.delete_entry(db, entry_id)
     return {"data": {"message": "Entry deleted successfully"}}
+
+
+# ---------------------------------------------------------------------------
+# Capture (upload-and-book) endpoint
+# ---------------------------------------------------------------------------
+
+
+@router.post("/capture", status_code=201)
+async def capture_endpoint(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    storage: Annotated[StorageBackend, Depends(get_storage)],
+    file: UploadFile = File(...),
+    entry_type: EntryType = ...,
+    account_id: uuid.UUID = ...,
+    folder_id: uuid.UUID | None = None,
+) -> dict:
+    """Upload a document, run AI extraction, and create a cashbook entry.
+
+    Chains upload -> sync AI extraction -> cashbook entry creation.
+    Each step is independent: if AI fails the document is still saved,
+    if entry creation fails the document + extraction are still saved.
+    """
+    file_data = await file.read()
+    settings = request.app.state.settings
+
+    document, extraction, entry, elapsed_ms = await service.capture_and_book(
+        db=db,
+        storage=storage,
+        file_data=file_data,
+        filename=file.filename or "document",
+        content_type=file.content_type or "application/octet-stream",
+        user=current_user,
+        settings=settings,
+        entry_type=entry_type,
+        account_id=account_id,
+        folder_id=folder_id,
+    )
+
+    return {
+        "data": CashbookCaptureResponse(
+            document_id=document.id,
+            document_title=document.title or document.original_filename,
+            entry_id=entry.id if entry else None,
+            entry_type=entry.entry_type if entry else None,
+            entry_amount=entry.total_amount if entry else None,
+            entry_description=entry.description if entry else None,
+            entry_date=str(entry.date) if entry else None,
+            category_name=None,
+            extraction=extraction,
+            processing_time_ms=elapsed_ms,
+        )
+    }
 
 
 # ---------------------------------------------------------------------------
