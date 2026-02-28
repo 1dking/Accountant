@@ -1,12 +1,13 @@
 """FastAPI router for the documents module."""
 
 
+import asyncio
 import io
 import logging
 import uuid
-from typing import Annotated, List
+from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Query, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -97,7 +98,6 @@ async def _run_ai_extraction(document_id: uuid.UUID, storage_path: str, settings
 @router.post("/upload", status_code=201)
 async def upload(
     request: Request,
-    background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
     storage: Annotated[StorageBackend, Depends(get_storage)],
@@ -105,9 +105,8 @@ async def upload(
     folder_id: uuid.UUID | None = None,
     document_type: DocumentType = DocumentType.OTHER,
     title: str | None = None,
-    tags: List[str] = Form(default=[]),
 ) -> dict:
-    """Upload a new document with optional tags. Auto-triggers AI extraction."""
+    """Upload a new document. Auto-triggers AI extraction in background."""
     file_data = await file.read()
     settings = request.app.state.settings
 
@@ -124,19 +123,12 @@ async def upload(
         title=title,
     )
 
-    # Apply tags if provided (tags are sent as UUID strings from the frontend)
-    if tags:
-        tag_uuids = [uuid.UUID(t) for t in tags if t]
-        if tag_uuids:
-            await add_tags_to_document(db, document.id, tag_uuids, current_user)
-            await db.refresh(document)
-
-    # Auto-trigger AI extraction in background
+    # Fire-and-forget AI extraction (asyncio.create_task so it doesn't block response)
     from app.ai.service import EXTRACTABLE_MIME_TYPES
 
     if document.mime_type in EXTRACTABLE_MIME_TYPES and settings.anthropic_api_key:
-        background_tasks.add_task(
-            _run_ai_extraction, document.id, document.storage_path, settings
+        asyncio.create_task(
+            _run_ai_extraction(document.id, document.storage_path, settings)
         )
 
     return {"data": DocumentUploadResponse.model_validate(document)}
