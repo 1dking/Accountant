@@ -6,7 +6,7 @@ import logging
 import os
 import uuid
 
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -305,14 +305,56 @@ async def delete_document(
         if version.storage_path != document.storage_path:
             paths_to_delete.append(version.storage_path)
 
-    # Explicitly delete related records that reference this document
-    # to avoid FK constraint errors on databases that enforce them
+    # Explicitly delete ALL related records to avoid FK constraint errors
     from app.collaboration.models import ApprovalWorkflow, Comment
+    from app.documents.models import DocumentVersion, document_tags
 
     await db.execute(delete(Comment).where(Comment.document_id == document_id))
     await db.execute(
         delete(ApprovalWorkflow).where(ApprovalWorkflow.document_id == document_id)
     )
+    await db.execute(
+        delete(DocumentVersion).where(DocumentVersion.document_id == document_id)
+    )
+    await db.execute(
+        document_tags.delete().where(document_tags.c.document_id == document_id)
+    )
+
+    # Nullify SET NULL references
+    from app.accounting.models import Expense
+    from app.cashbook.models import CashbookEntry
+    from app.calendar.models import CalendarEvent
+    from sqlalchemy import update
+
+    await db.execute(
+        update(Expense).where(Expense.document_id == document_id).values(document_id=None)
+    )
+    await db.execute(
+        update(CashbookEntry).where(CashbookEntry.document_id == document_id).values(document_id=None)
+    )
+    await db.execute(
+        update(CalendarEvent).where(CalendarEvent.document_id == document_id).values(document_id=None)
+    )
+
+    # Nullify income reference if the column exists
+    try:
+        from app.income.models import Income
+        await db.execute(
+            update(Income).where(Income.document_id == document_id).values(document_id=None)
+        )
+    except Exception:
+        pass
+
+    # Nullify gmail scan result reference if applicable
+    try:
+        from app.integrations.gmail.models import GmailScanResult
+        await db.execute(
+            update(GmailScanResult)
+            .where(GmailScanResult.matched_document_id == document_id)
+            .values(matched_document_id=None)
+        )
+    except Exception:
+        pass
 
     # Audit log before deletion
     await _create_audit_log(
@@ -325,7 +367,9 @@ async def delete_document(
     )
 
     try:
-        await db.delete(document)
+        # Expire the document from session to avoid stale relationship references
+        await db.flush()
+        await db.execute(delete(Document).where(Document.id == document_id))
         await db.commit()
     except Exception:
         await db.rollback()
