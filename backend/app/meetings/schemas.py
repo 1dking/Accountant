@@ -131,6 +131,10 @@ class MeetingListItem(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+class GuestJoinRequest(BaseModel):
+    guest_name: str = Field(min_length=1, max_length=255)
+
+
 class JoinTokenResponse(BaseModel):
     token: str
     room_name: str

@@ -17,6 +17,7 @@ from app.documents.storage import LocalStorage, StorageBackend
 from app.meetings import service
 from app.meetings.models import MeetingRecording, MeetingStatus, RecordingStatus
 from app.meetings.schemas import (
+    GuestJoinRequest,
     MeetingCreate,
     MeetingListItem,
     MeetingParticipantAdd,
@@ -275,14 +276,15 @@ async def join_meeting(
 @router.post("/{meeting_id}/join-guest")
 async def join_meeting_as_guest(
     meeting_id: uuid.UUID,
+    body: GuestJoinRequest,
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
-    join_token: str = Query(..., description="Guest join token"),
+    token: str = Query(..., description="Guest join token"),
 ) -> dict:
     """Join a meeting as a guest using a join token. No authentication required."""
     settings = request.app.state.settings
     token_response = await service.join_meeting_as_guest(
-        db, meeting_id, join_token, settings
+        db, meeting_id, token, body.guest_name, settings
     )
     return {"data": token_response.model_dump()}
 

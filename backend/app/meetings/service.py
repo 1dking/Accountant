@@ -371,20 +371,11 @@ async def join_meeting_as_guest(
     db: AsyncSession,
     meeting_id: uuid.UUID,
     join_token: str,
+    guest_name: str,
     settings: Settings,
 ) -> JoinTokenResponse:
     """Join a meeting using a guest join token (no auth required)."""
-    result = await db.execute(
-        select(MeetingParticipant).where(
-            MeetingParticipant.meeting_id == meeting_id,
-            MeetingParticipant.join_token == join_token,
-        )
-    )
-    participant = result.scalar_one_or_none()
-    if participant is None:
-        raise NotFoundError("MeetingParticipant", join_token)
-
-    # Load the meeting
+    # Load the meeting first
     meeting_result = await db.execute(
         select(Meeting).where(Meeting.id == meeting_id)
     )
@@ -392,16 +383,39 @@ async def join_meeting_as_guest(
     if meeting is None:
         raise NotFoundError("Meeting", str(meeting_id))
 
-    if meeting.status != MeetingStatus.IN_PROGRESS:
-        raise ValidationError("Meeting is not currently in progress.")
+    if meeting.status not in (MeetingStatus.SCHEDULED, MeetingStatus.IN_PROGRESS):
+        raise ValidationError("Meeting is not available to join.")
 
-    # Generate token with guest identity
-    guest_name = participant.guest_name or participant.guest_email or "Guest"
-    identity = f"guest-{participant.id}"
+    # Look up existing participant by join token
+    result = await db.execute(
+        select(MeetingParticipant).where(
+            MeetingParticipant.meeting_id == meeting_id,
+            MeetingParticipant.join_token == join_token,
+        )
+    )
+    participant = result.scalar_one_or_none()
+
+    if participant is None:
+        # Create an ad-hoc guest participant with this token
+        participant = MeetingParticipant(
+            meeting_id=meeting_id,
+            guest_name=guest_name,
+            role=ParticipantRole.PARTICIPANT,
+            join_token=join_token,
+        )
+        db.add(participant)
+    else:
+        # Update existing participant's name if provided
+        if guest_name:
+            participant.guest_name = guest_name
 
     participant.joined_at = datetime.now(timezone.utc)
     await db.commit()
     await db.refresh(participant)
+
+    # Generate token with guest identity
+    display_name = participant.guest_name or "Guest"
+    identity = f"guest-{participant.id}"
 
     token = generate_livekit_token(meeting.livekit_room_name, identity, settings)
 
