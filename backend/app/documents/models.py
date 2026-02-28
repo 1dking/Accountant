@@ -7,6 +7,7 @@ from datetime import datetime
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     Column,
     DateTime,
     Enum,
@@ -87,6 +88,8 @@ class Folder(TimestampMixin, Base):
     created_by: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id"), nullable=False
     )
+    is_starred: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+    is_trashed: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
 
     # Relationships
     parent: Mapped["Folder | None"] = relationship(
@@ -128,6 +131,11 @@ class Document(TimestampMixin, Base):
 
     uploaded_by: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id"), nullable=False
+    )
+    is_starred: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+    is_trashed: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+    trashed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
     )
 
     # Relationships

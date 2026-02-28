@@ -14,6 +14,7 @@ class EventType(str, enum.Enum):
     REMINDER = "reminder"
     TAX_DATE = "tax_date"
     CONTRACT_EXPIRY = "contract_expiry"
+    MEETING = "meeting"
     CUSTOM = "custom"
 
 

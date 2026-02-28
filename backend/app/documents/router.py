@@ -26,7 +26,11 @@ from app.documents.schemas import (
     FolderResponse,
     FolderTreeResponse,
     FolderUpdate,
+    MoveDocumentRequest,
+    MoveFolderRequest,
     QuickCaptureResponse,
+    StarRequest,
+    StorageUsageResponse,
     TagCreate,
     TagResponse,
     TagUpdate,
@@ -39,14 +43,24 @@ from app.documents.service import (
     delete_folder,
     delete_tag,
     download_document,
+    empty_trash,
     get_document,
     get_document_versions,
     get_folder_tree,
+    get_storage_usage,
     list_documents,
+    list_recent,
+    list_starred,
     list_tags,
+    list_trashed,
+    move_document,
+    move_folder,
     quick_capture,
     remove_tag_from_document,
+    restore_document,
     search_documents,
+    star_document,
+    trash_document,
     update_document,
     update_folder,
     update_tag,
@@ -315,6 +329,76 @@ async def delete_tag_endpoint(
     return {"data": {"message": "Tag deleted successfully"}}
 
 
+@router.get("/starred")
+async def list_starred_endpoint(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+) -> dict:
+    """List all starred documents and folders for the current user."""
+    items, total = await list_starred(db, current_user.id, skip=skip, limit=limit)
+    # Serialize: items may be a mix of Document and Folder objects
+    data = []
+    for item in items:
+        if hasattr(item, "mime_type"):
+            data.append(DocumentListItem.model_validate(item))
+        else:
+            data.append(FolderResponse.model_validate(item))
+    return {"data": data, "meta": {"total": total, "skip": skip, "limit": limit}}
+
+
+@router.get("/trash")
+async def list_trashed_endpoint(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+) -> dict:
+    """List all trashed documents for the current user."""
+    documents, total = await list_trashed(db, current_user.id, skip=skip, limit=limit)
+    return {
+        "data": [DocumentListItem.model_validate(d) for d in documents],
+        "meta": {"total": total, "skip": skip, "limit": limit},
+    }
+
+
+@router.get("/recent")
+async def list_recent_endpoint(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+) -> dict:
+    """List recently modified/uploaded documents."""
+    documents, total = await list_recent(db, current_user.id, skip=skip, limit=limit)
+    return {
+        "data": [DocumentListItem.model_validate(d) for d in documents],
+        "meta": {"total": total, "skip": skip, "limit": limit},
+    }
+
+
+@router.get("/storage-usage")
+async def storage_usage_endpoint(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    """Return storage usage statistics for the current user."""
+    usage = await get_storage_usage(db, current_user.id)
+    return {"data": StorageUsageResponse(**usage)}
+
+
+@router.delete("/trash/empty")
+async def empty_trash_endpoint(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    storage: Annotated[StorageBackend, Depends(get_storage)],
+) -> dict:
+    """Permanently delete all trashed documents for the current user."""
+    count = await empty_trash(db, storage, current_user.id)
+    return {"data": {"message": f"Permanently deleted {count} documents", "count": count}}
+
+
 @router.get("/{document_id}")
 async def get_doc(
     document_id: uuid.UUID,
@@ -367,10 +451,127 @@ async def delete_doc(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
     storage: Annotated[StorageBackend, Depends(get_storage)],
+    permanent: bool = Query(False, description="Permanently delete instead of trash"),
 ) -> dict:
-    """Delete a document."""
-    await delete_document(db, storage, document_id, current_user)
+    """Delete a document (soft-delete by default, permanent if ?permanent=true)."""
+    await delete_document(db, storage, document_id, current_user, permanent=permanent)
     return {"data": {"message": "Document deleted successfully"}}
+
+
+@router.post("/{document_id}/star")
+async def star_document_endpoint(
+    document_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    body: StarRequest | None = None,
+) -> dict:
+    """Toggle star on a document."""
+    starred = body.starred if body is not None else True
+    document = await star_document(db, document_id, current_user.id, starred)
+    return {"data": DocumentResponse.model_validate(document)}
+
+
+@router.post("/{document_id}/trash")
+async def trash_document_endpoint(
+    document_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+) -> dict:
+    """Soft-delete a document (move to trash)."""
+    document = await trash_document(db, document_id, current_user.id)
+    return {"data": DocumentResponse.model_validate(document)}
+
+
+@router.post("/{document_id}/restore")
+async def restore_document_endpoint(
+    document_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+) -> dict:
+    """Restore a document from trash."""
+    document = await restore_document(db, document_id, current_user.id)
+    return {"data": DocumentResponse.model_validate(document)}
+
+
+@router.post("/{document_id}/move")
+async def move_document_endpoint(
+    document_id: uuid.UUID,
+    body: MoveDocumentRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+) -> dict:
+    """Move a document to a different folder."""
+    document = await move_document(db, document_id, body.folder_id, current_user.id)
+    return {"data": DocumentResponse.model_validate(document)}
+
+
+@router.post("/folders/{folder_id}/move")
+async def move_folder_endpoint(
+    folder_id: uuid.UUID,
+    body: MoveFolderRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+) -> dict:
+    """Move a folder to a different parent folder."""
+    folder = await move_folder(db, folder_id, body.parent_id, current_user.id)
+    return {"data": FolderResponse.model_validate(folder)}
+
+
+@router.get("/{document_id}/stream")
+async def stream_document(
+    document_id: uuid.UUID,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(get_current_user_or_token)],
+    storage: Annotated[StorageBackend, Depends(get_storage)],
+) -> StreamingResponse:
+    """Stream a document with HTTP Range header support for video playback.
+
+    Supports partial content requests (Range: bytes=start-end) and returns
+    206 Partial Content with the appropriate Content-Range header.
+    """
+    data, document = await download_document(db, storage, document_id)
+    file_size = len(data)
+
+    range_header = request.headers.get("range")
+    if range_header:
+        # Parse Range header: "bytes=start-end"
+        range_str = range_header.strip().lower()
+        if range_str.startswith("bytes="):
+            range_str = range_str[6:]
+            parts = range_str.split("-", 1)
+            start = int(parts[0]) if parts[0] else 0
+            end = int(parts[1]) if parts[1] else file_size - 1
+
+            # Clamp values
+            start = max(0, start)
+            end = min(end, file_size - 1)
+
+            content_length = end - start + 1
+            chunk = data[start : end + 1]
+
+            return StreamingResponse(
+                io.BytesIO(chunk),
+                status_code=206,
+                media_type=document.mime_type,
+                headers={
+                    "Content-Range": f"bytes {start}-{end}/{file_size}",
+                    "Accept-Ranges": "bytes",
+                    "Content-Length": str(content_length),
+                    "Content-Disposition": f'inline; filename="{document.original_filename}"',
+                },
+            )
+
+    # No Range header -- return full file
+    return StreamingResponse(
+        io.BytesIO(data),
+        media_type=document.mime_type,
+        headers={
+            "Accept-Ranges": "bytes",
+            "Content-Length": str(file_size),
+            "Content-Disposition": f'inline; filename="{document.original_filename}"',
+        },
+    )
 
 
 @router.post("/{document_id}/versions", status_code=201)

@@ -167,6 +167,35 @@ async def delete_account(
 
 
 # ---------------------------------------------------------------------------
+# Cashbook Entry by-source lookup
+# ---------------------------------------------------------------------------
+
+
+@router.get("/entries/by-source")
+async def get_entry_by_source(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(get_current_user)],
+    source: str = ...,
+    source_id: str = ...,
+) -> dict:
+    """Look up a cashbook entry by source (e.g. source=expense&source_id=<uuid>).
+
+    Returns the entry with its payment account info, or null if not booked.
+    """
+    entry = await service.get_entry_by_source(db, source, source_id)
+    if entry is None:
+        return {"data": None}
+    resp = CashbookEntryResponse.model_validate(entry)
+    account_name = entry.account.name if entry.account else None
+    return {
+        "data": {
+            **resp.model_dump(mode="json"),
+            "account_name": account_name,
+        }
+    }
+
+
+# ---------------------------------------------------------------------------
 # Cashbook Entry endpoints
 # ---------------------------------------------------------------------------
 

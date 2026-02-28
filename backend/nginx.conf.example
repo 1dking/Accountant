@@ -14,6 +14,9 @@ server {
 
     # Certbot will add SSL redirect here after running certbot --nginx
 
+    # Unlimited upload size (VPS disk is the limit)
+    client_max_body_size 0;
+
     # --- API reverse proxy ---
     location /api/ {
         proxy_pass http://127.0.0.1:8000/api/;
@@ -22,11 +25,12 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
 
-        # Allow large file uploads (matches backend MAX_UPLOAD_SIZE)
-        client_max_body_size 50M;
+        # Long timeout for AI extraction and large uploads
+        proxy_read_timeout 300;
+        proxy_send_timeout 300;
     }
 
-    # --- WebSocket reverse proxy ---
+    # --- WebSocket reverse proxy (notifications) ---
     location /ws {
         proxy_pass http://127.0.0.1:8000/ws;
         proxy_http_version 1.1;
@@ -38,6 +42,34 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
 
         # Keep WebSocket alive
+        proxy_read_timeout 86400;
+    }
+
+    # --- Hocuspocus collaboration server ---
+    location /collaborate/ {
+        proxy_pass http://127.0.0.1:1234/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_read_timeout 86400;
+    }
+
+    # --- LiveKit media server (WebSocket signalling) ---
+    location /livekit/ {
+        proxy_pass http://127.0.0.1:7880/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
         proxy_read_timeout 86400;
     }
 

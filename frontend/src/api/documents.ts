@@ -119,3 +119,49 @@ export async function quickCapture(file: File) {
   formData.append('file', file)
   return api.upload<ApiResponse<QuickCaptureResult>>('/documents/quick-capture', formData)
 }
+
+// Drive file manager API
+export async function starDocument(id: string, starred: boolean) {
+  return api.post<ApiResponse<{ message: string }>>(`/documents/${id}/star`, { starred })
+}
+
+export async function trashDocument(id: string) {
+  return api.post<ApiResponse<{ message: string }>>(`/documents/${id}/trash`)
+}
+
+export async function restoreDocument(id: string) {
+  return api.post<ApiResponse<{ message: string }>>(`/documents/${id}/restore`)
+}
+
+export async function moveDocument(id: string, folderId: string | null) {
+  return api.post<ApiResponse<{ message: string }>>(`/documents/${id}/move`, { folder_id: folderId })
+}
+
+export async function listStarred() {
+  return api.get<ApiResponse<any[]>>('/documents/starred')
+}
+
+export async function listTrashed() {
+  return api.get<ApiResponse<any[]>>('/documents/trash')
+}
+
+export async function listRecent() {
+  return api.get<ApiResponse<any[]>>('/documents/recent')
+}
+
+export async function getStorageUsage() {
+  return api.get<ApiResponse<{ total_bytes: number; document_count: number; folder_count: number }>>('/documents/storage-usage')
+}
+
+export async function emptyTrash() {
+  return api.delete<ApiResponse<{ message: string }>>('/documents/trash/empty')
+}
+
+export async function moveFolder(id: string, parentId: string | null) {
+  return api.post<ApiResponse<{ message: string }>>(`/documents/folders/${id}/move`, { parent_id: parentId })
+}
+
+export function getStreamUrl(id: string) {
+  const token = localStorage.getItem('access_token')
+  return `/api/documents/${id}/stream${token ? `?token=${encodeURIComponent(token)}` : ''}`
+}

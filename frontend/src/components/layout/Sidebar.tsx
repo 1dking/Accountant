@@ -2,6 +2,7 @@ import { useNavigate, useLocation } from 'react-router'
 import {
   LayoutDashboard,
   FileText,
+  HardDrive,
   Users,
   FileOutput,
   ClipboardList,
@@ -19,6 +20,11 @@ import {
   Inbox,
   Landmark,
   BookOpen,
+  Video,
+  Film,
+  FileEdit,
+  Table2,
+  Presentation,
 } from 'lucide-react'
 import { useUiStore } from '@/stores/uiStore'
 import { useAuthStore } from '@/stores/authStore'
@@ -33,6 +39,12 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { path: '/', label: 'Home', icon: LayoutDashboard },
+  { path: '/meetings', label: 'Meetings', icon: Video },
+  { path: '/recordings', label: 'Recordings', icon: Film },
+  { path: '/drive', label: 'Drive', icon: HardDrive },
+  { path: '/docs', label: 'Docs', icon: FileEdit },
+  { path: '/sheets', label: 'Sheets', icon: Table2 },
+  { path: '/slides', label: 'Slides', icon: Presentation },
   { path: '/documents', label: 'Documents', icon: FileText },
   { path: '/contacts', label: 'Contacts', icon: Users },
   { path: '/invoices', label: 'Invoices', icon: FileOutput },

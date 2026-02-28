@@ -56,6 +56,8 @@ class FolderResponse(BaseModel):
     parent_id: uuid.UUID | None
     description: str | None
     created_by: uuid.UUID
+    is_starred: bool = False
+    is_trashed: bool = False
     created_at: datetime
     updated_at: datetime
 
@@ -68,6 +70,8 @@ class FolderTreeResponse(BaseModel):
     parent_id: uuid.UUID | None
     description: str | None
     created_by: uuid.UUID
+    is_starred: bool = False
+    is_trashed: bool = False
     created_at: datetime
     updated_at: datetime
     children: list["FolderTreeResponse"] = []
@@ -114,6 +118,9 @@ class DocumentUploadResponse(BaseModel):
     title: str | None
     folder_id: uuid.UUID | None
     uploaded_by: uuid.UUID
+    is_starred: bool = False
+    is_trashed: bool = False
+    trashed_at: datetime | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -135,6 +142,9 @@ class DocumentResponse(BaseModel):
     extracted_text: str | None
     extracted_metadata: dict | None
     uploaded_by: uuid.UUID
+    is_starred: bool = False
+    is_trashed: bool = False
+    trashed_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
     folder: FolderResponse | None = None
@@ -159,6 +169,9 @@ class DocumentListItem(BaseModel):
     title: str | None
     description: str | None
     uploaded_by: uuid.UUID
+    is_starred: bool = False
+    is_trashed: bool = False
+    trashed_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
     folder: FolderResponse | None = None
@@ -207,3 +220,25 @@ class QuickCaptureResponse(BaseModel):
     expense_vendor: str | None = None
     expense_date: str | None = None
     processing_time_ms: int
+
+
+# ---------------------------------------------------------------------------
+# Star / Trash / Move request schemas
+# ---------------------------------------------------------------------------
+
+
+class StarRequest(BaseModel):
+    starred: bool = True
+
+
+class MoveDocumentRequest(BaseModel):
+    folder_id: uuid.UUID | None = None
+
+
+class MoveFolderRequest(BaseModel):
+    parent_id: uuid.UUID | None = None
+
+
+class StorageUsageResponse(BaseModel):
+    used_bytes: int
+    file_count: int

@@ -38,6 +38,8 @@ import app.accounting.period_models  # noqa: F401
 import app.invoicing.credit_models  # noqa: F401
 import app.accounting.tax_models  # noqa: F401
 import app.cashbook.models  # noqa: F401
+import app.meetings.models  # noqa: F401
+import app.office.models  # noqa: F401
 
 
 @asynccontextmanager
@@ -46,6 +48,7 @@ async def lifespan(application: FastAPI):
 
     # Ensure data directories exist before DB connection
     Path(settings.storage_path).mkdir(parents=True, exist_ok=True)
+    Path(settings.recordings_storage_path).mkdir(parents=True, exist_ok=True)
     if settings.is_sqlite:
         db_path = settings.database_url.split("///")[-1]
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
@@ -145,6 +148,8 @@ def create_app() -> FastAPI:
     from app.invoicing.credit_router import router as credit_notes_router
     from app.accounting.tax_router import router as tax_router
     from app.cashbook.router import router as cashbook_router
+    from app.meetings.router import router as meetings_router
+    from app.office.router import router as office_router
 
     fastapi_app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
     fastapi_app.include_router(documents_router, prefix="/api/documents", tags=["documents"])
@@ -173,6 +178,8 @@ def create_app() -> FastAPI:
     fastapi_app.include_router(credit_notes_router, prefix="/api/invoices", tags=["credit-notes"])
     fastapi_app.include_router(tax_router, prefix="/api", tags=["sales-tax"])
     fastapi_app.include_router(cashbook_router, prefix="/api/cashbook", tags=["cashbook"])
+    fastapi_app.include_router(meetings_router, prefix="/api/meetings", tags=["meetings"])
+    fastapi_app.include_router(office_router, prefix="/api/office", tags=["office"])
 
     # WebSocket endpoint
     @fastapi_app.websocket("/ws")

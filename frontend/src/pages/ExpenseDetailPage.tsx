@@ -8,6 +8,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { formatDate } from '@/lib/utils'
 import { EXPENSE_STATUSES, PAYMENT_METHODS } from '@/lib/constants'
 import { ArrowLeft, FileText, Pencil, Trash2 } from 'lucide-react'
+import CashbookLink from '@/components/shared/CashbookLink'
 import type { ExpenseStatus, PaymentMethod } from '@/types/models'
 
 function formatCurrency(amount: number, currency: string = 'USD'): string {
@@ -321,6 +322,9 @@ export default function ExpenseDetailPage() {
               </button>
             </div>
           )}
+
+          {/* Cashbook link */}
+          <CashbookLink source="expense" sourceId={expense.id} />
 
           {/* AI suggestion */}
           {expense.ai_category_suggestion && (

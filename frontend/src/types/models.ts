@@ -976,3 +976,104 @@ export interface ImportPreview {
   error_rows: number
   sheets_found: string[]
 }
+
+// Meetings
+export type MeetingStatus = 'scheduled' | 'in_progress' | 'completed' | 'cancelled'
+export type ParticipantRole = 'host' | 'participant'
+export type RecordingStatus = 'recording' | 'processing' | 'available' | 'failed'
+
+export interface MeetingParticipant {
+  id: string
+  meeting_id: string
+  user_id: string | null
+  contact_id: string | null
+  guest_name: string | null
+  guest_email: string | null
+  role: ParticipantRole
+  join_token: string | null
+  joined_at: string | null
+  left_at: string | null
+}
+
+export interface MeetingRecording {
+  id: string
+  meeting_id: string
+  status: RecordingStatus
+  duration_seconds: number | null
+  file_size: number | null
+  storage_path: string | null
+  mime_type: string
+  started_by: string
+  created_at: string
+}
+
+export interface Meeting {
+  id: string
+  title: string
+  description: string | null
+  status: MeetingStatus
+  scheduled_start: string
+  scheduled_end: string | null
+  actual_start: string | null
+  actual_end: string | null
+  livekit_room_name: string
+  record_meeting: boolean
+  created_by: string
+  contact_id: string | null
+  calendar_event_id: string | null
+  participants: MeetingParticipant[]
+  recordings: MeetingRecording[]
+  created_at: string
+  updated_at: string
+}
+
+export interface MeetingListItem {
+  id: string
+  title: string
+  status: MeetingStatus
+  scheduled_start: string
+  scheduled_end: string | null
+  contact_id: string | null
+  record_meeting: boolean
+  participant_count: number
+  created_at: string
+}
+
+// Office Suite
+export type DocType = 'document' | 'spreadsheet' | 'presentation'
+export type OfficePermission = 'view' | 'comment' | 'edit'
+
+export interface OfficeDocument {
+  id: string
+  title: string
+  doc_type: DocType
+  created_by: string
+  folder_id: string | null
+  content_preview: string | null
+  thumbnail_path: string | null
+  is_starred: boolean
+  is_trashed: boolean
+  last_accessed_at: string | null
+  collaborators: OfficeCollaborator[]
+  created_at: string
+  updated_at: string
+}
+
+export interface OfficeDocListItem {
+  id: string
+  title: string
+  doc_type: DocType
+  created_by: string
+  folder_id: string | null
+  is_starred: boolean
+  last_accessed_at: string | null
+  updated_at: string
+}
+
+export interface OfficeCollaborator {
+  id: string
+  user_id: string
+  user_email: string
+  user_name: string
+  permission: OfficePermission
+}

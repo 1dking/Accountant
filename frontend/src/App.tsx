@@ -38,7 +38,20 @@ import EstimateDetailPage from '@/pages/EstimateDetailPage'
 import CashbookPage from '@/pages/CashbookPage'
 import NewCashbookEntryPage from '@/pages/NewCashbookEntryPage'
 import CashbookEntryDetailPage from '@/pages/CashbookEntryDetailPage'
+import DrivePage from '@/pages/DrivePage'
+import MeetingsPage from '@/pages/MeetingsPage'
+import NewMeetingPage from '@/pages/NewMeetingPage'
+import MeetingDetailPage from '@/pages/MeetingDetailPage'
+import MeetingRoomPage from '@/pages/MeetingRoomPage'
+import MeetingGuestJoinPage from '@/pages/MeetingGuestJoinPage'
+import RecordingsPage from '@/pages/RecordingsPage'
 import HelpPage from '@/pages/HelpPage'
+import DocsHomePage from '@/pages/DocsHomePage'
+import SheetsHomePage from '@/pages/SheetsHomePage'
+import SlidesHomePage from '@/pages/SlidesHomePage'
+import DocEditorPage from '@/pages/DocEditorPage'
+import SheetEditorPage from '@/pages/SheetEditorPage'
+import SlideEditorPage from '@/pages/SlideEditorPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -93,6 +106,7 @@ function AuthenticatedApp() {
         <Route path="/" element={<DashboardPage />} />
         <Route path="/documents" element={<DocumentsPage />} />
         <Route path="/documents/:id" element={<DocumentDetailPage />} />
+        <Route path="/drive" element={<DrivePage />} />
         <Route path="/contacts" element={<ContactsPage />} />
         <Route path="/contacts/new" element={<NewContactPage />} />
         <Route path="/contacts/:id" element={<ContactDetailPage />} />
@@ -121,6 +135,17 @@ function AuthenticatedApp() {
         <Route path="/capture" element={<CapturePage />} />
         <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/meetings" element={<MeetingsPage />} />
+        <Route path="/meetings/new" element={<NewMeetingPage />} />
+        <Route path="/meetings/:id" element={<MeetingDetailPage />} />
+        <Route path="/meetings/:id/room" element={<MeetingRoomPage />} />
+        <Route path="/recordings" element={<RecordingsPage />} />
+        <Route path="/docs" element={<DocsHomePage />} />
+        <Route path="/docs/:id" element={<DocEditorPage />} />
+        <Route path="/sheets" element={<SheetsHomePage />} />
+        <Route path="/sheets/:id" element={<SheetEditorPage />} />
+        <Route path="/slides" element={<SlidesHomePage />} />
+        <Route path="/slides/:id" element={<SlideEditorPage />} />
         <Route path="/help" element={<HelpPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
@@ -141,6 +166,7 @@ export default function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/meetings/:id/guest" element={<MeetingGuestJoinPage />} />
             <Route
               path="/*"
               element={

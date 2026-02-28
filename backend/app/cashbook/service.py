@@ -38,6 +38,31 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
+# By-source lookup (link expense/income → cashbook entry)
+# ---------------------------------------------------------------------------
+
+
+async def get_entry_by_source(
+    db: AsyncSession,
+    source: str,
+    source_id: str,
+) -> CashbookEntry | None:
+    """Look up a CashbookEntry by its source type and source ID.
+
+    Used to find which cashbook account an expense or income is booked to.
+    """
+    result = await db.execute(
+        select(CashbookEntry)
+        .options(selectinload(CashbookEntry.account))
+        .where(
+            CashbookEntry.source == source,
+            CashbookEntry.source_id == source_id,
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+# ---------------------------------------------------------------------------
 # Default transaction categories (matching the accountant's spreadsheet)
 # ---------------------------------------------------------------------------
 

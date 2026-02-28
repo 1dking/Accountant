@@ -20,7 +20,8 @@ class Settings(BaseSettings):
     # Storage
     storage_type: str = "local"
     storage_path: str = "./data/documents"
-    max_upload_size: int = 50 * 1024 * 1024  # 50MB
+    max_upload_size: int = 0  # 0 = unlimited (VPS disk is the limit)
+    recordings_storage_path: str = "./data/recordings"
 
     # Server
     host: str = "127.0.0.1"
@@ -63,6 +64,11 @@ class Settings(BaseSettings):
     twilio_account_sid: str = ""
     twilio_auth_token: str = ""
     twilio_from_number: str = ""
+
+    # LiveKit (video meetings)
+    livekit_url: str = ""
+    livekit_api_key: str = ""
+    livekit_api_secret: str = ""
 
     @property
     def is_sqlite(self) -> bool:

@@ -6,6 +6,8 @@ import logging
 import os
 import uuid
 
+from datetime import datetime, timezone
+
 from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -109,17 +111,10 @@ async def upload_document(
 ) -> Document:
     """Validate, store, and create a Document with an initial version."""
 
-    # Validate file size
-    if len(file_data) > settings.max_upload_size:
+    # Validate file size (0 = unlimited)
+    if settings.max_upload_size > 0 and len(file_data) > settings.max_upload_size:
         raise ValidationError(
             f"File size {len(file_data)} exceeds maximum allowed size of {settings.max_upload_size} bytes."
-        )
-
-    # Validate MIME type
-    if content_type not in ALLOWED_MIME_TYPES:
-        raise ValidationError(
-            f"File type '{content_type}' is not allowed. "
-            f"Allowed types: {', '.join(sorted(ALLOWED_MIME_TYPES))}"
         )
 
     # Validate folder exists if specified
@@ -188,6 +183,9 @@ async def list_documents(
         selectinload(Document.tags),
         selectinload(Document.folder),
     )
+
+    # Exclude trashed documents by default
+    query = query.where(Document.is_trashed == False)  # noqa: E712
 
     # Apply filters
     if filters.search:
@@ -295,10 +293,28 @@ async def delete_document(
     storage: StorageBackend,
     document_id: uuid.UUID,
     user: User,
+    permanent: bool = False,
 ) -> None:
-    """Delete a document, its versions, and the underlying storage files."""
+    """Delete a document. Soft-deletes by default; permanently deletes if permanent=True."""
     document = await get_document(db, document_id)
 
+    if not permanent:
+        # Soft delete: set is_trashed and trashed_at
+        document.is_trashed = True
+        document.trashed_at = datetime.now(timezone.utc)
+        await _create_audit_log(
+            db,
+            user_id=user.id,
+            action="trash",
+            resource_type="document",
+            resource_id=str(document_id),
+            details={"filename": document.filename},
+        )
+        await db.commit()
+        await db.refresh(document)
+        return
+
+    # Permanent delete path
     # Collect all storage paths (main + versions)
     paths_to_delete = [document.storage_path]
     for version in document.versions:
@@ -443,13 +459,11 @@ async def upload_version(
 ) -> DocumentVersion:
     """Upload a new version of an existing document."""
 
-    # Validate
-    if len(file_data) > settings.max_upload_size:
+    # Validate file size (0 = unlimited)
+    if settings.max_upload_size > 0 and len(file_data) > settings.max_upload_size:
         raise ValidationError(
             f"File size {len(file_data)} exceeds maximum allowed size of {settings.max_upload_size} bytes."
         )
-    if content_type not in ALLOWED_MIME_TYPES:
-        raise ValidationError(f"File type '{content_type}' is not allowed.")
 
     document = await get_document(db, document_id)
 
@@ -835,3 +849,390 @@ async def quick_capture(
 
     elapsed_ms = int((time.monotonic() - start) * 1000)
     return document, extraction_dict, expense, elapsed_ms
+
+
+# ---------------------------------------------------------------------------
+# Star / Trash / Move / List helpers (Google Drive-style features)
+# ---------------------------------------------------------------------------
+
+
+async def star_document(
+    db: AsyncSession,
+    document_id: uuid.UUID,
+    user_id: uuid.UUID,
+    starred: bool,
+) -> Document:
+    """Toggle star on a document."""
+    document = await get_document(db, document_id)
+    document.is_starred = starred
+    await _create_audit_log(
+        db,
+        user_id=user_id,
+        action="star" if starred else "unstar",
+        resource_type="document",
+        resource_id=str(document_id),
+    )
+    await db.commit()
+    await db.refresh(document)
+    return document
+
+
+async def trash_document(
+    db: AsyncSession,
+    document_id: uuid.UUID,
+    user_id: uuid.UUID,
+) -> Document:
+    """Soft delete -- set is_trashed=True, trashed_at=now."""
+    document = await get_document(db, document_id)
+    document.is_trashed = True
+    document.trashed_at = datetime.now(timezone.utc)
+    await _create_audit_log(
+        db,
+        user_id=user_id,
+        action="trash",
+        resource_type="document",
+        resource_id=str(document_id),
+        details={"filename": document.filename},
+    )
+    await db.commit()
+    await db.refresh(document)
+    return document
+
+
+async def restore_document(
+    db: AsyncSession,
+    document_id: uuid.UUID,
+    user_id: uuid.UUID,
+) -> Document:
+    """Restore from trash -- set is_trashed=False, trashed_at=None."""
+    document = await get_document(db, document_id)
+    if not document.is_trashed:
+        raise ValidationError("Document is not in trash.")
+    document.is_trashed = False
+    document.trashed_at = None
+    await _create_audit_log(
+        db,
+        user_id=user_id,
+        action="restore",
+        resource_type="document",
+        resource_id=str(document_id),
+        details={"filename": document.filename},
+    )
+    await db.commit()
+    await db.refresh(document)
+    return document
+
+
+async def empty_trash(
+    db: AsyncSession,
+    storage: StorageBackend,
+    user_id: uuid.UUID,
+) -> int:
+    """Permanently delete all trashed documents for user. Returns count deleted."""
+    # Find all trashed documents for this user
+    result = await db.execute(
+        select(Document)
+        .options(selectinload(Document.versions))
+        .where(
+            Document.uploaded_by == user_id,
+            Document.is_trashed == True,  # noqa: E712
+        )
+    )
+    trashed_docs = list(result.scalars().unique().all())
+
+    if not trashed_docs:
+        return 0
+
+    count = len(trashed_docs)
+    storage_paths: list[str] = []
+
+    for doc in trashed_docs:
+        storage_paths.append(doc.storage_path)
+        for version in doc.versions:
+            if version.storage_path != doc.storage_path:
+                storage_paths.append(version.storage_path)
+
+    # Collect all document IDs
+    doc_ids = [doc.id for doc in trashed_docs]
+
+    # Delete related records
+    from app.collaboration.models import ApprovalWorkflow, Comment
+    from app.documents.models import DocumentVersion, document_tags
+
+    for doc_id in doc_ids:
+        await db.execute(delete(Comment).where(Comment.document_id == doc_id))
+        await db.execute(
+            delete(ApprovalWorkflow).where(ApprovalWorkflow.document_id == doc_id)
+        )
+        await db.execute(
+            delete(DocumentVersion).where(DocumentVersion.document_id == doc_id)
+        )
+        await db.execute(
+            document_tags.delete().where(document_tags.c.document_id == doc_id)
+        )
+
+        # Nullify SET NULL references
+        from app.accounting.models import Expense
+        from app.cashbook.models import CashbookEntry
+        from app.calendar.models import CalendarEvent
+
+        await db.execute(
+            update(Expense).where(Expense.document_id == doc_id).values(document_id=None)
+        )
+        await db.execute(
+            update(CashbookEntry)
+            .where(CashbookEntry.document_id == doc_id)
+            .values(document_id=None)
+        )
+        await db.execute(
+            update(CalendarEvent)
+            .where(CalendarEvent.document_id == doc_id)
+            .values(document_id=None)
+        )
+
+        try:
+            from app.income.models import Income
+
+            await db.execute(
+                update(Income).where(Income.document_id == doc_id).values(document_id=None)
+            )
+        except Exception:
+            pass
+
+        try:
+            from app.integrations.gmail.models import GmailScanResult
+
+            await db.execute(
+                update(GmailScanResult)
+                .where(GmailScanResult.matched_document_id == doc_id)
+                .values(matched_document_id=None)
+            )
+        except Exception:
+            pass
+
+    # Delete all trashed documents
+    await db.execute(
+        delete(Document).where(
+            Document.id.in_(doc_ids),
+        )
+    )
+
+    await _create_audit_log(
+        db,
+        user_id=user_id,
+        action="empty_trash",
+        resource_type="document",
+        resource_id="bulk",
+        details={"count": count},
+    )
+
+    await db.commit()
+
+    # Remove files from storage after successful DB commit
+    for path in storage_paths:
+        try:
+            await storage.delete(path)
+        except Exception:
+            logger.warning("Failed to delete storage file: %s", path)
+
+    return count
+
+
+async def move_document(
+    db: AsyncSession,
+    document_id: uuid.UUID,
+    target_folder_id: uuid.UUID | None,
+    user_id: uuid.UUID,
+) -> Document:
+    """Move document to a different folder."""
+    document = await get_document(db, document_id)
+
+    # Validate target folder if specified
+    if target_folder_id is not None:
+        result = await db.execute(select(Folder).where(Folder.id == target_folder_id))
+        if result.scalar_one_or_none() is None:
+            raise NotFoundError("Folder", str(target_folder_id))
+
+    old_folder_id = document.folder_id
+    document.folder_id = target_folder_id
+
+    await _create_audit_log(
+        db,
+        user_id=user_id,
+        action="move",
+        resource_type="document",
+        resource_id=str(document_id),
+        details={
+            "old_folder_id": str(old_folder_id) if old_folder_id else None,
+            "new_folder_id": str(target_folder_id) if target_folder_id else None,
+        },
+    )
+
+    await db.commit()
+    await db.refresh(document)
+    return document
+
+
+async def move_folder(
+    db: AsyncSession,
+    folder_id: uuid.UUID,
+    target_parent_id: uuid.UUID | None,
+    user_id: uuid.UUID,
+) -> Folder:
+    """Move folder to a different parent. Prevent circular references."""
+    result = await db.execute(select(Folder).where(Folder.id == folder_id))
+    folder = result.scalar_one_or_none()
+    if folder is None:
+        raise NotFoundError("Folder", str(folder_id))
+
+    # Prevent moving a folder into itself
+    if target_parent_id is not None and target_parent_id == folder_id:
+        raise ValidationError("Cannot move a folder into itself.")
+
+    # Prevent circular references: walk up from target_parent_id to root
+    if target_parent_id is not None:
+        parent_result = await db.execute(
+            select(Folder).where(Folder.id == target_parent_id)
+        )
+        target_parent = parent_result.scalar_one_or_none()
+        if target_parent is None:
+            raise NotFoundError("Folder", str(target_parent_id))
+
+        # Walk up the tree to detect cycles
+        current_id = target_parent_id
+        while current_id is not None:
+            if current_id == folder_id:
+                raise ValidationError(
+                    "Cannot move a folder into one of its own descendants."
+                )
+            ancestor_result = await db.execute(
+                select(Folder.parent_id).where(Folder.id == current_id)
+            )
+            current_id = ancestor_result.scalar_one_or_none()
+
+    old_parent_id = folder.parent_id
+    folder.parent_id = target_parent_id
+
+    await _create_audit_log(
+        db,
+        user_id=user_id,
+        action="move",
+        resource_type="folder",
+        resource_id=str(folder_id),
+        details={
+            "old_parent_id": str(old_parent_id) if old_parent_id else None,
+            "new_parent_id": str(target_parent_id) if target_parent_id else None,
+        },
+    )
+
+    await db.commit()
+    await db.refresh(folder)
+    return folder
+
+
+async def list_starred(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    skip: int = 0,
+    limit: int = 20,
+) -> tuple[list, int]:
+    """List all starred documents and folders for user."""
+    # Starred documents
+    doc_query = (
+        select(Document)
+        .options(selectinload(Document.tags), selectinload(Document.folder))
+        .where(
+            Document.uploaded_by == user_id,
+            Document.is_starred == True,  # noqa: E712
+            Document.is_trashed == False,  # noqa: E712
+        )
+        .order_by(Document.updated_at.desc())
+    )
+    doc_count_query = select(func.count()).select_from(doc_query.subquery())
+    doc_total = await db.scalar(doc_count_query) or 0
+
+    doc_result = await db.execute(doc_query.offset(skip).limit(limit))
+    documents = list(doc_result.scalars().unique().all())
+
+    # Starred folders
+    folder_query = (
+        select(Folder)
+        .where(
+            Folder.created_by == user_id,
+            Folder.is_starred == True,  # noqa: E712
+            Folder.is_trashed == False,  # noqa: E712
+        )
+        .order_by(Folder.updated_at.desc())
+    )
+    folder_result = await db.execute(folder_query)
+    folders = list(folder_result.scalars().unique().all())
+
+    # Combine results
+    items = [*folders, *documents]
+    total = doc_total + len(folders)
+    return items, total
+
+
+async def list_trashed(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    skip: int = 0,
+    limit: int = 20,
+) -> tuple[list[Document], int]:
+    """List all trashed documents for user."""
+    query = (
+        select(Document)
+        .options(selectinload(Document.tags), selectinload(Document.folder))
+        .where(
+            Document.uploaded_by == user_id,
+            Document.is_trashed == True,  # noqa: E712
+        )
+        .order_by(Document.trashed_at.desc())
+    )
+
+    count_query = select(func.count()).select_from(query.subquery())
+    total = await db.scalar(count_query) or 0
+
+    result = await db.execute(query.offset(skip).limit(limit))
+    documents = list(result.scalars().unique().all())
+    return documents, total
+
+
+async def list_recent(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    skip: int = 0,
+    limit: int = 20,
+) -> tuple[list[Document], int]:
+    """List recently modified/uploaded documents."""
+    query = (
+        select(Document)
+        .options(selectinload(Document.tags), selectinload(Document.folder))
+        .where(
+            Document.uploaded_by == user_id,
+            Document.is_trashed == False,  # noqa: E712
+        )
+        .order_by(Document.updated_at.desc())
+    )
+
+    count_query = select(func.count()).select_from(query.subquery())
+    total = await db.scalar(count_query) or 0
+
+    result = await db.execute(query.offset(skip).limit(limit))
+    documents = list(result.scalars().unique().all())
+    return documents, total
+
+
+async def get_storage_usage(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+) -> dict:
+    """Return total storage used: {used_bytes: int, file_count: int}."""
+    result = await db.execute(
+        select(
+            func.coalesce(func.sum(Document.file_size), 0),
+            func.count(Document.id),
+        ).where(Document.uploaded_by == user_id)
+    )
+    row = result.one()
+    return {"used_bytes": int(row[0]), "file_count": int(row[1])}

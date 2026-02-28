@@ -7,6 +7,7 @@
 #   bash deploy.sh
 #
 # Works on DreamHost managed VPS where you do NOT have sudo/root access.
+# Includes: FastAPI backend, React frontend, LiveKit (video), Hocuspocus (collab)
 # ============================================================================
 
 # Fix Windows CRLF line endings if present
@@ -33,6 +34,7 @@ ok()   { echo -e "${GREEN}✓  $1${NC}"; }
 echo -e "${BLUE}"
 echo "╔══════════════════════════════════════════════════╗"
 echo "║        Accountant — VPS Deploy Script            ║"
+echo "║   Backend + LiveKit + Hocuspocus + Frontend      ║"
 echo "╚══════════════════════════════════════════════════╝"
 echo -e "${NC}"
 
@@ -125,13 +127,54 @@ pip install --upgrade pip -q
 pip install -e ".[dev]" -q
 ok "Python dependencies installed"
 
-# ---- 4. Generate secrets ----
+# ---- 4. Download LiveKit server binary ----
+step "Setting up LiveKit (video meetings)..."
+mkdir -p "$APP_DIR/bin"
+
+if [[ ! -f "$APP_DIR/bin/livekit-server" ]]; then
+    echo "Downloading LiveKit server..."
+    LIVEKIT_VERSION="v1.8.3"
+    curl -fsSL "https://github.com/livekit/livekit/releases/download/${LIVEKIT_VERSION}/livekit_${LIVEKIT_VERSION#v}_linux_amd64.tar.gz" \
+        -o /tmp/livekit.tar.gz
+    tar xzf /tmp/livekit.tar.gz -C "$APP_DIR/bin/" livekit-server
+    chmod +x "$APP_DIR/bin/livekit-server"
+    rm -f /tmp/livekit.tar.gz
+    ok "LiveKit server downloaded"
+else
+    ok "LiveKit server already present"
+fi
+
+# Generate LiveKit API key and secret
+LIVEKIT_API_KEY="APIKey$(python3 -c "import secrets; print(secrets.token_hex(8))")"
+LIVEKIT_API_SECRET="$(python3 -c "import secrets; print(secrets.token_urlsafe(32))")"
+
+# Write LiveKit config
+cat > "$APP_DIR/livekit.yaml" <<LKEOF
+port: 7880
+rtc:
+    port_range_start: 50000
+    port_range_end: 50200
+    use_external_ip: true
+keys:
+    ${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}
+logging:
+    level: info
+LKEOF
+ok "LiveKit configured (port 7880, RTC 50000-50200)"
+
+# ---- 5. Set up Hocuspocus (collaboration server) ----
+step "Setting up Hocuspocus (real-time collaboration)..."
+cd "$APP_DIR/backend/hocuspocus"
+npm install --production 2>/dev/null
+ok "Hocuspocus dependencies installed"
+
+# ---- 6. Generate secrets ----
 step "Generating secrets..."
 SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_urlsafe(64))")
 FERNET_KEY=$(python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
 ok "SECRET_KEY and FERNET_KEY generated"
 
-# ---- 5. Write .env file ----
+# ---- 7. Write .env file ----
 step "Writing backend .env file..."
 cat > "$APP_DIR/backend/.env" <<ENVEOF
 # Database (Supabase PostgreSQL)
@@ -145,7 +188,8 @@ REFRESH_TOKEN_EXPIRE_DAYS=7
 # Storage
 STORAGE_TYPE=local
 STORAGE_PATH=./data/documents
-MAX_UPLOAD_SIZE=52428800
+MAX_UPLOAD_SIZE=0
+RECORDINGS_STORAGE_PATH=./data/recordings
 
 # Server
 HOST=0.0.0.0
@@ -160,6 +204,11 @@ AI_AUTO_EXTRACT=true
 # Encryption
 FERNET_KEY=${FERNET_KEY}
 
+# LiveKit (video meetings)
+LIVEKIT_URL=wss://${DOMAIN}/livekit/
+LIVEKIT_API_KEY=${LIVEKIT_API_KEY}
+LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET}
+
 # Google OAuth (configure later in Settings)
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
@@ -167,17 +216,18 @@ GOOGLE_REDIRECT_URI=https://${DOMAIN}/api/integrations/gmail/callback
 ENVEOF
 ok ".env written"
 
-# ---- 6. Create data directory ----
+# ---- 8. Create data directories ----
 mkdir -p "$APP_DIR/backend/data/documents"
+mkdir -p "$APP_DIR/backend/data/recordings"
 
-# ---- 7. Run database migrations ----
+# ---- 9. Run database migrations ----
 step "Running database migrations..."
 cd "$APP_DIR/backend"
 source .venv/bin/activate
 alembic upgrade head
 ok "Database migrated"
 
-# ---- 8. Build frontend ----
+# ---- 10. Build frontend ----
 step "Building frontend..."
 cd "$APP_DIR/frontend"
 # Load nvm in case it's not in PATH
@@ -186,18 +236,57 @@ pnpm install --frozen-lockfile
 pnpm build
 ok "Frontend built → $APP_DIR/frontend/dist"
 
-# ---- 9. Stop any existing instance ----
-step "Starting backend server..."
+# ---- 11. Stop any existing instances ----
+step "Starting all services..."
+
+# Stop existing backend
 if [[ -f "$APP_DIR/backend/uvicorn.pid" ]]; then
     OLD_PID=$(cat "$APP_DIR/backend/uvicorn.pid" 2>/dev/null || echo "")
     if [[ -n "$OLD_PID" ]] && kill -0 "$OLD_PID" 2>/dev/null; then
         kill "$OLD_PID" 2>/dev/null || true
         sleep 2
-        ok "Stopped previous instance (PID $OLD_PID)"
+        ok "Stopped previous backend (PID $OLD_PID)"
     fi
 fi
 
-# ---- 10. Start uvicorn in background ----
+# Stop existing LiveKit
+if [[ -f "$APP_DIR/livekit.pid" ]]; then
+    OLD_PID=$(cat "$APP_DIR/livekit.pid" 2>/dev/null || echo "")
+    if [[ -n "$OLD_PID" ]] && kill -0 "$OLD_PID" 2>/dev/null; then
+        kill "$OLD_PID" 2>/dev/null || true
+        sleep 1
+        ok "Stopped previous LiveKit (PID $OLD_PID)"
+    fi
+fi
+
+# Stop existing Hocuspocus
+if [[ -f "$APP_DIR/hocuspocus.pid" ]]; then
+    OLD_PID=$(cat "$APP_DIR/hocuspocus.pid" 2>/dev/null || echo "")
+    if [[ -n "$OLD_PID" ]] && kill -0 "$OLD_PID" 2>/dev/null; then
+        kill "$OLD_PID" 2>/dev/null || true
+        sleep 1
+        ok "Stopped previous Hocuspocus (PID $OLD_PID)"
+    fi
+fi
+
+# ---- 12. Start all services ----
+
+# Start LiveKit server
+cd "$APP_DIR"
+nohup "$APP_DIR/bin/livekit-server" --config "$APP_DIR/livekit.yaml" \
+    > "$APP_DIR/livekit.log" 2>&1 &
+echo $! > "$APP_DIR/livekit.pid"
+ok "LiveKit started (PID $(cat livekit.pid)) on port 7880"
+
+# Start Hocuspocus collaboration server
+cd "$APP_DIR/backend/hocuspocus"
+[ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
+BACKEND_URL=http://127.0.0.1:8000 HOCUSPOCUS_PORT=1234 \
+    nohup node server.js > "$APP_DIR/hocuspocus.log" 2>&1 &
+echo $! > "$APP_DIR/hocuspocus.pid"
+ok "Hocuspocus started (PID $(cat "$APP_DIR/hocuspocus.pid")) on port 1234"
+
+# Start uvicorn backend
 cd "$APP_DIR/backend"
 source .venv/bin/activate
 nohup "$APP_DIR/backend/.venv/bin/uvicorn" app.main:app \
@@ -205,9 +294,9 @@ nohup "$APP_DIR/backend/.venv/bin/uvicorn" app.main:app \
     > "$APP_DIR/backend/uvicorn.log" 2>&1 &
 UVICORN_PID=$!
 echo "$UVICORN_PID" > "$APP_DIR/backend/uvicorn.pid"
-ok "uvicorn started (PID $UVICORN_PID)"
+ok "Backend started (PID $UVICORN_PID) on port 8000"
 
-# Give it a moment to start
+# Give services a moment to start
 sleep 3
 
 # Verify backend is running
@@ -217,58 +306,78 @@ else
     warn "Backend may still be starting. Check: tail -f $APP_DIR/backend/uvicorn.log"
 fi
 
-# ---- 11. Set up cron job for auto-restart on reboot ----
-step "Setting up auto-restart cron job..."
-CRON_CMD="@reboot cd $APP_DIR/backend && source .venv/bin/activate && nohup .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 > uvicorn.log 2>&1 & echo \$! > uvicorn.pid"
+# ---- 13. Set up cron jobs for auto-restart on reboot ----
+step "Setting up auto-restart cron jobs..."
+CRON_BACKEND="@reboot cd $APP_DIR/backend && source .venv/bin/activate && nohup .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 > uvicorn.log 2>&1 & echo \$! > uvicorn.pid"
+CRON_LIVEKIT="@reboot cd $APP_DIR && nohup bin/livekit-server --config livekit.yaml > livekit.log 2>&1 & echo \$! > livekit.pid"
+CRON_HOCUSPOCUS="@reboot export NVM_DIR=\$HOME/.nvm && [ -s \"\$NVM_DIR/nvm.sh\" ] && source \"\$NVM_DIR/nvm.sh\" && cd $APP_DIR/backend/hocuspocus && BACKEND_URL=http://127.0.0.1:8000 nohup node server.js > $APP_DIR/hocuspocus.log 2>&1 & echo \$! > $APP_DIR/hocuspocus.pid"
 
-# Add cron job if not already present
-(crontab -l 2>/dev/null | grep -v "Accountant/backend" || true; echo "$CRON_CMD") | crontab -
-ok "Cron job installed — backend will auto-start on VPS reboot"
+# Add cron jobs (remove old entries first)
+(crontab -l 2>/dev/null | grep -v "Accountant" || true; echo "$CRON_BACKEND"; echo "$CRON_LIVEKIT"; echo "$CRON_HOCUSPOCUS") | crontab -
+ok "Cron jobs installed — all services auto-start on VPS reboot"
 
-# ---- 12. Create helper scripts ----
+# ---- 14. Create helper scripts ----
 cat > "$APP_DIR/start.sh" <<'STARTEOF'
 #!/usr/bin/env bash
-# Start the Accountant backend
+# Start all Accountant services: backend + LiveKit + Hocuspocus
 set -euo pipefail
 APP_DIR="$(cd "$(dirname "$0")" && pwd)"
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
+
+# Stop existing instances first
+"$APP_DIR/stop.sh" 2>/dev/null || true
+
+# Start LiveKit
+cd "$APP_DIR"
+nohup "$APP_DIR/bin/livekit-server" --config "$APP_DIR/livekit.yaml" \
+    > "$APP_DIR/livekit.log" 2>&1 &
+echo $! > "$APP_DIR/livekit.pid"
+echo "LiveKit started (PID $(cat livekit.pid))"
+
+# Start Hocuspocus
+cd "$APP_DIR/backend/hocuspocus"
+BACKEND_URL=http://127.0.0.1:8000 HOCUSPOCUS_PORT=1234 \
+    nohup node server.js > "$APP_DIR/hocuspocus.log" 2>&1 &
+echo $! > "$APP_DIR/hocuspocus.pid"
+echo "Hocuspocus started (PID $(cat "$APP_DIR/hocuspocus.pid"))"
+
+# Start backend
 cd "$APP_DIR/backend"
-
-# Stop existing instance
-if [[ -f uvicorn.pid ]]; then
-    OLD_PID=$(cat uvicorn.pid 2>/dev/null || echo "")
-    if [[ -n "$OLD_PID" ]] && kill -0 "$OLD_PID" 2>/dev/null; then
-        kill "$OLD_PID" 2>/dev/null || true
-        sleep 2
-        echo "Stopped previous instance"
-    fi
-fi
-
 source .venv/bin/activate
 nohup .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 > uvicorn.log 2>&1 &
 echo $! > uvicorn.pid
 echo "Backend started (PID $(cat uvicorn.pid))"
+
+echo "All services running."
 STARTEOF
 chmod +x "$APP_DIR/start.sh"
 
 cat > "$APP_DIR/stop.sh" <<'STOPEOF'
 #!/usr/bin/env bash
-# Stop the Accountant backend
+# Stop all Accountant services
 APP_DIR="$(cd "$(dirname "$0")" && pwd)"
-if [[ -f "$APP_DIR/backend/uvicorn.pid" ]]; then
-    PID=$(cat "$APP_DIR/backend/uvicorn.pid")
-    kill "$PID" 2>/dev/null && echo "Stopped (PID $PID)" || echo "Not running"
-    rm -f "$APP_DIR/backend/uvicorn.pid"
-else
-    echo "No PID file found"
-fi
+
+for PIDFILE in "$APP_DIR/backend/uvicorn.pid" "$APP_DIR/livekit.pid" "$APP_DIR/hocuspocus.pid"; do
+    SERVICE=$(basename "$PIDFILE" .pid)
+    if [[ -f "$PIDFILE" ]]; then
+        PID=$(cat "$PIDFILE")
+        kill "$PID" 2>/dev/null && echo "Stopped $SERVICE (PID $PID)" || echo "$SERVICE not running"
+        rm -f "$PIDFILE"
+    else
+        echo "$SERVICE: no PID file"
+    fi
+done
 STOPEOF
 chmod +x "$APP_DIR/stop.sh"
 
 cat > "$APP_DIR/update.sh" <<'UPDATEEOF'
 #!/usr/bin/env bash
-# Pull latest code, rebuild, and restart
+# Pull latest code, rebuild, and restart all services
 set -euo pipefail
 APP_DIR="$(cd "$(dirname "$0")" && pwd)"
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
 
 echo "Pulling latest code..."
 cd "$APP_DIR" && git pull
@@ -279,14 +388,16 @@ source .venv/bin/activate
 pip install -e ".[dev]" -q
 alembic upgrade head
 
+echo "Updating Hocuspocus..."
+cd "$APP_DIR/backend/hocuspocus"
+npm install --production 2>/dev/null
+
 echo "Rebuilding frontend..."
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
 cd "$APP_DIR/frontend"
 pnpm install --frozen-lockfile
 pnpm build
 
-echo "Restarting backend..."
+echo "Restarting all services..."
 "$APP_DIR/stop.sh"
 "$APP_DIR/start.sh"
 
@@ -296,11 +407,53 @@ chmod +x "$APP_DIR/update.sh"
 
 cat > "$APP_DIR/logs.sh" <<'LOGSEOF'
 #!/usr/bin/env bash
-# View backend logs
+# View logs for all services
 APP_DIR="$(cd "$(dirname "$0")" && pwd)"
-tail -f "$APP_DIR/backend/uvicorn.log"
+SERVICE="${1:-all}"
+
+case "$SERVICE" in
+    backend) tail -f "$APP_DIR/backend/uvicorn.log" ;;
+    livekit) tail -f "$APP_DIR/livekit.log" ;;
+    hocuspocus|collab) tail -f "$APP_DIR/hocuspocus.log" ;;
+    all|*)
+        echo "=== Backend ===" && tail -20 "$APP_DIR/backend/uvicorn.log" 2>/dev/null
+        echo ""
+        echo "=== LiveKit ===" && tail -20 "$APP_DIR/livekit.log" 2>/dev/null
+        echo ""
+        echo "=== Hocuspocus ===" && tail -20 "$APP_DIR/hocuspocus.log" 2>/dev/null
+        echo ""
+        echo "For live logs: $0 backend|livekit|hocuspocus"
+        ;;
+esac
 LOGSEOF
 chmod +x "$APP_DIR/logs.sh"
+
+cat > "$APP_DIR/status.sh" <<'STATUSEOF'
+#!/usr/bin/env bash
+# Check status of all services
+APP_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+check_service() {
+    local name="$1" pidfile="$2" port="$3"
+    if [[ -f "$pidfile" ]]; then
+        local pid=$(cat "$pidfile")
+        if kill -0 "$pid" 2>/dev/null; then
+            echo -e "\033[0;32m✓ $name running (PID $pid, port $port)\033[0m"
+        else
+            echo -e "\033[0;31m✗ $name not running (stale PID $pid)\033[0m"
+        fi
+    else
+        echo -e "\033[0;31m✗ $name not running (no PID file)\033[0m"
+    fi
+}
+
+echo "Service Status:"
+echo "───────────────"
+check_service "Backend   " "$APP_DIR/backend/uvicorn.pid" "8000"
+check_service "LiveKit   " "$APP_DIR/livekit.pid"         "7880"
+check_service "Hocuspocus" "$APP_DIR/hocuspocus.pid"      "1234"
+STATUSEOF
+chmod +x "$APP_DIR/status.sh"
 
 # ---- Done! ----
 echo ""
@@ -309,9 +462,12 @@ echo "╔═══════════════════════�
 echo "║        Server setup complete!                    ║"
 echo "╚══════════════════════════════════════════════════╝"
 echo -e "${NC}"
-echo "  Backend running at: http://localhost:8000"
+echo "  Services running:"
+echo "    Backend:     http://localhost:8000"
+echo "    LiveKit:     http://localhost:7880 (video meetings)"
+echo "    Hocuspocus:  http://localhost:1234 (real-time collaboration)"
 echo ""
-echo -e "${YELLOW}  ⚡ IMPORTANT — Complete these 2 steps in the DreamHost panel:${NC}"
+echo -e "${YELLOW}  IMPORTANT — Complete these 2 steps in the DreamHost panel:${NC}"
 echo ""
 echo "  1. SET UP PROXY:"
 echo "     Go to: Servers → your VPS → Proxy Server"
@@ -327,8 +483,18 @@ echo -e "  Once proxy is active, your app will be live at:"
 echo -e "  ${GREEN}https://${DOMAIN}${NC}"
 echo ""
 echo "  Helper commands:"
-echo "    ~/Accountant/start.sh     # Start the backend"
-echo "    ~/Accountant/stop.sh      # Stop the backend"
-echo "    ~/Accountant/update.sh    # Pull + rebuild + restart"
-echo "    ~/Accountant/logs.sh      # View live logs"
+echo "    ~/Accountant/start.sh      # Start all services"
+echo "    ~/Accountant/stop.sh       # Stop all services"
+echo "    ~/Accountant/status.sh     # Check service status"
+echo "    ~/Accountant/update.sh     # Pull + rebuild + restart"
+echo "    ~/Accountant/logs.sh       # View recent logs"
+echo "    ~/Accountant/logs.sh backend|livekit|hocuspocus  # Live logs"
+echo ""
+echo -e "${YELLOW}  LiveKit credentials (saved in .env):${NC}"
+echo "    API Key:    ${LIVEKIT_API_KEY}"
+echo "    API Secret: ${LIVEKIT_API_SECRET}"
+echo ""
+echo -e "${YELLOW}  Firewall ports needed for video calls:${NC}"
+echo "    TCP: 7880 (WebSocket signalling)"
+echo "    UDP: 50000-50200 (RTC media)"
 echo ""

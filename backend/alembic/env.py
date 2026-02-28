@@ -35,6 +35,8 @@ import app.integrations.settings_models  # noqa: F401
 import app.accounting.period_models  # noqa: F401
 import app.accounting.tax_models  # noqa: F401
 import app.cashbook.models  # noqa: F401
+import app.meetings.models  # noqa: F401
+import app.office.models  # noqa: F401
 
 config = context.config
 if config.config_file_name is not None:
