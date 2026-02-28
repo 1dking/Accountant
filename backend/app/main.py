@@ -101,6 +101,22 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # Rewrite redirect Location headers to be relative so they work
+    # correctly behind a dev proxy (Vite) without cross-origin issues.
+    @fastapi_app.middleware("http")
+    async def rewrite_redirect_to_relative(request: Request, call_next):
+        response = await call_next(request)
+        if response.status_code in (301, 302, 307, 308):
+            location = response.headers.get("location", "")
+            if location.startswith("http"):
+                from urllib.parse import urlparse
+                parsed = urlparse(location)
+                relative = parsed.path
+                if parsed.query:
+                    relative += "?" + parsed.query
+                response.headers["location"] = relative
+        return response
+
     # Register routers
     from app.auth.router import router as auth_router
     from app.documents.router import router as documents_router
