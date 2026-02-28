@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func, select
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.config import Settings
 from app.core.exceptions import register_exception_handlers
@@ -219,24 +220,36 @@ def create_app() -> FastAPI:
     # The built frontend at ../frontend/dist/ is served at /
     frontend_dist = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
     if frontend_dist.is_dir():
-        # Serve static assets (JS, CSS, images)
-        fastapi_app.mount("/assets", StaticFiles(directory=frontend_dist / "assets"), name="assets")
+        frontend_dist_resolved = frontend_dist.resolve()
 
-        # Catch-all: serve index.html for SPA client-side routing
-        @fastapi_app.get("/{path:path}")
-        async def spa_fallback(path: str):
-            # Never intercept API or WebSocket routes
-            if path.startswith("api/") or path.startswith("ws"):
-                return JSONResponse(
-                    status_code=404,
-                    content={"error": {"code": "NOT_FOUND", "message": f"Route /{path} not found"}},
-                )
-            # If the file exists in dist/, serve it (e.g. favicon, manifest, icons)
-            file_path = frontend_dist / path
-            if path and file_path.is_file():
-                return FileResponse(file_path)
-            # Otherwise return index.html for client-side routing
-            return FileResponse(frontend_dist / "index.html")
+        # Serve static asset directories
+        if (frontend_dist / "assets").is_dir():
+            fastapi_app.mount("/assets", StaticFiles(directory=frontend_dist / "assets"), name="assets")
+        if (frontend_dist / "icons").is_dir():
+            fastapi_app.mount("/icons", StaticFiles(directory=frontend_dist / "icons"), name="icons")
+
+        # SPA fallback via 404 exception handler.
+        # Unlike a catch-all route, this fires AFTER normal routing
+        # (including redirect_slashes), so /api/documents correctly
+        # redirects to /api/documents/ instead of serving index.html.
+        @fastapi_app.exception_handler(StarletteHTTPException)
+        async def spa_or_http_error(request: Request, exc: StarletteHTTPException):
+            if exc.status_code == 404:
+                path = request.url.path
+                if not path.startswith("/api/") and not path.startswith("/ws"):
+                    # Try to serve a static file from frontend/dist
+                    clean = path.lstrip("/")
+                    if clean:
+                        file_path = (frontend_dist / clean).resolve()
+                        if file_path.is_file() and str(file_path).startswith(str(frontend_dist_resolved)):
+                            return FileResponse(file_path)
+                    # SPA fallback – return index.html for client-side routing
+                    return FileResponse(frontend_dist / "index.html")
+            # API 404s and all other HTTP errors → JSON envelope
+            return JSONResponse(
+                status_code=exc.status_code,
+                content={"error": {"code": "HTTP_ERROR", "message": exc.detail or "Error", "details": None}},
+            )
 
     return fastapi_app
 
