@@ -1,10 +1,12 @@
 """FastAPI router for the cashbook module."""
 
+import io
 import uuid
 from datetime import date
 from typing import Annotated, Optional
 
-from fastapi import APIRouter, Depends, UploadFile, File
+from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import Role, User
@@ -244,6 +246,42 @@ async def get_summary(
 ) -> dict:
     summary = await service.get_summary(db, account_id, date_from, date_to)
     return {"data": CashbookSummary(**summary).model_dump(mode="json")}
+
+
+# ---------------------------------------------------------------------------
+# Export endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.get("/export/csv")
+async def export_csv(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(get_current_user)],
+    account_id: uuid.UUID = ...,
+    date_from: date = ...,
+    date_to: date = ...,
+    entry_type: EntryType | None = None,
+    category_id: uuid.UUID | None = None,
+    search: str | None = None,
+) -> StreamingResponse:
+    """Export cashbook entries as CSV."""
+    from app.cashbook.export import export_cashbook_csv
+
+    filters = CashbookEntryFilter(
+        account_id=account_id,
+        entry_type=entry_type,
+        category_id=category_id,
+        date_from=date_from,
+        date_to=date_to,
+        search=search,
+    )
+    csv_bytes = await export_cashbook_csv(db, filters)
+    filename = f"cashbook_{date_from}_{date_to}.csv"
+    return StreamingResponse(
+        io.BytesIO(csv_bytes),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 # ---------------------------------------------------------------------------

@@ -15,11 +15,13 @@ import {
   Search,
   BookOpen,
   Upload,
+  Download,
   ChevronDown,
   DollarSign,
   TrendingUp,
   TrendingDown,
   Wallet,
+  Receipt,
 } from 'lucide-react'
 import type {
   CashbookEntryFilters,
@@ -202,6 +204,32 @@ export default function CashbookPage() {
             <Upload className="h-4 w-4" />
             Import Excel
           </button>
+          {activeAccountId && (
+            <a
+              href={`/api/cashbook/export/csv?account_id=${activeAccountId}&date_from=${dateFrom}&date_to=${dateTo}`}
+              download
+              onClick={async (e) => {
+                e.preventDefault()
+                const token = localStorage.getItem('access_token')
+                const res = await fetch(
+                  `/api/cashbook/export/csv?account_id=${activeAccountId}&date_from=${dateFrom}&date_to=${dateTo}`,
+                  { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+                )
+                if (!res.ok) return
+                const blob = await res.blob()
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = `cashbook_${dateFrom}_${dateTo}.csv`
+                a.click()
+                URL.revokeObjectURL(url)
+              }}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 border rounded-lg hover:bg-gray-50 cursor-pointer"
+            >
+              <Download className="h-4 w-4" />
+              Export CSV
+            </a>
+          )}
           <button
             onClick={() => navigate('/cashbook/new')}
             className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
@@ -377,48 +405,99 @@ export default function CashbookPage() {
 
       {/* Stats Cards */}
       {summary && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-white rounded-lg border p-4">
-            <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
-              <Wallet className="h-4 w-4" />
-              Opening Balance
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-white rounded-lg border p-4">
+              <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
+                <Wallet className="h-4 w-4" />
+                Opening Balance
+              </div>
+              <p className="text-xl font-bold text-gray-900">
+                {summary.opening_balance < 0 ? '-' : ''}
+                {formatCurrency(summary.opening_balance)}
+              </p>
             </div>
-            <p className="text-xl font-bold text-gray-900">
-              {summary.opening_balance < 0 ? '-' : ''}
-              {formatCurrency(summary.opening_balance)}
-            </p>
-          </div>
-          <div className="bg-white rounded-lg border p-4">
-            <div className="flex items-center gap-2 text-sm text-green-600 mb-1">
-              <TrendingUp className="h-4 w-4" />
-              Total Income
+            <div className="bg-white rounded-lg border p-4">
+              <div className="flex items-center gap-2 text-sm text-green-600 mb-1">
+                <TrendingUp className="h-4 w-4" />
+                Total Income
+              </div>
+              <p className="text-xl font-bold text-green-700">
+                {formatCurrency(summary.total_income)}
+              </p>
             </div>
-            <p className="text-xl font-bold text-green-700">
-              {formatCurrency(summary.total_income)}
-            </p>
-          </div>
-          <div className="bg-white rounded-lg border p-4">
-            <div className="flex items-center gap-2 text-sm text-red-600 mb-1">
-              <TrendingDown className="h-4 w-4" />
-              Total Expenses
+            <div className="bg-white rounded-lg border p-4">
+              <div className="flex items-center gap-2 text-sm text-red-600 mb-1">
+                <TrendingDown className="h-4 w-4" />
+                Total Expenses
+              </div>
+              <p className="text-xl font-bold text-red-700">
+                {formatCurrency(summary.total_expenses)}
+              </p>
             </div>
-            <p className="text-xl font-bold text-red-700">
-              {formatCurrency(summary.total_expenses)}
-            </p>
-          </div>
-          <div className="bg-white rounded-lg border p-4">
-            <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
-              <DollarSign className="h-4 w-4" />
-              Closing Balance
+            <div className="bg-white rounded-lg border p-4">
+              <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
+                <DollarSign className="h-4 w-4" />
+                Closing Balance
+              </div>
+              <p
+                className={`text-xl font-bold ${summary.closing_balance >= 0 ? 'text-gray-900' : 'text-red-700'}`}
+              >
+                {summary.closing_balance < 0 ? '-' : ''}
+                {formatCurrency(summary.closing_balance)}
+              </p>
             </div>
-            <p
-              className={`text-xl font-bold ${summary.closing_balance >= 0 ? 'text-gray-900' : 'text-red-700'}`}
-            >
-              {summary.closing_balance < 0 ? '-' : ''}
-              {formatCurrency(summary.closing_balance)}
-            </p>
           </div>
-        </div>
+
+          {/* Tax Summary */}
+          {(summary.total_tax_collected > 0 || summary.total_tax_paid > 0) && (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="bg-white rounded-lg border p-4">
+                <div className="flex items-center gap-2 text-sm text-green-600 mb-1">
+                  <Receipt className="h-4 w-4" />
+                  Tax Collected (HST)
+                </div>
+                <p className="text-lg font-bold text-green-700">
+                  {formatCurrency(summary.total_tax_collected)}
+                </p>
+              </div>
+              <div className="bg-white rounded-lg border p-4">
+                <div className="flex items-center gap-2 text-sm text-red-600 mb-1">
+                  <Receipt className="h-4 w-4" />
+                  Tax Paid (HST)
+                </div>
+                <p className="text-lg font-bold text-red-700">
+                  {formatCurrency(summary.total_tax_paid)}
+                </p>
+              </div>
+              <div className="bg-white rounded-lg border p-4 col-span-2 md:col-span-1">
+                <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
+                  <Receipt className="h-4 w-4" />
+                  Net Tax (Owed/Refund)
+                </div>
+                <p
+                  className={`text-lg font-bold ${
+                    summary.total_tax_collected - summary.total_tax_paid >= 0
+                      ? 'text-orange-600'
+                      : 'text-blue-600'
+                  }`}
+                >
+                  {summary.total_tax_collected - summary.total_tax_paid < 0
+                    ? '-'
+                    : ''}
+                  {formatCurrency(
+                    summary.total_tax_collected - summary.total_tax_paid
+                  )}
+                  <span className="text-xs font-normal text-gray-400 ml-2">
+                    {summary.total_tax_collected - summary.total_tax_paid >= 0
+                      ? '(owed)'
+                      : '(refund)'}
+                  </span>
+                </p>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* Entries Table */}
