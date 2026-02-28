@@ -53,6 +53,7 @@ class OfficeDocUpdate(BaseModel):
     title: str | None = None
     folder_id: uuid.UUID | None = None
     is_starred: bool | None = None
+    content_json: dict | None = None
 
 
 class OfficeDocResponse(BaseModel):
@@ -64,6 +65,7 @@ class OfficeDocResponse(BaseModel):
     is_starred: bool
     is_trashed: bool
     content_text: str | None = None
+    content_json: dict | None = None
     last_accessed_at: datetime | None
     created_at: datetime
     updated_at: datetime

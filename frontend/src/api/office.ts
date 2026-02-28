@@ -25,7 +25,7 @@ export async function getOfficeDoc(id: string) {
   return api.get<ApiResponse<OfficeDocument>>(`/office/${id}`)
 }
 
-export async function updateOfficeDoc(id: string, data: { title?: string; folder_id?: string }) {
+export async function updateOfficeDoc(id: string, data: { title?: string; folder_id?: string; content_json?: Record<string, unknown> }) {
   return api.put<ApiResponse<OfficeDocument>>(`/office/${id}`, data)
 }
 

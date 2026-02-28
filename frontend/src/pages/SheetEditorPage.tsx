@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getOfficeDoc, updateOfficeDoc, starOfficeDoc } from '@/api/office'
@@ -6,9 +6,6 @@ import { useAuthStore } from '@/stores/authStore'
 import EditorTopBar from '@/components/office/EditorTopBar'
 import { Bold, Italic, Plus, Type } from 'lucide-react'
 import { cn } from '@/lib/utils'
-
-import * as Y from 'yjs'
-import { WebsocketProvider } from 'y-websocket'
 
 const NUM_ROWS = 50
 const NUM_COLS = 26
@@ -27,15 +24,6 @@ function cellId(row: number, col: number): string {
   return `${colLabel(col)}${row + 1}`
 }
 
-function generateColor(name: string): string {
-  let hash = 0
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash)
-  }
-  const hue = Math.abs(hash) % 360
-  return `hsl(${hue}, 70%, 50%)`
-}
-
 interface SheetData {
   name: string
   cells: Record<string, CellData>
@@ -52,9 +40,9 @@ interface CellData {
 export default function SheetEditorPage() {
   const { id } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
-  const { user } = useAuthStore()
-  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'disconnected'>('connecting')
-  const [connectedUsers, setConnectedUsers] = useState<{ name: string; color: string }[]>([])
+  const { user: _user } = useAuthStore()
+  const [connectionStatus] = useState<'connected' | 'connecting' | 'disconnected'>('connected')
+  const [connectedUsers] = useState<{ name: string; color: string }[]>([])
 
   const [selectedCell, setSelectedCell] = useState<{ row: number; col: number } | null>(null)
   const [editingCell, setEditingCell] = useState<{ row: number; col: number } | null>(null)
@@ -63,6 +51,8 @@ export default function SheetEditorPage() {
   const [activeSheetIndex, setActiveSheetIndex] = useState(0)
   const gridRef = useRef<HTMLDivElement>(null)
   const cellRefs = useRef<Record<string, HTMLInputElement | null>>({})
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const initialLoadRef = useRef(false)
 
   const { data: docData } = useQuery({
     queryKey: ['office-doc', id],
@@ -73,7 +63,7 @@ export default function SheetEditorPage() {
   const doc = docData?.data
 
   const updateMutation = useMutation({
-    mutationFn: (data: { title?: string }) => updateOfficeDoc(id!, data),
+    mutationFn: (data: { title?: string; content_json?: Record<string, unknown> }) => updateOfficeDoc(id!, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['office-doc', id] })
     },
@@ -86,105 +76,35 @@ export default function SheetEditorPage() {
     },
   })
 
-  // Yjs setup for syncing cell data
-  const ydoc = useMemo(() => new Y.Doc(), [])
-
-  const wsProvider = useMemo(() => {
-    if (!id) return null
-    return new WebsocketProvider(
-      import.meta.env.VITE_COLLAB_URL || 'ws://localhost:1234',
-      id,
-      ydoc,
-      { params: { token: localStorage.getItem('access_token') || '' } }
-    )
-  }, [id, ydoc])
-
-  // Sync Yjs map to local state
+  // Load initial content from backend
   useEffect(() => {
-    const ySheets = ydoc.getArray<Y.Map<unknown>>('sheets')
+    if (!doc || initialLoadRef.current) return
+    initialLoadRef.current = true
 
-    const syncFromYjs = () => {
-      const newSheets: SheetData[] = []
-      ySheets.forEach((ySheet: Y.Map<unknown>) => {
-        const name = (ySheet.get('name') as string) || 'Sheet1'
-        const yCells = ySheet.get('cells') as Y.Map<Y.Map<unknown>> | undefined
-        const cells: Record<string, CellData> = {}
-        if (yCells) {
-          yCells.forEach((yCell: Y.Map<unknown>, key: string) => {
-            cells[key] = {
-              value: (yCell.get('value') as string) || '',
-              bold: yCell.get('bold') as boolean | undefined,
-              italic: yCell.get('italic') as boolean | undefined,
-              bgColor: yCell.get('bgColor') as string | undefined,
-              textColor: yCell.get('textColor') as string | undefined,
-            }
-          })
-        }
-        newSheets.push({ name, cells })
-      })
-      if (newSheets.length > 0) {
-        setSheets(newSheets)
+    if (doc.content_json && typeof doc.content_json === 'object') {
+      const saved = doc.content_json as { sheets?: SheetData[] }
+      if (saved.sheets && Array.isArray(saved.sheets) && saved.sheets.length > 0) {
+        setSheets(saved.sheets)
       }
     }
+  }, [doc])
 
-    // Initialize if empty
-    if (ySheets.length === 0) {
-      ydoc.transact(() => {
-        const ySheet = new Y.Map<unknown>()
-        ySheet.set('name', 'Sheet1')
-        ySheet.set('cells', new Y.Map<Y.Map<unknown>>())
-        ySheets.push([ySheet])
-      })
-    }
-
-    ySheets.observeDeep(syncFromYjs)
-    syncFromYjs()
-
-    return () => {
-      ySheets.unobserveDeep(syncFromYjs)
-    }
-  }, [ydoc])
-
-  // Connection and awareness
-  useEffect(() => {
-    if (!wsProvider) return
-
-    const onStatus = (event: { status: string }) => {
-      if (event.status === 'connected') setConnectionStatus('connected')
-      else if (event.status === 'connecting') setConnectionStatus('connecting')
-      else setConnectionStatus('disconnected')
-    }
-    wsProvider.on('status', onStatus)
-
-    const awareness = wsProvider.awareness
-    const userName = user?.full_name || 'Anonymous'
-    awareness.setLocalStateField('user', { name: userName, color: generateColor(userName) })
-
-    const onAwarenessChange = () => {
-      const states = awareness.getStates()
-      const users: { name: string; color: string }[] = []
-      states.forEach((state, clientId) => {
-        if (clientId !== awareness.clientID && state.user) {
-          users.push(state.user)
-        }
-      })
-      setConnectedUsers(users)
-    }
-    awareness.on('change', onAwarenessChange)
-    onAwarenessChange()
-
-    return () => {
-      wsProvider.off('status', onStatus)
-      awareness.off('change', onAwarenessChange)
-    }
-  }, [wsProvider, user])
-
+  // Cleanup save timer
   useEffect(() => {
     return () => {
-      wsProvider?.destroy()
-      ydoc.destroy()
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     }
-  }, [wsProvider, ydoc])
+  }, [])
+
+  const debouncedSave = useCallback(
+    (updatedSheets: SheetData[]) => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+      saveTimerRef.current = setTimeout(() => {
+        updateMutation.mutate({ content_json: { sheets: updatedSheets } as Record<string, unknown> })
+      }, 2000)
+    },
+    [updateMutation]
+  )
 
   const activeSheet = sheets[activeSheetIndex] || sheets[0]
 
@@ -207,57 +127,44 @@ export default function SheetEditorPage() {
   const setCellValue = useCallback(
     (row: number, col: number, value: string) => {
       const key = cellId(row, col)
-      const ySheets = ydoc.getArray<Y.Map<unknown>>('sheets')
-      const ySheet = ySheets.get(activeSheetIndex)
-      if (!ySheet) return
-      const yCells = ySheet.get('cells') as Y.Map<Y.Map<unknown>>
-      if (!yCells) return
-
-      ydoc.transact(() => {
-        let yCell = yCells.get(key)
-        if (!yCell) {
-          yCell = new Y.Map<unknown>()
-          yCells.set(key, yCell)
-        }
-        yCell.set('value', value)
+      setSheets((prev) => {
+        const updated = [...prev]
+        const sheet = { ...updated[activeSheetIndex], cells: { ...updated[activeSheetIndex].cells } }
+        const existing = sheet.cells[key] || { value: '' }
+        sheet.cells[key] = { ...existing, value }
+        updated[activeSheetIndex] = sheet
+        debouncedSave(updated)
+        return updated
       })
     },
-    [ydoc, activeSheetIndex]
+    [activeSheetIndex, debouncedSave]
   )
 
   const toggleCellFormat = useCallback(
     (format: 'bold' | 'italic') => {
       if (!selectedCell) return
       const key = cellId(selectedCell.row, selectedCell.col)
-      const ySheets = ydoc.getArray<Y.Map<unknown>>('sheets')
-      const ySheet = ySheets.get(activeSheetIndex)
-      if (!ySheet) return
-      const yCells = ySheet.get('cells') as Y.Map<Y.Map<unknown>>
-      if (!yCells) return
-
-      ydoc.transact(() => {
-        let yCell = yCells.get(key)
-        if (!yCell) {
-          yCell = new Y.Map<unknown>()
-          yCells.set(key, yCell)
-        }
-        const current = yCell.get(format) as boolean | undefined
-        yCell.set(format, !current)
+      setSheets((prev) => {
+        const updated = [...prev]
+        const sheet = { ...updated[activeSheetIndex], cells: { ...updated[activeSheetIndex].cells } }
+        const existing = sheet.cells[key] || { value: '' }
+        sheet.cells[key] = { ...existing, [format]: !existing[format] }
+        updated[activeSheetIndex] = sheet
+        debouncedSave(updated)
+        return updated
       })
     },
-    [ydoc, activeSheetIndex, selectedCell]
+    [activeSheetIndex, selectedCell, debouncedSave]
   )
 
   const addSheet = useCallback(() => {
-    const ySheets = ydoc.getArray<Y.Map<unknown>>('sheets')
-    ydoc.transact(() => {
-      const ySheet = new Y.Map<unknown>()
-      ySheet.set('name', `Sheet${ySheets.length + 1}`)
-      ySheet.set('cells', new Y.Map<Y.Map<unknown>>())
-      ySheets.push([ySheet])
+    setSheets((prev) => {
+      const updated = [...prev, { name: `Sheet${prev.length + 1}`, cells: {} }]
+      debouncedSave(updated)
+      return updated
     })
     setActiveSheetIndex(sheets.length)
-  }, [ydoc, sheets.length])
+  }, [sheets.length, debouncedSave])
 
   const handleCellClick = (row: number, col: number) => {
     setSelectedCell({ row, col })
@@ -331,7 +238,6 @@ export default function SheetEditorPage() {
       e.preventDefault()
       handleCellDoubleClick(row, col)
     } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
-      // Start editing with typed character
       setCellValue(row, col, e.key)
       setFormulaBarValue(e.key)
       setEditingCell({ row, col })
@@ -438,9 +344,7 @@ export default function SheetEditorPage() {
         <table className="border-collapse table-fixed" style={{ minWidth: NUM_COLS * 100 + 40 }}>
           <thead className="sticky top-0 z-10">
             <tr>
-              {/* Row number header */}
               <th className="w-10 h-7 bg-gray-100 border border-gray-300 text-xs text-gray-500 sticky left-0 z-20" />
-              {/* Column headers */}
               {Array.from({ length: NUM_COLS }, (_, col) => (
                 <th
                   key={col}
@@ -457,7 +361,6 @@ export default function SheetEditorPage() {
           <tbody>
             {Array.from({ length: NUM_ROWS }, (_, row) => (
               <tr key={row}>
-                {/* Row number */}
                 <td
                   className={cn(
                     'w-10 h-7 bg-gray-100 border border-gray-300 text-xs text-center text-gray-600 select-none sticky left-0 z-10',
@@ -466,12 +369,9 @@ export default function SheetEditorPage() {
                 >
                   {row + 1}
                 </td>
-                {/* Cells */}
                 {Array.from({ length: NUM_COLS }, (_, col) => {
-                  const isSelected =
-                    selectedCell?.row === row && selectedCell?.col === col
-                  const isEditing =
-                    editingCell?.row === row && editingCell?.col === col
+                  const isSelected = selectedCell?.row === row && selectedCell?.col === col
+                  const isEditing = editingCell?.row === row && editingCell?.col === col
                   const data = getCellData(row, col)
                   const key = cellId(row, col)
 
@@ -482,9 +382,7 @@ export default function SheetEditorPage() {
                         'w-[100px] h-7 border border-gray-200 p-0 relative',
                         isSelected && 'outline outline-2 outline-blue-500 outline-offset-[-1px] z-[5]'
                       )}
-                      style={{
-                        backgroundColor: data.bgColor || undefined,
-                      }}
+                      style={{ backgroundColor: data.bgColor || undefined }}
                       onClick={() => handleCellClick(row, col)}
                       onDoubleClick={() => handleCellDoubleClick(row, col)}
                     >

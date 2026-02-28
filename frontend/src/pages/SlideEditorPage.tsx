@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getOfficeDoc, updateOfficeDoc, starOfficeDoc } from '@/api/office'
@@ -25,36 +25,26 @@ import { cn } from '@/lib/utils'
 
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
-import { Collaboration } from '@tiptap/extension-collaboration'
 import UnderlineExt from '@tiptap/extension-underline'
 import TextAlign from '@tiptap/extension-text-align'
 import Image from '@tiptap/extension-image'
 import Placeholder from '@tiptap/extension-placeholder'
 
-import * as Y from 'yjs'
-import { WebsocketProvider } from 'y-websocket'
-
-function generateColor(name: string): string {
-  let hash = 0
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash)
-  }
-  const hue = Math.abs(hash) % 360
-  return `hsl(${hue}, 70%, 50%)`
+interface SlideContent {
+  content: Record<string, unknown> | null
 }
 
 interface SlideEditorProps {
-  ydoc: Y.Doc
-  slideIndex: number
+  slideContent: Record<string, unknown> | null
+  onUpdate: (json: Record<string, unknown>) => void
 }
 
-function SlideEditor({ ydoc, slideIndex }: SlideEditorProps) {
-  const xmlFragment = ydoc.getXmlFragment(`slide-${slideIndex}`)
+function SlideEditor({ slideContent, onUpdate }: SlideEditorProps) {
+  const initialLoadRef = useRef(false)
 
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({ history: false } as any),
-      Collaboration.configure({ fragment: xmlFragment }),
+      StarterKit,
       UnderlineExt,
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       Image,
@@ -65,7 +55,26 @@ function SlideEditor({ ydoc, slideIndex }: SlideEditorProps) {
         class: 'focus:outline-none min-h-full p-10 text-lg',
       },
     },
-  }, [slideIndex, ydoc])
+    onUpdate: ({ editor: ed }) => {
+      onUpdate(ed.getJSON() as Record<string, unknown>)
+    },
+  })
+
+  // Load initial content when editor is ready
+  useEffect(() => {
+    if (!editor) return
+    initialLoadRef.current = false
+  }, [editor])
+
+  // Update editor content when slide changes
+  useEffect(() => {
+    if (!editor) return
+    if (slideContent && typeof slideContent === 'object') {
+      editor.commands.setContent(slideContent)
+    } else {
+      editor.commands.clearContent()
+    }
+  }, [editor, slideContent])
 
   return (
     <div className="h-full">
@@ -166,12 +175,14 @@ function SlideEditor({ ydoc, slideIndex }: SlideEditorProps) {
 export default function SlideEditorPage() {
   const { id } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
-  const { user } = useAuthStore()
-  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'disconnected'>('connecting')
-  const [connectedUsers, setConnectedUsers] = useState<{ name: string; color: string }[]>([])
+  const { user: _user } = useAuthStore()
+  const [connectionStatus] = useState<'connected' | 'connecting' | 'disconnected'>('connected')
+  const [connectedUsers] = useState<{ name: string; color: string }[]>([])
   const [activeSlide, setActiveSlide] = useState(0)
-  const [slideCount, setSlideCount] = useState(1)
+  const [slides, setSlides] = useState<SlideContent[]>([{ content: null }])
   const [isPresenting, setIsPresenting] = useState(false)
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const initialLoadRef = useRef(false)
 
   const { data: docData } = useQuery({
     queryKey: ['office-doc', id],
@@ -182,7 +193,7 @@ export default function SlideEditorPage() {
   const doc = docData?.data
 
   const updateMutation = useMutation({
-    mutationFn: (data: { title?: string }) => updateOfficeDoc(id!, data),
+    mutationFn: (data: { title?: string; content_json?: Record<string, unknown> }) => updateOfficeDoc(id!, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['office-doc', id] })
     },
@@ -195,108 +206,72 @@ export default function SlideEditorPage() {
     },
   })
 
-  // Yjs setup
-  const ydoc = useMemo(() => new Y.Doc(), [])
-
-  const wsProvider = useMemo(() => {
-    if (!id) return null
-    return new WebsocketProvider(
-      import.meta.env.VITE_COLLAB_URL || 'ws://localhost:1234',
-      id,
-      ydoc,
-      { params: { token: localStorage.getItem('access_token') || '' } }
-    )
-  }, [id, ydoc])
-
-  // Sync slide count from Yjs
+  // Load initial content from backend
   useEffect(() => {
-    const ySlidesMeta = ydoc.getMap('slides-meta')
+    if (!doc || initialLoadRef.current) return
+    initialLoadRef.current = true
 
-    const syncSlideCount = () => {
-      const count = ySlidesMeta.get('count') as number | undefined
-      if (count && count > 0) {
-        setSlideCount(count)
+    if (doc.content_json && typeof doc.content_json === 'object') {
+      const saved = doc.content_json as { slides?: SlideContent[] }
+      if (saved.slides && Array.isArray(saved.slides) && saved.slides.length > 0) {
+        setSlides(saved.slides)
       }
     }
+  }, [doc])
 
-    // Initialize
-    if (!ySlidesMeta.get('count')) {
-      ySlidesMeta.set('count', 1)
-    }
-
-    ySlidesMeta.observe(syncSlideCount)
-    syncSlideCount()
-
-    return () => {
-      ySlidesMeta.unobserve(syncSlideCount)
-    }
-  }, [ydoc])
-
-  // Connection & awareness
+  // Cleanup save timer
   useEffect(() => {
-    if (!wsProvider) return
-
-    const onStatus = (event: { status: string }) => {
-      if (event.status === 'connected') setConnectionStatus('connected')
-      else if (event.status === 'connecting') setConnectionStatus('connecting')
-      else setConnectionStatus('disconnected')
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     }
-    wsProvider.on('status', onStatus)
+  }, [])
 
-    const awareness = wsProvider.awareness
-    const userName = user?.full_name || 'Anonymous'
-    awareness.setLocalStateField('user', { name: userName, color: generateColor(userName) })
+  const debouncedSave = useCallback(
+    (updatedSlides: SlideContent[]) => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+      saveTimerRef.current = setTimeout(() => {
+        updateMutation.mutate({ content_json: { slides: updatedSlides } as Record<string, unknown> })
+      }, 2000)
+    },
+    [updateMutation]
+  )
 
-    const onAwarenessChange = () => {
-      const states = awareness.getStates()
-      const users: { name: string; color: string }[] = []
-      states.forEach((state, clientId) => {
-        if (clientId !== awareness.clientID && state.user) {
-          users.push(state.user)
-        }
+  const handleSlideUpdate = useCallback(
+    (index: number, json: Record<string, unknown>) => {
+      setSlides((prev) => {
+        const updated = [...prev]
+        updated[index] = { content: json }
+        debouncedSave(updated)
+        return updated
       })
-      setConnectedUsers(users)
-    }
-    awareness.on('change', onAwarenessChange)
-    onAwarenessChange()
-
-    return () => {
-      wsProvider.off('status', onStatus)
-      awareness.off('change', onAwarenessChange)
-    }
-  }, [wsProvider, user])
-
-  useEffect(() => {
-    return () => {
-      wsProvider?.destroy()
-      ydoc.destroy()
-    }
-  }, [wsProvider, ydoc])
+    },
+    [debouncedSave]
+  )
 
   const addSlide = useCallback(() => {
-    const newCount = slideCount + 1
-    const ySlidesMeta = ydoc.getMap('slides-meta')
-    ySlidesMeta.set('count', newCount)
-    setSlideCount(newCount)
-    setActiveSlide(newCount - 1)
-  }, [ydoc, slideCount])
+    setSlides((prev) => {
+      const updated = [...prev, { content: null }]
+      debouncedSave(updated)
+      return updated
+    })
+    setActiveSlide(slides.length)
+  }, [slides.length, debouncedSave])
 
   const deleteSlide = useCallback(
     (index: number) => {
-      if (slideCount <= 1) return
-      // For simplicity, we only allow deleting the last slide
-      // (full reordering would require more complex Yjs structure)
-      if (index === slideCount - 1) {
-        const newCount = slideCount - 1
-        const ySlidesMeta = ydoc.getMap('slides-meta')
-        ySlidesMeta.set('count', newCount)
-        setSlideCount(newCount)
-        if (activeSlide >= newCount) {
-          setActiveSlide(newCount - 1)
-        }
+      if (slides.length <= 1) return
+      setSlides((prev) => {
+        const updated = prev.filter((_, i) => i !== index)
+        debouncedSave(updated)
+        return updated
+      })
+      if (activeSlide >= slides.length - 1) {
+        setActiveSlide(Math.max(0, slides.length - 2))
+      } else if (activeSlide > index) {
+        setActiveSlide(activeSlide - 1)
       }
     },
-    [ydoc, slideCount, activeSlide]
+    [slides.length, activeSlide, debouncedSave]
   )
 
   const handleTitleChange = useCallback(
@@ -313,7 +288,7 @@ export default function SlideEditorPage() {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
         e.preventDefault()
-        setActiveSlide((s) => Math.min(s + 1, slideCount - 1))
+        setActiveSlide((s) => Math.min(s + 1, slides.length - 1))
       } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
         e.preventDefault()
         setActiveSlide((s) => Math.max(s - 1, 0))
@@ -327,7 +302,7 @@ export default function SlideEditorPage() {
 
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
-  }, [isPresenting, slideCount])
+  }, [isPresenting, slides.length])
 
   const startPresentation = () => {
     setIsPresenting(true)
@@ -342,7 +317,10 @@ export default function SlideEditorPage() {
     return (
       <div className="fixed inset-0 bg-black z-50 flex items-center justify-center">
         <div className="w-full max-w-[1280px] aspect-video bg-white rounded-sm overflow-hidden relative">
-          <SlideEditor ydoc={ydoc} slideIndex={activeSlide} />
+          <SlideEditor
+            slideContent={slides[activeSlide]?.content ?? null}
+            onUpdate={(json) => handleSlideUpdate(activeSlide, json)}
+          />
         </div>
         {/* Navigation controls */}
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-black/60 rounded-full px-4 py-2">
@@ -354,11 +332,11 @@ export default function SlideEditorPage() {
             <ChevronLeft className="h-5 w-5" />
           </button>
           <span className="text-white text-sm">
-            {activeSlide + 1} / {slideCount}
+            {activeSlide + 1} / {slides.length}
           </span>
           <button
-            onClick={() => setActiveSlide((s) => Math.min(s + 1, slideCount - 1))}
-            disabled={activeSlide === slideCount - 1}
+            onClick={() => setActiveSlide((s) => Math.min(s + 1, slides.length - 1))}
+            disabled={activeSlide === slides.length - 1}
             className="text-white disabled:opacity-30"
           >
             <ChevronRight className="h-5 w-5" />
@@ -402,14 +380,14 @@ export default function SlideEditorPage() {
         </button>
         <div className="flex-1" />
         <span className="text-sm text-gray-500">
-          Slide {activeSlide + 1} of {slideCount}
+          Slide {activeSlide + 1} of {slides.length}
         </span>
       </div>
 
       <div className="flex-1 flex overflow-hidden">
         {/* Slide thumbnails sidebar */}
         <div className="w-48 bg-gray-100 border-r overflow-y-auto p-3 space-y-2">
-          {Array.from({ length: slideCount }, (_, index) => (
+          {slides.map((_, index) => (
             <div
               key={index}
               onClick={() => setActiveSlide(index)}
@@ -429,7 +407,7 @@ export default function SlideEditorPage() {
                 {index + 1}
               </div>
               {/* Delete button */}
-              {slideCount > 1 && (
+              {slides.length > 1 && (
                 <button
                   onClick={(e) => {
                     e.stopPropagation()
@@ -454,7 +432,10 @@ export default function SlideEditorPage() {
         {/* Main slide canvas */}
         <div className="flex-1 flex items-center justify-center p-8 overflow-auto">
           <div className="w-full max-w-[960px] aspect-video bg-white shadow-lg rounded-sm overflow-hidden relative">
-            <SlideEditor ydoc={ydoc} slideIndex={activeSlide} />
+            <SlideEditor
+              slideContent={slides[activeSlide]?.content ?? null}
+              onUpdate={(json) => handleSlideUpdate(activeSlide, json)}
+            />
           </div>
         </div>
       </div>

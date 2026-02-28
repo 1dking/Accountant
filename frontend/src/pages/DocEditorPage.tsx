@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getOfficeDoc, updateOfficeDoc, starOfficeDoc } from '@/api/office'
@@ -8,8 +8,6 @@ import DocToolbar from '@/components/office/DocToolbar'
 
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
-import { Collaboration } from '@tiptap/extension-collaboration'
-import { CollaborationCursor } from '@tiptap/extension-collaboration-cursor'
 import Underline from '@tiptap/extension-underline'
 import TextAlign from '@tiptap/extension-text-align'
 import Highlight from '@tiptap/extension-highlight'
@@ -17,24 +15,14 @@ import Image from '@tiptap/extension-image'
 import Placeholder from '@tiptap/extension-placeholder'
 import { Table, TableRow, TableCell, TableHeader } from '@tiptap/extension-table'
 
-import * as Y from 'yjs'
-import { WebsocketProvider } from 'y-websocket'
-
-function generateColor(name: string): string {
-  let hash = 0
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash)
-  }
-  const hue = Math.abs(hash) % 360
-  return `hsl(${hue}, 70%, 50%)`
-}
-
 export default function DocEditorPage() {
   const { id } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
-  const { user } = useAuthStore()
-  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'disconnected'>('connecting')
-  const [connectedUsers, setConnectedUsers] = useState<{ name: string; color: string }[]>([])
+  const { user: _user } = useAuthStore()
+  const [connectionStatus] = useState<'connected' | 'connecting' | 'disconnected'>('connected')
+  const [connectedUsers] = useState<{ name: string; color: string }[]>([])
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const initialLoadRef = useRef(false)
 
   const { data: docData } = useQuery({
     queryKey: ['office-doc', id],
@@ -45,7 +33,7 @@ export default function DocEditorPage() {
   const doc = docData?.data
 
   const updateMutation = useMutation({
-    mutationFn: (data: { title?: string }) => updateOfficeDoc(id!, data),
+    mutationFn: (data: { title?: string; content_json?: Record<string, unknown> }) => updateOfficeDoc(id!, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['office-doc', id] })
     },
@@ -58,81 +46,9 @@ export default function DocEditorPage() {
     },
   })
 
-  // Yjs setup
-  const ydoc = useMemo(() => new Y.Doc(), [])
-
-  const wsProvider = useMemo(() => {
-    if (!id) return null
-    const provider = new WebsocketProvider(
-      import.meta.env.VITE_COLLAB_URL || 'ws://localhost:1234',
-      id,
-      ydoc,
-      { params: { token: localStorage.getItem('access_token') || '' } }
-    )
-    return provider
-  }, [id, ydoc])
-
-  // Track connection status and awareness
-  useEffect(() => {
-    if (!wsProvider) return
-
-    const onStatus = (event: { status: string }) => {
-      if (event.status === 'connected') setConnectionStatus('connected')
-      else if (event.status === 'connecting') setConnectionStatus('connecting')
-      else setConnectionStatus('disconnected')
-    }
-
-    wsProvider.on('status', onStatus)
-
-    const awareness = wsProvider.awareness
-    const userName = user?.full_name || 'Anonymous'
-    const userColor = generateColor(userName)
-
-    awareness.setLocalStateField('user', { name: userName, color: userColor })
-
-    const onAwarenessChange = () => {
-      const states = awareness.getStates()
-      const users: { name: string; color: string }[] = []
-      states.forEach((state, clientId) => {
-        if (clientId !== awareness.clientID && state.user) {
-          users.push(state.user)
-        }
-      })
-      setConnectedUsers(users)
-    }
-
-    awareness.on('change', onAwarenessChange)
-    onAwarenessChange()
-
-    return () => {
-      wsProvider.off('status', onStatus)
-      awareness.off('change', onAwarenessChange)
-    }
-  }, [wsProvider, user])
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      wsProvider?.destroy()
-      ydoc.destroy()
-    }
-  }, [wsProvider, ydoc])
-
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({ history: false } as any),
-      Collaboration.configure({ document: ydoc }),
-      ...(wsProvider
-        ? [
-            CollaborationCursor.configure({
-              provider: wsProvider,
-              user: {
-                name: user?.full_name || 'Anonymous',
-                color: generateColor(user?.full_name || 'Anonymous'),
-              },
-            }),
-          ]
-        : []),
+      StarterKit,
       Underline,
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       Highlight,
@@ -148,7 +64,31 @@ export default function DocEditorPage() {
         class: 'prose prose-lg max-w-none focus:outline-none min-h-[500px] px-16 py-8',
       },
     },
-  }, [ydoc, wsProvider])
+    onUpdate: ({ editor: ed }) => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+      saveTimerRef.current = setTimeout(() => {
+        const json = ed.getJSON()
+        updateMutation.mutate({ content_json: json as Record<string, unknown> })
+      }, 2000)
+    },
+  })
+
+  // Load initial content from backend
+  useEffect(() => {
+    if (!editor || !doc || initialLoadRef.current) return
+    initialLoadRef.current = true
+
+    if (doc.content_json && typeof doc.content_json === 'object') {
+      editor.commands.setContent(doc.content_json)
+    }
+  }, [editor, doc])
+
+  // Cleanup save timer on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    }
+  }, [])
 
   const handleTitleChange = useCallback(
     (title: string) => {
@@ -216,29 +156,6 @@ export default function DocEditorPage() {
         .ProseMirror mark {
           background-color: #fef08a;
           padding: 0.125em 0;
-        }
-        /* Collaboration cursor */
-        .collaboration-cursor__caret {
-          border-left: 1px solid #0d0d0d;
-          border-right: 1px solid #0d0d0d;
-          margin-left: -1px;
-          margin-right: -1px;
-          pointer-events: none;
-          position: relative;
-          word-break: normal;
-        }
-        .collaboration-cursor__label {
-          border-radius: 3px 3px 3px 0;
-          color: #fff;
-          font-size: 11px;
-          font-weight: 600;
-          left: -1px;
-          line-height: normal;
-          padding: 0.1rem 0.3rem;
-          position: absolute;
-          top: -1.4em;
-          user-select: none;
-          white-space: nowrap;
         }
       `}</style>
     </div>
