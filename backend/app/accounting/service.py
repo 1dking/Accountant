@@ -421,7 +421,28 @@ async def update_expense(
 
 async def delete_expense(db: AsyncSession, expense_id: uuid.UUID) -> None:
     expense = await get_expense(db, expense_id)
-    await db.delete(expense)
+
+    # Explicitly delete related records to avoid FK constraint errors
+    await db.execute(
+        delete(ExpenseApproval).where(ExpenseApproval.expense_id == expense_id)
+    )
+    await db.execute(
+        delete(ExpenseLineItem).where(ExpenseLineItem.expense_id == expense_id)
+    )
+
+    # Nullify plaid transaction reference if applicable
+    try:
+        from sqlalchemy import update
+        from app.integrations.plaid.models import PlaidTransaction
+        await db.execute(
+            update(PlaidTransaction)
+            .where(PlaidTransaction.expense_id == expense_id)
+            .values(expense_id=None)
+        )
+    except Exception:
+        pass
+
+    await db.execute(delete(Expense).where(Expense.id == expense_id))
     await db.commit()
 
 
