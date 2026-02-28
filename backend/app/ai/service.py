@@ -2,7 +2,6 @@
 
 
 import base64
-import io
 import json
 import logging
 import time
@@ -27,30 +26,12 @@ PDF_MIME_TYPE = "application/pdf"
 EXTRACTABLE_MIME_TYPES = VISION_MIME_TYPES | {PDF_MIME_TYPE}
 
 
-def _pdf_first_page_to_png(file_data: bytes) -> bytes:
-    """Convert the first page of a PDF to a PNG image."""
-    try:
-        from pdf2image import convert_from_bytes
-
-        images = convert_from_bytes(file_data, first_page=1, last_page=1, dpi=200)
-        if not images:
-            raise ValidationError("Could not convert PDF to image.")
-        buf = io.BytesIO()
-        images[0].save(buf, format="PNG")
-        return buf.getvalue()
-    except ImportError:
-        raise ValidationError(
-            "PDF extraction requires poppler to be installed. "
-            "Install poppler-utils (apt) or poppler (brew/choco)."
-        )
-
-
 async def extract_receipt_data(
     file_data: bytes,
     mime_type: str,
     settings: Settings,
 ) -> ReceiptExtractionResult:
-    """Send a document image to Claude Vision and parse the structured extraction."""
+    """Send a document image/PDF to Claude and parse the structured extraction."""
 
     if not settings.anthropic_api_key:
         raise ValidationError("Anthropic API key is not configured. Set ANTHROPIC_API_KEY in your environment.")
@@ -61,17 +42,32 @@ async def extract_receipt_data(
             f"Supported types: images (PNG, JPEG, WebP, GIF) and PDF."
         )
 
-    # Convert PDF to image
-    image_data = file_data
-    image_mime = mime_type
-    if mime_type == PDF_MIME_TYPE:
-        image_data = _pdf_first_page_to_png(file_data)
-        image_mime = "image/png"
-
     # Base64-encode
-    b64_data = base64.standard_b64encode(image_data).decode("utf-8")
+    b64_data = base64.standard_b64encode(file_data).decode("utf-8")
 
-    # Call Claude Vision
+    # Build the content block based on file type
+    if mime_type == PDF_MIME_TYPE:
+        # Use Claude's native PDF support (document type)
+        file_content_block = {
+            "type": "document",
+            "source": {
+                "type": "base64",
+                "media_type": "application/pdf",
+                "data": b64_data,
+            },
+        }
+    else:
+        # Use image type for images
+        file_content_block = {
+            "type": "image",
+            "source": {
+                "type": "base64",
+                "media_type": mime_type,
+                "data": b64_data,
+            },
+        }
+
+    # Call Claude
     client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
     response = await client.messages.create(
         model=settings.anthropic_model,
@@ -80,14 +76,7 @@ async def extract_receipt_data(
             {
                 "role": "user",
                 "content": [
-                    {
-                        "type": "image",
-                        "source": {
-                            "type": "base64",
-                            "media_type": image_mime,
-                            "data": b64_data,
-                        },
-                    },
+                    file_content_block,
                     {
                         "type": "text",
                         "text": RECEIPT_EXTRACTION_PROMPT,
