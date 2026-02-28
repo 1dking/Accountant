@@ -102,7 +102,7 @@ export async function listRecordings(meetingId?: string) {
   if (meetingId) {
     return api.get<ApiListResponse<MeetingRecording>>(`/meetings/${meetingId}/recordings`)
   }
-  return api.get<ApiListResponse<MeetingRecording>>('/meetings/recordings')
+  return api.get<ApiListResponse<MeetingRecording>>('/meetings/recordings/all')
 }
 
 export async function listRecordingsByContact() {
@@ -112,6 +112,22 @@ export async function listRecordingsByContact() {
 export function getRecordingStreamUrl(recordingId: string): string {
   const token = localStorage.getItem('access_token') || ''
   return `/api/meetings/recordings/${recordingId}/stream?token=${encodeURIComponent(token)}`
+}
+
+export async function uploadRecording(meetingId: string, file: Blob): Promise<ApiResponse<MeetingRecording>> {
+  const formData = new FormData()
+  formData.append('file', file, `recording-${Date.now()}.webm`)
+  const token = localStorage.getItem('access_token') || ''
+  const response = await fetch(`/api/meetings/${meetingId}/recordings/upload`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  })
+  if (!response.ok) {
+    const body = await response.json().catch(() => null)
+    throw new Error(body?.error?.message || `Failed to upload recording (${response.status})`)
+  }
+  return response.json() as Promise<ApiResponse<MeetingRecording>>
 }
 
 export async function addParticipant(meetingId: string, data: { email?: string; contact_id?: string; guest_name?: string; guest_email?: string }) {

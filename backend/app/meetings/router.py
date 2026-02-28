@@ -5,14 +5,14 @@ import logging
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile, File
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import Role, User
 from app.core.exceptions import ValidationError
-from app.dependencies import get_current_user, get_db, require_role
+from app.dependencies import get_current_user, get_current_user_or_token, get_db, require_role
 from app.documents.storage import LocalStorage, StorageBackend
 from app.meetings import service
 from app.meetings.models import MeetingRecording, MeetingStatus, RecordingStatus
@@ -139,7 +139,7 @@ async def list_recordings_by_contact(
 async def download_recording(
     recording_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user_or_token)],
     storage: Annotated[StorageBackend, Depends(get_storage)],
 ) -> StreamingResponse:
     """Download a recording file."""
@@ -152,7 +152,7 @@ async def download_recording(
         io.BytesIO(data),
         media_type=recording.mime_type,
         headers={
-            "Content-Disposition": f'attachment; filename="recording-{recording.id}.mp4"',
+            "Content-Disposition": f'attachment; filename="recording-{recording.id}.{recording.mime_type.split("/")[-1]}"',
             "Content-Length": str(len(data)),
         },
     )
@@ -162,7 +162,7 @@ async def download_recording(
 async def stream_recording(
     recording_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user_or_token)],
     storage: Annotated[StorageBackend, Depends(get_storage)],
     request: Request,
 ) -> StreamingResponse:
@@ -331,6 +331,28 @@ async def stop_recording(
     """Stop recording a meeting."""
     settings = request.app.state.settings
     recording = await service.stop_recording(db, recording_id, current_user, settings)
+    return {"data": MeetingRecordingResponse.model_validate(recording)}
+
+
+@router.post("/{meeting_id}/recordings/upload", status_code=201)
+async def upload_recording(
+    meeting_id: uuid.UUID,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    storage: Annotated[StorageBackend, Depends(get_storage)],
+    file: UploadFile = File(...),
+) -> dict:
+    """Upload a client-side recorded meeting file."""
+    file_data = await file.read()
+    file_size = len(file_data)
+
+    # Save file to storage
+    storage_path = await storage.save(file_data, "webm")
+
+    recording = await service.upload_recording(
+        db, meeting_id, current_user, file_data, file_size, storage_path
+    )
     return {"data": MeetingRecordingResponse.model_validate(recording)}
 
 

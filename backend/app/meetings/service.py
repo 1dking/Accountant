@@ -488,40 +488,15 @@ async def start_recording(
     user: User,
     settings: Settings,
 ) -> MeetingRecording:
-    """Start recording a meeting via LiveKit egress."""
+    """Mark that a recording has started (client-side MediaRecorder)."""
     meeting = await get_meeting(db, meeting_id, user)
 
     if meeting.status != MeetingStatus.IN_PROGRESS:
         raise ValidationError("Meeting must be in progress to start recording.")
 
-    egress_id: str | None = None
-    try:
-        lk_api = _get_livekit_api(settings)
-        from livekit.api import RoomCompositeEgressRequest, EncodedFileOutput, EncodedFileType
-
-        output = EncodedFileOutput(
-            file_type=EncodedFileType.MP4,
-            filepath=f"recordings/{meeting.livekit_room_name}-{uuid.uuid4().hex[:8]}.mp4",
-        )
-        egress_request = RoomCompositeEgressRequest(
-            room_name=meeting.livekit_room_name,
-            file_outputs=[output],
-        )
-        egress_info = await lk_api.egress.start_room_composite_egress(egress_request)
-        egress_id = egress_info.egress_id
-    except ValidationError:
-        raise
-    except Exception:
-        logger.warning(
-            "Failed to start LiveKit egress for meeting %s",
-            meeting.id,
-            exc_info=True,
-        )
-
     recording = MeetingRecording(
         meeting_id=meeting.id,
         status=RecordingStatus.RECORDING,
-        egress_id=egress_id,
         started_by=user.id,
     )
     db.add(recording)
@@ -546,7 +521,7 @@ async def stop_recording(
     user: User,
     settings: Settings,
 ) -> MeetingRecording:
-    """Stop a meeting recording."""
+    """Mark a recording as stopped (client will upload the file)."""
     result = await db.execute(
         select(MeetingRecording).where(MeetingRecording.id == recording_id)
     )
@@ -556,22 +531,6 @@ async def stop_recording(
 
     if recording.status != RecordingStatus.RECORDING:
         raise ValidationError("Recording is not currently active.")
-
-    # Stop the LiveKit egress if we have an egress_id
-    if recording.egress_id:
-        try:
-            lk_api = _get_livekit_api(settings)
-            from livekit.api import StopEgressRequest
-
-            await lk_api.egress.stop_egress(
-                StopEgressRequest(egress_id=recording.egress_id)
-            )
-        except Exception:
-            logger.warning(
-                "Failed to stop LiveKit egress %s",
-                recording.egress_id,
-                exc_info=True,
-            )
 
     recording.status = RecordingStatus.PROCESSING
     await db.commit()
@@ -584,6 +543,49 @@ async def stop_recording(
         resource_type="meeting_recording",
         resource_id=str(recording.id),
         details={"meeting_id": str(recording.meeting_id)},
+    )
+
+    return recording
+
+
+async def upload_recording(
+    db: AsyncSession,
+    meeting_id: uuid.UUID,
+    user: User,
+    file_data: bytes,
+    file_size: int,
+    storage_path: str,
+) -> MeetingRecording:
+    """Create a recording entry from a client-side uploaded file."""
+    # Verify meeting exists
+    result = await db.execute(
+        select(Meeting)
+        .options(selectinload(Meeting.participants))
+        .where(Meeting.id == meeting_id)
+    )
+    meeting = result.scalar_one_or_none()
+    if meeting is None:
+        raise NotFoundError("Meeting", str(meeting_id))
+
+    recording = MeetingRecording(
+        meeting_id=meeting.id,
+        status=RecordingStatus.AVAILABLE,
+        storage_path=storage_path,
+        file_size=file_size,
+        mime_type="video/webm",
+        started_by=user.id,
+    )
+    db.add(recording)
+    await db.commit()
+    await db.refresh(recording)
+
+    await log_activity(
+        db,
+        user_id=user.id,
+        action="uploaded_recording",
+        resource_type="meeting_recording",
+        resource_id=str(recording.id),
+        details={"meeting_id": str(meeting.id), "file_size": file_size},
     )
 
     return recording
