@@ -37,6 +37,7 @@ import NewEstimatePage from '@/pages/NewEstimatePage'
 import EstimateDetailPage from '@/pages/EstimateDetailPage'
 import CashbookPage from '@/pages/CashbookPage'
 import NewCashbookEntryPage from '@/pages/NewCashbookEntryPage'
+import CashbookEntryDetailPage from '@/pages/CashbookEntryDetailPage'
 import HelpPage from '@/pages/HelpPage'
 
 const queryClient = new QueryClient({
@@ -97,6 +98,7 @@ function AuthenticatedApp() {
         <Route path="/contacts/:id" element={<ContactDetailPage />} />
         <Route path="/cashbook" element={<CashbookPage />} />
         <Route path="/cashbook/new" element={<NewCashbookEntryPage />} />
+        <Route path="/cashbook/entries/:id" element={<CashbookEntryDetailPage />} />
         <Route path="/expenses" element={<ExpensesPage />} />
         <Route path="/expenses/new" element={<NewExpensePage />} />
         <Route path="/expenses/dashboard" element={<ExpenseDashboardPage />} />

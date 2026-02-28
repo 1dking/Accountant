@@ -15,6 +15,7 @@ export interface IncomeFilters {
 export interface IncomeCreateData {
   contact_id?: string
   invoice_id?: string
+  document_id?: string
   category?: string
   description: string
   amount: number
@@ -28,6 +29,7 @@ export interface IncomeCreateData {
 export interface IncomeUpdateData {
   contact_id?: string
   invoice_id?: string
+  document_id?: string
   category?: string
   description?: string
   amount?: number

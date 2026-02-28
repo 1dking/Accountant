@@ -2,9 +2,12 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createExpense, listCategories } from '@/api/accounting'
+import { listDocuments, getDocument } from '@/api/documents'
+import { useDebounce } from '@/hooks/useDebounce'
+import { formatFileSize } from '@/lib/utils'
 import { PAYMENT_METHODS } from '@/lib/constants'
-import { ArrowLeft } from 'lucide-react'
-import type { PaymentMethod } from '@/types/models'
+import { ArrowLeft, Paperclip, X } from 'lucide-react'
+import type { PaymentMethod, DocumentListItem } from '@/types/models'
 
 export default function NewExpensePage() {
   const navigate = useNavigate()
@@ -19,6 +22,17 @@ export default function NewExpensePage() {
   const [categoryId, setCategoryId] = useState('')
   const [paymentMethod, setPaymentMethod] = useState('')
   const [notes, setNotes] = useState('')
+  const [documentSearch, setDocumentSearch] = useState('')
+  const [selectedDocument, setSelectedDocument] = useState<DocumentListItem | null>(null)
+  const [showDocPicker, setShowDocPicker] = useState(false)
+
+  const debouncedDocSearch = useDebounce(documentSearch, 300)
+  const { data: docsData } = useQuery({
+    queryKey: ['documents', { search: debouncedDocSearch }],
+    queryFn: () => listDocuments({ search: debouncedDocSearch || undefined, page_size: 20 }),
+    enabled: showDocPicker,
+  })
+  const searchedDocs = docsData?.data ?? []
 
   const { data: categoriesData } = useQuery({
     queryKey: ['expense-categories'],
@@ -37,6 +51,7 @@ export default function NewExpensePage() {
         category_id: categoryId || undefined,
         payment_method: (paymentMethod as PaymentMethod) || undefined,
         notes: notes || undefined,
+        document_id: selectedDocument?.id || undefined,
       }),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['expenses'] })
@@ -157,6 +172,69 @@ export default function NewExpensePage() {
             placeholder="What was this expense for?"
             className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
+        </div>
+
+        {/* Linked Document */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            <Paperclip className="inline h-3.5 w-3.5 mr-1" />
+            Linked Document
+          </label>
+          {selectedDocument ? (
+            <div className="flex items-center gap-2 w-full px-3 py-2 text-sm border rounded-md bg-gray-50">
+              <span className="flex-1 truncate">
+                {selectedDocument.title || selectedDocument.original_filename}
+                <span className="text-gray-400 ml-2">{formatFileSize(selectedDocument.file_size)}</span>
+              </span>
+              <button type="button" onClick={() => setSelectedDocument(null)} className="text-gray-400 hover:text-red-500">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ) : (
+            <div>
+              <button type="button" onClick={() => setShowDocPicker(!showDocPicker)}
+                className="w-full px-3 py-2 text-sm border rounded-md text-left text-gray-500 hover:bg-gray-50 flex items-center justify-between">
+                <span>Select a document...</span>
+                <Paperclip className="h-4 w-4" />
+              </button>
+              {showDocPicker && (
+                <div className="mt-2 border rounded-md overflow-hidden">
+                  <div className="p-2 border-b bg-gray-50">
+                    <input type="text" value={documentSearch} onChange={(e) => setDocumentSearch(e.target.value)}
+                      placeholder="Filter documents..." className="w-full px-3 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                  <div className="max-h-48 overflow-y-auto">
+                    {searchedDocs.length === 0 ? (
+                      <div className="px-3 py-4 text-sm text-gray-500 text-center">No documents found</div>
+                    ) : (
+                      searchedDocs.map((doc) => (
+                        <button key={doc.id} type="button" onClick={async () => {
+                          setSelectedDocument(doc)
+                          setDocumentSearch('')
+                          setShowDocPicker(false)
+                          try {
+                            const res = await getDocument(doc.id)
+                            const meta = res.data?.extracted_metadata
+                            if (meta) {
+                              if (meta.vendor_name) setVendorName(String(meta.vendor_name))
+                              if (meta.total_amount) setAmount(String(meta.total_amount))
+                              if (meta.date) setExpenseDate(String(meta.date))
+                              if (meta.tax_amount) setTaxAmount(String(meta.tax_amount))
+                              if (meta.payment_method) setPaymentMethod(String(meta.payment_method))
+                              if (meta.vendor_name) setDescription(`Expense from ${meta.vendor_name}`)
+                            }
+                          } catch { /* best-effort */ }
+                        }} className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 flex items-center justify-between border-b last:border-b-0">
+                          <span className="truncate">{doc.title || doc.original_filename}</span>
+                          <span className="text-xs text-gray-400 ml-2 shrink-0">{formatFileSize(doc.file_size)}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div>

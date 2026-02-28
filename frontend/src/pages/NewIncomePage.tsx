@@ -1,11 +1,15 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Paperclip, X } from 'lucide-react';
 import { createIncome } from '@/api/income';
 import { listContacts } from '@/api/contacts';
+import { listDocuments, getDocument } from '@/api/documents';
+import { useDebounce } from '@/hooks/useDebounce';
+import { formatFileSize } from '@/lib/utils';
 import { INCOME_CATEGORIES, PAYMENT_METHODS } from '@/lib/constants';
 import type { IncomeCreateData } from '@/api/income';
+import type { DocumentListItem } from '@/types/models';
 
 export default function NewIncomePage() {
   const navigate = useNavigate();
@@ -23,6 +27,17 @@ export default function NewIncomePage() {
   });
 
   const [error, setError] = useState('');
+  const [documentSearch, setDocumentSearch] = useState('');
+  const [selectedDocument, setSelectedDocument] = useState<DocumentListItem | null>(null);
+  const [showDocPicker, setShowDocPicker] = useState(false);
+
+  const debouncedDocSearch = useDebounce(documentSearch, 300);
+  const { data: docsData } = useQuery({
+    queryKey: ['documents', { search: debouncedDocSearch }],
+    queryFn: () => listDocuments({ search: debouncedDocSearch || undefined, page_size: 20 }),
+    enabled: showDocPicker,
+  });
+  const searchedDocs = docsData?.data ?? [];
 
   const { data: contactsData } = useQuery({
     queryKey: ['contacts'],
@@ -79,6 +94,7 @@ export default function NewIncomePage() {
       ...(form.contact_id && { contact_id: form.contact_id }),
       ...(form.reference && { reference: form.reference.trim() }),
       ...(form.notes && { notes: form.notes.trim() }),
+      ...(selectedDocument?.id && { document_id: selectedDocument.id }),
     };
 
     mutation.mutate(payload);
@@ -237,6 +253,71 @@ export default function NewIncomePage() {
               placeholder="e.g. Invoice #1234"
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
+          </div>
+
+          {/* Linked Document */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              <Paperclip className="inline h-3.5 w-3.5 mr-1" />
+              Linked Document
+            </label>
+            {selectedDocument ? (
+              <div className="flex items-center gap-2 w-full px-3 py-2 text-sm border rounded-md bg-gray-50">
+                <span className="flex-1 truncate">
+                  {selectedDocument.title || selectedDocument.original_filename}
+                  <span className="text-gray-400 ml-2">{formatFileSize(selectedDocument.file_size)}</span>
+                </span>
+                <button type="button" onClick={() => setSelectedDocument(null)} className="text-gray-400 hover:text-red-500">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ) : (
+              <div>
+                <button type="button" onClick={() => setShowDocPicker(!showDocPicker)}
+                  className="w-full px-3 py-2 text-sm border rounded-md text-left text-gray-500 hover:bg-gray-50 flex items-center justify-between">
+                  <span>Select a document...</span>
+                  <Paperclip className="h-4 w-4" />
+                </button>
+                {showDocPicker && (
+                  <div className="mt-2 border rounded-md overflow-hidden">
+                    <div className="p-2 border-b bg-gray-50">
+                      <input type="text" value={documentSearch} onChange={(e) => setDocumentSearch(e.target.value)}
+                        placeholder="Filter documents..." className="w-full px-3 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                    <div className="max-h-48 overflow-y-auto">
+                      {searchedDocs.length === 0 ? (
+                        <div className="px-3 py-4 text-sm text-gray-500 text-center">No documents found</div>
+                      ) : (
+                        searchedDocs.map((doc) => (
+                          <button key={doc.id} type="button" onClick={async () => {
+                            setSelectedDocument(doc);
+                            setDocumentSearch('');
+                            setShowDocPicker(false);
+                            try {
+                              const res = await getDocument(doc.id);
+                              const meta = res.data?.extracted_metadata as Record<string, any> | null | undefined;
+                              if (meta) {
+                                setForm((prev) => ({
+                                  ...prev,
+                                  ...(meta.total_amount && { amount: Number(meta.total_amount) }),
+                                  ...(meta.date && { date: String(meta.date) }),
+                                  ...(meta.vendor_name && { description: `Income from ${meta.vendor_name}` }),
+                                  ...(meta.payment_method && { payment_method: String(meta.payment_method) }),
+                                  ...(meta.receipt_number && { reference: String(meta.receipt_number) }),
+                                }));
+                              }
+                            } catch { /* best-effort */ }
+                          }} className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 flex items-center justify-between border-b last:border-b-0">
+                            <span className="truncate">{doc.title || doc.original_filename}</span>
+                            <span className="text-xs text-gray-400 ml-2 shrink-0">{formatFileSize(doc.file_size)}</span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Notes */}

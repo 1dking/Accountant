@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { listAccounts, listCategories, createEntry } from '@/api/cashbook'
@@ -35,8 +35,7 @@ export default function NewCashbookEntryPage() {
   const [manualTax, setManualTax] = useState('')
   const [documentSearch, setDocumentSearch] = useState('')
   const [selectedDocument, setSelectedDocument] = useState<DocumentListItem | null>(null)
-  const [showDocDropdown, setShowDocDropdown] = useState(false)
-  const docSearchRef = useRef<HTMLDivElement>(null)
+  const [showDocPicker, setShowDocPicker] = useState(false)
 
   // Fetch accounts
   const { data: accountsData } = useQuery({
@@ -66,21 +65,10 @@ export default function NewCashbookEntryPage() {
   const debouncedDocSearch = useDebounce(documentSearch, 300)
   const { data: docsData } = useQuery({
     queryKey: ['documents', { search: debouncedDocSearch }],
-    queryFn: () => listDocuments({ search: debouncedDocSearch || undefined, page_size: 5 }),
-    enabled: showDocDropdown && documentSearch.length > 0,
+    queryFn: () => listDocuments({ search: debouncedDocSearch || undefined, page_size: 20 }),
+    enabled: showDocPicker,
   })
   const searchedDocs = docsData?.data ?? []
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (docSearchRef.current && !docSearchRef.current.contains(e.target as Node)) {
-        setShowDocDropdown(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [])
 
   // Calculate tax: tax = total - (total / 1.13)
   const parsedAmount = parseFloat(amount) || 0
@@ -257,7 +245,7 @@ export default function NewCashbookEntryPage() {
         </div>
 
         {/* Linked Document */}
-        <div ref={docSearchRef} className="relative">
+        <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             <Paperclip className="inline h-3.5 w-3.5 mr-1" />
             Linked Document
@@ -279,68 +267,74 @@ export default function NewCashbookEntryPage() {
               </button>
             </div>
           ) : (
-            <>
-              <input
-                type="text"
-                value={documentSearch}
-                onChange={(e) => {
-                  setDocumentSearch(e.target.value)
-                  setShowDocDropdown(true)
-                }}
-                onFocus={() => { if (documentSearch) setShowDocDropdown(true) }}
-                placeholder="Search documents..."
-                className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              {showDocDropdown && documentSearch && (
-                <div className="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto">
-                  {searchedDocs.length === 0 ? (
-                    <div className="px-3 py-2 text-sm text-gray-500">No documents found</div>
-                  ) : (
-                    searchedDocs.map((doc) => (
-                      <button
-                        key={doc.id}
-                        type="button"
-                        onClick={async () => {
-                          setSelectedDocument(doc)
-                          setDocumentSearch('')
-                          setShowDocDropdown(false)
-                          // Fetch full document to get extracted metadata for auto-fill
-                          try {
-                            const res = await getDocument(doc.id)
-                            const meta = res.data?.extracted_metadata
-                            if (meta) {
-                              if (meta.total_amount) setAmount(String(meta.total_amount))
-                              if (meta.date) setEntryDate(meta.date as string)
-                              if (meta.vendor_name) setDescription(`Payment to ${meta.vendor_name}`)
-                              if (meta.tax_amount) {
-                                setTaxOverride(true)
-                                setManualTax(String(meta.tax_amount))
+            <div>
+              <button
+                type="button"
+                onClick={() => setShowDocPicker(!showDocPicker)}
+                className="w-full px-3 py-2 text-sm border rounded-md text-left text-gray-500 hover:bg-gray-50 flex items-center justify-between"
+              >
+                <span>Select a document...</span>
+                <Paperclip className="h-4 w-4" />
+              </button>
+              {showDocPicker && (
+                <div className="mt-2 border rounded-md overflow-hidden">
+                  <div className="p-2 border-b bg-gray-50">
+                    <input
+                      type="text"
+                      value={documentSearch}
+                      onChange={(e) => setDocumentSearch(e.target.value)}
+                      placeholder="Filter documents..."
+                      className="w-full px-3 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div className="max-h-48 overflow-y-auto">
+                    {searchedDocs.length === 0 ? (
+                      <div className="px-3 py-4 text-sm text-gray-500 text-center">No documents found</div>
+                    ) : (
+                      searchedDocs.map((doc) => (
+                        <button
+                          key={doc.id}
+                          type="button"
+                          onClick={async () => {
+                            setSelectedDocument(doc)
+                            setDocumentSearch('')
+                            setShowDocPicker(false)
+                            try {
+                              const res = await getDocument(doc.id)
+                              const meta = res.data?.extracted_metadata
+                              if (meta) {
+                                if (meta.total_amount) setAmount(String(meta.total_amount))
+                                if (meta.date) setEntryDate(meta.date as string)
+                                if (meta.vendor_name) setDescription(`Payment to ${meta.vendor_name}`)
+                                if (meta.tax_amount) {
+                                  setTaxOverride(true)
+                                  setManualTax(String(meta.tax_amount))
+                                }
+                                if (meta.category) {
+                                  const catName = (meta.category as string).replace(/_/g, ' ').toLowerCase()
+                                  const match = allCategories.find(
+                                    (c) => c.name.toLowerCase() === catName
+                                  )
+                                  if (match) setCategoryId(match.id)
+                                }
                               }
-                              // Try to match category by name
-                              if (meta.category) {
-                                const catName = (meta.category as string).replace(/_/g, ' ').toLowerCase()
-                                const match = allCategories.find(
-                                  (c) => c.name.toLowerCase() === catName
-                                )
-                                if (match) setCategoryId(match.id)
-                              }
+                            } catch {
+                              // Auto-fill is best-effort
                             }
-                          } catch {
-                            // Auto-fill is best-effort; document is still linked
-                          }
-                        }}
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 flex items-center justify-between"
-                      >
-                        <span className="truncate">{doc.title || doc.original_filename}</span>
-                        <span className="text-xs text-gray-400 ml-2 shrink-0">
-                          {formatFileSize(doc.file_size)}
-                        </span>
-                      </button>
-                    ))
-                  )}
+                          }}
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 flex items-center justify-between border-b last:border-b-0"
+                        >
+                          <span className="truncate">{doc.title || doc.original_filename}</span>
+                          <span className="text-xs text-gray-400 ml-2 shrink-0">
+                            {formatFileSize(doc.file_size)}
+                          </span>
+                        </button>
+                      ))
+                    )}
+                  </div>
                 </div>
               )}
-            </>
+            </div>
           )}
         </div>
 
