@@ -3,7 +3,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func, select
 
@@ -225,6 +225,12 @@ def create_app() -> FastAPI:
         # Catch-all: serve index.html for SPA client-side routing
         @fastapi_app.get("/{path:path}")
         async def spa_fallback(path: str):
+            # Never intercept API or WebSocket routes
+            if path.startswith("api/") or path.startswith("ws"):
+                return JSONResponse(
+                    status_code=404,
+                    content={"error": {"code": "NOT_FOUND", "message": f"Route /{path} not found"}},
+                )
             # If the file exists in dist/, serve it (e.g. favicon, manifest, icons)
             file_path = frontend_dist / path
             if path and file_path.is_file():
