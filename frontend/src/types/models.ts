@@ -1053,6 +1053,7 @@ export interface OfficeDocument {
   thumbnail_path: string | null
   is_starred: boolean
   is_trashed: boolean
+  content_json: Record<string, unknown> | null
   last_accessed_at: string | null
   collaborators: OfficeCollaborator[]
   created_at: string
