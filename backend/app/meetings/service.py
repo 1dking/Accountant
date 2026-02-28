@@ -60,11 +60,18 @@ def generate_livekit_token(
         raise ValidationError(
             "LiveKit is not configured. Set LIVEKIT_API_KEY and LIVEKIT_API_SECRET in .env"
         )
-    from livekit.api import AccessToken, VideoGrant
+    from livekit.api import AccessToken
+
+    try:
+        from livekit.api import VideoGrants
+        grant = VideoGrants(room_join=True, room=room_name)
+    except ImportError:
+        from livekit.api import VideoGrant
+        grant = VideoGrant(room_join=True, room=room_name)
 
     token = AccessToken(settings.livekit_api_key, settings.livekit_api_secret)
     token.with_identity(identity)
-    token.with_grants(VideoGrant(room_join=True, room=room_name))
+    token.with_grants(grant)
     return token.to_jwt()
 
 
