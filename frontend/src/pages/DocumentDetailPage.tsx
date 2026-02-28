@@ -46,7 +46,11 @@ export default function DocumentDetailPage() {
   const deleteMutation = useMutation({
     mutationFn: () => deleteDocument(id!),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['documents'] })
       navigate('/documents')
+    },
+    onError: (err: Error) => {
+      alert(`Failed to delete: ${err.message}`)
     },
   })
 
@@ -190,14 +194,15 @@ export default function DocumentDetailPage() {
               </button>
             </>
           )}
-          {user?.role === 'admin' && (
+          {(user?.role === 'admin' || user?.role === 'accountant') && (
             <button
               onClick={() => {
                 if (confirm('Delete this document?')) deleteMutation.mutate()
               }}
-              className="px-3 py-1.5 text-sm text-red-600 border border-red-200 rounded-md hover:bg-red-50"
+              disabled={deleteMutation.isPending}
+              className="px-3 py-1.5 text-sm text-red-600 border border-red-200 rounded-md hover:bg-red-50 disabled:opacity-50"
             >
-              Delete
+              {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
             </button>
           )}
         </div>

@@ -365,10 +365,10 @@ async def update_doc(
 async def delete_doc(
     document_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
     storage: Annotated[StorageBackend, Depends(get_storage)],
 ) -> dict:
-    """Delete a document (admin only)."""
+    """Delete a document."""
     await delete_document(db, storage, document_id, current_user)
     return {"data": {"message": "Document deleted successfully"}}
 
