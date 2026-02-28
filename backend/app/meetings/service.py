@@ -56,6 +56,10 @@ def generate_livekit_token(
     settings: Settings,
 ) -> str:
     """Generate a LiveKit access token JWT."""
+    if not settings.livekit_api_key or not settings.livekit_api_secret:
+        raise ValidationError(
+            "LiveKit is not configured. Set LIVEKIT_API_KEY and LIVEKIT_API_SECRET in .env"
+        )
     from livekit.api import AccessToken, VideoGrant
 
     token = AccessToken(settings.livekit_api_key, settings.livekit_api_secret)
