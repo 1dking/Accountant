@@ -12,6 +12,7 @@ from app.income.models import IncomeCategory
 class IncomeCreate(BaseModel):
     contact_id: uuid.UUID | None = None
     invoice_id: uuid.UUID | None = None
+    document_id: uuid.UUID | None = None
     category: IncomeCategory = IncomeCategory.OTHER
     description: str = Field(min_length=1, max_length=1000)
     amount: float = Field(gt=0)
@@ -39,6 +40,7 @@ class IncomeResponse(BaseModel):
     id: uuid.UUID
     contact_id: uuid.UUID | None
     invoice_id: uuid.UUID | None
+    document_id: uuid.UUID | None
     category: IncomeCategory
     description: str
     amount: float
@@ -58,6 +60,7 @@ class IncomeListItem(BaseModel):
     id: uuid.UUID
     contact_id: uuid.UUID | None
     invoice_id: uuid.UUID | None
+    document_id: uuid.UUID | None
     category: IncomeCategory
     description: str
     amount: float

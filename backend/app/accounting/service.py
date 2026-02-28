@@ -621,6 +621,7 @@ async def resolve_expense_approval(
     resolver_id: uuid.UUID,
     approve: bool,
     comment: str | None = None,
+    is_admin: bool = False,
 ) -> ExpenseApproval:
     """Approve or reject an expense."""
     from app.core.websocket import websocket_manager
@@ -637,7 +638,7 @@ async def resolve_expense_approval(
     if approval is None:
         raise NotFoundError("ExpenseApproval", str(expense_id))
 
-    if approval.assigned_to != resolver_id:
+    if approval.assigned_to != resolver_id and not is_admin:
         raise ForbiddenError("Only the assigned reviewer can resolve this approval.")
 
     new_status = ApprovalStatusEnum.APPROVED if approve else ApprovalStatusEnum.REJECTED

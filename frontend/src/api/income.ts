@@ -63,6 +63,10 @@ export async function deleteIncome(id: string) {
   return api.delete<ApiResponse<{ message: string }>>(`/income/${id}`)
 }
 
+export async function createIncomeFromDocument(documentId: string) {
+  return api.post<ApiResponse<IncomeEntry>>(`/income/from-document/${documentId}`)
+}
+
 export async function getIncomeSummary(params: { date_from?: string; date_to?: string } = {}) {
   const searchParams = new URLSearchParams()
   Object.entries(params).forEach(([key, val]) => {

@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getDocument, updateDocument, deleteDocument, getDownloadUrl, listVersions } from '@/api/documents'
-import { requestApproval } from '@/api/collaboration'
+import { requestApproval, resolveApproval } from '@/api/collaboration'
 import { createExpenseFromDocument } from '@/api/accounting'
+import { createIncomeFromDocument } from '@/api/income'
 import CommentThread from '@/components/comments/CommentThread'
 import ExtractionResults from '@/components/documents/ExtractionResults'
 import { useAuthStore } from '@/stores/authStore'
@@ -65,6 +66,21 @@ export default function DocumentDetailPage() {
     mutationFn: () => createExpenseFromDocument(id!),
     onSuccess: (data) => {
       navigate(`/expenses/${data.data.id}`)
+    },
+  })
+
+  const createIncomeMutation = useMutation({
+    mutationFn: () => createIncomeFromDocument(id!),
+    onSuccess: (data) => {
+      navigate(`/income/${data.data.id}`)
+    },
+  })
+
+  const adminApproveMutation = useMutation({
+    mutationFn: (params: { approvalId: string; status: 'approved' | 'rejected' }) =>
+      resolveApproval(params.approvalId, { status: params.status }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['document', id] })
     },
   })
 
@@ -279,19 +295,32 @@ export default function DocumentDetailPage() {
           canExtract={canEdit}
         />
 
-        {/* Create Expense from extracted data */}
+        {/* Create Expense / Income from extracted data */}
         {canEdit && doc.extracted_metadata && (
-          <div>
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-gray-500 uppercase">Create from Document</label>
             <button
               onClick={() => createExpenseMutation.mutate()}
               disabled={createExpenseMutation.isPending}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 disabled:opacity-50 transition-colors"
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-50 transition-colors"
             >
-              {createExpenseMutation.isPending ? 'Creating...' : 'Create Expense from Receipt'}
+              {createExpenseMutation.isPending ? 'Creating...' : 'Create Expense'}
             </button>
             {createExpenseMutation.isError && (
               <p className="mt-1 text-xs text-red-600">
                 {(createExpenseMutation.error as Error).message || 'Failed to create expense'}
+              </p>
+            )}
+            <button
+              onClick={() => createIncomeMutation.mutate()}
+              disabled={createIncomeMutation.isPending}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 disabled:opacity-50 transition-colors"
+            >
+              {createIncomeMutation.isPending ? 'Creating...' : 'Create Income'}
+            </button>
+            {createIncomeMutation.isError && (
+              <p className="mt-1 text-xs text-red-600">
+                {(createIncomeMutation.error as Error).message || 'Failed to create income'}
               </p>
             )}
           </div>
@@ -300,24 +329,49 @@ export default function DocumentDetailPage() {
         {/* Approval */}
         {canEdit && doc.status === 'draft' && (
           <div>
-            <label className="text-xs font-medium text-gray-500 uppercase">Request Approval</label>
-            <div className="flex gap-2 mt-1">
-              <input
-                type="text"
-                value={approvalAssignee}
-                onChange={(e) => setApprovalAssignee(e.target.value)}
-                placeholder="User ID"
-                className="flex-1 px-2 py-1 text-sm border rounded-md"
-              />
-              <button
-                onClick={() => {
-                  if (approvalAssignee) approvalMutation.mutate(approvalAssignee)
-                }}
-                className="px-3 py-1 text-sm bg-yellow-500 text-white rounded-md hover:bg-yellow-600"
-              >
-                Request
-              </button>
-            </div>
+            <label className="text-xs font-medium text-gray-500 uppercase">Approval</label>
+            {user?.role === 'admin' ? (
+              <div className="flex gap-2 mt-1">
+                <button
+                  onClick={() => {
+                    // Admin self-approves: create a self-assigned approval, then resolve it
+                    approvalMutation.mutate(user.id, {
+                      onSuccess: (data) => {
+                        const approvalId = data.data.id
+                        adminApproveMutation.mutate({ approvalId, status: 'approved' })
+                      },
+                    })
+                  }}
+                  disabled={approvalMutation.isPending || adminApproveMutation.isPending}
+                  className="flex-1 px-3 py-1.5 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
+                >
+                  {approvalMutation.isPending || adminApproveMutation.isPending ? 'Approving...' : 'Approve'}
+                </button>
+              </div>
+            ) : (
+              <div className="flex gap-2 mt-1">
+                <input
+                  type="text"
+                  value={approvalAssignee}
+                  onChange={(e) => setApprovalAssignee(e.target.value)}
+                  placeholder="Approver User ID"
+                  className="flex-1 px-2 py-1 text-sm border rounded-md"
+                />
+                <button
+                  onClick={() => {
+                    if (approvalAssignee) approvalMutation.mutate(approvalAssignee)
+                  }}
+                  className="px-3 py-1 text-sm bg-yellow-500 text-white rounded-md hover:bg-yellow-600"
+                >
+                  Request
+                </button>
+              </div>
+            )}
+            {approvalMutation.isError && (
+              <p className="mt-1 text-xs text-red-600">
+                {(approvalMutation.error as Error).message || 'Failed'}
+              </p>
+            )}
           </div>
         )}
 

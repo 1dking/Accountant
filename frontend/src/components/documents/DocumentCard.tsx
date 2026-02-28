@@ -1,7 +1,11 @@
 import { useNavigate } from 'react-router'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { deleteDocument, getDownloadUrl } from '@/api/documents'
+import { useAuthStore } from '@/stores/authStore'
 import type { DocumentListItem } from '@/types/models'
 import { formatFileSize, formatDate } from '@/lib/utils'
 import { DOCUMENT_STATUSES } from '@/lib/constants'
+import { Download, Trash2, ExternalLink } from 'lucide-react'
 
 interface DocumentCardProps {
   document: DocumentListItem
@@ -26,7 +30,20 @@ function getFileIcon(mimeType: string): string {
 
 export default function DocumentCard({ document: doc, selected, onSelect }: DocumentCardProps) {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const { user } = useAuthStore()
   const statusInfo = DOCUMENT_STATUSES.find((s) => s.value === doc.status)
+  const canEdit = user?.role === 'admin' || user?.role === 'accountant'
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteDocument(doc.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['documents'] })
+    },
+    onError: (err: Error) => {
+      alert(`Failed to delete: ${err.message}`)
+    },
+  })
 
   return (
     <div
@@ -76,6 +93,39 @@ export default function DocumentCard({ document: doc, selected, onSelect }: Docu
               </span>
             ))}
           </div>
+        </div>
+
+        {/* Inline actions - visible on hover */}
+        <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+          <a
+            href={getDownloadUrl(doc.id)}
+            download
+            title="Download"
+            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+          >
+            <Download className="h-4 w-4" />
+          </a>
+          <button
+            onClick={() => navigate(`/documents/${doc.id}`)}
+            title="Open"
+            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+          >
+            <ExternalLink className="h-4 w-4" />
+          </button>
+          {canEdit && (
+            <button
+              onClick={() => {
+                if (confirm(`Delete "${doc.title || doc.original_filename}"?`)) {
+                  deleteMutation.mutate()
+                }
+              }}
+              disabled={deleteMutation.isPending}
+              title="Delete"
+              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors disabled:opacity-50"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
     </div>

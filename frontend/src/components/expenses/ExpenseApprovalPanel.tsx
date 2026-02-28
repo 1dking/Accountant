@@ -48,8 +48,10 @@ export default function ExpenseApprovalPanel({ expense, approval }: ExpenseAppro
   })
 
   const users = usersData?.data?.filter((u) => u.id !== user?.id && u.is_active) ?? []
+  const isAdmin = user?.role === 'admin'
   const isAssignee = approval && user?.id === approval.assigned_to
   const isRequester = approval && user?.id === approval.requested_by
+  const canResolve = isAssignee || isAdmin
 
   // Already resolved
   if (approval && approval.status !== 'pending') {
@@ -89,12 +91,14 @@ export default function ExpenseApprovalPanel({ expense, approval }: ExpenseAppro
         <p className="text-sm text-amber-800 mb-3">
           {isAssignee
             ? 'This expense is waiting for your review.'
-            : isRequester
-              ? 'You submitted this for approval.'
-              : 'This expense is pending approval.'}
+            : isAdmin
+              ? 'You can approve or reject this expense as an admin.'
+              : isRequester
+                ? 'You submitted this for approval.'
+                : 'This expense is pending approval.'}
         </p>
 
-        {isAssignee && (
+        {canResolve && (
           <div className="space-y-2">
             {showReject ? (
               <div className="space-y-2">
@@ -164,12 +168,28 @@ export default function ExpenseApprovalPanel({ expense, approval }: ExpenseAppro
   // No approval yet - show request form
   if (!canManage) return null
 
+  const handleAdminApprove = () => {
+    // Admin self-assigns and immediately approves
+    requestExpenseApproval(expense.id, user!.id).then(() => {
+      approveExpense(expense.id, 'Admin approved').then(() => invalidate())
+    })
+  }
+
   return (
     <div className="bg-white rounded-lg border p-4">
-      <h3 className="font-semibold text-gray-900 text-sm mb-3">Request Approval</h3>
+      <h3 className="font-semibold text-gray-900 text-sm mb-3">Approval</h3>
       <div className="space-y-3">
+        {isAdmin && (
+          <button
+            onClick={handleAdminApprove}
+            className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
+          >
+            <ShieldCheck className="h-4 w-4" />
+            Approve (Admin)
+          </button>
+        )}
         <div>
-          <label className="text-xs font-medium text-gray-500">Assign to</label>
+          <label className="text-xs font-medium text-gray-500">Or assign to a reviewer</label>
           <select
             value={assignedTo}
             onChange={(e) => setAssignedTo(e.target.value)}

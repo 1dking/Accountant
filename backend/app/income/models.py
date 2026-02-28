@@ -28,6 +28,9 @@ class Income(TimestampMixin, Base):
     invoice_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("invoices.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    document_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("documents.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     category: Mapped[IncomeCategory] = mapped_column(
         Enum(IncomeCategory), default=IncomeCategory.OTHER, nullable=False
     )

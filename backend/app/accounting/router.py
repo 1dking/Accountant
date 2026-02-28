@@ -319,6 +319,7 @@ async def approve_expense(
         resolver_id=current_user.id,
         approve=True,
         comment=data.comment,
+        is_admin=current_user.role == Role.ADMIN,
     )
     return {"data": ExpenseApprovalResponse.model_validate(approval)}
 
@@ -336,5 +337,6 @@ async def reject_expense(
         resolver_id=current_user.id,
         approve=False,
         comment=data.comment,
+        is_admin=current_user.role == Role.ADMIN,
     )
     return {"data": ExpenseApprovalResponse.model_validate(approval)}

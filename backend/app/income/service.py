@@ -8,8 +8,9 @@ from sqlalchemy import extract, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import User
-from app.core.exceptions import NotFoundError
+from app.core.exceptions import NotFoundError, ValidationError
 from app.core.pagination import PaginationParams, build_pagination_meta
+from app.documents.models import Document
 from app.income.models import Income, IncomeCategory
 from app.income.schemas import (
     IncomeCategorySummary,
@@ -48,6 +49,45 @@ async def create_income_from_payment(
         date=payment.date,
         payment_method=payment.payment_method,
         reference=payment.reference,
+        created_by=user.id,
+    )
+    db.add(income)
+    await db.commit()
+    await db.refresh(income)
+    return income
+
+
+async def create_income_from_document(
+    db: AsyncSession, document_id: uuid.UUID, user: User
+) -> Income:
+    """Create an income entry pre-filled from a document's AI-extracted metadata."""
+    result = await db.execute(select(Document).where(Document.id == document_id))
+    document = result.scalar_one_or_none()
+    if document is None:
+        raise NotFoundError("Document", str(document_id))
+
+    meta = document.extracted_metadata
+    if not meta:
+        raise ValidationError("This document has no extracted metadata. Run AI extraction first.")
+
+    # Parse date
+    income_date = date.today()
+    date_str = meta.get("date")
+    if date_str:
+        try:
+            income_date = date.fromisoformat(date_str)
+        except ValueError:
+            pass
+
+    income = Income(
+        document_id=document_id,
+        category=IncomeCategory.OTHER,
+        description=f"Income from {document.title or document.original_filename}",
+        amount=meta.get("total_amount") or 0.0,
+        currency=meta.get("currency", "USD"),
+        date=income_date,
+        reference=meta.get("receipt_number"),
+        notes=f"Vendor: {meta.get('vendor_name', 'Unknown')}",
         created_by=user.id,
     )
     db.add(income)

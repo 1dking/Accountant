@@ -62,6 +62,17 @@ async def create_income(
     return {"data": IncomeResponse.model_validate(income)}
 
 
+@router.post("/from-document/{document_id}", status_code=201)
+async def create_income_from_document(
+    document_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+) -> dict:
+    """Create an income entry pre-filled from a document's AI-extracted metadata."""
+    income = await service.create_income_from_document(db, document_id, current_user)
+    return {"data": IncomeResponse.model_validate(income)}
+
+
 @router.get("/{income_id}")
 async def get_income(
     income_id: uuid.UUID,

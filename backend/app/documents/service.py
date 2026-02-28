@@ -2,12 +2,15 @@
 
 
 import hashlib
+import logging
 import os
 import uuid
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+
+logger = logging.getLogger(__name__)
 
 from app.auth.models import User
 from app.config import Settings
@@ -302,6 +305,15 @@ async def delete_document(
         if version.storage_path != document.storage_path:
             paths_to_delete.append(version.storage_path)
 
+    # Explicitly delete related records that reference this document
+    # to avoid FK constraint errors on databases that enforce them
+    from app.collaboration.models import ApprovalWorkflow, Comment
+
+    await db.execute(delete(Comment).where(Comment.document_id == document_id))
+    await db.execute(
+        delete(ApprovalWorkflow).where(ApprovalWorkflow.document_id == document_id)
+    )
+
     # Audit log before deletion
     await _create_audit_log(
         db,
@@ -312,12 +324,20 @@ async def delete_document(
         details={"filename": document.filename},
     )
 
-    await db.delete(document)
-    await db.commit()
+    try:
+        await db.delete(document)
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        logger.exception("Failed to delete document %s from database", document_id)
+        raise
 
     # Remove files from storage after successful DB commit
     for path in paths_to_delete:
-        await storage.delete(path)
+        try:
+            await storage.delete(path)
+        except Exception:
+            logger.warning("Failed to delete storage file: %s", path)
 
 
 async def download_document(
