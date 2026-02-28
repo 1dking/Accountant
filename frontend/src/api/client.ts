@@ -112,7 +112,6 @@ export const api = {
 
   async delete<T = unknown>(path: string): Promise<T> {
     const doFetch = async () => {
-      const headers = await getAuthHeaders()
       return fetch(`${BASE_URL}${path}`, {
         method: 'DELETE',
         headers: await getAuthHeaders(),

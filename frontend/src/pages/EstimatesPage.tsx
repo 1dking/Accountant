@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
-import { Plus, Search, FileText, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import { listEstimates } from '@/api/estimates';
 import { useAuthStore } from '@/stores/authStore';
 import { ESTIMATE_STATUSES } from '@/lib/constants';
