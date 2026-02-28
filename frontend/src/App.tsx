@@ -37,6 +37,7 @@ import NewEstimatePage from '@/pages/NewEstimatePage'
 import EstimateDetailPage from '@/pages/EstimateDetailPage'
 import CashbookPage from '@/pages/CashbookPage'
 import NewCashbookEntryPage from '@/pages/NewCashbookEntryPage'
+import HelpPage from '@/pages/HelpPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -118,6 +119,7 @@ function AuthenticatedApp() {
         <Route path="/capture" element={<CapturePage />} />
         <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/help" element={<HelpPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AppShell>

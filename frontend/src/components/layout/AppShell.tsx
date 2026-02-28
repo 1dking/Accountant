@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import Header from './Header'
 import Sidebar from './Sidebar'
 import MobileNav from './MobileNav'
+import AiChatWidget from './AiChatWidget'
 import { useUiStore } from '@/stores/uiStore'
 
 interface AppShellProps {
@@ -31,6 +32,7 @@ export default function AppShell({ children }: AppShellProps) {
         </main>
       </div>
       <MobileNav />
+      <AiChatWidget />
     </div>
   )
 }

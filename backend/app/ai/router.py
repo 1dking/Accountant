@@ -5,11 +5,14 @@ import time
 import uuid
 from typing import Annotated
 
+import anthropic
 from fastapi import APIRouter, Depends, Request
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import Role, User
-from app.ai.schemas import AIExtractionStatus, AIProcessResponse, ReceiptExtractionResult
+from app.ai.schemas import AIExtractionStatus, AIProcessResponse, HelpChatRequest, ReceiptExtractionResult
+from app.ai.prompts import HELP_ASSISTANT_SYSTEM_PROMPT
 from app.ai.service import process_document_ai
 from app.core.exceptions import NotFoundError
 from app.dependencies import get_current_user, get_db, require_role
@@ -73,3 +76,33 @@ async def get_extraction(
             extraction=extraction,
         ).model_dump(mode="json")
     }
+
+
+@router.post("/chat")
+async def help_chat(
+    body: HelpChatRequest,
+    request: Request,
+    _: Annotated[User, Depends(get_current_user)],
+) -> StreamingResponse:
+    """Stream an AI help assistant response about the platform."""
+    settings = request.app.state.settings
+
+    if not settings.anthropic_api_key:
+        from app.core.exceptions import ValidationError
+        raise ValidationError("Anthropic API key is not configured.")
+
+    messages = [{"role": m.role, "content": m.content} for m in body.messages]
+    client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+
+    async def generate():
+        async with client.messages.stream(
+            model=settings.anthropic_model,
+            max_tokens=2048,
+            system=HELP_ASSISTANT_SYSTEM_PROMPT,
+            messages=messages,
+        ) as stream:
+            async for text in stream.text_stream:
+                yield f"data: {text}\n\n"
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(generate(), media_type="text/event-stream")

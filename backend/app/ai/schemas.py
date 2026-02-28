@@ -40,3 +40,12 @@ class AIExtractionStatus(BaseModel):
     document_id: uuid.UUID
     has_extraction: bool
     extraction: ReceiptExtractionResult | None = None
+
+
+class HelpChatMessage(BaseModel):
+    role: str = Field(..., pattern=r"^(user|assistant)$")
+    content: str = Field(..., min_length=1, max_length=5000)
+
+
+class HelpChatRequest(BaseModel):
+    messages: list[HelpChatMessage] = Field(..., min_length=1, max_length=20)

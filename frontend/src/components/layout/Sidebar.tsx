@@ -126,7 +126,15 @@ export default function Sidebar() {
         </div>
 
         {/* Help */}
-        <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">
+        <button
+          onClick={() => handleNavigate('/help')}
+          className={cn(
+            'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+            location.pathname.startsWith('/help')
+              ? 'bg-blue-50/70 text-blue-600'
+              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+          )}
+        >
           <HelpCircle className="h-5 w-5" />
           Help & information
         </button>
