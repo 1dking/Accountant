@@ -30,6 +30,7 @@ class PublicDocumentResponse(BaseModel):
     actions: list[str]  # available actions: "accept", "pay", "decline"
     is_signed: bool
     stripe_configured: bool
+    stripe_publishable_key: str | None = None
 
 
 class AcceptEstimateRequest(BaseModel):

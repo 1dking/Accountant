@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useParams } from 'react-router'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { getPublicDocument, acceptEstimate, payPublicDocument } from '@/api/public'
+import PaymentForm from '@/components/public/PaymentForm'
 import SignaturePad from '@/components/public/SignaturePad'
 import { CheckCircle, Loader2, AlertCircle } from 'lucide-react'
 
@@ -13,6 +14,8 @@ export default function PublicDocumentPage() {
   const [signatureData, setSignatureData] = useState<string | null>(null)
   const [signerName, setSignerName] = useState('')
   const [accepted, setAccepted] = useState(false)
+  const [showPaymentForm, setShowPaymentForm] = useState(false)
+  const [paymentData, setPaymentData] = useState<{client_secret: string; publishable_key: string; amount: number; currency: string} | null>(null)
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['public-document', token],
@@ -35,7 +38,8 @@ export default function PublicDocumentPage() {
   const payMutation = useMutation({
     mutationFn: () => payPublicDocument(token!),
     onSuccess: (response) => {
-      window.location.href = response.data.checkout_url
+      setPaymentData(response.data)
+      setShowPaymentForm(true)
     },
   })
 
@@ -393,27 +397,49 @@ export default function PublicDocumentPage() {
             )}
 
             {/* Pay button (for invoices) */}
-            {isInvoice &&
-              actions.includes('pay') &&
-              stripe_configured &&
-              balanceDue > 0 && (
-                <div className="border-t pt-6">
-                  <button
-                    onClick={() => payMutation.mutate()}
-                    disabled={payMutation.isPending}
-                    className="w-full px-6 py-3 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
-                  >
-                    {payMutation.isPending
-                      ? 'Redirecting to payment...'
-                      : `Pay ${formatCurrency(balanceDue, doc.currency)}`}
-                  </button>
-                  {payMutation.isError && (
-                    <p className="text-sm text-red-600 mt-2">
-                      Failed to initiate payment. Please try again.
-                    </p>
-                  )}
-                </div>
-              )}
+            {isInvoice && actions.includes('pay') && stripe_configured && balanceDue > 0 && (
+              <div className="border-t pt-6">
+                {showPaymentForm && paymentData ? (
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
+                      Payment
+                    </h3>
+                    <PaymentForm
+                      clientSecret={paymentData.client_secret}
+                      publishableKey={paymentData.publishable_key}
+                      amount={paymentData.amount}
+                      currency={paymentData.currency}
+                      onSuccess={() => {
+                        setShowPaymentForm(false)
+                        refetch()
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => payMutation.mutate()}
+                      disabled={payMutation.isPending}
+                      className="w-full px-6 py-3 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                    >
+                      {payMutation.isPending ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Preparing payment...
+                        </span>
+                      ) : (
+                        `Pay ${formatCurrency(balanceDue, doc.currency)}`
+                      )}
+                    </button>
+                    {payMutation.isError && (
+                      <p className="text-sm text-red-600 mt-2">
+                        Failed to initiate payment. Please try again.
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

@@ -57,6 +57,7 @@ export interface PublicDocument {
   actions: string[]
   is_signed: boolean
   stripe_configured: boolean
+  stripe_publishable_key: string | null
 }
 
 export interface PublicTokenInfo {
@@ -85,6 +86,13 @@ export function createShareLink(resourceType: 'estimate' | 'invoice', resourceId
   return api.post<ApiResponse<PublicTokenInfo>>(endpoint, expiresInDays ? { expires_in_days: expiresInDays } : {})
 }
 
+export interface PaymentIntentResponse {
+  client_secret: string
+  publishable_key: string
+  amount: number
+  currency: string
+}
+
 export function payPublicDocument(token: string) {
-  return api.post<ApiResponse<{ checkout_url: string }>>(`/public/view/${token}/pay`)
+  return api.post<ApiResponse<PaymentIntentResponse>>(`/public/view/${token}/pay`)
 }

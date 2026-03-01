@@ -252,6 +252,8 @@ async def handle_webhook_event(
 
     if event_type == "checkout.session.completed":
         await _handle_checkout_completed(db, data_object)
+    elif event_type == "payment_intent.succeeded":
+        await _handle_payment_intent_succeeded(db, data_object)
     elif event_type == "invoice.payment_succeeded":
         await _handle_subscription_payment(db, data_object)
     elif event_type == "customer.subscription.deleted":
@@ -317,6 +319,96 @@ async def _handle_checkout_completed(
                 date=date_type.today(),
                 payment_method="stripe",
                 reference=session.get("payment_intent"),
+                created_by=invoice.created_by,
+            )
+            db.add(income)
+
+    await db.commit()
+
+
+async def _handle_payment_intent_succeeded(
+    db: AsyncSession, payment_intent: dict
+) -> None:
+    """When a PaymentIntent succeeds (embedded payment), mark the invoice as paid."""
+    from datetime import date as date_type
+
+    from sqlalchemy.orm import selectinload
+
+    from app.invoicing.models import Invoice, InvoicePayment, InvoiceStatus
+
+    pi_id = payment_intent.get("id")
+    invoice_id_str = payment_intent.get("metadata", {}).get("invoice_id")
+
+    if not pi_id:
+        return
+
+    # Skip if this PaymentIntent came from a Checkout Session (handled separately)
+    result = await db.execute(
+        select(StripePaymentLink).where(
+            StripePaymentLink.checkout_session_id.isnot(None),
+            StripePaymentLink.payment_intent_id == pi_id,
+        )
+    )
+    if result.scalar_one_or_none():
+        return
+
+    # Update payment link status
+    result = await db.execute(
+        select(StripePaymentLink).where(
+            StripePaymentLink.payment_intent_id == pi_id
+        )
+    )
+    payment_link = result.scalar_one_or_none()
+    if payment_link:
+        payment_link.status = PaymentLinkStatus.COMPLETED
+        payment_link.paid_at = datetime.now(timezone.utc)
+
+    # Record the payment on the invoice
+    if invoice_id_str:
+        invoice_uuid = uuid.UUID(invoice_id_str)
+        inv_result = await db.execute(
+            select(Invoice)
+            .options(selectinload(Invoice.payments))
+            .where(Invoice.id == invoice_uuid)
+        )
+        invoice = inv_result.scalar_one_or_none()
+        if invoice:
+            amount_paid = float(payment_intent.get("amount_received", 0)) / 100
+
+            # Check for duplicate payment (idempotency)
+            existing_refs = {p.reference for p in (invoice.payments or []) if p.reference}
+            if pi_id in existing_refs:
+                return
+
+            payment = InvoicePayment(
+                invoice_id=invoice.id,
+                amount=amount_paid,
+                date=date_type.today(),
+                payment_method="stripe",
+                reference=pi_id,
+                recorded_by=invoice.created_by,
+            )
+            db.add(payment)
+
+            total_paid = sum(p.amount for p in (invoice.payments or [])) + amount_paid
+            if total_paid >= invoice.total:
+                invoice.status = InvoiceStatus.PAID
+            else:
+                invoice.status = InvoiceStatus.PARTIALLY_PAID
+
+            # Create income record
+            from app.income.models import Income, IncomeCategory
+
+            income = Income(
+                contact_id=invoice.contact_id,
+                invoice_id=invoice.id,
+                category=IncomeCategory.INVOICE_PAYMENT,
+                description=f"Stripe payment for Invoice {invoice.invoice_number}",
+                amount=amount_paid,
+                currency=invoice.currency,
+                date=date_type.today(),
+                payment_method="stripe",
+                reference=pi_id,
                 created_by=invoice.created_by,
             )
             db.add(income)

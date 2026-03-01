@@ -11,6 +11,7 @@ from .models import ResourceType
 from .schemas import AcceptEstimateRequest, PublicDocumentResponse
 from .service import (
     accept_estimate,
+    create_public_payment_intent,
     get_company_branding,
     get_resource_data,
     get_token_by_value,
@@ -50,6 +51,8 @@ async def view_public_document(
     is_signed = bool(document.get("signed_by_name"))
     stripe_configured = bool(settings.stripe_secret_key)
 
+    stripe_publishable_key = settings.stripe_publishable_key if stripe_configured else None
+
     return {
         "data": PublicDocumentResponse(
             resource_type=pat.resource_type.value,
@@ -58,6 +61,7 @@ async def view_public_document(
             actions=actions,
             is_signed=is_signed,
             stripe_configured=stripe_configured,
+            stripe_publishable_key=stripe_publishable_key,
         ).model_dump()
     }
 
@@ -73,4 +77,17 @@ async def accept_public_estimate(
     pat = await get_token_by_value(db, token)
     signer_ip = request.client.host if request.client else "unknown"
     result = await accept_estimate(db, pat, data.signature_data, data.signer_name, signer_ip)
+    return {"data": result}
+
+
+@router.post("/view/{token}/pay")
+async def pay_public_invoice(
+    token: str,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    """Create a Stripe PaymentIntent for an invoice accessed via public token."""
+    settings = request.app.state.settings
+    pat = await get_token_by_value(db, token)
+    result = await create_public_payment_intent(db, pat, settings)
     return {"data": result}

@@ -22,10 +22,10 @@ import {
 } from '@/api/invoices';
 import {
   sendInvoiceEmail,
-  createPaymentLink,
   sendPaymentReminderEmail,
   sendInvoiceSms,
 } from '@/api/integrations';
+import { createShareLink } from '@/api/public';
 import ShareLinkDialog from '@/components/documents/ShareLinkDialog';
 import { useAuthStore } from '@/stores/authStore';
 import { INVOICE_STATUSES, PAYMENT_METHODS } from '@/lib/constants';
@@ -107,13 +107,13 @@ export default function InvoiceDetailPage() {
   });
 
   const paymentLinkMutation = useMutation({
-    mutationFn: () => createPaymentLink(id!),
+    mutationFn: () => createShareLink('invoice', id!),
     onSuccess: (data) => {
-      const url = data.data.payment_url;
+      const url = data.data.shareable_url;
       navigator.clipboard.writeText(url);
       showActionMsg('Payment link copied to clipboard!');
     },
-    onError: () => showActionMsg('Failed to create payment link. Check Stripe settings.'),
+    onError: () => showActionMsg('Failed to create payment link.'),
   });
 
   const reminderMutation = useMutation({

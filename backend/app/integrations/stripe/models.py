@@ -38,7 +38,7 @@ class StripePaymentLink(TimestampMixin, Base):
     )
     checkout_session_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     payment_intent_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    payment_url: Mapped[str] = mapped_column(Text)
+    payment_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     amount: Mapped[float] = mapped_column(Float)
     currency: Mapped[str] = mapped_column(String(3), default="USD")
     status: Mapped[PaymentLinkStatus] = mapped_column(

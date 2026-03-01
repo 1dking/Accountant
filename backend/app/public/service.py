@@ -277,3 +277,105 @@ async def list_tokens_for_resource(
         .order_by(PublicAccessToken.created_at.desc())
     )
     return list(result.scalars().all())
+
+
+async def create_public_payment_intent(
+    db: AsyncSession,
+    pat: PublicAccessToken,
+    settings,
+) -> dict:
+    """Create a Stripe PaymentIntent for an invoice accessed via public token."""
+    import stripe as stripe_lib
+
+    from app.integrations.stripe.models import PaymentLinkStatus, StripePaymentLink
+    from app.invoicing.models import Invoice, InvoiceStatus
+
+    if pat.resource_type != ResourceType.INVOICE:
+        raise ValidationError("Can only pay invoices")
+
+    if not settings.stripe_secret_key:
+        raise ValidationError("Stripe is not configured")
+
+    stripe_lib.api_key = settings.stripe_secret_key
+
+    result = await db.execute(
+        select(Invoice)
+        .options(selectinload(Invoice.payments))
+        .where(Invoice.id == pat.resource_id)
+    )
+    invoice = result.scalar_one_or_none()
+    if not invoice:
+        raise NotFoundError("Invoice", str(pat.resource_id))
+
+    payable_statuses = {
+        InvoiceStatus.SENT,
+        InvoiceStatus.VIEWED,
+        InvoiceStatus.OVERDUE,
+        InvoiceStatus.PARTIALLY_PAID,
+    }
+    if invoice.status not in payable_statuses:
+        raise ValidationError(
+            f"Invoice status '{invoice.status.value}' is not payable"
+        )
+
+    total_paid = sum(p.amount for p in (invoice.payments or []))
+    balance_due = invoice.total - total_paid
+    if balance_due <= 0:
+        raise ValidationError("Invoice is already fully paid")
+
+    # Reuse existing pending PaymentIntent if one exists (idempotency)
+    existing = await db.execute(
+        select(StripePaymentLink).where(
+            StripePaymentLink.invoice_id == invoice.id,
+            StripePaymentLink.status == PaymentLinkStatus.PENDING,
+            StripePaymentLink.payment_intent_id.isnot(None),
+        ).order_by(StripePaymentLink.created_at.desc())
+    )
+    existing_link = existing.scalar_one_or_none()
+    if existing_link and existing_link.payment_intent_id:
+        try:
+            pi = stripe_lib.PaymentIntent.retrieve(existing_link.payment_intent_id)
+            if pi.status in (
+                "requires_payment_method",
+                "requires_confirmation",
+                "requires_action",
+            ):
+                return {
+                    "client_secret": pi.client_secret,
+                    "publishable_key": settings.stripe_publishable_key,
+                    "amount": pi.amount,
+                    "currency": invoice.currency,
+                }
+        except stripe_lib.error.StripeError:
+            pass  # Fall through to create a new one
+
+    amount_cents = int(round(balance_due * 100))
+
+    payment_intent = stripe_lib.PaymentIntent.create(
+        amount=amount_cents,
+        currency=invoice.currency.lower(),
+        metadata={
+            "invoice_id": str(invoice.id),
+            "invoice_number": invoice.invoice_number,
+        },
+        automatic_payment_methods={"enabled": True},
+        description=f"Payment for Invoice {invoice.invoice_number}",
+    )
+
+    payment_link = StripePaymentLink(
+        invoice_id=invoice.id,
+        payment_intent_id=payment_intent.id,
+        amount=balance_due,
+        currency=invoice.currency,
+        status=PaymentLinkStatus.PENDING,
+        created_by=invoice.created_by,
+    )
+    db.add(payment_link)
+    await db.commit()
+
+    return {
+        "client_secret": payment_intent.client_secret,
+        "publishable_key": settings.stripe_publishable_key,
+        "amount": amount_cents,
+        "currency": invoice.currency,
+    }
