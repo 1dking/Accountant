@@ -73,7 +73,10 @@ def generate_livekit_token(
     token = AccessToken(settings.livekit_api_key, settings.livekit_api_secret)
     token.with_identity(identity)
     if name:
-        token.with_name(name)
+        try:
+            token.with_name(name)
+        except (AttributeError, TypeError):
+            pass  # older livekit-api versions may not support with_name
     token.with_grants(grant)
     return token.to_jwt()
 
