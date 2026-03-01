@@ -155,12 +155,13 @@ rtc:
     port_range_start: 50000
     port_range_end: 50200
     use_external_ip: true
+    tcp_fallback_port: 7881
 keys:
     ${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}
 logging:
     level: info
 LKEOF
-ok "LiveKit configured (port 7880, RTC 50000-50200)"
+ok "LiveKit configured (port 7880, RTC 50000-50200, TCP fallback 7881)"
 
 # ---- 5. Set up Hocuspocus (collaboration server) ----
 step "Setting up Hocuspocus (real-time collaboration)..."
@@ -232,6 +233,12 @@ step "Building frontend..."
 cd "$APP_DIR/frontend"
 # Load nvm in case it's not in PATH
 [ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
+
+# Write frontend env (LiveKit URL auto-detected via proxy, but set as fallback)
+cat > "$APP_DIR/frontend/.env" <<FEEOF
+VITE_LIVEKIT_URL=wss://${DOMAIN}/api/meetings/livekit-proxy
+FEEOF
+
 pnpm install --frozen-lockfile
 pnpm build
 ok "Frontend built → $APP_DIR/frontend/dist"
@@ -495,6 +502,7 @@ echo "    API Key:    ${LIVEKIT_API_KEY}"
 echo "    API Secret: ${LIVEKIT_API_SECRET}"
 echo ""
 echo -e "${YELLOW}  Firewall ports needed for video calls:${NC}"
-echo "    TCP: 7880 (WebSocket signalling)"
-echo "    UDP: 50000-50200 (RTC media)"
+echo "    TCP: 7881 (RTC TCP fallback — required if UDP is blocked)"
+echo "    UDP: 50000-50200 (RTC media — ideal, but TCP fallback works)"
+echo "    Note: LiveKit signalling goes through the backend proxy (port 8000)"
 echo ""

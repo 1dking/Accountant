@@ -54,6 +54,7 @@ def generate_livekit_token(
     room_name: str,
     identity: str,
     settings: Settings,
+    name: str = "",
 ) -> str:
     """Generate a LiveKit access token JWT."""
     if not settings.livekit_api_key or not settings.livekit_api_secret:
@@ -71,6 +72,8 @@ def generate_livekit_token(
 
     token = AccessToken(settings.livekit_api_key, settings.livekit_api_secret)
     token.with_identity(identity)
+    if name:
+        token.with_name(name)
     token.with_grants(grant)
     return token.to_jwt()
 
@@ -317,7 +320,10 @@ async def start_meeting(
 
     # Generate host token
     identity = f"user-{user.id}"
-    token = generate_livekit_token(meeting.livekit_room_name, identity, settings)
+    token = generate_livekit_token(
+        meeting.livekit_room_name, identity, settings,
+        name=user.full_name or user.email,
+    )
 
     await log_activity(
         db,
@@ -369,7 +375,10 @@ async def join_meeting(
     await db.refresh(participant)
 
     identity = f"user-{user.id}"
-    token = generate_livekit_token(meeting.livekit_room_name, identity, settings)
+    token = generate_livekit_token(
+        meeting.livekit_room_name, identity, settings,
+        name=user.full_name or user.email,
+    )
 
     return JoinTokenResponse(
         token=token,
@@ -428,7 +437,10 @@ async def join_meeting_as_guest(
     display_name = participant.guest_name or "Guest"
     identity = f"guest-{participant.id}"
 
-    token = generate_livekit_token(meeting.livekit_room_name, identity, settings)
+    token = generate_livekit_token(
+        meeting.livekit_room_name, identity, settings,
+        name=display_name,
+    )
 
     return JoinTokenResponse(
         token=token,

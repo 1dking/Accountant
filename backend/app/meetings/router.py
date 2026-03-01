@@ -1,11 +1,12 @@
 """FastAPI router for the meetings module."""
 
+import asyncio
 import io
 import logging
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile, File, WebSocket
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -399,6 +400,93 @@ async def remove_participant(
 # ---------------------------------------------------------------------------
 # Webhook endpoint
 # ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# LiveKit WebSocket proxy
+# ---------------------------------------------------------------------------
+
+
+@router.websocket("/livekit-proxy")
+async def livekit_ws_proxy(websocket: WebSocket):
+    """Proxy WebSocket connections to the local LiveKit server.
+
+    This allows the frontend to reach LiveKit through the same domain/port as
+    the FastAPI backend, which is required when the hosting provider (e.g.
+    DreamHost) only exposes a single port via its reverse-proxy.
+    """
+    import websockets
+
+    settings = websocket.app.state.settings
+    livekit_url = settings.livekit_url or "ws://localhost:7880"
+
+    # Normalise to ws:// for local connection (backend connects locally)
+    local_url = livekit_url.replace("wss://", "ws://")
+    # Strip trailing slashes and ensure it's the raw host:port
+    if "localhost" not in local_url and "127.0.0.1" not in local_url:
+        local_url = "ws://localhost:7880"
+
+    # Forward all query parameters (access_token, protocol, etc.)
+    qs = str(websocket.url.query)
+    upstream_url = f"{local_url.rstrip('/')}/rtc"
+    if qs:
+        upstream_url += f"?{qs}"
+
+    await websocket.accept()
+
+    try:
+        async with websockets.connect(
+            upstream_url,
+            additional_headers={},
+            max_size=None,
+            open_timeout=10,
+        ) as lk_ws:
+
+            async def client_to_livekit():
+                """Forward frames from browser to LiveKit."""
+                try:
+                    while True:
+                        msg = await websocket.receive()
+                        if msg.get("type") == "websocket.disconnect":
+                            break
+                        if "bytes" in msg and msg["bytes"]:
+                            await lk_ws.send(msg["bytes"])
+                        elif "text" in msg and msg["text"]:
+                            await lk_ws.send(msg["text"])
+                except Exception:
+                    pass
+
+            async def livekit_to_client():
+                """Forward frames from LiveKit to browser."""
+                try:
+                    async for message in lk_ws:
+                        if isinstance(message, bytes):
+                            await websocket.send_bytes(message)
+                        else:
+                            await websocket.send_text(message)
+                except Exception:
+                    pass
+
+            # Run both directions concurrently
+            done, pending = await asyncio.wait(
+                [
+                    asyncio.create_task(client_to_livekit()),
+                    asyncio.create_task(livekit_to_client()),
+                ],
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+
+            # Cancel the remaining task
+            for task in pending:
+                task.cancel()
+
+    except Exception:
+        logger.debug("LiveKit proxy connection closed", exc_info=True)
+    finally:
+        try:
+            await websocket.close()
+        except Exception:
+            pass
 
 
 @router.post("/webhooks/livekit")

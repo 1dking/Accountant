@@ -5,7 +5,9 @@ import { LiveKitRoom, VideoConference } from '@livekit/components-react'
 import '@livekit/components-styles'
 import { joinMeetingAsGuest } from '@/api/meetings'
 
-const LIVEKIT_URL = import.meta.env.VITE_LIVEKIT_URL || 'ws://localhost:7880'
+const LIVEKIT_URL =
+  import.meta.env.VITE_LIVEKIT_URL ||
+  `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/api/meetings/livekit-proxy`
 
 export default function MeetingGuestJoinPage() {
   const { id } = useParams<{ id: string }>()

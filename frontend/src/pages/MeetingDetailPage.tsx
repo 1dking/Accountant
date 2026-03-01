@@ -181,7 +181,7 @@ export default function MeetingDetailPage() {
         {meeting.status === 'in_progress' && (
           <>
             <button
-              onClick={() => navigate(`/meetings/${meeting.id}/room`)}
+              onClick={() => navigate(`/meetings/${meeting.id}/room?action=join`)}
               className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors"
             >
               <Phone className="h-4 w-4" />

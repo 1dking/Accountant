@@ -6,7 +6,11 @@ import { LiveKitRoom, VideoConference, useRoomContext } from '@livekit/component
 import '@livekit/components-styles'
 import { startMeeting, joinMeeting, endMeeting, uploadRecording } from '@/api/meetings'
 
-const LIVEKIT_URL = import.meta.env.VITE_LIVEKIT_URL || 'ws://localhost:7880'
+// In dev: set VITE_LIVEKIT_URL=ws://localhost:7880 in .env
+// In production: auto-derives wss://domain/api/meetings/livekit-proxy
+const LIVEKIT_URL =
+  import.meta.env.VITE_LIVEKIT_URL ||
+  `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/api/meetings/livekit-proxy`
 
 function RecordingControls({ meetingId }: { meetingId: string }) {
   const room = useRoomContext()
