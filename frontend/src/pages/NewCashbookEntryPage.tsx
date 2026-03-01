@@ -111,26 +111,26 @@ export default function NewCashbookEntryPage() {
     <div className="p-6 max-w-2xl mx-auto">
       <button
         onClick={() => navigate('/cashbook')}
-        className="flex items-center gap-1 text-sm text-blue-600 hover:underline mb-4"
+        className="flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:underline mb-4"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to cashbook
       </button>
 
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">
         New Cashbook Entry
       </h1>
 
-      <div className="bg-white rounded-lg border p-6 space-y-4">
+      <div className="bg-white dark:bg-gray-900 rounded-lg border p-6 space-y-4">
         {/* Account Selector */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Account <span className="text-red-500">*</span>
           </label>
           <select
             value={activeAccountId}
             onChange={(e) => setAccountId(e.target.value)}
-            className="w-full px-3 py-2 text-sm border rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 text-sm border rounded-md bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             {accounts.length === 0 && (
               <option value="">No accounts available</option>
@@ -145,7 +145,7 @@ export default function NewCashbookEntryPage() {
 
         {/* Entry Type Toggle */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Type
           </label>
           <div className="flex rounded-md border overflow-hidden">
@@ -158,7 +158,7 @@ export default function NewCashbookEntryPage() {
               className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
                 entryType === 'income'
                   ? 'bg-green-600 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-50'
+                  : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-50'
               }`}
             >
               Income
@@ -172,7 +172,7 @@ export default function NewCashbookEntryPage() {
               className={`flex-1 px-4 py-2 text-sm font-medium transition-colors border-l ${
                 entryType === 'expense'
                   ? 'bg-red-600 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-50'
+                  : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-50'
               }`}
             >
               Expense
@@ -183,7 +183,7 @@ export default function NewCashbookEntryPage() {
         <div className="grid grid-cols-2 gap-4">
           {/* Date */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Date <span className="text-red-500">*</span>
             </label>
             <input
@@ -196,7 +196,7 @@ export default function NewCashbookEntryPage() {
 
           {/* Amount */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Amount <span className="text-red-500">*</span>
             </label>
             <input
@@ -213,7 +213,7 @@ export default function NewCashbookEntryPage() {
 
         {/* Description */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Description <span className="text-red-500">*</span>
           </label>
           <input
@@ -227,13 +227,13 @@ export default function NewCashbookEntryPage() {
 
         {/* Category */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Category
           </label>
           <select
             value={categoryId}
             onChange={(e) => setCategoryId(e.target.value)}
-            className="w-full px-3 py-2 text-sm border rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 text-sm border rounded-md bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">Select a category</option>
             {filteredCategories.map((c) => (
@@ -246,22 +246,22 @@ export default function NewCashbookEntryPage() {
 
         {/* Linked Document */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             <Paperclip className="inline h-3.5 w-3.5 mr-1" />
             Linked Document
           </label>
           {selectedDocument ? (
-            <div className="flex items-center gap-2 w-full px-3 py-2 text-sm border rounded-md bg-gray-50">
+            <div className="flex items-center gap-2 w-full px-3 py-2 text-sm border rounded-md bg-gray-50 dark:bg-gray-950">
               <span className="flex-1 truncate">
                 {selectedDocument.title || selectedDocument.original_filename}
-                <span className="text-gray-400 ml-2">
+                <span className="text-gray-400 dark:text-gray-500 ml-2">
                   {formatFileSize(selectedDocument.file_size)}
                 </span>
               </span>
               <button
                 type="button"
                 onClick={() => setSelectedDocument(null)}
-                className="text-gray-400 hover:text-red-500"
+                className="text-gray-400 dark:text-gray-500 hover:text-red-500"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -271,14 +271,14 @@ export default function NewCashbookEntryPage() {
               <button
                 type="button"
                 onClick={() => setShowDocPicker(!showDocPicker)}
-                className="w-full px-3 py-2 text-sm border rounded-md text-left text-gray-500 hover:bg-gray-50 flex items-center justify-between"
+                className="w-full px-3 py-2 text-sm border rounded-md text-left text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center justify-between"
               >
                 <span>Select a document...</span>
                 <Paperclip className="h-4 w-4" />
               </button>
               {showDocPicker && (
                 <div className="mt-2 border rounded-md overflow-hidden">
-                  <div className="p-2 border-b bg-gray-50">
+                  <div className="p-2 border-b bg-gray-50 dark:bg-gray-950">
                     <input
                       type="text"
                       value={documentSearch}
@@ -289,7 +289,7 @@ export default function NewCashbookEntryPage() {
                   </div>
                   <div className="max-h-48 overflow-y-auto">
                     {searchedDocs.length === 0 ? (
-                      <div className="px-3 py-4 text-sm text-gray-500 text-center">No documents found</div>
+                      <div className="px-3 py-4 text-sm text-gray-500 dark:text-gray-400 text-center">No documents found</div>
                     ) : (
                       searchedDocs.map((doc) => (
                         <button
@@ -325,7 +325,7 @@ export default function NewCashbookEntryPage() {
                           className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 flex items-center justify-between border-b last:border-b-0"
                         >
                           <span className="truncate">{doc.title || doc.original_filename}</span>
-                          <span className="text-xs text-gray-400 ml-2 shrink-0">
+                          <span className="text-xs text-gray-400 dark:text-gray-500 ml-2 shrink-0">
                             {formatFileSize(doc.file_size)}
                           </span>
                         </button>
@@ -341,10 +341,10 @@ export default function NewCashbookEntryPage() {
         {/* Tax Auto-split */}
         <div>
           <div className="flex items-center justify-between mb-1">
-            <label className="text-sm font-medium text-gray-700">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
               Tax (HST 13%)
             </label>
-            <label className="flex items-center gap-2 text-sm text-gray-500 cursor-pointer">
+            <label className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 cursor-pointer">
               <input
                 type="checkbox"
                 checked={taxOverride}
@@ -354,7 +354,7 @@ export default function NewCashbookEntryPage() {
                     setManualTax(calculatedTax.toFixed(2))
                   }
                 }}
-                className="rounded border-gray-300"
+                className="rounded border-gray-300 dark:border-gray-600"
               />
               Override
             </label>
@@ -369,10 +369,10 @@ export default function NewCashbookEntryPage() {
               className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           ) : (
-            <div className="w-full px-3 py-2 text-sm border rounded-md bg-gray-50 text-gray-700">
+            <div className="w-full px-3 py-2 text-sm border rounded-md bg-gray-50 dark:bg-gray-950 text-gray-700 dark:text-gray-300">
               {parsedAmount > 0 ? formatCurrency(calculatedTax) : '$0.00'}
               {parsedAmount > 0 && (
-                <span className="text-xs text-gray-400 ml-2">
+                <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">
                   (auto-calculated from {formatCurrency(parsedAmount)})
                 </span>
               )}
@@ -382,7 +382,7 @@ export default function NewCashbookEntryPage() {
 
         {/* Notes */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Notes
           </label>
           <textarea
@@ -398,7 +398,7 @@ export default function NewCashbookEntryPage() {
         <div className="flex justify-end gap-2 pt-2">
           <button
             onClick={() => navigate('/cashbook')}
-            className="px-4 py-2 text-sm border rounded-md hover:bg-gray-50"
+            className="px-4 py-2 text-sm border rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
           >
             Cancel
           </button>

@@ -12,12 +12,12 @@ const formatCurrency = (amount: number, currency = 'USD') =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
 
 const categoryColorMap: Record<string, string> = {
-  invoice_payment: 'bg-blue-50 text-blue-700',
+  invoice_payment: 'bg-blue-50 dark:bg-blue-900/30 text-blue-700',
   service: 'bg-purple-50 text-purple-700',
-  product: 'bg-green-50 text-green-700',
-  interest: 'bg-yellow-50 text-yellow-700',
-  refund: 'bg-red-50 text-red-700',
-  other: 'bg-gray-50 text-gray-700',
+  product: 'bg-green-50 dark:bg-green-900/30 text-green-700',
+  interest: 'bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700',
+  refund: 'bg-red-50 dark:bg-red-900/30 text-red-700',
+  other: 'bg-gray-50 dark:bg-gray-950 text-gray-700',
 };
 
 const getCategoryLabel = (value: string) =>
@@ -76,8 +76,8 @@ export default function IncomePage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Income</h1>
-          <p className="text-sm text-gray-500 mt-1">Track and manage your income entries</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Income</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Track and manage your income entries</p>
         </div>
         {canEdit && (
           <button
@@ -92,27 +92,27 @@ export default function IncomePage() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-green-50 rounded-lg">
+            <div className="p-2 bg-green-50 dark:bg-green-900/30 rounded-lg">
               <DollarSign className="w-5 h-5 text-green-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-500">Total Income</p>
-              <p className="text-xl font-semibold text-gray-900">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Total Income</p>
+              <p className="text-xl font-semibold text-gray-900 dark:text-gray-100">
                 {summary ? formatCurrency(summary.total_amount) : '--'}
               </p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-50 rounded-lg">
-              <Hash className="w-5 h-5 text-blue-600" />
+            <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+              <Hash className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             </div>
             <div>
-              <p className="text-sm text-gray-500">Income Count</p>
-              <p className="text-xl font-semibold text-gray-900">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Income Count</p>
+              <p className="text-xl font-semibold text-gray-900 dark:text-gray-100">
                 {summary ? summary.income_count : '--'}
               </p>
             </div>
@@ -127,7 +127,7 @@ export default function IncomePage() {
           className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-colors ${
             category === ''
               ? 'bg-blue-600 text-white'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
           }`}
         >
           All
@@ -139,7 +139,7 @@ export default function IncomePage() {
             className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-colors ${
               category === cat.value
                 ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
             }`}
           >
             {cat.label}
@@ -150,13 +150,13 @@ export default function IncomePage() {
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-6">
         <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
           <input
             type="text"
             placeholder="Search income..."
             value={search}
             onChange={(e) => handleSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-gray-100"
           />
         </div>
         <input
@@ -166,7 +166,7 @@ export default function IncomePage() {
             setDateFrom(e.target.value);
             setPage(1);
           }}
-          className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-gray-100"
           placeholder="From"
         />
         <input
@@ -176,54 +176,54 @@ export default function IncomePage() {
             setDateTo(e.target.value);
             setPage(1);
           }}
-          className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-gray-100"
           placeholder="To"
         />
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-100">
-                <th className="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <tr className="border-b border-gray-100 dark:border-gray-700">
+                <th className="text-left px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Date
                 </th>
-                <th className="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="text-left px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Description
                 </th>
-                <th className="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="text-left px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Category
                 </th>
-                <th className="text-right px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="text-right px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Amount
                 </th>
-                <th className="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="text-left px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Payment Method
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
               {isLoading ? (
                 <tr>
-                  <td colSpan={5} className="px-5 py-10 text-center text-gray-400">
+                  <td colSpan={5} className="px-5 py-10 text-center text-gray-400 dark:text-gray-500">
                     Loading...
                   </td>
                 </tr>
               ) : entries.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-5 py-10 text-center text-gray-400">
+                  <td colSpan={5} className="px-5 py-10 text-center text-gray-400 dark:text-gray-500">
                     No income entries found.
                   </td>
                 </tr>
               ) : (
                 entries.map((entry) => (
-                  <tr key={entry.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-5 py-3 text-gray-600 whitespace-nowrap">
+                  <tr key={entry.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                    <td className="px-5 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap">
                       {formatDate(entry.date)}
                     </td>
-                    <td className="px-5 py-3 text-gray-900 font-medium">
+                    <td className="px-5 py-3 text-gray-900 dark:text-gray-100 font-medium">
                       {entry.description}
                     </td>
                     <td className="px-5 py-3">
@@ -235,10 +235,10 @@ export default function IncomePage() {
                         {getCategoryLabel(entry.category)}
                       </span>
                     </td>
-                    <td className="px-5 py-3 text-right text-gray-900 font-medium whitespace-nowrap">
+                    <td className="px-5 py-3 text-right text-gray-900 dark:text-gray-100 font-medium whitespace-nowrap">
                       {formatCurrency(entry.amount, entry.currency)}
                     </td>
-                    <td className="px-5 py-3 text-gray-600 capitalize whitespace-nowrap">
+                    <td className="px-5 py-3 text-gray-600 dark:text-gray-400 capitalize whitespace-nowrap">
                       {entry.payment_method?.replace('_', ' ') ?? '--'}
                     </td>
                   </tr>
@@ -250,15 +250,15 @@ export default function IncomePage() {
 
         {/* Pagination */}
         {meta && meta.total_pages > 1 && (
-          <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100">
-            <p className="text-sm text-gray-500">
+          <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 dark:border-gray-700">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               Page {meta.page} of {meta.total_pages}
             </p>
             <div className="flex gap-2">
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={meta.page <= 1}
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors dark:text-gray-300"
               >
                 <ChevronLeft className="w-4 h-4" />
                 Previous
@@ -266,7 +266,7 @@ export default function IncomePage() {
               <button
                 onClick={() => setPage((p) => p + 1)}
                 disabled={meta.page >= meta.total_pages}
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors dark:text-gray-300"
               >
                 Next
                 <ChevronRight className="w-4 h-4" />

@@ -85,24 +85,24 @@ function ProfitLossTab() {
   return (
     <div className="space-y-6">
       {/* Controls */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
         <div className="flex flex-wrap items-end gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">From</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">From</label>
             <input
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">To</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">To</label>
             <input
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           {report && (
@@ -148,8 +148,8 @@ function ProfitLossTab() {
 
           {/* Bar Chart */}
           {chartData.length > 0 && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">Income vs Expenses by Category</h3>
+            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">Income vs Expenses by Category</h3>
               <ResponsiveContainer width="100%" height={350}>
                 <BarChart data={chartData} layout="vertical" margin={{ left: 20, right: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" />
@@ -186,21 +186,21 @@ function CategoryTable({
 }) {
   const total = items.reduce((sum, i) => sum + i.amount, 0)
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-      <div className="px-5 py-4 border-b border-gray-100">
-        <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
+    <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+      <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+        <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">{title}</h3>
       </div>
       <table className="w-full">
         <thead>
-          <tr className="bg-gray-50 text-left text-sm text-gray-500">
+          <tr className="bg-gray-50 dark:bg-gray-950 text-left text-sm text-gray-500 dark:text-gray-400">
             <th className="px-5 py-3 font-medium">Category</th>
             <th className="px-5 py-3 font-medium text-right">Amount</th>
           </tr>
         </thead>
         <tbody>
           {items.map((item) => (
-            <tr key={item.category} className="border-t border-gray-50 hover:bg-gray-50 transition-colors">
-              <td className="px-5 py-3 text-sm text-gray-700">{item.category}</td>
+            <tr key={item.category} className="border-t border-gray-50 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+              <td className="px-5 py-3 text-sm text-gray-700 dark:text-gray-300">{item.category}</td>
               <td
                 className={`px-5 py-3 text-sm text-right font-medium ${
                   color === 'green' ? 'text-green-600' : 'text-red-600'
@@ -210,8 +210,8 @@ function CategoryTable({
               </td>
             </tr>
           ))}
-          <tr className="border-t-2 border-gray-200 bg-gray-50 font-semibold">
-            <td className="px-5 py-3 text-sm text-gray-800">Total</td>
+          <tr className="border-t-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-950 font-semibold">
+            <td className="px-5 py-3 text-sm text-gray-800 dark:text-gray-200">Total</td>
             <td
               className={`px-5 py-3 text-sm text-right ${
                 color === 'green' ? 'text-green-700' : 'text-red-700'
@@ -241,17 +241,17 @@ function TaxSummaryTab() {
   return (
     <div className="space-y-6">
       {/* Controls */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
         <div className="flex flex-wrap items-end gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Year</label>
             <input
               type="number"
               value={year}
               onChange={(e) => setYear(Number(e.target.value))}
               min={2000}
               max={2099}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-28"
+              className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-28"
             />
           </div>
           {summary && (
@@ -278,7 +278,7 @@ function TaxSummaryTab() {
             value={formatCurrency(summary.taxable_income)}
             icon={<DollarSign className="w-5 h-5" />}
             borderColor="border-blue-500"
-            iconBg="bg-blue-50 text-blue-600"
+            iconBg="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
           />
           <BorderTopCard
             label="Deductible Expenses"
@@ -292,7 +292,7 @@ function TaxSummaryTab() {
             value={formatCurrency(summary.tax_collected)}
             icon={<Calculator className="w-5 h-5" />}
             borderColor="border-green-500"
-            iconBg="bg-green-50 text-green-600"
+            iconBg="bg-green-50 dark:bg-green-900/30 text-green-600"
           />
           <BorderTopCard
             label="Net Taxable"
@@ -321,12 +321,12 @@ function BorderTopCard({
   iconBg: string
 }) {
   return (
-    <div className={`bg-white rounded-xl shadow-sm border border-gray-100 border-t-4 ${borderColor} p-5`}>
+    <div className={`bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 border-t-4 ${borderColor} p-5`}>
       <div className="flex items-center justify-between mb-3">
-        <span className="text-sm font-medium text-gray-500">{label}</span>
+        <span className="text-sm font-medium text-gray-500 dark:text-gray-400">{label}</span>
         <div className={`p-2 rounded-lg ${iconBg}`}>{icon}</div>
       </div>
-      <p className="text-2xl font-bold text-gray-900">{value}</p>
+      <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{value}</p>
     </div>
   )
 }
@@ -348,24 +348,24 @@ function CashFlowTab() {
   return (
     <div className="space-y-6">
       {/* Controls */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
         <div className="flex flex-wrap items-end gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">From</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">From</label>
             <input
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">To</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">To</label>
             <input
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
         </div>
@@ -377,8 +377,8 @@ function CashFlowTab() {
       {report && report.periods.length > 0 && (
         <>
           {/* Line Chart */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Cash Flow Over Time</h3>
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">Cash Flow Over Time</h3>
             <ResponsiveContainer width="100%" height={350}>
               <LineChart data={report.periods} margin={{ left: 20, right: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" />
@@ -415,14 +415,14 @@ function CashFlowTab() {
           </div>
 
           {/* Cash Flow Table */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100">
-              <h3 className="text-lg font-semibold text-gray-800">Period Details</h3>
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">Period Details</h3>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="bg-gray-50 text-left text-sm text-gray-500">
+                  <tr className="bg-gray-50 dark:bg-gray-950 text-left text-sm text-gray-500 dark:text-gray-400">
                     <th className="px-5 py-3 font-medium">Period</th>
                     <th className="px-5 py-3 font-medium text-right">Income</th>
                     <th className="px-5 py-3 font-medium text-right">Expenses</th>
@@ -433,9 +433,9 @@ function CashFlowTab() {
                   {report.periods.map((period) => (
                     <tr
                       key={period.period_label}
-                      className="border-t border-gray-50 hover:bg-gray-50 transition-colors"
+                      className="border-t border-gray-50 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                     >
-                      <td className="px-5 py-3 text-sm text-gray-700 font-medium">{period.period_label}</td>
+                      <td className="px-5 py-3 text-sm text-gray-700 dark:text-gray-300 font-medium">{period.period_label}</td>
                       <td className="px-5 py-3 text-sm text-right text-green-600 font-medium">
                         {formatCurrency(period.income)}
                       </td>
@@ -524,15 +524,15 @@ function ARAgingTab() {
   return (
     <div className="space-y-6">
       {/* Controls */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
         <div className="flex flex-wrap items-end gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">As of Date</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">As of Date</label>
             <input
               type="date"
               value={asOfDate}
               onChange={(e) => setAsOfDate(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
         </div>
@@ -612,15 +612,15 @@ function APAgingTab() {
   return (
     <div className="space-y-6">
       {/* Controls */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
         <div className="flex flex-wrap items-end gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">As of Date</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">As of Date</label>
             <input
               type="date"
               value={asOfDate}
               onChange={(e) => setAsOfDate(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
         </div>
@@ -698,14 +698,14 @@ function AgingTable({
   nameLabel: string
 }) {
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-      <div className="px-5 py-4 border-b border-gray-100">
-        <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
+    <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+      <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+        <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">{title}</h3>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="bg-gray-50 text-left text-sm text-gray-500">
+            <tr className="bg-gray-50 dark:bg-gray-950 text-left text-sm text-gray-500 dark:text-gray-400">
               <th className="px-5 py-3 font-medium">{nameLabel}</th>
               <th className="px-5 py-3 font-medium text-right">Current</th>
               <th className="px-5 py-3 font-medium text-right">1-30 Days</th>
@@ -718,7 +718,7 @@ function AgingTable({
           <tbody>
             {buckets.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-5 py-8 text-center text-sm text-gray-400">
+                <td colSpan={7} className="px-5 py-8 text-center text-sm text-gray-400 dark:text-gray-500">
                   No outstanding items found.
                 </td>
               </tr>
@@ -726,9 +726,9 @@ function AgingTable({
             {buckets.map((bucket) => (
               <tr
                 key={bucket.name}
-                className="border-t border-gray-50 hover:bg-gray-50 transition-colors"
+                className="border-t border-gray-50 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
               >
-                <td className="px-5 py-3 text-sm text-gray-700 font-medium">{bucket.name}</td>
+                <td className="px-5 py-3 text-sm text-gray-700 dark:text-gray-300 font-medium">{bucket.name}</td>
                 <td className="px-5 py-3 text-sm text-right text-green-600">
                   {bucket.current > 0 ? formatCurrency(bucket.current) : '-'}
                 </td>
@@ -744,14 +744,14 @@ function AgingTable({
                 <td className="px-5 py-3 text-sm text-right text-red-700 font-medium">
                   {bucket.days_90_plus > 0 ? formatCurrency(bucket.days_90_plus) : '-'}
                 </td>
-                <td className="px-5 py-3 text-sm text-right text-gray-900 font-semibold">
+                <td className="px-5 py-3 text-sm text-right text-gray-900 dark:text-gray-100 font-semibold">
                   {formatCurrency(bucket.total)}
                 </td>
               </tr>
             ))}
             {buckets.length > 0 && (
-              <tr className="border-t-2 border-gray-200 bg-gray-50 font-semibold">
-                <td className="px-5 py-3 text-sm text-gray-800">Grand Total</td>
+              <tr className="border-t-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-950 font-semibold">
+                <td className="px-5 py-3 text-sm text-gray-800 dark:text-gray-200">Grand Total</td>
                 <td className="px-5 py-3 text-sm text-right text-green-700">
                   {formatCurrency(grandTotals.current)}
                 </td>
@@ -767,7 +767,7 @@ function AgingTable({
                 <td className="px-5 py-3 text-sm text-right text-red-800">
                   {formatCurrency(grandTotals.days_90_plus)}
                 </td>
-                <td className="px-5 py-3 text-sm text-right text-gray-900">
+                <td className="px-5 py-3 text-sm text-right text-gray-900 dark:text-gray-100">
                   {formatCurrency(grandTotals.total)}
                 </td>
               </tr>
@@ -801,9 +801,9 @@ function StatCard({
 }) {
   const c = colorMap[color]
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+    <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-sm font-medium text-gray-500">{label}</span>
+        <span className="text-sm font-medium text-gray-500 dark:text-gray-400">{label}</span>
         <div className={`p-2 rounded-lg ${c.bg} ${c.text}`}>{icon}</div>
       </div>
       <p className={`text-2xl font-bold ${c.valueTxt}`}>{value}</p>
@@ -813,9 +813,9 @@ function StatCard({
 
 function LoadingState() {
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-10 flex items-center justify-center">
-      <div className="flex items-center gap-3 text-gray-400">
-        <div className="w-5 h-5 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin" />
+    <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-10 flex items-center justify-center">
+      <div className="flex items-center gap-3 text-gray-400 dark:text-gray-500">
+        <div className="w-5 h-5 border-2 border-gray-300 dark:border-gray-600 border-t-blue-500 rounded-full animate-spin" />
         <span className="text-sm">Loading report...</span>
       </div>
     </div>
@@ -824,7 +824,7 @@ function LoadingState() {
 
 function ErrorState({ message }: { message: string }) {
   return (
-    <div className="bg-red-50 rounded-xl border border-red-200 p-5 flex items-center gap-3 text-red-700">
+    <div className="bg-red-50 dark:bg-red-900/30 rounded-xl border border-red-200 p-5 flex items-center gap-3 text-red-700">
       <AlertTriangle className="w-5 h-5 flex-shrink-0" />
       <span className="text-sm">{message}</span>
     </div>
@@ -841,14 +841,14 @@ export default function ReportsPage() {
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-1">
-          <BarChart3 className="w-7 h-7 text-blue-600" />
-          <h1 className="text-2xl font-bold text-gray-900">Financial Reports</h1>
+          <BarChart3 className="w-7 h-7 text-blue-600 dark:text-blue-400" />
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Financial Reports</h1>
         </div>
-        <p className="text-sm text-gray-500">Generate and review financial reports for your business.</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">Generate and review financial reports for your business.</p>
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-gray-200 mb-6">
+      <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
         <nav className="flex gap-6 -mb-px">
           {tabs.map((tab) => (
             <button
@@ -857,7 +857,7 @@ export default function ReportsPage() {
               className={`pb-3 text-sm font-medium transition-colors whitespace-nowrap ${
                 activeTab === tab
                   ? 'border-b-2 border-blue-600 text-blue-600'
-                  : 'text-gray-500 hover:text-gray-700'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
               }`}
             >
               {tab}

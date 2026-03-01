@@ -198,7 +198,7 @@ export default function FileContextMenu({
   return createPortal(
     <div
       ref={ref}
-      className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-lg py-1 w-52"
+      className="fixed z-50 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 w-52"
       style={{ left: x, top: y }}
     >
       {menuItems.map((menuItem, i) => {
@@ -210,7 +210,7 @@ export default function FileContextMenu({
             className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${
               (menuItem as any).danger
                 ? 'text-red-600 hover:bg-red-50'
-                : 'text-gray-700 hover:bg-gray-50'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50'
             }`}
           >
             <Icon className="h-4 w-4" />

@@ -83,7 +83,7 @@ export default function CalendarPage() {
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Calendar</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Calendar</h1>
         <button
           onClick={() => {
             setShowCreateForm(!showCreateForm)
@@ -97,7 +97,7 @@ export default function CalendarPage() {
 
       {/* Create form */}
       {showCreateForm && (
-        <form onSubmit={handleCreateSubmit} className="bg-white border rounded-lg p-4 mb-6 space-y-3">
+        <form onSubmit={handleCreateSubmit} className="bg-white dark:bg-gray-900 border rounded-lg p-4 mb-6 space-y-3">
           <div className="flex gap-3">
             <input
               type="text"
@@ -110,7 +110,7 @@ export default function CalendarPage() {
             <select
               value={newEvent.event_type}
               onChange={(e) => setNewEvent({ ...newEvent, event_type: e.target.value as EventType })}
-              className="px-3 py-2 text-sm border rounded-md bg-white"
+              className="px-3 py-2 text-sm border rounded-md bg-white dark:bg-gray-900"
             >
               {EVENT_TYPES.map((t) => (
                 <option key={t.value} value={t.value}>{t.label}</option>
@@ -143,19 +143,19 @@ export default function CalendarPage() {
       )}
 
       {/* Calendar header */}
-      <div className="bg-white border rounded-lg overflow-hidden">
+      <div className="bg-white dark:bg-gray-900 border rounded-lg overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b">
-          <button onClick={prevMonth} className="px-3 py-1 text-sm hover:bg-gray-100 rounded">{'\u2190'}</button>
-          <h2 className="text-lg font-medium text-gray-900">
+          <button onClick={prevMonth} className="px-3 py-1 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded">{'\u2190'}</button>
+          <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">
             {currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
           </h2>
-          <button onClick={nextMonth} className="px-3 py-1 text-sm hover:bg-gray-100 rounded">{'\u2192'}</button>
+          <button onClick={nextMonth} className="px-3 py-1 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded">{'\u2192'}</button>
         </div>
 
         {/* Day headers */}
         <div className="grid grid-cols-7 border-b">
           {DAYS.map((day) => (
-            <div key={day} className="px-2 py-2 text-xs font-medium text-gray-500 text-center">
+            <div key={day} className="px-2 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 text-center">
               {day}
             </div>
           ))}
@@ -164,7 +164,7 @@ export default function CalendarPage() {
         {/* Calendar grid */}
         <div className="grid grid-cols-7">
           {calendarDays.map((day, i) => {
-            if (day === null) return <div key={i} className="min-h-24 border-b border-r bg-gray-50" />
+            if (day === null) return <div key={i} className="min-h-24 border-b border-r bg-gray-50 dark:bg-gray-950" />
             const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
             const dayEvents = eventsByDate[dateKey] || []
             const isToday = dateKey === today
@@ -204,7 +204,7 @@ export default function CalendarPage() {
                     )
                   })}
                   {dayEvents.length > 3 && (
-                    <div className="text-[10px] text-gray-400">+{dayEvents.length - 3} more</div>
+                    <div className="text-[10px] text-gray-400 dark:text-gray-500">+{dayEvents.length - 3} more</div>
                   )}
                 </div>
               </div>

@@ -118,7 +118,7 @@ export default function MeetingDetailPage() {
   if (isLoading) {
     return (
       <div className="p-6 flex items-center justify-center py-20">
-        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+        <Loader2 className="h-6 w-6 animate-spin text-gray-400 dark:text-gray-500" />
       </div>
     )
   }
@@ -126,8 +126,8 @@ export default function MeetingDetailPage() {
   if (!meeting) {
     return (
       <div className="p-6 text-center">
-        <p className="text-gray-500">Meeting not found</p>
-        <button onClick={() => navigate('/meetings')} className="text-blue-600 hover:underline mt-2 text-sm">
+        <p className="text-gray-500 dark:text-gray-400">Meeting not found</p>
+        <button onClick={() => navigate('/meetings')} className="text-blue-600 dark:text-blue-400 hover:underline mt-2 text-sm">
           Back to Meetings
         </button>
       </div>
@@ -146,12 +146,12 @@ export default function MeetingDetailPage() {
     <div className="p-6 max-w-4xl">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => navigate('/meetings')} className="p-1.5 rounded-lg hover:bg-gray-100">
-          <ArrowLeft className="h-5 w-5 text-gray-500" />
+        <button onClick={() => navigate('/meetings')} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+          <ArrowLeft className="h-5 w-5 text-gray-500 dark:text-gray-400" />
         </button>
         <div className="flex-1">
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-gray-900">{meeting.title}</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{meeting.title}</h1>
             <StatusBadge status={meeting.status} />
           </div>
         </div>
@@ -200,65 +200,65 @@ export default function MeetingDetailPage() {
       </div>
 
       {/* Meeting Info */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-6">
-        <h2 className="text-sm font-semibold text-gray-900 mb-4">Meeting Details</h2>
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5 mb-6">
+        <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">Meeting Details</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <p className="text-xs text-gray-500 mb-0.5">Scheduled Start</p>
-            <p className="text-sm text-gray-900 flex items-center gap-1.5">
-              <Calendar className="h-3.5 w-3.5 text-gray-400" />
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Scheduled Start</p>
+            <p className="text-sm text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
+              <Calendar className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500" />
               {formatDateTime(meeting.scheduled_start)}
             </p>
           </div>
           {meeting.scheduled_end && (
             <div>
-              <p className="text-xs text-gray-500 mb-0.5">Scheduled End</p>
-              <p className="text-sm text-gray-900 flex items-center gap-1.5">
-                <Clock className="h-3.5 w-3.5 text-gray-400" />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Scheduled End</p>
+              <p className="text-sm text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
+                <Clock className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500" />
                 {formatDateTime(meeting.scheduled_end)}
               </p>
             </div>
           )}
           {meeting.actual_start && (
             <div>
-              <p className="text-xs text-gray-500 mb-0.5">Actual Start</p>
-              <p className="text-sm text-gray-900">{formatDateTime(meeting.actual_start)}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Actual Start</p>
+              <p className="text-sm text-gray-900 dark:text-gray-100">{formatDateTime(meeting.actual_start)}</p>
             </div>
           )}
           {meeting.actual_end && (
             <div>
-              <p className="text-xs text-gray-500 mb-0.5">Actual End</p>
-              <p className="text-sm text-gray-900">{formatDateTime(meeting.actual_end)}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Actual End</p>
+              <p className="text-sm text-gray-900 dark:text-gray-100">{formatDateTime(meeting.actual_end)}</p>
             </div>
           )}
           <div>
-            <p className="text-xs text-gray-500 mb-0.5">Recording</p>
-            <p className="text-sm text-gray-900">{meeting.record_meeting ? 'Enabled' : 'Disabled'}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Recording</p>
+            <p className="text-sm text-gray-900 dark:text-gray-100">{meeting.record_meeting ? 'Enabled' : 'Disabled'}</p>
           </div>
           <div>
-            <p className="text-xs text-gray-500 mb-0.5">Room</p>
-            <p className="text-sm text-gray-600 font-mono text-xs">{meeting.livekit_room_name}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Room</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400 font-mono text-xs">{meeting.livekit_room_name}</p>
           </div>
         </div>
         {meeting.description && (
-          <div className="mt-4 pt-4 border-t border-gray-100">
-            <p className="text-xs text-gray-500 mb-1">Description</p>
-            <p className="text-sm text-gray-700 whitespace-pre-wrap">{meeting.description}</p>
+          <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Description</p>
+            <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{meeting.description}</p>
           </div>
         )}
       </div>
 
       {/* Participants */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-6">
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5 mb-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-            <Users className="h-4 w-4 text-gray-400" />
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+            <Users className="h-4 w-4 text-gray-400 dark:text-gray-500" />
             Participants ({meeting.participants.length})
           </h2>
           {(meeting.status === 'scheduled' || meeting.status === 'in_progress') && (
             <button
               onClick={() => setShowAddParticipant(!showAddParticipant)}
-              className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium"
+              className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 font-medium"
             >
               <Plus className="h-3.5 w-3.5" />
               Add Participant
@@ -274,7 +274,7 @@ export default function MeetingDetailPage() {
               onChange={(e) => setNewParticipantEmail(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addParticipantMut.mutate(newParticipantEmail) } }}
               placeholder="participant@example.com"
-              className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100"
             />
             <button
               onClick={() => addParticipantMut.mutate(newParticipantEmail)}
@@ -287,34 +287,34 @@ export default function MeetingDetailPage() {
         )}
 
         {meeting.participants.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-4">No participants yet</p>
+          <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">No participants yet</p>
         ) : (
           <div className="space-y-2">
             {meeting.participants.map((p) => (
-              <div key={p.id} className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50">
+              <div key={p.id} className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50 dark:bg-gray-950">
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium text-gray-900">
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                       {p.guest_name || p.guest_email || p.user_id || 'Unknown'}
                     </p>
                     <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
-                      p.role === 'host' ? 'bg-purple-100 text-purple-700' : 'bg-gray-200 text-gray-600'
+                      p.role === 'host' ? 'bg-purple-100 text-purple-700' : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
                     }`}>
                       {p.role}
                     </span>
                   </div>
                   {p.guest_email && (
-                    <p className="text-xs text-gray-500">{p.guest_email}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{p.guest_email}</p>
                   )}
                   {p.joined_at && (
-                    <p className="text-xs text-gray-400">Joined {formatDateTime(p.joined_at)}</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500">Joined {formatDateTime(p.joined_at)}</p>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
                   {p.join_token && (
                     <button
                       onClick={() => copyGuestLink(p)}
-                      className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700"
+                      className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700"
                       title="Copy guest invite link"
                     >
                       <Copy className="h-3.5 w-3.5" />
@@ -324,7 +324,7 @@ export default function MeetingDetailPage() {
                   {p.role !== 'host' && (meeting.status === 'scheduled' || meeting.status === 'in_progress') && (
                     <button
                       onClick={() => removeParticipantMut.mutate(p.id)}
-                      className="p-1 text-gray-400 hover:text-red-500"
+                      className="p-1 text-gray-400 dark:text-gray-500 hover:text-red-500"
                       title="Remove participant"
                     >
                       <X className="h-3.5 w-3.5" />
@@ -338,24 +338,24 @@ export default function MeetingDetailPage() {
       </div>
 
       {/* Recordings */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-        <h2 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
+        <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
           <Circle className="h-4 w-4 text-red-400" />
           Recordings ({meeting.recordings.length})
         </h2>
 
         {meeting.recordings.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-4">No recordings</p>
+          <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">No recordings</p>
         ) : (
           <div className="space-y-3">
             {meeting.recordings.map((rec) => (
               <div key={rec.id}>
-                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50">
+                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50 dark:bg-gray-950">
                   <div className="flex items-center gap-3">
                     <RecordingStatusBadge status={rec.status} />
                     <div>
-                      <p className="text-sm text-gray-900">{formatDateTime(rec.created_at)}</p>
-                      <div className="flex gap-3 text-xs text-gray-500">
+                      <p className="text-sm text-gray-900 dark:text-gray-100">{formatDateTime(rec.created_at)}</p>
+                      <div className="flex gap-3 text-xs text-gray-500 dark:text-gray-400">
                         {rec.duration_seconds != null && (
                           <span>{formatDuration(rec.duration_seconds)}</span>
                         )}
@@ -370,7 +370,7 @@ export default function MeetingDetailPage() {
                       <>
                         <button
                           onClick={() => setPlayingRecordingId(playingRecordingId === rec.id ? null : rec.id)}
-                          className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium"
+                          className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 font-medium"
                         >
                           {playingRecordingId === rec.id ? (
                             <><Square className="h-3.5 w-3.5" /> Stop</>
@@ -381,7 +381,7 @@ export default function MeetingDetailPage() {
                         <a
                           href={getRecordingStreamUrl(rec.id)}
                           download
-                          className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800 font-medium"
+                          className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 font-medium"
                         >
                           <Download className="h-3.5 w-3.5" />
                           Download

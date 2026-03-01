@@ -20,11 +20,11 @@ export default function MeetingGuestJoinPage() {
 
   if (!guestToken) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 max-w-sm w-full text-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-8 max-w-sm w-full text-center">
           <Video className="h-10 w-10 mx-auto mb-4 text-red-400" />
-          <h1 className="text-lg font-bold text-gray-900 mb-2">Invalid Invite Link</h1>
-          <p className="text-sm text-gray-500">
+          <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">Invalid Invite Link</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
             This meeting invite link is missing a required token. Please ask the host for a new link.
           </p>
         </div>
@@ -64,17 +64,17 @@ export default function MeetingGuestJoinPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 max-w-sm w-full">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-8 max-w-sm w-full">
         <div className="text-center mb-6">
           <Video className="h-10 w-10 mx-auto mb-3 text-blue-500" />
-          <h1 className="text-lg font-bold text-gray-900">Join Meeting</h1>
-          <p className="text-sm text-gray-500 mt-1">Enter your name to join as a guest</p>
+          <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100">Join Meeting</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Enter your name to join as a guest</p>
         </div>
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Your Name</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Your Name</label>
             <input
               type="text"
               value={guestName}
@@ -82,7 +82,7 @@ export default function MeetingGuestJoinPage() {
               onKeyDown={(e) => { if (e.key === 'Enter') handleJoin() }}
               placeholder="Enter your name"
               autoFocus
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100"
             />
           </div>
 

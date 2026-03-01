@@ -28,11 +28,11 @@ export default function ProfileSettings() {
   }
 
   return (
-    <section className="bg-white border rounded-lg p-6">
-      <h2 className="text-lg font-medium text-gray-900 mb-4">Profile</h2>
+    <section className="bg-white dark:bg-gray-900 border rounded-lg p-6">
+      <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Profile</h2>
       <form onSubmit={handleSubmit} className="space-y-4 max-w-md">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Full Name</label>
           <input
             type="text"
             value={fullName}
@@ -41,16 +41,16 @@ export default function ProfileSettings() {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
           <input
             type="email"
             value={user?.email || ''}
             disabled
-            className="w-full px-3 py-2 border rounded-md bg-gray-50 text-gray-500"
+            className="w-full px-3 py-2 border rounded-md bg-gray-50 dark:bg-gray-950 text-gray-500 dark:text-gray-400"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">New Password</label>
           <input
             type="password"
             value={newPassword}

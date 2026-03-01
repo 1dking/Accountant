@@ -41,7 +41,7 @@ export default function PublicDocumentPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
         <Loader2 className="h-8 w-8 text-blue-500 animate-spin" />
       </div>
     )
@@ -49,13 +49,13 @@ export default function PublicDocumentPage() {
 
   if (error || !data) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
         <div className="text-center">
           <AlertCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
-          <h1 className="text-xl font-semibold text-gray-900 mb-2">
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
             Link not found
           </h1>
-          <p className="text-gray-500">
+          <p className="text-gray-500 dark:text-gray-400">
             This link may have expired or is no longer valid.
           </p>
         </div>
@@ -83,12 +83,12 @@ export default function PublicDocumentPage() {
   const balanceDue = total - totalPaid
 
   return (
-    <div className="min-h-screen bg-gray-100 py-8 px-4">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-800 py-8 px-4">
       <div className="max-w-3xl mx-auto">
         {/* Document card */}
-        <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border overflow-hidden">
           {/* Company header */}
-          <div className="bg-gray-50 border-b px-8 py-6">
+          <div className="bg-gray-50 dark:bg-gray-950 border-b px-8 py-6">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-4">
                 {company?.has_logo && (
@@ -99,11 +99,11 @@ export default function PublicDocumentPage() {
                   />
                 )}
                 <div>
-                  <h1 className="text-xl font-bold text-gray-900">
+                  <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">
                     {company?.company_name || 'Business'}
                   </h1>
                   {company?.address_line1 && (
-                    <p className="text-sm text-gray-500 mt-0.5">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
                       {company.address_line1}
                       {company.city && `, ${company.city}`}
                       {company.state && `, ${company.state}`}
@@ -111,7 +111,7 @@ export default function PublicDocumentPage() {
                     </p>
                   )}
                   {company?.company_email && (
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
                       {company.company_email}
                       {company.company_phone && ` | ${company.company_phone}`}
                     </p>
@@ -119,10 +119,10 @@ export default function PublicDocumentPage() {
                 </div>
               </div>
               <div className="text-right">
-                <h2 className="text-2xl font-bold text-gray-400 uppercase">
+                <h2 className="text-2xl font-bold text-gray-400 dark:text-gray-500 uppercase">
                   {isEstimate ? 'Estimate' : 'Invoice'}
                 </h2>
-                <p className="text-lg font-semibold text-gray-900 mt-1">
+                <p className="text-lg font-semibold text-gray-900 dark:text-gray-100 mt-1">
                   {doc.number}
                 </p>
               </div>
@@ -133,44 +133,44 @@ export default function PublicDocumentPage() {
             {/* Bill-to + details */}
             <div className="grid grid-cols-2 gap-8 mb-8">
               <div>
-                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
                   {isEstimate ? 'Prepared For' : 'Bill To'}
                 </h3>
                 {doc.contact ? (
-                  <div className="text-sm text-gray-700">
+                  <div className="text-sm text-gray-700 dark:text-gray-300">
                     {doc.contact.company_name && (
                       <p className="font-medium">{doc.contact.company_name}</p>
                     )}
                     {doc.contact.contact_name && <p>{doc.contact.contact_name}</p>}
                     {doc.contact.email && (
-                      <p className="text-gray-500">{doc.contact.email}</p>
+                      <p className="text-gray-500 dark:text-gray-400">{doc.contact.email}</p>
                     )}
                   </div>
                 ) : (
-                  <p className="text-sm text-gray-400">--</p>
+                  <p className="text-sm text-gray-400 dark:text-gray-500">--</p>
                 )}
               </div>
               <div className="text-right">
                 <div className="text-sm space-y-1">
                   <div className="flex justify-end gap-4">
-                    <span className="text-gray-500">Date:</span>
-                    <span className="text-gray-900">{doc.issue_date}</span>
+                    <span className="text-gray-500 dark:text-gray-400">Date:</span>
+                    <span className="text-gray-900 dark:text-gray-100">{doc.issue_date}</span>
                   </div>
                   {isEstimate && doc.expiry_date && (
                     <div className="flex justify-end gap-4">
-                      <span className="text-gray-500">Valid Until:</span>
-                      <span className="text-gray-900">{doc.expiry_date}</span>
+                      <span className="text-gray-500 dark:text-gray-400">Valid Until:</span>
+                      <span className="text-gray-900 dark:text-gray-100">{doc.expiry_date}</span>
                     </div>
                   )}
                   {isInvoice && doc.due_date && (
                     <div className="flex justify-end gap-4">
-                      <span className="text-gray-500">Due Date:</span>
-                      <span className="text-gray-900">{doc.due_date}</span>
+                      <span className="text-gray-500 dark:text-gray-400">Due Date:</span>
+                      <span className="text-gray-900 dark:text-gray-100">{doc.due_date}</span>
                     </div>
                   )}
                   <div className="flex justify-end gap-4">
-                    <span className="text-gray-500">Status:</span>
-                    <span className="text-gray-900 capitalize">
+                    <span className="text-gray-500 dark:text-gray-400">Status:</span>
+                    <span className="text-gray-900 dark:text-gray-100 capitalize">
                       {doc.status.replace('_', ' ')}
                     </span>
                   </div>
@@ -181,20 +181,20 @@ export default function PublicDocumentPage() {
             {/* Line items */}
             <table className="w-full text-sm mb-6">
               <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 font-medium text-gray-500">
+                <tr className="border-b border-gray-200 dark:border-gray-700">
+                  <th className="text-left py-3 font-medium text-gray-500 dark:text-gray-400">
                     Description
                   </th>
-                  <th className="text-right py-3 font-medium text-gray-500">Qty</th>
-                  <th className="text-right py-3 font-medium text-gray-500">
+                  <th className="text-right py-3 font-medium text-gray-500 dark:text-gray-400">Qty</th>
+                  <th className="text-right py-3 font-medium text-gray-500 dark:text-gray-400">
                     Unit Price
                   </th>
                   {doc.line_items.some((li) => li.tax_rate) && (
-                    <th className="text-right py-3 font-medium text-gray-500">
+                    <th className="text-right py-3 font-medium text-gray-500 dark:text-gray-400">
                       Tax
                     </th>
                   )}
-                  <th className="text-right py-3 font-medium text-gray-500">
+                  <th className="text-right py-3 font-medium text-gray-500 dark:text-gray-400">
                     Total
                   </th>
                 </tr>
@@ -206,20 +206,20 @@ export default function PublicDocumentPage() {
                     lineSubtotal * ((item.tax_rate ?? 0) / 100)
                   const lineTotal = lineSubtotal + lineTax
                   return (
-                    <tr key={i} className="border-b border-gray-100">
-                      <td className="py-3 text-gray-900">{item.description}</td>
-                      <td className="py-3 text-right text-gray-700">
+                    <tr key={i} className="border-b border-gray-100 dark:border-gray-700">
+                      <td className="py-3 text-gray-900 dark:text-gray-100">{item.description}</td>
+                      <td className="py-3 text-right text-gray-700 dark:text-gray-300">
                         {item.quantity}
                       </td>
-                      <td className="py-3 text-right text-gray-700">
+                      <td className="py-3 text-right text-gray-700 dark:text-gray-300">
                         {formatCurrency(item.unit_price, doc.currency)}
                       </td>
                       {doc.line_items.some((li) => li.tax_rate) && (
-                        <td className="py-3 text-right text-gray-500">
+                        <td className="py-3 text-right text-gray-500 dark:text-gray-400">
                           {item.tax_rate ? `${item.tax_rate}%` : '--'}
                         </td>
                       )}
-                      <td className="py-3 text-right font-medium text-gray-900">
+                      <td className="py-3 text-right font-medium text-gray-900 dark:text-gray-100">
                         {formatCurrency(lineTotal, doc.currency)}
                       </td>
                     </tr>
@@ -231,46 +231,46 @@ export default function PublicDocumentPage() {
             {/* Totals */}
             <div className="flex flex-col items-end gap-1 mb-8">
               <div className="flex justify-between w-56">
-                <span className="text-sm text-gray-500">Subtotal</span>
-                <span className="text-sm text-gray-900">
+                <span className="text-sm text-gray-500 dark:text-gray-400">Subtotal</span>
+                <span className="text-sm text-gray-900 dark:text-gray-100">
                   {formatCurrency(subtotal, doc.currency)}
                 </span>
               </div>
               {taxTotal > 0 && (
                 <div className="flex justify-between w-56">
-                  <span className="text-sm text-gray-500">Tax</span>
-                  <span className="text-sm text-gray-900">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">Tax</span>
+                  <span className="text-sm text-gray-900 dark:text-gray-100">
                     {formatCurrency(taxTotal, doc.currency)}
                   </span>
                 </div>
               )}
               {discountAmount > 0 && (
                 <div className="flex justify-between w-56">
-                  <span className="text-sm text-gray-500">Discount</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">Discount</span>
                   <span className="text-sm text-red-600">
                     -{formatCurrency(discountAmount, doc.currency)}
                   </span>
                 </div>
               )}
-              <div className="flex justify-between w-56 pt-2 border-t border-gray-300 mt-1">
-                <span className="text-sm font-bold text-gray-900">Total</span>
-                <span className="text-sm font-bold text-gray-900">
+              <div className="flex justify-between w-56 pt-2 border-t border-gray-300 dark:border-gray-600 mt-1">
+                <span className="text-sm font-bold text-gray-900 dark:text-gray-100">Total</span>
+                <span className="text-sm font-bold text-gray-900 dark:text-gray-100">
                   {formatCurrency(total, doc.currency)}
                 </span>
               </div>
               {isInvoice && totalPaid > 0 && (
                 <>
                   <div className="flex justify-between w-56">
-                    <span className="text-sm text-gray-500">Paid</span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">Paid</span>
                     <span className="text-sm text-green-600">
                       -{formatCurrency(totalPaid, doc.currency)}
                     </span>
                   </div>
                   <div className="flex justify-between w-56 pt-1 border-t">
-                    <span className="text-sm font-bold text-gray-900">
+                    <span className="text-sm font-bold text-gray-900 dark:text-gray-100">
                       Balance Due
                     </span>
-                    <span className="text-sm font-bold text-gray-900">
+                    <span className="text-sm font-bold text-gray-900 dark:text-gray-100">
                       {formatCurrency(balanceDue, doc.currency)}
                     </span>
                   </div>
@@ -280,9 +280,9 @@ export default function PublicDocumentPage() {
 
             {/* Notes */}
             {doc.notes && (
-              <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                <h3 className="text-sm font-medium text-gray-500 mb-1">Notes</h3>
-                <p className="text-sm text-gray-700 whitespace-pre-wrap">
+              <div className="bg-gray-50 dark:bg-gray-950 rounded-lg p-4 mb-6">
+                <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Notes</h3>
+                <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
                   {doc.notes}
                 </p>
               </div>
@@ -291,7 +291,7 @@ export default function PublicDocumentPage() {
             {/* Payment history */}
             {isInvoice && doc.payments && doc.payments.length > 0 && (
               <div className="mb-6">
-                <h3 className="text-sm font-medium text-gray-500 mb-2">
+                <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
                   Payment History
                 </h3>
                 <div className="space-y-1">
@@ -300,8 +300,8 @@ export default function PublicDocumentPage() {
                       key={i}
                       className="flex justify-between text-sm py-1.5 border-b border-gray-50"
                     >
-                      <span className="text-gray-700">{p.date}</span>
-                      <span className="text-gray-500 capitalize">
+                      <span className="text-gray-700 dark:text-gray-300">{p.date}</span>
+                      <span className="text-gray-500 dark:text-gray-400 capitalize">
                         {(p.payment_method || '').replace('_', ' ')}
                       </span>
                       <span className="font-medium text-green-600">
@@ -315,7 +315,7 @@ export default function PublicDocumentPage() {
 
             {/* Signed status */}
             {is_signed && doc.signed_by_name && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6 flex items-center gap-3">
+              <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 rounded-lg p-4 mb-6 flex items-center gap-3">
                 <CheckCircle className="h-5 w-5 text-green-600 shrink-0" />
                 <div>
                   <p className="text-sm font-medium text-green-800">
@@ -336,12 +336,12 @@ export default function PublicDocumentPage() {
               !is_signed &&
               !accepted && (
                 <div className="border-t pt-6">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
                     Accept This Estimate
                   </h3>
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Your Name
                       </label>
                       <input
@@ -353,7 +353,7 @@ export default function PublicDocumentPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Signature
                       </label>
                       <SignaturePad onSignatureChange={setSignatureData} />
@@ -384,7 +384,7 @@ export default function PublicDocumentPage() {
 
             {/* Accepted confirmation */}
             {accepted && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-3">
+              <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 rounded-lg p-4 flex items-center gap-3">
                 <CheckCircle className="h-5 w-5 text-green-600" />
                 <p className="text-sm font-medium text-green-800">
                   Estimate accepted successfully. Thank you!
@@ -418,7 +418,7 @@ export default function PublicDocumentPage() {
         </div>
 
         {/* Footer */}
-        <p className="text-center text-xs text-gray-400 mt-6">
+        <p className="text-center text-xs text-gray-400 dark:text-gray-500 mt-6">
           Powered by Accountant
         </p>
       </div>

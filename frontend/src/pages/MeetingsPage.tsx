@@ -61,7 +61,7 @@ export default function MeetingsPage() {
     <div className="p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Meetings</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Meetings</h1>
         <button
           onClick={() => navigate('/meetings/new')}
           className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
@@ -72,15 +72,15 @@ export default function MeetingsPage() {
       </div>
 
       {/* Tab bar */}
-      <div className="flex gap-1 bg-gray-100 rounded-lg p-1 mb-6 w-fit">
+      <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1 mb-6 w-fit">
         {STATUS_TABS.map((tab) => (
           <button
             key={tab.value}
             onClick={() => { setStatusTab(tab.value); setFilters(f => ({ ...f, page: 1 })) }}
             className={`px-4 py-1.5 text-xs font-medium rounded-md transition-colors ${
               statusTab === tab.value
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
+                ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 shadow-sm'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
             }`}
           >
             {tab.label}
@@ -91,7 +91,7 @@ export default function MeetingsPage() {
       {/* Loading */}
       {isLoading && (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+          <Loader2 className="h-6 w-6 animate-spin text-gray-400 dark:text-gray-500" />
         </div>
       )}
 
@@ -99,8 +99,8 @@ export default function MeetingsPage() {
       {!isLoading && meetings.length === 0 && (
         <div className="text-center py-20">
           <Video className="h-10 w-10 mx-auto mb-3 text-gray-300" />
-          <p className="text-gray-500 text-sm">No meetings found</p>
-          <p className="text-gray-400 text-xs mt-1">
+          <p className="text-gray-500 dark:text-gray-400 text-sm">No meetings found</p>
+          <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">
             {statusTab === 'scheduled'
               ? 'Schedule a meeting to get started'
               : `No ${statusTab.replace('_', ' ')} meetings`}
@@ -115,14 +115,14 @@ export default function MeetingsPage() {
             <div
               key={meeting.id}
               onClick={() => navigate(`/meetings/${meeting.id}`)}
-              className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md hover:border-gray-200 cursor-pointer transition-all"
+              className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5 hover:shadow-md hover:border-gray-200 dark:hover:border-gray-600 cursor-pointer transition-all"
             >
               <div className="flex items-start justify-between mb-3">
-                <h3 className="text-sm font-semibold text-gray-900 line-clamp-1">{meeting.title}</h3>
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 line-clamp-1">{meeting.title}</h3>
                 <StatusBadge status={meeting.status} />
               </div>
 
-              <div className="space-y-2 text-xs text-gray-500">
+              <div className="space-y-2 text-xs text-gray-500 dark:text-gray-400">
                 <div className="flex items-center gap-2">
                   <Calendar className="h-3.5 w-3.5" />
                   <span>{formatDateTime(meeting.scheduled_start)}</span>
@@ -140,7 +140,7 @@ export default function MeetingsPage() {
               </div>
 
               {/* Action buttons */}
-              <div className="mt-4 pt-3 border-t border-gray-50">
+              <div className="mt-4 pt-3 border-t border-gray-50 dark:border-gray-800">
                 {meeting.status === 'in_progress' && (
                   <button
                     onClick={(e) => { e.stopPropagation(); navigate(`/meetings/${meeting.id}/room`) }}
@@ -168,21 +168,21 @@ export default function MeetingsPage() {
       {/* Pagination */}
       {meta && meta.total_pages > 1 && (
         <div className="flex items-center justify-between mt-6">
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
             Page {meta.page} of {meta.total_pages} ({meta.total_count} meetings)
           </p>
           <div className="flex gap-2">
             <button
               disabled={meta.page <= 1}
               onClick={() => setFilters(f => ({ ...f, page: (f.page ?? 1) - 1 }))}
-              className="px-3 py-1.5 text-sm border rounded-lg disabled:opacity-50 hover:bg-gray-50"
+              className="px-3 py-1.5 text-sm border dark:border-gray-600 rounded-lg disabled:opacity-50 hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-300"
             >
               Previous
             </button>
             <button
               disabled={meta.page >= meta.total_pages}
               onClick={() => setFilters(f => ({ ...f, page: (f.page ?? 1) + 1 }))}
-              className="px-3 py-1.5 text-sm border rounded-lg disabled:opacity-50 hover:bg-gray-50"
+              className="px-3 py-1.5 text-sm border dark:border-gray-600 rounded-lg disabled:opacity-50 hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-300"
             >
               Next
             </button>

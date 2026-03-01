@@ -99,9 +99,9 @@ export default function UserManagement() {
   const users = data?.data ?? []
 
   return (
-    <section className="bg-white border rounded-lg p-6">
+    <section className="bg-white dark:bg-gray-900 border rounded-lg p-6">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-medium text-gray-900">User Management</h2>
+        <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">User Management</h2>
         <button
           onClick={() => setShowForm(!showForm)}
           className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
@@ -112,8 +112,8 @@ export default function UserManagement() {
       </div>
 
       {showForm && (
-        <form onSubmit={handleCreate} className="mb-6 p-4 bg-gray-50 rounded-lg space-y-3">
-          <h3 className="text-sm font-medium text-gray-700">Create New User</h3>
+        <form onSubmit={handleCreate} className="mb-6 p-4 bg-gray-50 dark:bg-gray-950 rounded-lg space-y-3">
+          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Create New User</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <input
               type="text"
@@ -121,7 +121,7 @@ export default function UserManagement() {
               onChange={(e) => setFullName(e.target.value)}
               required
               placeholder="Full Name"
-              className="px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900"
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm text-gray-900 dark:text-gray-100"
             />
             <input
               type="email"
@@ -129,7 +129,7 @@ export default function UserManagement() {
               onChange={(e) => setEmail(e.target.value)}
               required
               placeholder="Email"
-              className="px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900"
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm text-gray-900 dark:text-gray-100"
             />
             <input
               type="password"
@@ -138,12 +138,12 @@ export default function UserManagement() {
               required
               minLength={8}
               placeholder="Password (min 8 chars)"
-              className="px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900"
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm text-gray-900 dark:text-gray-100"
             />
             <select
               value={role}
               onChange={(e) => setRole(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md text-sm bg-white text-gray-900"
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
             >
               {ROLES.map((r) => (
                 <option key={r.value} value={r.value}>{r.label}</option>
@@ -164,7 +164,7 @@ export default function UserManagement() {
             <button
               type="button"
               onClick={() => { setShowForm(false); setFormError('') }}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300"
             >
               Cancel
             </button>
@@ -174,43 +174,43 @@ export default function UserManagement() {
 
       {/* Edit form */}
       {editingId && (
-        <form onSubmit={handleEdit} className="mb-6 p-4 bg-blue-50 rounded-lg space-y-3">
+        <form onSubmit={handleEdit} className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium text-gray-700">Edit User</h3>
-            <button type="button" onClick={() => setEditingId(null)} className="text-gray-400 hover:text-gray-600">
+            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Edit User</h3>
+            <button type="button" onClick={() => setEditingId(null)} className="text-gray-400 dark:text-gray-500 hover:text-gray-600">
               <X className="w-4 h-4" />
             </button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Full Name</label>
+              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Full Name</label>
               <input
                 type="text"
                 value={editFullName}
                 onChange={(e) => setEditFullName(e.target.value)}
                 required
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm text-gray-900 dark:text-gray-100"
               />
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Email</label>
+              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Email</label>
               <input
                 type="email"
                 value={editEmail}
                 onChange={(e) => setEditEmail(e.target.value)}
                 required
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm text-gray-900 dark:text-gray-100"
               />
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">New Password (leave blank to keep)</label>
+              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">New Password (leave blank to keep)</label>
               <input
                 type="password"
                 value={editPassword}
                 onChange={(e) => setEditPassword(e.target.value)}
                 minLength={8}
                 placeholder="••••••••"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm text-gray-900 dark:text-gray-100"
               />
             </div>
           </div>
@@ -228,7 +228,7 @@ export default function UserManagement() {
             <button
               type="button"
               onClick={() => setEditingId(null)}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300"
             >
               Cancel
             </button>
@@ -240,32 +240,32 @@ export default function UserManagement() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b text-left">
-              <th className="pb-2 font-medium text-gray-500">Name</th>
-              <th className="pb-2 font-medium text-gray-500">Email</th>
-              <th className="pb-2 font-medium text-gray-500">Role</th>
-              <th className="pb-2 font-medium text-gray-500">Joined</th>
-              <th className="pb-2 font-medium text-gray-500">Status</th>
-              <th className="pb-2 font-medium text-gray-500">Actions</th>
+              <th className="pb-2 font-medium text-gray-500 dark:text-gray-400">Name</th>
+              <th className="pb-2 font-medium text-gray-500 dark:text-gray-400">Email</th>
+              <th className="pb-2 font-medium text-gray-500 dark:text-gray-400">Role</th>
+              <th className="pb-2 font-medium text-gray-500 dark:text-gray-400">Joined</th>
+              <th className="pb-2 font-medium text-gray-500 dark:text-gray-400">Status</th>
+              <th className="pb-2 font-medium text-gray-500 dark:text-gray-400">Actions</th>
             </tr>
           </thead>
           <tbody>
             {users.map((u) => (
               <tr key={u.id} className={`border-b ${editingId === u.id ? 'bg-blue-50' : ''}`}>
-                <td className="py-2 text-gray-900">{u.full_name}</td>
-                <td className="py-2 text-gray-600">{u.email}</td>
+                <td className="py-2 text-gray-900 dark:text-gray-100">{u.full_name}</td>
+                <td className="py-2 text-gray-600 dark:text-gray-400">{u.email}</td>
                 <td className="py-2">
                   <select
                     value={u.role}
                     onChange={(e) => roleMutation.mutate({ userId: u.id, role: e.target.value })}
                     disabled={u.id === user?.id}
-                    className="text-sm border rounded px-2 py-1 bg-white disabled:opacity-50"
+                    className="text-sm border rounded px-2 py-1 bg-white dark:bg-gray-900 disabled:opacity-50"
                   >
                     {ROLES.map((r) => (
                       <option key={r.value} value={r.value}>{r.label}</option>
                     ))}
                   </select>
                 </td>
-                <td className="py-2 text-gray-500">{formatDate(u.created_at)}</td>
+                <td className="py-2 text-gray-500 dark:text-gray-400">{formatDate(u.created_at)}</td>
                 <td className="py-2">
                   <span className={`px-2 py-0.5 text-xs rounded-full ${u.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                     {u.is_active ? 'Active' : 'Inactive'}
@@ -276,7 +276,7 @@ export default function UserManagement() {
                     {u.id !== user?.id && (
                       <button
                         onClick={() => startEdit(u)}
-                        className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                        className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
                       >
                         <Pencil className="w-3 h-3" />
                         Edit

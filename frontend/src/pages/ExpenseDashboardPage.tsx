@@ -54,18 +54,18 @@ export default function ExpenseDashboardPage() {
         <div>
           <button
             onClick={() => navigate('/expenses')}
-            className="flex items-center gap-1 text-sm text-blue-600 hover:underline mb-2"
+            className="flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:underline mb-2"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to expenses
           </button>
-          <h1 className="text-2xl font-bold text-gray-900">Expense Dashboard</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Expense Dashboard</h1>
         </div>
         <div className="flex items-center gap-3">
           <select
             value={year}
             onChange={(e) => setYear(parseInt(e.target.value))}
-            className="px-3 py-2 text-sm border rounded-lg bg-white"
+            className="px-3 py-2 text-sm border rounded-lg bg-white dark:bg-gray-900"
           >
             {Array.from({ length: 5 }, (_, i) => currentYear - i).map((y) => (
               <option key={y} value={y}>{y}</option>
@@ -73,14 +73,14 @@ export default function ExpenseDashboardPage() {
           </select>
           <a
             href={`/api/accounting/export/csv`}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium border rounded-lg hover:bg-gray-50"
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
           >
             <Download className="h-4 w-4" />
             Export CSV
           </a>
           <a
             href={`/api/accounting/export/xlsx`}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium border rounded-lg hover:bg-gray-50"
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
           >
             <Download className="h-4 w-4" />
             Export XLSX
@@ -91,7 +91,7 @@ export default function ExpenseDashboardPage() {
       {isLoading ? (
         <div className="grid grid-cols-4 gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="animate-pulse h-24 bg-gray-200 rounded-lg" />
+            <div key={i} className="animate-pulse h-24 bg-gray-200 dark:bg-gray-700 rounded-lg" />
           ))}
         </div>
       ) : (
@@ -99,16 +99,16 @@ export default function ExpenseDashboardPage() {
           {/* Stat cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard
-              icon={<DollarSign className="h-5 w-5 text-blue-600" />}
+              icon={<DollarSign className="h-5 w-5 text-blue-600 dark:text-blue-400" />}
               label="Total Spend"
               value={formatCurrency(summary?.total_amount ?? 0)}
-              bg="bg-blue-50"
+              bg="bg-blue-50 dark:bg-blue-900/30"
             />
             <StatCard
               icon={<Hash className="h-5 w-5 text-green-600" />}
               label="Expenses"
               value={String(summary?.expense_count ?? 0)}
-              bg="bg-green-50"
+              bg="bg-green-50 dark:bg-green-900/30"
             />
             <StatCard
               icon={<TrendingUp className="h-5 w-5 text-purple-600" />}
@@ -127,8 +127,8 @@ export default function ExpenseDashboardPage() {
           {/* Charts row */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Monthly trend */}
-            <div className="bg-white rounded-lg border p-5">
-              <h3 className="font-semibold text-gray-900 mb-4">Monthly Spending</h3>
+            <div className="bg-white dark:bg-gray-900 rounded-lg border p-5">
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">Monthly Spending</h3>
               {monthlyData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={250}>
                   <LineChart data={monthlyData}>
@@ -148,15 +148,15 @@ export default function ExpenseDashboardPage() {
                   </LineChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-[250px] flex items-center justify-center text-gray-400">
+                <div className="h-[250px] flex items-center justify-center text-gray-400 dark:text-gray-500">
                   No data for {year}
                 </div>
               )}
             </div>
 
             {/* Category breakdown */}
-            <div className="bg-white rounded-lg border p-5">
-              <h3 className="font-semibold text-gray-900 mb-4">By Category</h3>
+            <div className="bg-white dark:bg-gray-900 rounded-lg border p-5">
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">By Category</h3>
               {categoryData.length > 0 ? (
                 <div className="flex gap-4">
                   <ResponsiveContainer width="50%" height={250}>
@@ -186,14 +186,14 @@ export default function ExpenseDashboardPage() {
                           className="w-3 h-3 rounded-full shrink-0"
                           style={{ backgroundColor: c.color }}
                         />
-                        <span className="text-gray-700 truncate flex-1">{c.name}</span>
-                        <span className="text-gray-900 font-medium">{formatCurrency(c.value)}</span>
+                        <span className="text-gray-700 dark:text-gray-300 truncate flex-1">{c.name}</span>
+                        <span className="text-gray-900 dark:text-gray-100 font-medium">{formatCurrency(c.value)}</span>
                       </div>
                     ))}
                   </div>
                 </div>
               ) : (
-                <div className="h-[250px] flex items-center justify-center text-gray-400">
+                <div className="h-[250px] flex items-center justify-center text-gray-400 dark:text-gray-500">
                   No expenses yet
                 </div>
               )}
@@ -201,8 +201,8 @@ export default function ExpenseDashboardPage() {
           </div>
 
           {/* Top vendors */}
-          <div className="bg-white rounded-lg border p-5">
-            <h3 className="font-semibold text-gray-900 mb-4">Top Vendors</h3>
+          <div className="bg-white dark:bg-gray-900 rounded-lg border p-5">
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">Top Vendors</h3>
             {vendorData.length > 0 ? (
               <ResponsiveContainer width="100%" height={250}>
                 <BarChart data={vendorData} layout="vertical">
@@ -214,7 +214,7 @@ export default function ExpenseDashboardPage() {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-[250px] flex items-center justify-center text-gray-400">
+              <div className="h-[250px] flex items-center justify-center text-gray-400 dark:text-gray-500">
                 No vendor data
               </div>
             )}
@@ -230,9 +230,9 @@ function StatCard({ icon, label, value, bg }: { icon: React.ReactNode; label: st
     <div className={`${bg} rounded-lg p-4`}>
       <div className="flex items-center gap-2 mb-1">
         {icon}
-        <span className="text-xs font-medium text-gray-500 uppercase">{label}</span>
+        <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{label}</span>
       </div>
-      <p className="text-xl font-bold text-gray-900">{value}</p>
+      <p className="text-xl font-bold text-gray-900 dark:text-gray-100">{value}</p>
     </div>
   )
 }

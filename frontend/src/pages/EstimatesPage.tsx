@@ -39,7 +39,7 @@ export default function EstimatesPage() {
     <div className="p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900">Estimates</h1>
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Estimates</h1>
         {canEdit && (
           <button
             onClick={() => navigate('/estimates/new')}
@@ -63,7 +63,7 @@ export default function EstimatesPage() {
             className={`px-3 py-1.5 text-sm rounded-lg whitespace-nowrap transition-colors ${
               statusFilter === tab.value
                 ? 'bg-blue-600 text-white'
-                : 'text-gray-600 hover:bg-gray-100'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100'
             }`}
           >
             {tab.label}
@@ -73,7 +73,7 @@ export default function EstimatesPage() {
 
       {/* Search */}
       <div className="relative mb-4">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
         <input
           type="text"
           placeholder="Search estimates..."
@@ -82,33 +82,33 @@ export default function EstimatesPage() {
             setSearch(e.target.value);
             setPage(1);
           }}
-          className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-gray-100">
-              <th className="text-left px-5 py-3 text-gray-500 font-medium">Estimate #</th>
-              <th className="text-left px-5 py-3 text-gray-500 font-medium">Client</th>
-              <th className="text-left px-5 py-3 text-gray-500 font-medium">Issue Date</th>
-              <th className="text-left px-5 py-3 text-gray-500 font-medium">Expiry Date</th>
-              <th className="text-right px-5 py-3 text-gray-500 font-medium">Amount</th>
-              <th className="text-left px-5 py-3 text-gray-500 font-medium">Status</th>
+            <tr className="border-b border-gray-100 dark:border-gray-700">
+              <th className="text-left px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Estimate #</th>
+              <th className="text-left px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Client</th>
+              <th className="text-left px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Issue Date</th>
+              <th className="text-left px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Expiry Date</th>
+              <th className="text-right px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Amount</th>
+              <th className="text-left px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Status</th>
             </tr>
           </thead>
           <tbody>
             {estimatesQuery.isLoading ? (
               <tr>
-                <td colSpan={6} className="px-5 py-8 text-center text-gray-400">
+                <td colSpan={6} className="px-5 py-8 text-center text-gray-400 dark:text-gray-500">
                   Loading estimates...
                 </td>
               </tr>
             ) : estimates.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-5 py-8 text-center text-gray-400">
+                <td colSpan={6} className="px-5 py-8 text-center text-gray-400 dark:text-gray-500">
                   No estimates found.
                 </td>
               </tr>
@@ -119,20 +119,20 @@ export default function EstimatesPage() {
                   <tr
                     key={estimate.id}
                     onClick={() => navigate(`/estimates/${estimate.id}`)}
-                    className="border-b border-gray-50 hover:bg-gray-50 cursor-pointer transition-colors"
+                    className="border-b border-gray-50 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors"
                   >
-                    <td className="px-5 py-3 font-medium text-gray-900">
+                    <td className="px-5 py-3 font-medium text-gray-900 dark:text-gray-100">
                       {estimate.estimate_number}
                     </td>
-                    <td className="px-5 py-3 text-gray-700">{estimate.contact?.company_name ?? '--'}</td>
-                    <td className="px-5 py-3 text-gray-500">{formatDate(estimate.issue_date)}</td>
-                    <td className="px-5 py-3 text-gray-500">{formatDate(estimate.expiry_date)}</td>
-                    <td className="px-5 py-3 text-right font-medium text-gray-900">
+                    <td className="px-5 py-3 text-gray-700 dark:text-gray-300">{estimate.contact?.company_name ?? '--'}</td>
+                    <td className="px-5 py-3 text-gray-500 dark:text-gray-400">{formatDate(estimate.issue_date)}</td>
+                    <td className="px-5 py-3 text-gray-500 dark:text-gray-400">{formatDate(estimate.expiry_date)}</td>
+                    <td className="px-5 py-3 text-right font-medium text-gray-900 dark:text-gray-100">
                       {formatCurrency(estimate.total, estimate.currency)}
                     </td>
                     <td className="px-5 py-3">
                       <span
-                        className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusInfo?.color ?? 'bg-gray-100 text-gray-700'}`}
+                        className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusInfo?.color ?? 'bg-gray-100 dark:bg-gray-800 text-gray-700'}`}
                       >
                         {statusInfo?.label ?? estimate.status}
                       </span>
@@ -148,21 +148,21 @@ export default function EstimatesPage() {
       {/* Pagination */}
       {meta && meta.total_pages > 1 && (
         <div className="flex items-center justify-between mt-4">
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
             Page {meta.page} of {meta.total_pages}
           </p>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page <= 1}
-              className="px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Previous
             </button>
             <button
               onClick={() => setPage((p) => p + 1)}
               disabled={page >= meta.total_pages}
-              className="px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Next
             </button>

@@ -54,18 +54,18 @@ export default function NewExpensePage() {
     <div className="p-6 max-w-2xl mx-auto">
       <button
         onClick={() => navigate('/expenses')}
-        className="flex items-center gap-1 text-sm text-blue-600 hover:underline mb-4"
+        className="flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:underline mb-4"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to expenses
       </button>
 
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">New Expense</h1>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">New Expense</h1>
 
-      <div className="bg-white rounded-lg border p-6 space-y-4">
+      <div className="bg-white dark:bg-gray-900 rounded-lg border p-6 space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Vendor Name</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Vendor Name</label>
             <input
               type="text"
               value={vendorName}
@@ -75,7 +75,7 @@ export default function NewExpensePage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Amount <span className="text-red-500">*</span>
             </label>
             <div className="flex gap-2">
@@ -91,7 +91,7 @@ export default function NewExpensePage() {
               <select
                 value={currency}
                 onChange={(e) => setCurrency(e.target.value)}
-                className="w-20 px-2 py-2 text-sm border rounded-md bg-white"
+                className="w-20 px-2 py-2 text-sm border rounded-md bg-white dark:bg-gray-900"
               >
                 <option value="USD">USD</option>
                 <option value="EUR">EUR</option>
@@ -101,7 +101,7 @@ export default function NewExpensePage() {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Date <span className="text-red-500">*</span>
             </label>
             <input
@@ -112,7 +112,7 @@ export default function NewExpensePage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Tax Amount</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tax Amount</label>
             <input
               type="number"
               step="0.01"
@@ -124,11 +124,11 @@ export default function NewExpensePage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Category</label>
             <select
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
-              className="w-full px-3 py-2 text-sm border rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 text-sm border rounded-md bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Select a category</option>
               {categories.map((c) => (
@@ -137,11 +137,11 @@ export default function NewExpensePage() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Payment Method</label>
             <select
               value={paymentMethod}
               onChange={(e) => setPaymentMethod(e.target.value)}
-              className="w-full px-3 py-2 text-sm border rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 text-sm border rounded-md bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Not specified</option>
               {PAYMENT_METHODS.map((p) => (
@@ -152,7 +152,7 @@ export default function NewExpensePage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
           <input
             type="text"
             value={description}
@@ -177,7 +177,7 @@ export default function NewExpensePage() {
         />
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
@@ -190,7 +190,7 @@ export default function NewExpensePage() {
         <div className="flex justify-end gap-2 pt-2">
           <button
             onClick={() => navigate('/expenses')}
-            className="px-4 py-2 text-sm border rounded-md hover:bg-gray-50"
+            className="px-4 py-2 text-sm border rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
           >
             Cancel
           </button>

@@ -224,7 +224,7 @@ export default function MeetingRoomPage() {
   if (!token || !roomName) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <p className="text-gray-400 text-sm">Unable to join meeting</p>
+        <p className="text-gray-400 dark:text-gray-500 text-sm">Unable to join meeting</p>
       </div>
     )
   }

@@ -83,17 +83,17 @@ export default function NewBudgetPage() {
       {/* Back button */}
       <button
         onClick={() => navigate('/budgets')}
-        className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 mb-6 transition-colors"
+        className="inline-flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 mb-6 transition-colors"
       >
         <ArrowLeft className="w-4 h-4" />
         Back to Budgets
       </button>
 
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">New Budget</h1>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">New Budget</h1>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
         {error && (
-          <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+          <div className="mb-4 p-3 rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 text-sm text-red-700">
             {error}
           </div>
         )}
@@ -101,7 +101,7 @@ export default function NewBudgetPage() {
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* Name */}
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Name <span className="text-red-500">*</span>
             </label>
             <input
@@ -110,18 +110,18 @@ export default function NewBudgetPage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Office Supplies Budget"
-              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
+              className="block w-full rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
               required
             />
           </div>
 
           {/* Amount */}
           <div>
-            <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="amount" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Amount <span className="text-red-500">*</span>
             </label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 text-sm">
                 $
               </span>
               <input
@@ -132,7 +132,7 @@ export default function NewBudgetPage() {
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0.00"
-                className="block w-full rounded-lg border border-gray-300 pl-7 pr-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
+                className="block w-full rounded-lg border border-gray-300 dark:border-gray-600 pl-7 pr-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
                 required
               />
             </div>
@@ -140,7 +140,7 @@ export default function NewBudgetPage() {
 
           {/* Period Type */}
           <div>
-            <label htmlFor="periodType" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="periodType" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Period Type
             </label>
             <select
@@ -152,7 +152,7 @@ export default function NewBudgetPage() {
                   setMonth('');
                 }
               }}
-              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
+              className="block w-full rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
             >
               {PERIOD_TYPES.map((pt) => (
                 <option key={pt.value} value={pt.value}>
@@ -164,7 +164,7 @@ export default function NewBudgetPage() {
 
           {/* Year */}
           <div>
-            <label htmlFor="year" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="year" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Year
             </label>
             <input
@@ -174,21 +174,21 @@ export default function NewBudgetPage() {
               max="2100"
               value={year}
               onChange={(e) => setYear(Number(e.target.value))}
-              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
+              className="block w-full rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
             />
           </div>
 
           {/* Month (only for monthly period type) */}
           {periodType === 'monthly' && (
             <div>
-              <label htmlFor="month" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="month" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Month
               </label>
               <select
                 id="month"
                 value={month}
                 onChange={(e) => setMonth(e.target.value === '' ? '' : Number(e.target.value))}
-                className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
+                className="block w-full rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
               >
                 <option value="">Select a month (optional)</option>
                 <option value={1}>January</option>
@@ -209,14 +209,14 @@ export default function NewBudgetPage() {
 
           {/* Category */}
           <div>
-            <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="category" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Category
             </label>
             <select
               id="category"
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
-              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
+              className="block w-full rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
             >
               <option value="">No category (optional)</option>
               {categories.map((cat) => (
@@ -239,7 +239,7 @@ export default function NewBudgetPage() {
             <button
               type="button"
               onClick={() => navigate('/budgets')}
-              className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
+              className="inline-flex items-center px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
             >
               Cancel
             </button>

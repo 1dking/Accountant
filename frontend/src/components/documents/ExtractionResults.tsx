@@ -67,7 +67,7 @@ export default function ExtractionResults({ documentId, mimeType, canExtract }: 
   if (statusLoading) {
     return (
       <div className="py-2">
-        <div className="animate-pulse h-4 bg-gray-200 rounded w-1/2" />
+        <div className="animate-pulse h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2" />
       </div>
     )
   }
@@ -77,7 +77,7 @@ export default function ExtractionResults({ documentId, mimeType, canExtract }: 
     if (!canExtract) return null
     return (
       <div>
-        <label className="text-xs font-medium text-gray-500 uppercase">AI Extraction</label>
+        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">AI Extraction</label>
         <button
           onClick={() => extractMutation.mutate()}
           disabled={extractMutation.isPending}
@@ -141,7 +141,7 @@ function ExtractionDisplay({
   return (
     <div>
       <div className="flex items-center justify-between">
-        <label className="text-xs font-medium text-gray-500 uppercase flex items-center gap-1">
+        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase flex items-center gap-1">
           <Sparkles className="h-3 w-3 text-purple-500" />
           AI Extracted Data
         </label>
@@ -160,24 +160,24 @@ function ExtractionDisplay({
         {/* Vendor */}
         {extraction.vendor_name && (
           <div className="flex justify-between">
-            <span className="text-gray-500">Vendor</span>
-            <span className="text-gray-900 font-medium">{extraction.vendor_name}</span>
+            <span className="text-gray-500 dark:text-gray-400">Vendor</span>
+            <span className="text-gray-900 dark:text-gray-100 font-medium">{extraction.vendor_name}</span>
           </div>
         )}
 
         {/* Date */}
         {extraction.date && (
           <div className="flex justify-between">
-            <span className="text-gray-500">Date</span>
-            <span className="text-gray-900">{extraction.date}</span>
+            <span className="text-gray-500 dark:text-gray-400">Date</span>
+            <span className="text-gray-900 dark:text-gray-100">{extraction.date}</span>
           </div>
         )}
 
         {/* Total */}
         {extraction.total_amount != null && (
           <div className="flex justify-between">
-            <span className="text-gray-500">Total</span>
-            <span className="text-gray-900 font-bold">
+            <span className="text-gray-500 dark:text-gray-400">Total</span>
+            <span className="text-gray-900 dark:text-gray-100 font-bold">
               {formatCurrency(extraction.total_amount, extraction.currency)}
             </span>
           </div>
@@ -186,35 +186,35 @@ function ExtractionDisplay({
         {/* Subtotal + Tax */}
         {extraction.subtotal != null && (
           <div className="flex justify-between">
-            <span className="text-gray-500">Subtotal</span>
-            <span className="text-gray-700">{formatCurrency(extraction.subtotal, extraction.currency)}</span>
+            <span className="text-gray-500 dark:text-gray-400">Subtotal</span>
+            <span className="text-gray-700 dark:text-gray-300">{formatCurrency(extraction.subtotal, extraction.currency)}</span>
           </div>
         )}
         {extraction.tax_amount != null && (
           <div className="flex justify-between">
-            <span className="text-gray-500">Tax{extraction.tax_rate != null ? ` (${extraction.tax_rate}%)` : ''}</span>
-            <span className="text-gray-700">{formatCurrency(extraction.tax_amount, extraction.currency)}</span>
+            <span className="text-gray-500 dark:text-gray-400">Tax{extraction.tax_rate != null ? ` (${extraction.tax_rate}%)` : ''}</span>
+            <span className="text-gray-700 dark:text-gray-300">{formatCurrency(extraction.tax_amount, extraction.currency)}</span>
           </div>
         )}
         {extraction.tip_amount != null && (
           <div className="flex justify-between">
-            <span className="text-gray-500">Tip</span>
-            <span className="text-gray-700">{formatCurrency(extraction.tip_amount, extraction.currency)}</span>
+            <span className="text-gray-500 dark:text-gray-400">Tip</span>
+            <span className="text-gray-700 dark:text-gray-300">{formatCurrency(extraction.tip_amount, extraction.currency)}</span>
           </div>
         )}
 
         {/* Payment method */}
         {extraction.payment_method && (
           <div className="flex justify-between">
-            <span className="text-gray-500">Payment</span>
-            <span className="text-gray-700">{formatPaymentMethod(extraction.payment_method)}</span>
+            <span className="text-gray-500 dark:text-gray-400">Payment</span>
+            <span className="text-gray-700 dark:text-gray-300">{formatPaymentMethod(extraction.payment_method)}</span>
           </div>
         )}
 
         {/* Category */}
         {extraction.category && (
           <div className="flex justify-between">
-            <span className="text-gray-500">Category</span>
+            <span className="text-gray-500 dark:text-gray-400">Category</span>
             <span className="inline-block px-2 py-0.5 text-xs rounded-full bg-purple-50 text-purple-700">
               {CATEGORY_LABELS[extraction.category] || extraction.category}
             </span>
@@ -224,8 +224,8 @@ function ExtractionDisplay({
         {/* Receipt number */}
         {extraction.receipt_number && (
           <div className="flex justify-between">
-            <span className="text-gray-500">Receipt #</span>
-            <span className="text-gray-700 font-mono text-xs">{extraction.receipt_number}</span>
+            <span className="text-gray-500 dark:text-gray-400">Receipt #</span>
+            <span className="text-gray-700 dark:text-gray-300 font-mono text-xs">{extraction.receipt_number}</span>
           </div>
         )}
 
@@ -234,7 +234,7 @@ function ExtractionDisplay({
           <div>
             <button
               onClick={() => setShowLineItems(!showLineItems)}
-              className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700"
+              className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700"
             >
               {showLineItems ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
               {extraction.line_items.length} line item{extraction.line_items.length !== 1 ? 's' : ''}
@@ -242,19 +242,19 @@ function ExtractionDisplay({
             {showLineItems && (
               <div className="mt-1 border rounded-md overflow-hidden">
                 <table className="w-full text-xs">
-                  <thead className="bg-gray-50">
+                  <thead className="bg-gray-50 dark:bg-gray-950">
                     <tr>
-                      <th className="text-left px-2 py-1 text-gray-500 font-medium">Item</th>
-                      <th className="text-right px-2 py-1 text-gray-500 font-medium">Qty</th>
-                      <th className="text-right px-2 py-1 text-gray-500 font-medium">Total</th>
+                      <th className="text-left px-2 py-1 text-gray-500 dark:text-gray-400 font-medium">Item</th>
+                      <th className="text-right px-2 py-1 text-gray-500 dark:text-gray-400 font-medium">Qty</th>
+                      <th className="text-right px-2 py-1 text-gray-500 dark:text-gray-400 font-medium">Total</th>
                     </tr>
                   </thead>
                   <tbody>
                     {extraction.line_items.map((item, i) => (
                       <tr key={i} className="border-t">
-                        <td className="px-2 py-1 text-gray-700">{item.description}</td>
-                        <td className="px-2 py-1 text-right text-gray-500">{item.quantity ?? '-'}</td>
-                        <td className="px-2 py-1 text-right text-gray-700">
+                        <td className="px-2 py-1 text-gray-700 dark:text-gray-300">{item.description}</td>
+                        <td className="px-2 py-1 text-right text-gray-500 dark:text-gray-400">{item.quantity ?? '-'}</td>
+                        <td className="px-2 py-1 text-right text-gray-700 dark:text-gray-300">
                           {item.total != null ? formatCurrency(item.total, extraction.currency) : '-'}
                         </td>
                       </tr>
@@ -271,13 +271,13 @@ function ExtractionDisplay({
           <div>
             <button
               onClick={() => setShowFullText(!showFullText)}
-              className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700"
+              className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700"
             >
               {showFullText ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
               Full OCR text
             </button>
             {showFullText && (
-              <pre className="mt-1 p-2 bg-gray-50 border rounded-md text-xs text-gray-600 whitespace-pre-wrap max-h-48 overflow-y-auto">
+              <pre className="mt-1 p-2 bg-gray-50 dark:bg-gray-950 border rounded-md text-xs text-gray-600 dark:text-gray-400 whitespace-pre-wrap max-h-48 overflow-y-auto">
                 {extraction.full_text}
               </pre>
             )}

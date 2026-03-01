@@ -9,7 +9,7 @@ const formatCurrency = (amount: number, currency = 'USD') =>
 
 const statusColors: Record<string, string> = {
   active: 'bg-green-100 text-green-700',
-  cancelled: 'bg-gray-100 text-gray-600',
+  cancelled: 'bg-gray-100 dark:bg-gray-800 text-gray-600',
   past_due: 'bg-red-100 text-red-700',
   incomplete: 'bg-yellow-100 text-yellow-700',
 }
@@ -70,26 +70,26 @@ export default function StripeSettings() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-medium text-gray-900">Stripe Payments</h2>
+      <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">Stripe Payments</h2>
 
       {msg && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">{msg}</div>
+        <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">{msg}</div>
       )}
 
       {/* Stripe Config Form */}
       <form
         onSubmit={(e) => { e.preventDefault(); saveMutation.mutate() }}
-        className="bg-white border rounded-lg p-5 space-y-4"
+        className="bg-white dark:bg-gray-900 border rounded-lg p-5 space-y-4"
       >
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-medium text-gray-700">Stripe Configuration</h3>
+          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Stripe Configuration</h3>
           {isConfigured && (
             <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Configured</span>
           )}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Secret Key</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Secret Key</label>
             <input
               type="password"
               value={configForm.secret_key}
@@ -99,7 +99,7 @@ export default function StripeSettings() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Publishable Key</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Publishable Key</label>
             <input
               type="text"
               value={configForm.publishable_key}
@@ -109,7 +109,7 @@ export default function StripeSettings() {
             />
           </div>
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Webhook Secret</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Webhook Secret</label>
             <input
               type="password"
               value={configForm.webhook_secret}
@@ -132,19 +132,19 @@ export default function StripeSettings() {
       {/* Subscriptions */}
       {subscriptions.length > 0 && (
         <div>
-          <h3 className="text-sm font-medium text-gray-700 mb-2">Active Subscriptions</h3>
+          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Active Subscriptions</h3>
           <div className="space-y-3">
             {subscriptions.map((sub) => (
-              <div key={sub.id} className="bg-white border rounded-lg p-4 flex items-center justify-between">
+              <div key={sub.id} className="bg-white dark:bg-gray-900 border rounded-lg p-4 flex items-center justify-between">
                 <div>
                   <div className="flex items-center gap-2">
                     <CreditCard className="w-4 h-4 text-purple-500" />
-                    <span className="font-medium text-gray-900">{sub.name}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${statusColors[sub.status] || 'bg-gray-100 text-gray-600'}`}>
+                    <span className="font-medium text-gray-900 dark:text-gray-100">{sub.name}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${statusColors[sub.status] || 'bg-gray-100 dark:bg-gray-800 text-gray-600'}`}>
                       {sub.status}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-500 mt-1">
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                     {formatCurrency(sub.amount, sub.currency)} / {sub.interval}
                     {sub.current_period_end && ` · Next billing: ${formatDate(sub.current_period_end)}`}
                   </p>
@@ -165,9 +165,9 @@ export default function StripeSettings() {
         </div>
       )}
 
-      <div className="bg-gray-50 border rounded-lg p-4 text-sm text-gray-600">
-        <h4 className="font-medium text-gray-700 mb-1">Features</h4>
-        <ul className="list-disc list-inside space-y-1 text-gray-500">
+      <div className="bg-gray-50 dark:bg-gray-950 border rounded-lg p-4 text-sm text-gray-600 dark:text-gray-400">
+        <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-1">Features</h4>
+        <ul className="list-disc list-inside space-y-1 text-gray-500 dark:text-gray-400">
           <li>Generate payment links for invoices (one-time payments)</li>
           <li>Create recurring subscriptions for clients</li>
           <li>Automatic payment recording via webhooks</li>

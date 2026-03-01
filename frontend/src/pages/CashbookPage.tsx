@@ -146,9 +146,9 @@ export default function CashbookPage() {
     return (
       <div className="p-6">
         <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 rounded w-48" />
-          <div className="h-40 bg-gray-200 rounded" />
-          <div className="h-64 bg-gray-200 rounded" />
+          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-48" />
+          <div className="h-40 bg-gray-200 dark:bg-gray-700 rounded" />
+          <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded" />
         </div>
       </div>
     )
@@ -158,13 +158,13 @@ export default function CashbookPage() {
   if (accounts.length === 0 && !showAddAccount) {
     return (
       <div className="p-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Cashbook</h1>
-        <div className="bg-white rounded-lg border p-12 text-center">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">Cashbook</h1>
+        <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-12 text-center">
           <Wallet className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-          <h2 className="text-lg font-semibold text-gray-700 mb-2">
+          <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">
             No Payment Accounts
           </h2>
-          <p className="text-sm text-gray-500 mb-6">
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
             Create a payment account to start tracking your cashbook entries.
           </p>
           <button
@@ -184,22 +184,22 @@ export default function CashbookPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Cashbook</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Cashbook</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             {meta?.total_count ?? 0} entries
           </p>
         </div>
         <div className="flex gap-2">
           <button
             onClick={() => setShowAddAccount(true)}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 border rounded-lg hover:bg-gray-50"
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
           >
             <Plus className="h-4 w-4" />
             Add Account
           </button>
           <button
             onClick={() => setShowImportDialog(true)}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 border rounded-lg hover:bg-gray-50"
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
           >
             <Upload className="h-4 w-4" />
             Import Excel
@@ -224,7 +224,7 @@ export default function CashbookPage() {
                 a.click()
                 URL.revokeObjectURL(url)
               }}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 border rounded-lg hover:bg-gray-50 cursor-pointer"
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
             >
               <Download className="h-4 w-4" />
               Export CSV
@@ -242,13 +242,13 @@ export default function CashbookPage() {
 
       {/* Add Account Dialog */}
       {showAddAccount && (
-        <div className="bg-white rounded-lg border p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+        <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
             Add Payment Account
           </h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Account Name <span className="text-red-500">*</span>
               </label>
               <input
@@ -256,11 +256,11 @@ export default function CashbookPage() {
                 value={newAccountName}
                 onChange={(e) => setNewAccountName(e.target.value)}
                 placeholder="e.g., Business Checking"
-                className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 text-sm border dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Account Type
               </label>
               <select
@@ -268,7 +268,7 @@ export default function CashbookPage() {
                 onChange={(e) =>
                   setNewAccountType(e.target.value as AccountType)
                 }
-                className="w-full px-3 py-2 text-sm border rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 text-sm border dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 {ACCOUNT_TYPES.map((t) => (
                   <option key={t.value} value={t.value}>
@@ -278,7 +278,7 @@ export default function CashbookPage() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Opening Balance
               </label>
               <input
@@ -287,25 +287,25 @@ export default function CashbookPage() {
                 value={newAccountBalance}
                 onChange={(e) => setNewAccountBalance(e.target.value)}
                 placeholder="0.00"
-                className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 text-sm border dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Opening Date
               </label>
               <input
                 type="date"
                 value={newAccountDate}
                 onChange={(e) => setNewAccountDate(e.target.value)}
-                className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 text-sm border dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100"
               />
             </div>
           </div>
           <div className="flex justify-end gap-2 mt-4">
             <button
               onClick={() => setShowAddAccount(false)}
-              className="px-4 py-2 text-sm border rounded-md hover:bg-gray-50"
+              className="px-4 py-2 text-sm border dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-300"
             >
               Cancel
             </button>
@@ -329,7 +329,7 @@ export default function CashbookPage() {
       )}
 
       {/* Account Tabs */}
-      <div className="flex gap-1 border-b">
+      <div className="flex gap-1 border-b dark:border-gray-700">
         {accounts.map((account) => (
           <button
             key={account.id}
@@ -339,12 +339,12 @@ export default function CashbookPage() {
             }}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               activeAccountId === account.id
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                ? 'border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400'
+                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300'
             }`}
           >
             {account.name}
-            <span className="ml-2 text-xs text-gray-400">
+            <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">
               {ACCOUNT_TYPES.find((t) => t.value === account.account_type)
                 ?.label ?? account.account_type}
             </span>
@@ -355,7 +355,7 @@ export default function CashbookPage() {
       {/* Date Range & Search */}
       <div className="flex flex-wrap gap-3 items-end">
         <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">
+          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
             From
           </label>
           <input
@@ -365,11 +365,11 @@ export default function CashbookPage() {
               setDateFrom(e.target.value)
               setPage(1)
             }}
-            className="px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-2 text-sm border dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100"
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">
+          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
             To
           </label>
           <input
@@ -379,24 +379,24 @@ export default function CashbookPage() {
               setDateTo(e.target.value)
               setPage(1)
             }}
-            className="px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-2 text-sm border dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100"
           />
         </div>
         <div className="flex-1 flex gap-2">
           <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
             <input
               type="text"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               placeholder="Search entries..."
-              className="w-full pl-10 pr-4 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-10 pr-4 py-2 text-sm border dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100"
             />
           </div>
           <button
             onClick={handleSearch}
-            className="px-4 py-2 text-sm border rounded-lg hover:bg-gray-50"
+            className="px-4 py-2 text-sm border dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-300"
           >
             Search
           </button>
@@ -407,17 +407,17 @@ export default function CashbookPage() {
       {summary && (
         <>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-white rounded-lg border p-4">
-              <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
+            <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-4">
+              <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-1">
                 <Wallet className="h-4 w-4" />
                 Opening Balance
               </div>
-              <p className="text-xl font-bold text-gray-900">
+              <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
                 {summary.opening_balance < 0 ? '-' : ''}
                 {formatCurrency(summary.opening_balance)}
               </p>
             </div>
-            <div className="bg-white rounded-lg border p-4">
+            <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-4">
               <div className="flex items-center gap-2 text-sm text-green-600 mb-1">
                 <TrendingUp className="h-4 w-4" />
                 Total Income
@@ -426,7 +426,7 @@ export default function CashbookPage() {
                 {formatCurrency(summary.total_income)}
               </p>
             </div>
-            <div className="bg-white rounded-lg border p-4">
+            <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-4">
               <div className="flex items-center gap-2 text-sm text-red-600 mb-1">
                 <TrendingDown className="h-4 w-4" />
                 Total Expenses
@@ -435,8 +435,8 @@ export default function CashbookPage() {
                 {formatCurrency(summary.total_expenses)}
               </p>
             </div>
-            <div className="bg-white rounded-lg border p-4">
-              <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
+            <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-4">
+              <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-1">
                 <DollarSign className="h-4 w-4" />
                 Closing Balance
               </div>
@@ -452,7 +452,7 @@ export default function CashbookPage() {
           {/* Tax Summary */}
           {(summary.total_tax_collected > 0 || summary.total_tax_paid > 0) && (
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <div className="bg-white rounded-lg border p-4">
+              <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-4">
                 <div className="flex items-center gap-2 text-sm text-green-600 mb-1">
                   <Receipt className="h-4 w-4" />
                   Tax Collected (HST)
@@ -461,7 +461,7 @@ export default function CashbookPage() {
                   {formatCurrency(summary.total_tax_collected)}
                 </p>
               </div>
-              <div className="bg-white rounded-lg border p-4">
+              <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-4">
                 <div className="flex items-center gap-2 text-sm text-red-600 mb-1">
                   <Receipt className="h-4 w-4" />
                   Tax Paid (HST)
@@ -470,8 +470,8 @@ export default function CashbookPage() {
                   {formatCurrency(summary.total_tax_paid)}
                 </p>
               </div>
-              <div className="bg-white rounded-lg border p-4 col-span-2 md:col-span-1">
-                <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
+              <div className="bg-white dark:bg-gray-900 rounded-lg border p-4 col-span-2 md:col-span-1">
+                <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-1">
                   <Receipt className="h-4 w-4" />
                   Net Tax (Owed/Refund)
                 </div>
@@ -488,7 +488,7 @@ export default function CashbookPage() {
                   {formatCurrency(
                     summary.total_tax_collected - summary.total_tax_paid
                   )}
-                  <span className="text-xs font-normal text-gray-400 ml-2">
+                  <span className="text-xs font-normal text-gray-400 dark:text-gray-500 ml-2">
                     {summary.total_tax_collected - summary.total_tax_paid >= 0
                       ? '(owed)'
                       : '(refund)'}
@@ -501,29 +501,29 @@ export default function CashbookPage() {
       )}
 
       {/* Entries Table */}
-      <div className="bg-white rounded-lg border overflow-hidden">
+      <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 overflow-hidden">
         <table className="w-full">
-          <thead className="bg-gray-50 border-b">
+          <thead className="bg-gray-50 dark:bg-gray-950 border-b dark:border-gray-700">
             <tr>
-              <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">
+              <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                 Date
               </th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">
+              <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                 Description
               </th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">
+              <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                 Category
               </th>
-              <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 uppercase">
+              <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                 Income
               </th>
-              <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 uppercase">
+              <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                 Expense
               </th>
-              <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 uppercase">
+              <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                 Tax
               </th>
-              <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 uppercase">
+              <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                 Balance
               </th>
             </tr>
@@ -533,7 +533,7 @@ export default function CashbookPage() {
               Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i}>
                   <td colSpan={7} className="px-4 py-3">
-                    <div className="animate-pulse h-4 bg-gray-200 rounded w-full" />
+                    <div className="animate-pulse h-4 bg-gray-200 dark:bg-gray-700 rounded w-full" />
                   </td>
                 </tr>
               ))
@@ -541,8 +541,8 @@ export default function CashbookPage() {
               <tr>
                 <td colSpan={7} className="px-4 py-12 text-center">
                   <BookOpen className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-500 font-medium">No entries found</p>
-                  <p className="text-sm text-gray-400 mt-1">
+                  <p className="text-gray-500 dark:text-gray-400 font-medium">No entries found</p>
+                  <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
                     Create your first cashbook entry to get started.
                   </p>
                 </td>
@@ -552,17 +552,17 @@ export default function CashbookPage() {
                 <tr
                   key={entry.id}
                   onClick={() => navigate(`/cashbook/entries/${entry.id}`)}
-                  className="hover:bg-gray-50 cursor-pointer"
+                  className="hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
                 >
-                  <td className="px-4 py-3 text-sm text-gray-700">
+                  <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
                     {formatDate(entry.date)}
                   </td>
                   <td className="px-4 py-3">
-                    <p className="text-sm font-medium text-gray-900">
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                       {entry.description}
                     </p>
                     {entry.notes && (
-                      <p className="text-xs text-gray-500 truncate max-w-[200px]">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[200px]">
                         {entry.notes}
                       </p>
                     )}
@@ -581,7 +581,7 @@ export default function CashbookPage() {
                         {entry.category.name}
                       </span>
                     ) : (
-                      <span className="text-xs text-gray-400">
+                      <span className="text-xs text-gray-400 dark:text-gray-500">
                         Uncategorized
                       </span>
                     )}
@@ -592,7 +592,7 @@ export default function CashbookPage() {
                         {formatCurrency(entry.total_amount)}
                       </span>
                     ) : (
-                      <span className="text-gray-300">-</span>
+                      <span className="text-gray-300 dark:text-gray-600">-</span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-sm text-right">
@@ -601,10 +601,10 @@ export default function CashbookPage() {
                         {formatCurrency(entry.total_amount)}
                       </span>
                     ) : (
-                      <span className="text-gray-300">-</span>
+                      <span className="text-gray-300 dark:text-gray-600">-</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-sm text-right text-gray-600">
+                  <td className="px-4 py-3 text-sm text-right text-gray-600 dark:text-gray-400">
                     {entry.tax_amount != null && entry.tax_amount > 0
                       ? formatCurrency(entry.tax_amount)
                       : '-'}
@@ -614,7 +614,7 @@ export default function CashbookPage() {
                       <span
                         className={
                           entry.bank_balance >= 0
-                            ? 'text-gray-900'
+                            ? 'text-gray-900 dark:text-gray-100'
                             : 'text-red-700'
                         }
                       >
@@ -622,7 +622,7 @@ export default function CashbookPage() {
                         {formatCurrency(entry.bank_balance)}
                       </span>
                     ) : (
-                      <span className="text-gray-400">-</span>
+                      <span className="text-gray-400 dark:text-gray-500">-</span>
                     )}
                   </td>
                 </tr>
@@ -635,21 +635,21 @@ export default function CashbookPage() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
             Page {currentPage} of {totalPages} ({meta?.total_count} total)
           </p>
           <div className="flex gap-1">
             <button
               disabled={currentPage <= 1}
               onClick={() => setPage(currentPage - 1)}
-              className="px-3 py-1 text-sm border rounded-md disabled:opacity-50 hover:bg-gray-50"
+              className="px-3 py-1 text-sm border dark:border-gray-600 rounded-md disabled:opacity-50 hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-300"
             >
               Previous
             </button>
             <button
               disabled={currentPage >= totalPages}
               onClick={() => setPage(currentPage + 1)}
-              className="px-3 py-1 text-sm border rounded-md disabled:opacity-50 hover:bg-gray-50"
+              className="px-3 py-1 text-sm border dark:border-gray-600 rounded-md disabled:opacity-50 hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-300"
             >
               Next
             </button>
@@ -659,10 +659,10 @@ export default function CashbookPage() {
 
       {/* Category Totals */}
       {summary && categoryTotals.length > 0 && (
-        <div className="bg-white rounded-lg border">
+        <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700">
           <button
             onClick={() => setShowCategoryTotals(!showCategoryTotals)}
-            className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
           >
             <span>Category Totals</span>
             <ChevronDown
@@ -682,9 +682,9 @@ export default function CashbookPage() {
                         key={`income-${ct.category_id ?? 'uncategorized'}`}
                         className="flex items-center justify-between text-sm py-1"
                       >
-                        <span className="text-gray-700">
+                        <span className="text-gray-700 dark:text-gray-300">
                           {ct.category_name}{' '}
-                          <span className="text-gray-400">
+                          <span className="text-gray-400 dark:text-gray-500">
                             ({ct.count} entries)
                           </span>
                         </span>
@@ -693,7 +693,7 @@ export default function CashbookPage() {
                             {formatCurrency(ct.total_amount)}
                           </span>
                           {ct.total_tax > 0 && (
-                            <span className="text-gray-500 text-xs">
+                            <span className="text-gray-500 dark:text-gray-400 text-xs">
                               Tax: {formatCurrency(ct.total_tax)}
                             </span>
                           )}
@@ -714,9 +714,9 @@ export default function CashbookPage() {
                         key={`expense-${ct.category_id ?? 'uncategorized'}`}
                         className="flex items-center justify-between text-sm py-1"
                       >
-                        <span className="text-gray-700">
+                        <span className="text-gray-700 dark:text-gray-300">
                           {ct.category_name}{' '}
-                          <span className="text-gray-400">
+                          <span className="text-gray-400 dark:text-gray-500">
                             ({ct.count} entries)
                           </span>
                         </span>
@@ -725,7 +725,7 @@ export default function CashbookPage() {
                             {formatCurrency(ct.total_amount)}
                           </span>
                           {ct.total_tax > 0 && (
-                            <span className="text-gray-500 text-xs">
+                            <span className="text-gray-500 dark:text-gray-400 text-xs">
                               Tax: {formatCurrency(ct.total_tax)}
                             </span>
                           )}

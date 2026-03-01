@@ -40,19 +40,19 @@ export default function DriveBreadcrumb({ currentFolderId, folders, onNavigate }
     <nav className="flex items-center gap-1 text-sm min-w-0">
       <button
         onClick={() => onNavigate(null)}
-        className={`shrink-0 px-1.5 py-0.5 rounded hover:bg-gray-100 transition-colors ${
-          !currentFolderId ? 'font-medium text-gray-900' : 'text-gray-500 hover:text-gray-700'
+        className={`shrink-0 px-1.5 py-0.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
+          !currentFolderId ? 'font-medium text-gray-900' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
         }`}
       >
         My Drive
       </button>
       {path.map((segment) => (
         <span key={segment.id} className="flex items-center gap-1 min-w-0">
-          <ChevronRight className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+          <ChevronRight className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500 shrink-0" />
           <button
             onClick={() => onNavigate(segment.id)}
-            className={`truncate px-1.5 py-0.5 rounded hover:bg-gray-100 transition-colors max-w-40 ${
-              segment.id === currentFolderId ? 'font-medium text-gray-900' : 'text-gray-500 hover:text-gray-700'
+            className={`truncate px-1.5 py-0.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors max-w-40 ${
+              segment.id === currentFolderId ? 'font-medium text-gray-900' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
             }`}
           >
             {segment.name}

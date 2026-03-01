@@ -24,7 +24,7 @@ function FolderNode({ folder, selectedFolderId, onSelect, depth }: FolderNodePro
       <button
         onClick={() => onSelect(isSelected ? null : folder.id)}
         className={`w-full flex items-center gap-1.5 px-2 py-1 text-sm rounded-md transition-colors ${
-          isSelected ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700 hover:bg-gray-100'
+          isSelected ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 font-medium' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100'
         }`}
         style={{ paddingLeft: `${depth * 16 + 8}px` }}
       >
@@ -34,7 +34,7 @@ function FolderNode({ folder, selectedFolderId, onSelect, depth }: FolderNodePro
               e.stopPropagation()
               setExpanded(!expanded)
             }}
-            className="text-gray-400 hover:text-gray-600 cursor-pointer"
+            className="text-gray-400 dark:text-gray-500 hover:text-gray-600 cursor-pointer"
           >
             {expanded ? '\u25BE' : '\u25B8'}
           </span>
@@ -66,7 +66,7 @@ export default function FolderTree({ folders, selectedFolderId, onSelect }: Fold
       <button
         onClick={() => onSelect(null)}
         className={`w-full flex items-center gap-1.5 px-2 py-1 text-sm rounded-md transition-colors ${
-          selectedFolderId === null ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700 hover:bg-gray-100'
+          selectedFolderId === null ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 font-medium' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100'
         }`}
       >
         <span>{'\uD83C\uDFE0'}</span>

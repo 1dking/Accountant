@@ -93,26 +93,26 @@ export default function NewIncomePage() {
       {/* Back Button */}
       <button
         onClick={() => navigate('/income')}
-        className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-4 transition-colors"
+        className="inline-flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 mb-4 transition-colors"
       >
         <ArrowLeft className="w-4 h-4" />
         Back to Income
       </button>
 
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">New Income</h1>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">New Income</h1>
 
       {/* Error Display */}
       {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">
+        <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 text-red-700 text-sm rounded-lg">
           {error}
         </div>
       )}
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* Description */}
           <div>
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Description <span className="text-red-500">*</span>
             </label>
             <input
@@ -123,14 +123,14 @@ export default function NewIncomePage() {
               value={form.description}
               onChange={handleChange}
               placeholder="Enter description"
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
 
           {/* Amount & Date */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="amount" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Amount <span className="text-red-500">*</span>
               </label>
               <input
@@ -143,11 +143,11 @@ export default function NewIncomePage() {
                 value={form.amount || ''}
                 onChange={handleChange}
                 placeholder="0.00"
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
             <div>
-              <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="date" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Date <span className="text-red-500">*</span>
               </label>
               <input
@@ -157,7 +157,7 @@ export default function NewIncomePage() {
                 required
                 value={form.date}
                 onChange={handleChange}
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
           </div>
@@ -165,7 +165,7 @@ export default function NewIncomePage() {
           {/* Category & Payment Method */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="category" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Category
               </label>
               <select
@@ -173,7 +173,7 @@ export default function NewIncomePage() {
                 name="category"
                 value={form.category}
                 onChange={handleChange}
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-900"
               >
                 {INCOME_CATEGORIES.map((cat) => (
                   <option key={cat.value} value={cat.value}>
@@ -185,7 +185,7 @@ export default function NewIncomePage() {
             <div>
               <label
                 htmlFor="payment_method"
-                className="block text-sm font-medium text-gray-700 mb-1"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
               >
                 Payment Method
               </label>
@@ -194,7 +194,7 @@ export default function NewIncomePage() {
                 name="payment_method"
                 value={form.payment_method}
                 onChange={handleChange}
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-900"
               >
                 <option value="">Select method</option>
                 {PAYMENT_METHODS.map((method) => (
@@ -208,7 +208,7 @@ export default function NewIncomePage() {
 
           {/* Contact */}
           <div>
-            <label htmlFor="contact_id" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="contact_id" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Contact
             </label>
             <select
@@ -216,7 +216,7 @@ export default function NewIncomePage() {
               name="contact_id"
               value={form.contact_id}
               onChange={handleChange}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+              className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-900"
             >
               <option value="">None</option>
               {contacts.map((contact: any) => (
@@ -229,7 +229,7 @@ export default function NewIncomePage() {
 
           {/* Reference */}
           <div>
-            <label htmlFor="reference" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="reference" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Reference
             </label>
             <input
@@ -239,7 +239,7 @@ export default function NewIncomePage() {
               value={form.reference}
               onChange={handleChange}
               placeholder="e.g. Invoice #1234"
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
 
@@ -261,7 +261,7 @@ export default function NewIncomePage() {
 
           {/* Notes */}
           <div>
-            <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="notes" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Notes
             </label>
             <textarea
@@ -271,7 +271,7 @@ export default function NewIncomePage() {
               value={form.notes}
               onChange={handleChange}
               placeholder="Additional notes..."
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
             />
           </div>
 

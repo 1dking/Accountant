@@ -47,7 +47,7 @@ export default function DocumentCard({ document: doc, selected, onSelect }: Docu
 
   return (
     <div
-      className={`group bg-white border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer ${
+      className={`group bg-white dark:bg-gray-900 border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer ${
         selected ? 'ring-2 ring-blue-500' : ''
       }`}
       onClick={() => navigate(`/documents/${doc.id}`)}
@@ -62,15 +62,15 @@ export default function DocumentCard({ document: doc, selected, onSelect }: Docu
               onSelect(doc.id)
             }}
             onClick={(e) => e.stopPropagation()}
-            className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600"
+            className="mt-1 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400"
           />
         )}
         <div className="text-2xl">{getFileIcon(doc.mime_type)}</div>
         <div className="flex-1 min-w-0">
-          <h3 className="font-medium text-gray-900 truncate">
+          <h3 className="font-medium text-gray-900 dark:text-gray-100 truncate">
             {doc.title || doc.original_filename}
           </h3>
-          <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
+          <div className="flex items-center gap-2 mt-1 text-xs text-gray-500 dark:text-gray-400">
             <span>{formatFileSize(doc.file_size)}</span>
             <span>{'\u00B7'}</span>
             <span>{formatDate(doc.created_at)}</span>
@@ -86,7 +86,7 @@ export default function DocumentCard({ document: doc, selected, onSelect }: Docu
             {doc.tags.map((tag) => (
               <span
                 key={tag.id}
-                className="px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-600"
+                className="px-2 py-0.5 text-xs rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
                 style={tag.color ? { backgroundColor: tag.color + '20', color: tag.color } : undefined}
               >
                 {tag.name}
@@ -101,14 +101,14 @@ export default function DocumentCard({ document: doc, selected, onSelect }: Docu
             href={getDownloadUrl(doc.id)}
             download
             title="Download"
-            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+            className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
           >
             <Download className="h-4 w-4" />
           </a>
           <button
             onClick={() => navigate(`/documents/${doc.id}`)}
             title="Open"
-            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+            className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
           >
             <ExternalLink className="h-4 w-4" />
           </button>
@@ -121,7 +121,7 @@ export default function DocumentCard({ document: doc, selected, onSelect }: Docu
               }}
               disabled={deleteMutation.isPending}
               title="Delete"
-              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors disabled:opacity-50"
+              className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors disabled:opacity-50"
             >
               <Trash2 className="h-4 w-4" />
             </button>

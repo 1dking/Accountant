@@ -56,8 +56,8 @@ export default function ExpenseApprovalPanel({ expense, approval }: ExpenseAppro
   // Already resolved
   if (approval && approval.status !== 'pending') {
     return (
-      <div className="bg-white rounded-lg border p-4">
-        <h3 className="font-semibold text-gray-900 text-sm mb-3">Approval</h3>
+      <div className="bg-white dark:bg-gray-900 rounded-lg border p-4">
+        <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm mb-3">Approval</h3>
         <div className="flex items-center gap-2">
           {approval.status === 'approved' ? (
             <ShieldCheck className="h-5 w-5 text-green-600" />
@@ -69,12 +69,12 @@ export default function ExpenseApprovalPanel({ expense, approval }: ExpenseAppro
               {approval.status === 'approved' ? 'Approved' : 'Rejected'}
             </p>
             {approval.resolved_at && (
-              <p className="text-xs text-gray-500">{formatDate(approval.resolved_at)}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{formatDate(approval.resolved_at)}</p>
             )}
           </div>
         </div>
         {approval.comment && (
-          <p className="mt-2 text-sm text-gray-600 bg-gray-50 rounded p-2">{approval.comment}</p>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-950 rounded p-2">{approval.comment}</p>
         )}
       </div>
     )
@@ -119,7 +119,7 @@ export default function ExpenseApprovalPanel({ expense, approval }: ExpenseAppro
                   </button>
                   <button
                     onClick={() => { setShowReject(false); setComment('') }}
-                    className="px-3 py-1.5 text-sm border rounded-md hover:bg-white"
+                    className="px-3 py-1.5 text-sm border rounded-md hover:bg-white dark:bg-gray-900"
                   >
                     Cancel
                   </button>
@@ -176,8 +176,8 @@ export default function ExpenseApprovalPanel({ expense, approval }: ExpenseAppro
   }
 
   return (
-    <div className="bg-white rounded-lg border p-4">
-      <h3 className="font-semibold text-gray-900 text-sm mb-3">Approval</h3>
+    <div className="bg-white dark:bg-gray-900 rounded-lg border p-4">
+      <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm mb-3">Approval</h3>
       <div className="space-y-3">
         {isAdmin && (
           <button
@@ -189,11 +189,11 @@ export default function ExpenseApprovalPanel({ expense, approval }: ExpenseAppro
           </button>
         )}
         <div>
-          <label className="text-xs font-medium text-gray-500">Or assign to a reviewer</label>
+          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Or assign to a reviewer</label>
           <select
             value={assignedTo}
             onChange={(e) => setAssignedTo(e.target.value)}
-            className="w-full mt-1 px-3 py-1.5 text-sm border rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full mt-1 px-3 py-1.5 text-sm border rounded-md bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">Select a reviewer...</option>
             {users.map((u) => (

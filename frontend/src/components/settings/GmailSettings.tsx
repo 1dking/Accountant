@@ -30,8 +30,8 @@ export default function GmailSettings() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-medium text-gray-900">Gmail Integration</h2>
-          <p className="text-sm text-gray-500 mt-1">
+          <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">Gmail Integration</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             Connect Gmail accounts to scan for invoices, receipts, and send emails.
           </p>
         </div>
@@ -47,16 +47,16 @@ export default function GmailSettings() {
 
       <div className="space-y-3">
         {accounts.map((account) => (
-          <div key={account.id} className="bg-white border rounded-lg p-4 flex items-center justify-between">
+          <div key={account.id} className="bg-white dark:bg-gray-900 border rounded-lg p-4 flex items-center justify-between">
             <div>
               <div className="flex items-center gap-2">
                 <Mail className="w-4 h-4 text-red-500" />
-                <span className="font-medium text-gray-900">{account.email}</span>
-                <span className={`text-xs px-2 py-0.5 rounded-full ${account.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                <span className="font-medium text-gray-900 dark:text-gray-100">{account.email}</span>
+                <span className={`text-xs px-2 py-0.5 rounded-full ${account.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 dark:bg-gray-800 text-gray-500'}`}>
                   {account.is_active ? 'Active' : 'Inactive'}
                 </span>
               </div>
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                 Last synced: {account.last_sync_at ? formatDate(account.last_sync_at) : 'Never'}
               </p>
             </div>
@@ -71,19 +71,19 @@ export default function GmailSettings() {
         ))}
 
         {accounts.length === 0 && (
-          <div className="text-center py-12 bg-white border rounded-lg">
+          <div className="text-center py-12 bg-white dark:bg-gray-900 border rounded-lg">
             <Mail className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500 text-sm">No Gmail accounts connected.</p>
-            <p className="text-gray-400 text-xs mt-1">
+            <p className="text-gray-500 dark:text-gray-400 text-sm">No Gmail accounts connected.</p>
+            <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">
               Connect a Gmail account to scan emails for invoices and receipts.
             </p>
           </div>
         )}
       </div>
 
-      <div className="bg-gray-50 border rounded-lg p-4 text-sm text-gray-600">
-        <h4 className="font-medium text-gray-700 mb-1">How it works</h4>
-        <ul className="list-disc list-inside space-y-1 text-gray-500">
+      <div className="bg-gray-50 dark:bg-gray-950 border rounded-lg p-4 text-sm text-gray-600 dark:text-gray-400">
+        <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-1">How it works</h4>
+        <ul className="list-disc list-inside space-y-1 text-gray-500 dark:text-gray-400">
           <li>Connect your Gmail accounts via Google OAuth</li>
           <li>We scan for emails matching invoices, receipts, and payments</li>
           <li>Import attachments directly as documents</li>

@@ -28,7 +28,7 @@ export default function MobileNav() {
   if (!isMobile) return null
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 safe-area-pb">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 safe-area-pb">
       <div className="flex items-center justify-around h-14">
         {MOBILE_TABS.map((tab) => {
           const Icon = tab.icon
@@ -57,7 +57,7 @@ export default function MobileNav() {
                 <div className="h-12 w-12 rounded-full bg-blue-600 flex items-center justify-center shadow-lg">
                   <Icon className="h-6 w-6 text-white" />
                 </div>
-                <span className="text-[10px] font-medium text-blue-600 mt-0.5">{tab.label}</span>
+                <span className="text-[10px] font-medium text-blue-600 dark:text-blue-400 mt-0.5">{tab.label}</span>
               </button>
             )
           }
@@ -71,13 +71,13 @@ export default function MobileNav() {
               <Icon
                 className={cn(
                   'h-5 w-5',
-                  isActive ? 'text-blue-600' : 'text-gray-400'
+                  isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'
                 )}
               />
               <span
                 className={cn(
                   'text-[10px] font-medium',
-                  isActive ? 'text-blue-600' : 'text-gray-400'
+                  isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'
                 )}
               >
                 {tab.label}

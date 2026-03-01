@@ -41,14 +41,14 @@ export default function ContactDetailPage() {
   const contact = data?.data
 
   if (isLoading) {
-    return <div className="p-6"><div className="animate-pulse h-8 w-48 bg-gray-200 rounded" /></div>
+    return <div className="p-6"><div className="animate-pulse h-8 w-48 bg-gray-200 dark:bg-gray-700 rounded" /></div>
   }
 
   if (!contact) {
     return (
       <div className="p-6 text-center">
-        <p className="text-gray-500">Contact not found</p>
-        <button onClick={() => navigate('/contacts')} className="text-blue-600 hover:underline mt-2 text-sm">
+        <p className="text-gray-500 dark:text-gray-400">Contact not found</p>
+        <button onClick={() => navigate('/contacts')} className="text-blue-600 dark:text-blue-400 hover:underline mt-2 text-sm">
           Back to Contacts
         </button>
       </div>
@@ -89,13 +89,13 @@ export default function ContactDetailPage() {
 
   const field = (label: string, key: string, type = 'text') => (
     <div>
-      <label className="block text-xs font-medium text-gray-500 mb-1">{label}</label>
+      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{label}</label>
       {editing ? (
         key === 'type' ? (
           <select
             value={formData[key] || ''}
             onChange={(e) => setFormData({ ...formData, [key]: e.target.value })}
-            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="client">Client</option>
             <option value="vendor">Vendor</option>
@@ -106,18 +106,18 @@ export default function ContactDetailPage() {
             value={formData[key] || ''}
             onChange={(e) => setFormData({ ...formData, [key]: e.target.value })}
             rows={3}
-            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         ) : (
           <input
             type={type}
             value={formData[key] || ''}
             onChange={(e) => setFormData({ ...formData, [key]: e.target.value })}
-            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         )
       ) : (
-        <p className="text-sm text-gray-900">
+        <p className="text-sm text-gray-900 dark:text-gray-100">
           {key === 'type'
             ? (contact as any)[key] === 'both' ? 'Client & Vendor' : ((contact as any)[key] as string)?.charAt(0).toUpperCase() + ((contact as any)[key] as string)?.slice(1)
             : (contact as any)[key] || '—'}
@@ -130,18 +130,18 @@ export default function ContactDetailPage() {
     <div className="p-6 max-w-4xl">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => navigate('/contacts')} className="p-1.5 rounded-lg hover:bg-gray-100">
-          <ArrowLeft className="h-5 w-5 text-gray-500" />
+        <button onClick={() => navigate('/contacts')} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+          <ArrowLeft className="h-5 w-5 text-gray-500 dark:text-gray-400" />
         </button>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold text-gray-900">{contact.company_name}</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{contact.company_name}</h1>
           {contact.contact_name && (
-            <p className="text-sm text-gray-500">{contact.contact_name}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{contact.contact_name}</p>
           )}
         </div>
         {canEdit && !editing && (
           <div className="flex gap-2">
-            <button onClick={startEditing} className="flex items-center gap-1.5 px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-50">
+            <button onClick={startEditing} className="flex items-center gap-1.5 px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800">
               <Pencil className="h-3.5 w-3.5" /> Edit
             </button>
             <button
@@ -154,7 +154,7 @@ export default function ContactDetailPage() {
         )}
         {editing && (
           <div className="flex gap-2">
-            <button onClick={() => setEditing(false)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-50">
+            <button onClick={() => setEditing(false)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800">
               <X className="h-3.5 w-3.5" /> Cancel
             </button>
             <button
@@ -169,7 +169,7 @@ export default function ContactDetailPage() {
       </div>
 
       {/* Details */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {field('Company Name', 'company_name')}
           {field('Contact Name', 'contact_name')}
@@ -179,8 +179,8 @@ export default function ContactDetailPage() {
           {field('Tax ID', 'tax_id')}
         </div>
 
-        <hr className="my-5 border-gray-100" />
-        <h3 className="text-sm font-semibold text-gray-900 mb-3">Address</h3>
+        <hr className="my-5 border-gray-100 dark:border-gray-700" />
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Address</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {field('Address Line 1', 'address_line1')}
           {field('Address Line 2', 'address_line2')}
@@ -190,7 +190,7 @@ export default function ContactDetailPage() {
           {field('Country', 'country')}
         </div>
 
-        <hr className="my-5 border-gray-100" />
+        <hr className="my-5 border-gray-100 dark:border-gray-700" />
         {field('Notes', 'notes')}
       </div>
     </div>

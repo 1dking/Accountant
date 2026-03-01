@@ -69,15 +69,15 @@ export default function ShareLinkDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
+      <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl w-full max-w-md mx-4">
         <div className="flex items-center justify-between px-6 py-4 border-b">
           <div className="flex items-center gap-2">
-            <Link className="h-5 w-5 text-blue-600" />
-            <h2 className="text-lg font-semibold text-gray-900">Share Link</h2>
+            <Link className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Share Link</h2>
           </div>
           <button
             onClick={handleClose}
-            className="p-1 text-gray-400 hover:text-gray-600 rounded"
+            className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 rounded"
           >
             <X className="h-5 w-5" />
           </button>
@@ -87,7 +87,7 @@ export default function ShareLinkDialog({
           {createMutation.isPending && (
             <div className="flex items-center gap-3 py-4">
               <Loader2 className="h-5 w-5 text-blue-500 animate-spin" />
-              <span className="text-sm text-gray-600">Creating shareable link...</span>
+              <span className="text-sm text-gray-600 dark:text-gray-400">Creating shareable link...</span>
             </div>
           )}
 
@@ -98,7 +98,7 @@ export default function ShareLinkDialog({
               </p>
               <button
                 onClick={() => createMutation.mutate()}
-                className="mt-2 text-sm text-blue-600 hover:underline"
+                className="mt-2 text-sm text-blue-600 dark:text-blue-400 hover:underline"
               >
                 Retry
               </button>
@@ -107,7 +107,7 @@ export default function ShareLinkDialog({
 
           {shareUrl && (
             <div className="space-y-3">
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
                 Anyone with this link can view this {resourceType}:
               </p>
               <div className="flex gap-2">
@@ -116,7 +116,7 @@ export default function ShareLinkDialog({
                   type="text"
                   readOnly
                   value={shareUrl}
-                  className="flex-1 px-3 py-2 text-sm border rounded-md bg-gray-50 text-gray-700 select-all"
+                  className="flex-1 px-3 py-2 text-sm border rounded-md bg-gray-50 dark:bg-gray-950 text-gray-700 dark:text-gray-300 select-all"
                 />
                 <button
                   onClick={handleCopy}
@@ -146,7 +146,7 @@ export default function ShareLinkDialog({
         <div className="flex justify-end px-6 py-4 border-t">
           <button
             onClick={handleClose}
-            className="px-4 py-2 text-sm border rounded-md hover:bg-gray-50"
+            className="px-4 py-2 text-sm border rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
           >
             Close
           </button>

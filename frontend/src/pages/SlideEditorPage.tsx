@@ -80,12 +80,12 @@ function SlideEditor({ slideContent, onUpdate }: SlideEditorProps) {
     <div className="h-full">
       {/* Slide toolbar */}
       {editor && (
-        <div className="absolute top-0 left-0 right-0 bg-white/90 border-b px-3 py-1 flex items-center gap-0.5 z-10 opacity-0 hover:opacity-100 transition-opacity">
+        <div className="absolute top-0 left-0 right-0 bg-white/90 dark:bg-gray-900/90 border-b dark:border-gray-700 px-3 py-1 flex items-center gap-0.5 z-10 opacity-0 hover:opacity-100 transition-opacity">
           <button
             onClick={() => editor.chain().focus().toggleBold().run()}
             className={cn(
               'p-1 rounded text-sm',
-              editor.isActive('bold') ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'
+              editor.isActive('bold') ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
             )}
           >
             <Bold className="h-3.5 w-3.5" />
@@ -94,7 +94,7 @@ function SlideEditor({ slideContent, onUpdate }: SlideEditorProps) {
             onClick={() => editor.chain().focus().toggleItalic().run()}
             className={cn(
               'p-1 rounded text-sm',
-              editor.isActive('italic') ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'
+              editor.isActive('italic') ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
             )}
           >
             <Italic className="h-3.5 w-3.5" />
@@ -103,17 +103,17 @@ function SlideEditor({ slideContent, onUpdate }: SlideEditorProps) {
             onClick={() => editor.chain().focus().toggleUnderline().run()}
             className={cn(
               'p-1 rounded text-sm',
-              editor.isActive('underline') ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'
+              editor.isActive('underline') ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
             )}
           >
             <Underline className="h-3.5 w-3.5" />
           </button>
-          <div className="w-px h-4 bg-gray-200 mx-1" />
+          <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1" />
           <button
             onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
             className={cn(
               'p-1 rounded text-sm',
-              editor.isActive('heading', { level: 1 }) ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'
+              editor.isActive('heading', { level: 1 }) ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
             )}
           >
             <Heading1 className="h-3.5 w-3.5" />
@@ -122,17 +122,17 @@ function SlideEditor({ slideContent, onUpdate }: SlideEditorProps) {
             onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
             className={cn(
               'p-1 rounded text-sm',
-              editor.isActive('heading', { level: 2 }) ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'
+              editor.isActive('heading', { level: 2 }) ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
             )}
           >
             <Heading2 className="h-3.5 w-3.5" />
           </button>
-          <div className="w-px h-4 bg-gray-200 mx-1" />
+          <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1" />
           <button
             onClick={() => editor.chain().focus().setTextAlign('left').run()}
             className={cn(
               'p-1 rounded text-sm',
-              editor.isActive({ textAlign: 'left' }) ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'
+              editor.isActive({ textAlign: 'left' }) ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
             )}
           >
             <AlignLeft className="h-3.5 w-3.5" />
@@ -141,7 +141,7 @@ function SlideEditor({ slideContent, onUpdate }: SlideEditorProps) {
             onClick={() => editor.chain().focus().setTextAlign('center').run()}
             className={cn(
               'p-1 rounded text-sm',
-              editor.isActive({ textAlign: 'center' }) ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'
+              editor.isActive({ textAlign: 'center' }) ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
             )}
           >
             <AlignCenter className="h-3.5 w-3.5" />
@@ -150,18 +150,18 @@ function SlideEditor({ slideContent, onUpdate }: SlideEditorProps) {
             onClick={() => editor.chain().focus().setTextAlign('right').run()}
             className={cn(
               'p-1 rounded text-sm',
-              editor.isActive({ textAlign: 'right' }) ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'
+              editor.isActive({ textAlign: 'right' }) ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
             )}
           >
             <AlignRight className="h-3.5 w-3.5" />
           </button>
-          <div className="w-px h-4 bg-gray-200 mx-1" />
+          <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1" />
           <button
             onClick={() => {
               const url = prompt('Enter image URL:')
               if (url) editor.chain().focus().setImage({ src: url }).run()
             }}
-            className="p-1 rounded text-sm text-gray-600 hover:bg-gray-100"
+            className="p-1 rounded text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
           >
             <ImageIcon className="h-3.5 w-3.5" />
           </button>
@@ -316,7 +316,7 @@ export default function SlideEditorPage() {
   if (isPresenting) {
     return (
       <div className="fixed inset-0 bg-black z-50 flex items-center justify-center">
-        <div className="w-full max-w-[1280px] aspect-video bg-white rounded-sm overflow-hidden relative">
+        <div className="w-full max-w-[1280px] aspect-video bg-white dark:bg-gray-900 rounded-sm overflow-hidden relative">
           <SlideEditor
             slideContent={slides[activeSlide]?.content ?? null}
             onUpdate={(json) => handleSlideUpdate(activeSlide, json)}
@@ -357,7 +357,7 @@ export default function SlideEditorPage() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-49px)] bg-gray-200">
+    <div className="flex flex-col h-[calc(100vh-49px)] bg-gray-200 dark:bg-gray-700">
       <EditorTopBar
         docType="presentation"
         docId={id}
@@ -370,7 +370,7 @@ export default function SlideEditorPage() {
       />
 
       {/* Present button bar */}
-      <div className="bg-white border-b px-4 py-1.5 flex items-center gap-2">
+      <div className="bg-white dark:bg-gray-900 border-b dark:border-gray-700 px-4 py-1.5 flex items-center gap-2">
         <button
           onClick={startPresentation}
           className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-orange-600 rounded-lg hover:bg-orange-700"
@@ -379,14 +379,14 @@ export default function SlideEditorPage() {
           Present
         </button>
         <div className="flex-1" />
-        <span className="text-sm text-gray-500">
+        <span className="text-sm text-gray-500 dark:text-gray-400">
           Slide {activeSlide + 1} of {slides.length}
         </span>
       </div>
 
       <div className="flex-1 flex overflow-hidden">
         {/* Slide thumbnails sidebar */}
-        <div className="w-48 bg-gray-100 border-r overflow-y-auto p-3 space-y-2">
+        <div className="w-48 bg-gray-100 dark:bg-gray-800 border-r dark:border-gray-700 overflow-y-auto p-3 space-y-2">
           {slides.map((_, index) => (
             <div
               key={index}
@@ -395,12 +395,12 @@ export default function SlideEditorPage() {
                 'group relative cursor-pointer rounded-md overflow-hidden border-2 transition-colors',
                 activeSlide === index
                   ? 'border-orange-500 shadow-md'
-                  : 'border-gray-300 hover:border-orange-300'
+                  : 'border-gray-300 dark:border-gray-600 hover:border-orange-300'
               )}
             >
               {/* Mini slide preview */}
-              <div className="aspect-video bg-white flex items-center justify-center text-xs text-gray-400 p-2">
-                <span className="font-medium text-gray-600">Slide {index + 1}</span>
+              <div className="aspect-video bg-white dark:bg-gray-900 flex items-center justify-center text-xs text-gray-400 dark:text-gray-500 p-2">
+                <span className="font-medium text-gray-600 dark:text-gray-400">Slide {index + 1}</span>
               </div>
               {/* Slide number */}
               <div className="absolute top-1 left-1 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded">
@@ -423,7 +423,7 @@ export default function SlideEditorPage() {
           ))}
           <button
             onClick={addSlide}
-            className="w-full aspect-video border-2 border-dashed border-gray-300 rounded-md flex items-center justify-center text-gray-400 hover:border-orange-400 hover:text-orange-500 transition-colors"
+            className="w-full aspect-video border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-md flex items-center justify-center text-gray-400 dark:text-gray-500 hover:border-orange-400 hover:text-orange-500 transition-colors"
           >
             <Plus className="h-6 w-6" />
           </button>
@@ -431,7 +431,7 @@ export default function SlideEditorPage() {
 
         {/* Main slide canvas */}
         <div className="flex-1 flex items-center justify-center p-8 overflow-auto">
-          <div className="w-full max-w-[960px] aspect-video bg-white shadow-lg rounded-sm overflow-hidden relative">
+          <div className="w-full max-w-[960px] aspect-video bg-white dark:bg-gray-900 shadow-lg rounded-sm overflow-hidden relative">
             <SlideEditor
               slideContent={slides[activeSlide]?.content ?? null}
               onUpdate={(json) => handleSlideUpdate(activeSlide, json)}

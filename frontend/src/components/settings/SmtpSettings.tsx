@@ -55,7 +55,7 @@ export default function SmtpSettings() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-medium text-gray-900">SMTP Email Configuration</h2>
+        <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">SMTP Email Configuration</h2>
         <button
           onClick={() => setShowForm(!showForm)}
           className="flex items-center gap-1.5 px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -66,47 +66,47 @@ export default function SmtpSettings() {
       </div>
 
       {msg && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">{msg}</div>
+        <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">{msg}</div>
       )}
 
       {showForm && (
         <form
           onSubmit={(e) => { e.preventDefault(); createMutation.mutate() }}
-          className="bg-white border rounded-lg p-5 space-y-4"
+          className="bg-white dark:bg-gray-900 border rounded-lg p-5 space-y-4"
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
               <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
                 className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="e.g., Company SMTP" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Host</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Host</label>
               <input type="text" required value={form.host} onChange={(e) => setForm({ ...form, host: e.target.value })}
                 className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="smtp.gmail.com" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Port</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Port</label>
               <input type="number" required value={form.port} onChange={(e) => setForm({ ...form, port: parseInt(e.target.value) })}
                 className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Username</label>
               <input type="text" required value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })}
                 className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Password</label>
               <input type="password" required value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })}
                 className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">From Email</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">From Email</label>
               <input type="email" required value={form.from_email} onChange={(e) => setForm({ ...form, from_email: e.target.value })}
                 className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">From Name</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">From Name</label>
               <input type="text" required value={form.from_name} onChange={(e) => setForm({ ...form, from_name: e.target.value })}
                 className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
@@ -127,7 +127,7 @@ export default function SmtpSettings() {
               {createMutation.isPending ? 'Saving...' : 'Save Configuration'}
             </button>
             <button type="button" onClick={() => setShowForm(false)}
-              className="px-4 py-2 text-sm border rounded-lg hover:bg-gray-50">Cancel</button>
+              className="px-4 py-2 text-sm border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800">Cancel</button>
           </div>
         </form>
       )}
@@ -135,25 +135,25 @@ export default function SmtpSettings() {
       {/* Config list */}
       <div className="space-y-3">
         {configs.map((config) => (
-          <div key={config.id} className="bg-white border rounded-lg p-4">
+          <div key={config.id} className="bg-white dark:bg-gray-900 border rounded-lg p-4">
             <div className="flex items-start justify-between">
               <div>
                 <div className="flex items-center gap-2">
-                  <h3 className="font-medium text-gray-900">{config.name}</h3>
+                  <h3 className="font-medium text-gray-900 dark:text-gray-100">{config.name}</h3>
                   {config.is_default && (
                     <span className="flex items-center gap-1 text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">
                       <Star className="w-3 h-3" /> Default
                     </span>
                   )}
                 </div>
-                <p className="text-sm text-gray-500 mt-1">
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                   {config.host}:{config.port} &middot; {config.from_email}
                 </p>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => { setTestConfigId(config.id); setTestEmail('') }}
-                  className="flex items-center gap-1 px-2 py-1 text-xs border rounded hover:bg-gray-50"
+                  className="flex items-center gap-1 px-2 py-1 text-xs border rounded hover:bg-gray-50 dark:hover:bg-gray-800"
                 >
                   <Send className="w-3 h-3" /> Test
                 </button>
@@ -182,7 +182,7 @@ export default function SmtpSettings() {
                 >
                   {testMutation.isPending ? 'Sending...' : 'Send Test'}
                 </button>
-                <button onClick={() => setTestConfigId(null)} className="px-2 py-1.5 text-sm border rounded-md hover:bg-gray-50">
+                <button onClick={() => setTestConfigId(null)} className="px-2 py-1.5 text-sm border rounded-md hover:bg-gray-50 dark:hover:bg-gray-800">
                   Cancel
                 </button>
               </div>
@@ -191,7 +191,7 @@ export default function SmtpSettings() {
         ))}
 
         {configs.length === 0 && !showForm && (
-          <p className="text-center text-gray-400 py-8 text-sm">
+          <p className="text-center text-gray-400 dark:text-gray-500 py-8 text-sm">
             No SMTP configurations yet. Add one to start sending emails.
           </p>
         )}

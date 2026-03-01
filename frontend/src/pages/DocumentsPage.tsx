@@ -87,9 +87,9 @@ export default function DocumentsPage() {
   return (
     <div className="flex h-[calc(100vh-49px)]">
       {/* Folder sidebar */}
-      <div className="w-56 border-r bg-white p-3 overflow-y-auto">
+      <div className="w-56 border-r bg-white dark:bg-gray-900 p-3 overflow-y-auto">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-medium text-gray-700">Folders</h3>
+          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Folders</h3>
         </div>
         <FolderTree
           folders={folders}
@@ -101,7 +101,7 @@ export default function DocumentsPage() {
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Toolbar */}
-        <div className="bg-white border-b px-4 py-3 flex items-center gap-3 flex-wrap">
+        <div className="bg-white dark:bg-gray-900 border-b px-4 py-3 flex items-center gap-3 flex-wrap">
           <input
             type="search"
             value={search}
@@ -110,7 +110,7 @@ export default function DocumentsPage() {
               setPage(1)
             }}
             placeholder="Search documents..."
-            className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
+            className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
           />
           <select
             value={typeFilter}
@@ -118,7 +118,7 @@ export default function DocumentsPage() {
               setTypeFilter(e.target.value)
               setPage(1)
             }}
-            className="px-3 py-1.5 text-sm border border-gray-300 rounded-md bg-white"
+            className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900"
           >
             <option value="">All Types</option>
             {DOCUMENT_TYPES.map((t) => (
@@ -131,7 +131,7 @@ export default function DocumentsPage() {
               setStatusFilter(e.target.value)
               setPage(1)
             }}
-            className="px-3 py-1.5 text-sm border border-gray-300 rounded-md bg-white"
+            className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900"
           >
             <option value="">All Statuses</option>
             {DOCUMENT_STATUSES.map((s) => (
@@ -140,7 +140,7 @@ export default function DocumentsPage() {
           </select>
           <div className="flex-1" />
           {selectedIds.size > 0 && (
-            <span className="text-sm text-gray-500">{selectedIds.size} selected</span>
+            <span className="text-sm text-gray-500 dark:text-gray-400">{selectedIds.size} selected</span>
           )}
           <button
             onClick={() => setShowUpload(!showUpload)}
@@ -152,7 +152,7 @@ export default function DocumentsPage() {
 
         {/* Upload zone */}
         {showUpload && (
-          <div className="bg-gray-50 border-b p-4">
+          <div className="bg-gray-50 dark:bg-gray-950 border-b p-4">
             <UploadZone folderId={selectedFolder ?? undefined} onFilesSelected={handleFilesSelected} onUploadComplete={handleUploadComplete} />
           </div>
         )}
@@ -162,14 +162,14 @@ export default function DocumentsPage() {
           {isLoading ? (
             <div className="space-y-3">
               {[...Array(5)].map((_, i) => (
-                <div key={i} className="h-20 bg-gray-100 rounded-lg animate-pulse" />
+                <div key={i} className="h-20 bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse" />
               ))}
             </div>
           ) : error ? (
             <div className="text-center py-12">
               <div className="text-4xl mb-3">&#9888;</div>
               <h3 className="text-red-600 font-medium">Failed to load documents</h3>
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                 {error instanceof Error ? error.message : 'Unknown error'}
               </p>
               <button
@@ -182,8 +182,8 @@ export default function DocumentsPage() {
           ) : documents.length === 0 ? (
             <div className="text-center py-12">
               <div className="text-4xl mb-3">{'\uD83D\uDCC2'}</div>
-              <h3 className="text-gray-900 font-medium">No documents found</h3>
-              <p className="text-sm text-gray-500 mt-1">
+              <h3 className="text-gray-900 dark:text-gray-100 font-medium">No documents found</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                 {search || typeFilter || statusFilter
                   ? 'Try adjusting your filters'
                   : 'Upload your first document to get started'}
@@ -212,7 +212,7 @@ export default function DocumentsPage() {
               >
                 Previous
               </button>
-              <span className="text-sm text-gray-600">
+              <span className="text-sm text-gray-600 dark:text-gray-400">
                 Page {meta.page} of {meta.total_pages} ({meta.total_count} documents)
               </span>
               <button

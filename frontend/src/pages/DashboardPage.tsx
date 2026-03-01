@@ -117,14 +117,14 @@ export default function DashboardPage() {
         {/* Greeting */}
         <div className="flex items-start justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
               Hello, {firstName}
             </h1>
-            <p className="text-sm text-gray-500 mt-0.5">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
               Here's what's happening with your documents
             </p>
           </div>
-          <p className="text-sm text-gray-400 shrink-0">{todayStr}</p>
+          <p className="text-sm text-gray-400 dark:text-gray-500 shrink-0">{todayStr}</p>
         </div>
 
         {/* Stat cards */}
@@ -134,7 +134,7 @@ export default function DashboardPage() {
             return (
               <div
                 key={card.label}
-                className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex items-center gap-4"
+                className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5 flex items-center gap-4"
               >
                 <div
                   className={`h-11 w-11 rounded-lg ${card.iconBg} ${card.iconColor} flex items-center justify-center shrink-0`}
@@ -142,8 +142,8 @@ export default function DashboardPage() {
                   <Icon className="h-5 w-5" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">{card.label}</p>
-                  <p className="text-xl font-bold text-gray-900">{card.value}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{card.label}</p>
+                  <p className="text-xl font-bold text-gray-900 dark:text-gray-100">{card.value}</p>
                 </div>
               </div>
             )
@@ -151,8 +151,8 @@ export default function DashboardPage() {
         </div>
 
         {/* Chart */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-6">
-          <h2 className="text-sm font-semibold text-gray-900 mb-4">
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5 mb-6">
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
             Activity — Last 7 Days
           </h2>
           <div className="h-48">
@@ -195,21 +195,21 @@ export default function DashboardPage() {
         {/* Two-column: Recent Docs + Upcoming */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Recent Documents */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-            <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-gray-900">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+            <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                 Recent Documents
               </h2>
               <button
                 onClick={() => navigate('/documents')}
-                className="text-xs text-blue-600 hover:underline flex items-center gap-0.5"
+                className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-0.5"
               >
                 View All <ChevronRight className="h-3 w-3" />
               </button>
             </div>
-            <div className="divide-y divide-gray-50">
+            <div className="divide-y divide-gray-50 dark:divide-gray-800">
               {recentDocs.length === 0 ? (
-                <p className="p-5 text-sm text-gray-400 text-center">
+                <p className="p-5 text-sm text-gray-400 dark:text-gray-500 text-center">
                   No documents yet
                 </p>
               ) : (
@@ -221,14 +221,14 @@ export default function DashboardPage() {
                     <button
                       key={doc.id}
                       onClick={() => navigate(`/documents/${doc.id}`)}
-                      className="w-full text-left px-5 py-3 flex items-center gap-3 hover:bg-gray-50/50 transition-colors"
+                      className="w-full text-left px-5 py-3 flex items-center gap-3 hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors"
                     >
-                      <FileText className="h-4 w-4 text-gray-400 shrink-0" />
+                      <FileText className="h-4 w-4 text-gray-400 dark:text-gray-500 shrink-0" />
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-gray-900 truncate">
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                           {doc.title || doc.original_filename}
                         </p>
-                        <p className="text-xs text-gray-400 mt-0.5">
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
                           {formatDate(doc.updated_at)}
                         </p>
                       </div>
@@ -247,21 +247,21 @@ export default function DashboardPage() {
           </div>
 
           {/* Upcoming Deadlines */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-            <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-gray-900">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+            <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                 Upcoming Deadlines
               </h2>
               <button
                 onClick={() => navigate('/calendar')}
-                className="text-xs text-blue-600 hover:underline flex items-center gap-0.5"
+                className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-0.5"
               >
                 View Calendar <ChevronRight className="h-3 w-3" />
               </button>
             </div>
-            <div className="divide-y divide-gray-50">
+            <div className="divide-y divide-gray-50 dark:divide-gray-800">
               {upcoming.length === 0 ? (
-                <p className="p-5 text-sm text-gray-400 text-center">
+                <p className="p-5 text-sm text-gray-400 dark:text-gray-500 text-center">
                   No upcoming deadlines
                 </p>
               ) : (
@@ -284,14 +284,14 @@ export default function DashboardPage() {
                         <span
                           className={`text-sm truncate ${
                             evt.is_completed
-                              ? 'line-through text-gray-400'
-                              : 'text-gray-700'
+                              ? 'line-through text-gray-400 dark:text-gray-500'
+                              : 'text-gray-700 dark:text-gray-300'
                           }`}
                         >
                           {evt.title}
                         </span>
                       </div>
-                      <span className="text-xs text-gray-400 shrink-0 ml-3">
+                      <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0 ml-3">
                         {formatDate(evt.date)}
                       </span>
                     </div>
@@ -304,9 +304,9 @@ export default function DashboardPage() {
 
         {/* Pending Expense Approvals */}
         {pendingApprovals.length > 0 && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 mt-6">
-            <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 mt-6">
+            <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
                 <ClipboardCheck className="h-4 w-4 text-amber-500" />
                 Pending Expense Approvals
                 <span className="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-amber-100 text-amber-700">
@@ -315,25 +315,25 @@ export default function DashboardPage() {
               </h2>
               <button
                 onClick={() => navigate('/expenses')}
-                className="text-xs text-blue-600 hover:underline flex items-center gap-0.5"
+                className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-0.5"
               >
                 View Expenses <ChevronRight className="h-3 w-3" />
               </button>
             </div>
-            <div className="divide-y divide-gray-50">
+            <div className="divide-y divide-gray-50 dark:divide-gray-800">
               {pendingApprovals.map((approval) => (
                 <button
                   key={approval.id}
                   onClick={() => navigate(`/expenses/${approval.expense_id}`)}
-                  className="w-full text-left px-5 py-3 flex items-center justify-between hover:bg-gray-50/50 transition-colors"
+                  className="w-full text-left px-5 py-3 flex items-center justify-between hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors"
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
                     <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
-                    <span className="text-sm text-gray-700">
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
                       Expense #{approval.expense_id.slice(0, 8)}
                     </span>
                   </div>
-                  <span className="text-xs text-gray-400 shrink-0 ml-3">
+                  <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0 ml-3">
                     {formatRelativeTime(approval.created_at)}
                   </span>
                 </button>

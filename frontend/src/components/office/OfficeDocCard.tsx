@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { starOfficeDoc, trashOfficeDoc } from '@/api/office'
-import { Star, Trash2, FileText, Table2, Presentation } from 'lucide-react'
+import { Star, Trash2, FileText, Table2, Presentation, BookOpen } from 'lucide-react'
 import { formatRelativeTime } from '@/lib/utils'
 import type { OfficeDocListItem, DocType } from '@/types/models'
 
@@ -37,7 +37,7 @@ export default function OfficeDocCard({ document: doc }: OfficeDocCardProps) {
 
   return (
     <div
-      className="group bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+      className="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
       onClick={() => navigate(`${config.route}/${doc.id}`)}
     >
       {/* Colored thumbnail area */}
@@ -48,10 +48,19 @@ export default function OfficeDocCard({ document: doc }: OfficeDocCardProps) {
           className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
           onClick={(e) => e.stopPropagation()}
         >
+          {doc.doc_type === 'document' && (
+            <button
+              onClick={() => navigate(`${config.route}/${doc.id}/read`)}
+              className="p-1.5 rounded-full bg-white/90 hover:bg-white dark:bg-gray-900 shadow-sm text-gray-400 dark:text-gray-500 hover:text-blue-600 transition-colors"
+              title="Read view"
+            >
+              <BookOpen className="h-4 w-4" />
+            </button>
+          )}
           <button
             onClick={() => starMutation.mutate()}
-            className={`p-1.5 rounded-full bg-white/90 hover:bg-white shadow-sm transition-colors ${
-              doc.is_starred ? 'text-yellow-500' : 'text-gray-400 hover:text-yellow-500'
+            className={`p-1.5 rounded-full bg-white/90 hover:bg-white dark:bg-gray-900 shadow-sm transition-colors ${
+              doc.is_starred ? 'text-yellow-500' : 'text-gray-400 dark:text-gray-500 hover:text-yellow-500'
             }`}
             title={doc.is_starred ? 'Remove star' : 'Add star'}
           >
@@ -63,7 +72,7 @@ export default function OfficeDocCard({ document: doc }: OfficeDocCardProps) {
                 trashMutation.mutate()
               }
             }}
-            className="p-1.5 rounded-full bg-white/90 hover:bg-white shadow-sm text-gray-400 hover:text-red-500 transition-colors"
+            className="p-1.5 rounded-full bg-white/90 hover:bg-white dark:bg-gray-900 shadow-sm text-gray-400 dark:text-gray-500 hover:text-red-500 transition-colors"
             title="Move to trash"
           >
             <Trash2 className="h-4 w-4" />
@@ -78,8 +87,8 @@ export default function OfficeDocCard({ document: doc }: OfficeDocCardProps) {
       </div>
       {/* Info */}
       <div className="p-3">
-        <h3 className="text-sm font-medium text-gray-900 truncate">{doc.title}</h3>
-        <p className="text-xs text-gray-500 mt-1">
+        <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{doc.title}</h3>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
           {doc.last_accessed_at
             ? `Opened ${formatRelativeTime(doc.last_accessed_at)}`
             : `Modified ${formatRelativeTime(doc.updated_at)}`}

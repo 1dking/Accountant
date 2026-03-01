@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import ErrorBoundary from '@/components/ErrorBoundary'
 import { useAuthStore } from '@/stores/authStore'
 import { useNotificationStore } from '@/stores/notificationStore'
+import { useUiStore } from '@/stores/uiStore'
 import { wsClient } from '@/api/websocket'
 import AppShell from '@/components/layout/AppShell'
 import LoginPage from '@/pages/LoginPage'
@@ -51,6 +52,7 @@ import DocsHomePage from '@/pages/DocsHomePage'
 import SheetsHomePage from '@/pages/SheetsHomePage'
 import SlidesHomePage from '@/pages/SlidesHomePage'
 import DocEditorPage from '@/pages/DocEditorPage'
+import DocReaderPage from '@/pages/DocReaderPage'
 import SheetEditorPage from '@/pages/SheetEditorPage'
 import SlideEditorPage from '@/pages/SlideEditorPage'
 
@@ -143,6 +145,7 @@ function AuthenticatedApp() {
         <Route path="/recordings" element={<RecordingsPage />} />
         <Route path="/docs" element={<DocsHomePage />} />
         <Route path="/docs/:id" element={<DocEditorPage />} />
+        <Route path="/docs/:id/read" element={<DocReaderPage />} />
         <Route path="/sheets" element={<SheetsHomePage />} />
         <Route path="/sheets/:id" element={<SheetEditorPage />} />
         <Route path="/slides" element={<SlidesHomePage />} />
@@ -156,10 +159,19 @@ function AuthenticatedApp() {
 
 export default function App() {
   const { initialize } = useAuthStore()
+  const theme = useUiStore((s) => s.theme)
 
   useEffect(() => {
     initialize()
   }, [initialize])
+
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
+  }, [theme])
 
   return (
     <ErrorBoundary>

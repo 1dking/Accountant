@@ -158,24 +158,24 @@ export default function BrandingSettings() {
 
   if (settingsLoading) {
     return (
-      <section className="bg-white border rounded-lg p-6">
+      <section className="bg-white dark:bg-gray-900 border rounded-lg p-6">
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+          <Loader2 className="w-6 h-6 animate-spin text-gray-400 dark:text-gray-500" />
         </div>
       </section>
     )
   }
 
   return (
-    <section className="bg-white border rounded-lg p-6">
-      <h2 className="text-lg font-medium text-gray-900 mb-6">Company Branding</h2>
+    <section className="bg-white dark:bg-gray-900 border rounded-lg p-6">
+      <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-6">Company Branding</h2>
 
       {msg && (
         <div
           className={`mb-4 rounded-lg p-3 text-sm ${
             msgType === 'success'
-              ? 'bg-green-50 border border-green-200 text-green-700'
-              : 'bg-red-50 border border-red-200 text-red-700'
+              ? 'bg-green-50 dark:bg-green-900/30 border border-green-200 text-green-700'
+              : 'bg-red-50 dark:bg-red-900/30 border border-red-200 text-red-700'
           }`}
         >
           {msg}
@@ -184,9 +184,9 @@ export default function BrandingSettings() {
 
       {/* Logo Section */}
       <div className="mb-8">
-        <h3 className="text-sm font-medium text-gray-700 mb-3">Company Logo</h3>
+        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Company Logo</h3>
         <div className="flex items-center gap-4">
-          <div className="w-24 h-24 rounded-lg border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden bg-gray-50">
+          <div className="w-24 h-24 rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700 flex items-center justify-center overflow-hidden bg-gray-50 dark:bg-gray-950">
             {hasLogo ? (
               <img
                 src={getLogoUrl()}
@@ -209,7 +209,7 @@ export default function BrandingSettings() {
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
             >
               {uploadMutation.isPending ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -233,7 +233,7 @@ export default function BrandingSettings() {
                 Remove Logo
               </button>
             )}
-            <p className="text-xs text-gray-400">PNG, JPG, SVG, or WebP. Recommended 200x200px.</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500">PNG, JPG, SVG, or WebP. Recommended 200x200px.</p>
           </div>
         </div>
       </div>
@@ -242,10 +242,10 @@ export default function BrandingSettings() {
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Company Info */}
         <div>
-          <h3 className="text-sm font-medium text-gray-700 mb-3">Company Information</h3>
+          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Company Information</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Company Name</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Company Name</label>
               <input
                 type="text"
                 value={form.company_name}
@@ -255,7 +255,7 @@ export default function BrandingSettings() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
               <input
                 type="email"
                 value={form.company_email}
@@ -265,7 +265,7 @@ export default function BrandingSettings() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phone</label>
               <input
                 type="tel"
                 value={form.company_phone}
@@ -275,7 +275,7 @@ export default function BrandingSettings() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Website</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Website</label>
               <input
                 type="url"
                 value={form.company_website}
@@ -289,10 +289,10 @@ export default function BrandingSettings() {
 
         {/* Address */}
         <div>
-          <h3 className="text-sm font-medium text-gray-700 mb-3">Address</h3>
+          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Address</h3>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Address Line 1</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Address Line 1</label>
               <input
                 type="text"
                 value={form.address_line1}
@@ -302,7 +302,7 @@ export default function BrandingSettings() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Address Line 2</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Address Line 2</label>
               <input
                 type="text"
                 value={form.address_line2}
@@ -313,7 +313,7 @@ export default function BrandingSettings() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">City</label>
                 <input
                   type="text"
                   value={form.city}
@@ -323,7 +323,7 @@ export default function BrandingSettings() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">State / Province</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">State / Province</label>
                 <input
                   type="text"
                   value={form.state}
@@ -333,7 +333,7 @@ export default function BrandingSettings() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">ZIP / Postal Code</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ZIP / Postal Code</label>
                 <input
                   type="text"
                   value={form.zip_code}
@@ -343,7 +343,7 @@ export default function BrandingSettings() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Country</label>
                 <input
                   type="text"
                   value={form.country}
@@ -358,14 +358,14 @@ export default function BrandingSettings() {
 
         {/* Defaults */}
         <div>
-          <h3 className="text-sm font-medium text-gray-700 mb-3">Defaults</h3>
+          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Defaults</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Default Currency</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Default Currency</label>
               <select
                 value={form.default_currency}
                 onChange={(e) => updateField('default_currency', e.target.value)}
-                className="w-full px-3 py-2 border rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border rounded-md bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 {CURRENCY_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -375,11 +375,11 @@ export default function BrandingSettings() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Default Tax Rate</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Default Tax Rate</label>
               <select
                 value={form.default_tax_rate_id}
                 onChange={(e) => updateField('default_tax_rate_id', e.target.value)}
-                className="w-full px-3 py-2 border rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border rounded-md bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">None</option>
                 {taxRates.map((tr) => (

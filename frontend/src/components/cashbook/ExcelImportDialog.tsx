@@ -114,15 +114,15 @@ export default function ExcelImportDialog({
       />
 
       {/* Dialog */}
-      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[85vh] flex flex-col mx-4">
+      <div className="relative bg-white dark:bg-gray-900 rounded-lg shadow-xl w-full max-w-3xl max-h-[85vh] flex flex-col mx-4">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b">
-          <h2 className="text-lg font-semibold text-gray-900">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             Import Excel File
           </h2>
           <button
             onClick={handleClose}
-            className="text-gray-400 hover:text-gray-600 text-xl leading-none"
+            className="text-gray-400 dark:text-gray-500 hover:text-gray-600 text-xl leading-none"
           >
             &times;
           </button>
@@ -132,13 +132,13 @@ export default function ExcelImportDialog({
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {/* Account Selector */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Import into Account
             </label>
             <select
               value={accountId}
               onChange={(e) => setAccountId(e.target.value)}
-              className="w-full px-3 py-2 text-sm border rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 text-sm border rounded-md bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {accounts.map((a) => (
                 <option key={a.id} value={a.id}>
@@ -158,16 +158,16 @@ export default function ExcelImportDialog({
               className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
                 isDragging
                   ? 'border-blue-500 bg-blue-50'
-                  : 'border-gray-300 hover:border-gray-400'
+                  : 'border-gray-300 dark:border-gray-600 hover:border-gray-400'
               }`}
             >
-              <Upload className="h-10 w-10 text-gray-400 mx-auto mb-3" />
-              <p className="text-sm font-medium text-gray-700">
+              <Upload className="h-10 w-10 text-gray-400 dark:text-gray-500 mx-auto mb-3" />
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 {selectedFile
                   ? selectedFile.name
                   : 'Drop your Excel file here or click to browse'}
               </p>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 Accepts .xlsx and .xls files
               </p>
               <input
@@ -184,13 +184,13 @@ export default function ExcelImportDialog({
           {previewMutation.isPending && (
             <div className="text-center py-8">
               <div className="animate-spin h-8 w-8 border-2 border-blue-600 border-t-transparent rounded-full mx-auto mb-3" />
-              <p className="text-sm text-gray-500">Processing file...</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Processing file...</p>
             </div>
           )}
 
           {/* Preview error */}
           {previewMutation.isError && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 rounded-lg p-4">
               <p className="text-sm text-red-700">
                 {(previewMutation.error as Error).message ||
                   'Failed to parse file'}
@@ -212,7 +212,7 @@ export default function ExcelImportDialog({
           {preview && (
             <>
               <div className="flex items-center gap-4 text-sm">
-                <span className="text-gray-600">
+                <span className="text-gray-600 dark:text-gray-400">
                   Total rows:{' '}
                   <span className="font-medium">{preview.total_rows}</span>
                 </span>
@@ -227,7 +227,7 @@ export default function ExcelImportDialog({
                   </span>
                 )}
                 {preview.sheets_found.length > 1 && (
-                  <span className="text-gray-500">
+                  <span className="text-gray-500 dark:text-gray-400">
                     Sheets: {preview.sheets_found.join(', ')}
                   </span>
                 )}
@@ -235,30 +235,30 @@ export default function ExcelImportDialog({
 
               <div className="border rounded-lg overflow-hidden overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-50 border-b">
+                  <thead className="bg-gray-50 dark:bg-gray-950 border-b">
                     <tr>
-                      <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 uppercase">
+                      <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                         Row
                       </th>
-                      <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 uppercase">
+                      <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                         Date
                       </th>
-                      <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 uppercase">
+                      <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                         Description
                       </th>
-                      <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 uppercase">
+                      <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                         Type
                       </th>
-                      <th className="text-right px-3 py-2 text-xs font-medium text-gray-500 uppercase">
+                      <th className="text-right px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                         Amount
                       </th>
-                      <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 uppercase">
+                      <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                         Category
                       </th>
-                      <th className="text-right px-3 py-2 text-xs font-medium text-gray-500 uppercase">
+                      <th className="text-right px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                         Tax
                       </th>
-                      <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 uppercase">
+                      <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                         Status
                       </th>
                     </tr>
@@ -271,13 +271,13 @@ export default function ExcelImportDialog({
                           key={`${row.sheet_name}-${row.row_number}`}
                           className={hasErrors ? 'bg-red-50' : ''}
                         >
-                          <td className="px-3 py-2 text-gray-500">
+                          <td className="px-3 py-2 text-gray-500 dark:text-gray-400">
                             {row.row_number}
                           </td>
-                          <td className="px-3 py-2 text-gray-700">
+                          <td className="px-3 py-2 text-gray-700 dark:text-gray-300">
                             {row.date || '-'}
                           </td>
-                          <td className="px-3 py-2 text-gray-700 max-w-[200px] truncate">
+                          <td className="px-3 py-2 text-gray-700 dark:text-gray-300 max-w-[200px] truncate">
                             {row.description}
                           </td>
                           <td className="px-3 py-2">
@@ -301,10 +301,10 @@ export default function ExcelImportDialog({
                               }
                             )}
                           </td>
-                          <td className="px-3 py-2 text-gray-600">
+                          <td className="px-3 py-2 text-gray-600 dark:text-gray-400">
                             {row.category_name || '-'}
                           </td>
-                          <td className="px-3 py-2 text-right text-gray-600">
+                          <td className="px-3 py-2 text-right text-gray-600 dark:text-gray-400">
                             {row.tax_amount != null
                               ? `$${Math.abs(row.tax_amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                               : '-'}
@@ -345,7 +345,7 @@ export default function ExcelImportDialog({
         <div className="flex items-center justify-end gap-2 px-6 py-4 border-t">
           <button
             onClick={handleClose}
-            className="px-4 py-2 text-sm border rounded-md hover:bg-gray-50"
+            className="px-4 py-2 text-sm border rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
           >
             Close
           </button>

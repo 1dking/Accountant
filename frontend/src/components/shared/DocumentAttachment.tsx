@@ -146,20 +146,20 @@ export default function DocumentAttachment({
   if (selectedDocument) {
     return (
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
           <Paperclip className="inline h-3.5 w-3.5 mr-1" />
           {label}
         </label>
-        <div className="flex items-center gap-2 w-full px-3 py-2 text-sm border rounded-md bg-gray-50">
-          <Paperclip className="h-4 w-4 text-gray-400 shrink-0" />
+        <div className="flex items-center gap-2 w-full px-3 py-2 text-sm border rounded-md bg-gray-50 dark:bg-gray-950">
+          <Paperclip className="h-4 w-4 text-gray-400 dark:text-gray-500 shrink-0" />
           <span className="flex-1 truncate">
             {selectedDocument.title || selectedDocument.original_filename}
-            <span className="text-gray-400 ml-2">{formatFileSize(selectedDocument.file_size)}</span>
+            <span className="text-gray-400 dark:text-gray-500 ml-2">{formatFileSize(selectedDocument.file_size)}</span>
           </span>
           <button
             type="button"
             onClick={() => onDocumentSelect(null)}
-            className="text-gray-400 hover:text-red-500"
+            className="text-gray-400 dark:text-gray-500 hover:text-red-500"
           >
             <X className="h-4 w-4" />
           </button>
@@ -170,7 +170,7 @@ export default function DocumentAttachment({
 
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">
+      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
         <Paperclip className="inline h-3.5 w-3.5 mr-1" />
         {label}
       </label>
@@ -184,23 +184,23 @@ export default function DocumentAttachment({
         className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
           dragOver
             ? 'border-blue-400 bg-blue-50'
-            : 'border-gray-300 hover:border-gray-400'
+            : 'border-gray-300 dark:border-gray-600 hover:border-gray-400'
         }`}
       >
         {uploading ? (
           <div className="flex flex-col items-center gap-2">
             <Loader2 className="h-6 w-6 text-blue-500 animate-spin" />
-            <p className="text-sm text-gray-500">Uploading...</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Uploading...</p>
           </div>
         ) : (
           <div className="flex flex-col items-center gap-2">
-            <Upload className="h-6 w-6 text-gray-400" />
-            <p className="text-sm text-gray-500">
+            <Upload className="h-6 w-6 text-gray-400 dark:text-gray-500" />
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               Drag & drop a file or{' '}
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="text-blue-600 hover:text-blue-700 font-medium"
+                className="text-blue-600 dark:text-blue-400 hover:text-blue-700 font-medium"
               >
                 Browse
               </button>
@@ -219,7 +219,7 @@ export default function DocumentAttachment({
       <button
         type="button"
         onClick={() => setShowDrivePicker(!showDrivePicker)}
-        className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2 text-sm border rounded-md text-gray-600 hover:bg-gray-50 transition-colors"
+        className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2 text-sm border rounded-md text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
       >
         <FolderOpen className="h-4 w-4" />
         Choose from Drive
@@ -228,7 +228,7 @@ export default function DocumentAttachment({
       {/* Drive picker */}
       {showDrivePicker && (
         <div className="mt-2 border rounded-md overflow-hidden">
-          <div className="p-2 border-b bg-gray-50">
+          <div className="p-2 border-b bg-gray-50 dark:bg-gray-950">
             <input
               type="text"
               value={documentSearch}
@@ -239,7 +239,7 @@ export default function DocumentAttachment({
           </div>
           <div className="max-h-48 overflow-y-auto">
             {searchedDocs.length === 0 ? (
-              <div className="px-3 py-4 text-sm text-gray-500 text-center">
+              <div className="px-3 py-4 text-sm text-gray-500 dark:text-gray-400 text-center">
                 No documents found
               </div>
             ) : (
@@ -253,7 +253,7 @@ export default function DocumentAttachment({
                   <span className="truncate">
                     {doc.title || doc.original_filename}
                   </span>
-                  <span className="text-xs text-gray-400 ml-2 shrink-0">
+                  <span className="text-xs text-gray-400 dark:text-gray-500 ml-2 shrink-0">
                     {formatFileSize(doc.file_size)}
                   </span>
                 </button>

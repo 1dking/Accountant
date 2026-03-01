@@ -52,31 +52,31 @@ export default function CommentThread({ documentId }: CommentThreadProps) {
 
   const renderComment = (comment: Comment, depth: number = 0) => (
     <div key={comment.id} style={{ marginLeft: depth * 24 }} className="mt-3">
-      <div className="bg-white border rounded-lg p-3">
+      <div className="bg-white dark:bg-gray-900 border rounded-lg p-3">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-900">{comment.user_name}</span>
-            <span className="text-xs text-gray-400">{formatDateTime(comment.created_at)}</span>
-            {comment.is_edited && <span className="text-xs text-gray-400">(edited)</span>}
+            <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{comment.user_name}</span>
+            <span className="text-xs text-gray-400 dark:text-gray-500">{formatDateTime(comment.created_at)}</span>
+            {comment.is_edited && <span className="text-xs text-gray-400 dark:text-gray-500">(edited)</span>}
           </div>
           <div className="flex items-center gap-1">
             <button
               onClick={() => setReplyTo(comment.id)}
-              className="text-xs text-gray-500 hover:text-blue-600"
+              className="text-xs text-gray-500 dark:text-gray-400 hover:text-blue-600"
             >
               Reply
             </button>
             {(comment.user_id === user?.id || user?.role === 'admin') && (
               <button
                 onClick={() => deleteMutation.mutate(comment.id)}
-                className="text-xs text-gray-500 hover:text-red-600"
+                className="text-xs text-gray-500 dark:text-gray-400 hover:text-red-600"
               >
                 Delete
               </button>
             )}
           </div>
         </div>
-        <p className="text-sm text-gray-700 whitespace-pre-wrap">{comment.content}</p>
+        <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{comment.content}</p>
       </div>
       {replies(comment.id).map((reply) => renderComment(reply, depth + 1))}
     </div>
@@ -84,13 +84,13 @@ export default function CommentThread({ documentId }: CommentThreadProps) {
 
   return (
     <div>
-      <h3 className="font-medium text-gray-900 mb-3">
+      <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-3">
         Comments ({comments.length})
       </h3>
 
       <form onSubmit={handleSubmit} className="mb-4">
         {replyTo && (
-          <div className="flex items-center gap-2 mb-2 text-sm text-gray-500">
+          <div className="flex items-center gap-2 mb-2 text-sm text-gray-500 dark:text-gray-400">
             <span>Replying to comment</span>
             <button
               type="button"
@@ -107,7 +107,7 @@ export default function CommentThread({ documentId }: CommentThreadProps) {
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
             placeholder="Add a comment..."
-            className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <button
             type="submit"
@@ -120,9 +120,9 @@ export default function CommentThread({ documentId }: CommentThreadProps) {
       </form>
 
       {isLoading ? (
-        <p className="text-sm text-gray-500">Loading comments...</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">Loading comments...</p>
       ) : topLevel.length === 0 ? (
-        <p className="text-sm text-gray-500">No comments yet.</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">No comments yet.</p>
       ) : (
         <div>{topLevel.map((c) => renderComment(c))}</div>
       )}

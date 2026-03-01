@@ -157,8 +157,8 @@ export default function CategorizationRules() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-medium text-gray-900">Auto-Categorization Rules</h2>
-          <p className="text-sm text-gray-500 mt-1">
+          <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">Auto-Categorization Rules</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             Automatically categorize bank transactions based on matching rules.
           </p>
         </div>
@@ -166,7 +166,7 @@ export default function CategorizationRules() {
           <button
             onClick={() => applyMutation.mutate()}
             disabled={applyMutation.isPending}
-            className="flex items-center gap-1.5 px-3 py-2 text-sm border border-blue-200 text-blue-600 rounded-lg hover:bg-blue-50 disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-2 text-sm border border-blue-200 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-50 disabled:opacity-50"
           >
             <Zap className={`w-4 h-4 ${applyMutation.isPending ? 'animate-pulse' : ''}`} />
             {applyMutation.isPending ? 'Applying...' : 'Apply Rules'}
@@ -184,26 +184,26 @@ export default function CategorizationRules() {
       </div>
 
       {msg && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
+        <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
           {msg}
         </div>
       )}
 
       {/* Create / Edit Form */}
       {showForm && (
-        <form onSubmit={handleSubmit} className="bg-white border rounded-lg p-5 space-y-4">
+        <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-900 border rounded-lg p-5 space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium text-gray-700">
+            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
               {editingId ? 'Edit Rule' : 'New Rule'}
             </h3>
-            <button type="button" onClick={resetForm} className="text-gray-400 hover:text-gray-600">
+            <button type="button" onClick={resetForm} className="text-gray-400 dark:text-gray-500 hover:text-gray-600">
               <X className="w-4 h-4" />
             </button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Rule Name</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Rule Name</label>
               <input
                 type="text"
                 value={form.name}
@@ -214,12 +214,12 @@ export default function CategorizationRules() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Assign Category</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Assign Category</label>
               <select
                 value={form.assign_category_id}
                 onChange={(e) => setForm({ ...form, assign_category_id: e.target.value })}
                 required
-                className="w-full px-3 py-2 border rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border rounded-md text-sm bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Select category...</option>
                 {categories.map((cat) => (
@@ -231,11 +231,11 @@ export default function CategorizationRules() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Match Field</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Match Field</label>
               <select
                 value={form.match_field}
                 onChange={(e) => setForm({ ...form, match_field: e.target.value as CategorizationMatchField })}
-                className="w-full px-3 py-2 border rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border rounded-md text-sm bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 {Object.entries(MATCH_FIELD_LABELS).map(([value, label]) => (
                   <option key={value} value={value}>{label}</option>
@@ -243,11 +243,11 @@ export default function CategorizationRules() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Match Type</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Match Type</label>
               <select
                 value={form.match_type}
                 onChange={(e) => setForm({ ...form, match_type: e.target.value as CategorizationMatchType })}
-                className="w-full px-3 py-2 border rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border rounded-md text-sm bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 {Object.entries(MATCH_TYPE_LABELS).map(([value, label]) => (
                   <option key={value} value={value}>{label}</option>
@@ -255,7 +255,7 @@ export default function CategorizationRules() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Match Value</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Match Value</label>
               <input
                 type="text"
                 value={form.match_value}
@@ -269,7 +269,7 @@ export default function CategorizationRules() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Priority</label>
               <input
                 type="number"
                 value={form.priority}
@@ -277,15 +277,15 @@ export default function CategorizationRules() {
                 min={0}
                 className="w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
-              <p className="text-xs text-gray-400 mt-1">Higher priority rules match first</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Higher priority rules match first</p>
             </div>
             <div className="flex items-center pt-6">
-              <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={form.is_active}
                   onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  className="rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400 focus:ring-blue-500"
                 />
                 Active
               </label>
@@ -303,7 +303,7 @@ export default function CategorizationRules() {
             <button
               type="button"
               onClick={resetForm}
-              className="px-4 py-2 text-sm border rounded-lg text-gray-600 hover:bg-gray-50"
+              className="px-4 py-2 text-sm border rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
             >
               Cancel
             </button>
@@ -313,34 +313,34 @@ export default function CategorizationRules() {
 
       {/* Rules Table */}
       {isLoading ? (
-        <p className="text-gray-400 py-8 text-center text-sm">Loading rules...</p>
+        <p className="text-gray-400 dark:text-gray-500 py-8 text-center text-sm">Loading rules...</p>
       ) : rules.length > 0 ? (
-        <div className="bg-white border rounded-lg overflow-hidden">
+        <div className="bg-white dark:bg-gray-900 border rounded-lg overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b bg-gray-50">
-                <th className="text-left px-4 py-3 text-gray-500 font-medium w-8"></th>
-                <th className="text-left px-4 py-3 text-gray-500 font-medium">Name</th>
-                <th className="text-left px-4 py-3 text-gray-500 font-medium">Match</th>
-                <th className="text-left px-4 py-3 text-gray-500 font-medium">Category</th>
-                <th className="text-center px-4 py-3 text-gray-500 font-medium">Priority</th>
-                <th className="text-center px-4 py-3 text-gray-500 font-medium">Status</th>
-                <th className="text-right px-4 py-3 text-gray-500 font-medium">Actions</th>
+              <tr className="border-b bg-gray-50 dark:bg-gray-950">
+                <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium w-8"></th>
+                <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Name</th>
+                <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Match</th>
+                <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Category</th>
+                <th className="text-center px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Priority</th>
+                <th className="text-center px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Status</th>
+                <th className="text-right px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Actions</th>
               </tr>
             </thead>
             <tbody>
               {rules.map((rule) => (
-                <tr key={rule.id} className="border-b hover:bg-gray-50">
+                <tr key={rule.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800">
                   <td className="px-4 py-3 text-gray-300">
                     <GripVertical className="w-4 h-4" />
                   </td>
-                  <td className="px-4 py-3 font-medium text-gray-900">{rule.name}</td>
+                  <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">{rule.name}</td>
                   <td className="px-4 py-3">
-                    <div className="text-gray-600">
-                      <span className="text-xs bg-gray-100 px-1.5 py-0.5 rounded mr-1">
+                    <div className="text-gray-600 dark:text-gray-400">
+                      <span className="text-xs bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded mr-1">
                         {MATCH_FIELD_LABELS[rule.match_field]}
                       </span>
-                      <span className="text-xs text-gray-400 mr-1">
+                      <span className="text-xs text-gray-400 dark:text-gray-500 mr-1">
                         {MATCH_TYPE_LABELS[rule.match_type]}
                       </span>
                       <span className="text-xs font-mono bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded">
@@ -348,14 +348,14 @@ export default function CategorizationRules() {
                       </span>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-gray-600">{getCategoryName(rule.assign_category_id)}</td>
-                  <td className="px-4 py-3 text-center text-gray-500">{rule.priority}</td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{getCategoryName(rule.assign_category_id)}</td>
+                  <td className="px-4 py-3 text-center text-gray-500 dark:text-gray-400">{rule.priority}</td>
                   <td className="px-4 py-3 text-center">
                     <span
                       className={`text-xs px-2 py-0.5 rounded-full ${
                         rule.is_active
                           ? 'bg-green-100 text-green-700'
-                          : 'bg-gray-100 text-gray-500'
+                          : 'bg-gray-100 dark:bg-gray-800 text-gray-500'
                       }`}
                     >
                       {rule.is_active ? 'Active' : 'Inactive'}
@@ -365,7 +365,7 @@ export default function CategorizationRules() {
                     <div className="flex items-center gap-1 justify-end">
                       <button
                         onClick={() => startEdit(rule)}
-                        className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"
+                        className="p-1 text-gray-400 dark:text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded"
                         title="Edit"
                       >
                         <Pencil className="w-4 h-4" />
@@ -376,7 +376,7 @@ export default function CategorizationRules() {
                             deleteMutation.mutate(rule.id)
                           }
                         }}
-                        className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                        className="p-1 text-gray-400 dark:text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"
                         title="Delete"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -389,18 +389,18 @@ export default function CategorizationRules() {
           </table>
         </div>
       ) : (
-        <div className="text-center py-12 bg-white border rounded-lg">
+        <div className="text-center py-12 bg-white dark:bg-gray-900 border rounded-lg">
           <Zap className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500 text-sm">No categorization rules yet.</p>
-          <p className="text-gray-400 text-xs mt-1">
+          <p className="text-gray-500 dark:text-gray-400 text-sm">No categorization rules yet.</p>
+          <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">
             Create a rule to automatically categorize bank transactions.
           </p>
         </div>
       )}
 
-      <div className="bg-gray-50 border rounded-lg p-4 text-sm text-gray-600">
-        <h4 className="font-medium text-gray-700 mb-1">How rules work</h4>
-        <ul className="list-disc list-inside space-y-1 text-gray-500">
+      <div className="bg-gray-50 dark:bg-gray-950 border rounded-lg p-4 text-sm text-gray-600 dark:text-gray-400">
+        <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-1">How rules work</h4>
+        <ul className="list-disc list-inside space-y-1 text-gray-500 dark:text-gray-400">
           <li>Rules match against transaction fields (name, merchant, or Plaid category)</li>
           <li>Higher priority rules are checked first</li>
           <li>When a rule matches, the transaction is automatically categorized as an expense</li>

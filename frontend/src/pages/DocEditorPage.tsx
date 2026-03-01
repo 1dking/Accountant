@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { useParams } from 'react-router'
+import { useParams, useNavigate } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getOfficeDoc, updateOfficeDoc, starOfficeDoc } from '@/api/office'
 import { useAuthStore } from '@/stores/authStore'
@@ -17,6 +17,7 @@ import { Table, TableRow, TableCell, TableHeader } from '@tiptap/extension-table
 
 export default function DocEditorPage() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { user: _user } = useAuthStore()
   const [connectionStatus] = useState<'connected' | 'connecting' | 'disconnected'>('connected')
@@ -100,7 +101,7 @@ export default function DocEditorPage() {
   if (!id) return null
 
   return (
-    <div className="flex flex-col h-[calc(100vh-49px)] bg-gray-100">
+    <div className="flex flex-col h-[calc(100vh-49px)] bg-gray-100 dark:bg-gray-800">
       <EditorTopBar
         docType="document"
         docId={id}
@@ -110,10 +111,11 @@ export default function DocEditorPage() {
         onStar={() => starMutation.mutate()}
         connectedUsers={connectedUsers}
         connectionStatus={connectionStatus}
+        onReadView={() => navigate(`/docs/${id}/read`)}
       />
       <DocToolbar editor={editor} />
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-[850px] mx-auto my-6 bg-white shadow-sm rounded-sm min-h-[1100px] border">
+        <div className="max-w-[850px] mx-auto my-6 bg-white dark:bg-gray-900 shadow-sm rounded-sm min-h-[1100px] border dark:border-gray-700">
           <EditorContent editor={editor} />
         </div>
       </div>

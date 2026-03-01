@@ -317,8 +317,8 @@ export default function HelpPage() {
                   className={cn(
                     'w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md text-left transition-colors',
                     activeSection === section.id
-                      ? 'bg-blue-50 text-blue-600'
-                      : 'text-gray-700 hover:bg-gray-100'
+                      ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100'
                   )}
                 >
                   <Icon className="h-4 w-4 shrink-0" />
@@ -344,21 +344,21 @@ export default function HelpPage() {
                   {section.title}
                 </h2>
 
-                <p className="text-gray-700 mb-4">{section.description}</p>
+                <p className="text-gray-700 dark:text-gray-300 mb-4">{section.description}</p>
 
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-2">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
                   Key Features
                 </h3>
-                <ul className="list-disc list-inside space-y-1 text-gray-600 mb-4">
+                <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
                   {section.features.map((feature, index) => (
                     <li key={index}>{feature}</li>
                   ))}
                 </ul>
 
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-2">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
                   Getting Started
                 </h3>
-                <p className="text-gray-600">{section.gettingStarted}</p>
+                <p className="text-gray-600 dark:text-gray-400">{section.gettingStarted}</p>
               </section>
             )
           })}

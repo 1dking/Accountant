@@ -135,20 +135,20 @@ function GridCard({
     <div
       onClick={() => onItemClick(item)}
       onContextMenu={handleContextMenu}
-      className="group bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md hover:border-gray-300 transition-all cursor-pointer select-none"
+      className="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-md hover:border-gray-300 transition-all cursor-pointer select-none"
     >
       <div className="flex items-start justify-between mb-3">
-        <div className={`p-2 rounded-lg bg-gray-50 ${iconColor}`}>
+        <div className={`p-2 rounded-lg bg-gray-50 dark:bg-gray-950 ${iconColor}`}>
           <Icon className="h-8 w-8" />
         </div>
         {item.starred && (
           <Star className="h-4 w-4 text-yellow-400 fill-yellow-400" />
         )}
       </div>
-      <p className="text-sm font-medium text-gray-900 truncate" title={item.name}>
+      <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate" title={item.name}>
         {item.name}
       </p>
-      <p className="text-xs text-gray-500 mt-1">
+      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
         {item.type === 'folder' ? 'Folder' : formatFileSize(item.file_size ?? 0)}
         {' \u00B7 '}
         {formatRelativeTime(item.updated_at)}
@@ -200,19 +200,19 @@ function ListRow({
     <div
       onClick={() => onItemClick(item)}
       onContextMenu={handleContextMenu}
-      className="group flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 border-b border-gray-100 cursor-pointer select-none transition-colors"
+      className="group flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-800 border-b border-gray-100 dark:border-gray-700 cursor-pointer select-none transition-colors"
     >
       <div className={iconColor}>
         <Icon className="h-5 w-5" />
       </div>
-      <span className="flex-1 text-sm text-gray-900 truncate min-w-0">{item.name}</span>
+      <span className="flex-1 text-sm text-gray-900 dark:text-gray-100 truncate min-w-0">{item.name}</span>
       {item.starred && (
         <Star className="h-3.5 w-3.5 text-yellow-400 fill-yellow-400 shrink-0" />
       )}
-      <span className="text-xs text-gray-500 shrink-0 w-20 text-right">
+      <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0 w-20 text-right">
         {item.type === 'folder' ? '--' : formatFileSize(item.file_size ?? 0)}
       </span>
-      <span className="text-xs text-gray-500 shrink-0 w-28 text-right">
+      <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0 w-28 text-right">
         {formatRelativeTime(item.updated_at)}
       </span>
     </div>
@@ -245,8 +245,8 @@ export default function DriveGridView({
     return (
       <div className="text-center py-16">
         <FolderIcon className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-        <h3 className="text-gray-500 font-medium">No files here</h3>
-        <p className="text-sm text-gray-400 mt-1">Upload files or create a folder to get started</p>
+        <h3 className="text-gray-500 dark:text-gray-400 font-medium">No files here</h3>
+        <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Upload files or create a folder to get started</p>
       </div>
     )
   }
@@ -261,7 +261,7 @@ export default function DriveGridView({
       <div>
         {folders.length > 0 && (
           <div className="mb-4">
-            <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2 px-1">
+            <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 px-1">
               Folders
             </h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
@@ -278,7 +278,7 @@ export default function DriveGridView({
         )}
         {files.length > 0 && (
           <div>
-            <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2 px-1">
+            <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 px-1">
               Files
             </h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
@@ -299,9 +299,9 @@ export default function DriveGridView({
 
   // List view
   return (
-    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+    <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
       {/* Header row */}
-      <div className="flex items-center gap-3 px-4 py-2 bg-gray-50 border-b border-gray-200 text-xs font-medium text-gray-500 uppercase tracking-wider">
+      <div className="flex items-center gap-3 px-4 py-2 bg-gray-50 dark:bg-gray-950 border-b border-gray-200 dark:border-gray-700 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
         <span className="w-5" />
         <span className="flex-1">Name</span>
         <span className="w-20 text-right">Size</span>

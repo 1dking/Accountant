@@ -272,7 +272,7 @@ export default function DrivePage() {
   return (
     <div className="flex h-[calc(100vh-49px)]">
       {/* ===== Left Sidebar ===== */}
-      <div className="w-56 border-r bg-white flex flex-col overflow-y-auto shrink-0">
+      <div className="w-56 border-r bg-white dark:bg-gray-900 flex flex-col overflow-y-auto shrink-0">
         <div className="p-3 space-y-0.5">
           <SidebarButton
             active={currentView === 'all' && currentFolderId === null}
@@ -302,7 +302,7 @@ export default function DrivePage() {
 
         {/* Folder tree */}
         <div className="px-3 pb-2">
-          <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1 px-2">
+          <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1 px-2">
             Folders
           </h4>
           <SidebarFolderTree
@@ -322,7 +322,7 @@ export default function DrivePage() {
       {/* ===== Main Content ===== */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Top toolbar */}
-        <div className="bg-white border-b px-4 py-2.5 flex items-center gap-3">
+        <div className="bg-white dark:bg-gray-900 border-b px-4 py-2.5 flex items-center gap-3">
           {/* Plus menu */}
           <div className="relative" ref={plusMenuRef}>
             <button
@@ -333,13 +333,13 @@ export default function DrivePage() {
               New
             </button>
             {showPlusMenu && (
-              <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-40">
+              <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 z-40">
                 <button
                   onClick={() => {
                     setShowUpload(true)
                     setShowPlusMenu(false)
                   }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
                 >
                   <Upload className="h-4 w-4" />
                   Upload File
@@ -349,7 +349,7 @@ export default function DrivePage() {
                     setShowNewFolderDialog(true)
                     setShowPlusMenu(false)
                   }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
                 >
                   <FolderPlus className="h-4 w-4" />
                   New Folder
@@ -361,14 +361,14 @@ export default function DrivePage() {
           {/* Upload / New Folder direct buttons */}
           <button
             onClick={() => setShowUpload(!showUpload)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
           >
             <Upload className="h-4 w-4" />
             Upload
           </button>
           <button
             onClick={() => setShowNewFolderDialog(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
           >
             <FolderPlus className="h-4 w-4" />
             New Folder
@@ -378,25 +378,25 @@ export default function DrivePage() {
 
           {/* Search */}
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
             <input
               type="search"
               placeholder="Search files..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 pr-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-56"
+              className="pl-9 pr-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-56"
             />
           </div>
 
           {/* View toggle */}
-          <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
+          <div className="flex items-center border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
             <button
               onClick={() => setViewMode('grid')}
               className={cn(
                 'p-1.5 transition-colors',
                 viewMode === 'grid'
-                  ? 'bg-blue-50 text-blue-600'
-                  : 'text-gray-500 hover:bg-gray-50'
+                  ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600'
+                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'
               )}
               title="Grid view"
             >
@@ -407,8 +407,8 @@ export default function DrivePage() {
               className={cn(
                 'p-1.5 transition-colors',
                 viewMode === 'list'
-                  ? 'bg-blue-50 text-blue-600'
-                  : 'text-gray-500 hover:bg-gray-50'
+                  ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600'
+                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'
               )}
               title="List view"
             >
@@ -419,7 +419,7 @@ export default function DrivePage() {
 
         {/* Breadcrumb bar */}
         {currentView === 'all' && (
-          <div className="bg-white border-b px-4 py-2">
+          <div className="bg-white dark:bg-gray-900 border-b px-4 py-2">
             <DriveBreadcrumb
               currentFolderId={currentFolderId}
               folders={folders}
@@ -430,7 +430,7 @@ export default function DrivePage() {
 
         {/* Upload zone (toggled) */}
         {showUpload && (
-          <div className="bg-gray-50 border-b p-4">
+          <div className="bg-gray-50 dark:bg-gray-950 border-b p-4">
             <UploadZone
               folderId={currentFolderId ?? undefined}
               onUploadComplete={handleUploadComplete}
@@ -445,7 +445,7 @@ export default function DrivePage() {
           ) : isLoading ? (
             <div className="space-y-3">
               {[...Array(6)].map((_, i) => (
-                <div key={i} className="h-20 bg-gray-100 rounded-lg animate-pulse" />
+                <div key={i} className="h-20 bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse" />
               ))}
             </div>
           ) : (
@@ -476,15 +476,15 @@ export default function DrivePage() {
       {/* ===== New Folder Dialog ===== */}
       {showNewFolderDialog && (
         <DialogOverlay onClose={() => setShowNewFolderDialog(false)}>
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">New Folder</h3>
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-sm p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">New Folder</h3>
             <input
               type="text"
               autoFocus
               value={newFolderName}
               onChange={(e) => setNewFolderName(e.target.value)}
               placeholder="Folder name"
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && newFolderName.trim()) {
                   createFolderMutation.mutate({
@@ -500,7 +500,7 @@ export default function DrivePage() {
                   setShowNewFolderDialog(false)
                   setNewFolderName('')
                 }}
-                className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
               >
                 Cancel
               </button>
@@ -526,14 +526,14 @@ export default function DrivePage() {
       {/* ===== Move Dialog ===== */}
       {showMoveDialog && moveTarget && (
         <DialogOverlay onClose={() => setShowMoveDialog(false)}>
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Move to...</h3>
-            <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-lg mb-4">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-sm p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Move to...</h3>
+            <div className="max-h-60 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg mb-4">
               <button
                 onClick={() => setMoveDestination(null)}
                 className={cn(
-                  'w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 transition-colors',
-                  moveDestination === null ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                  'w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors',
+                  moveDestination === null ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 font-medium' : 'text-gray-700'
                 )}
               >
                 <FolderIcon className="h-4 w-4" />
@@ -546,9 +546,9 @@ export default function DrivePage() {
                     key={folder.id}
                     onClick={() => setMoveDestination(folder.id)}
                     className={cn(
-                      'w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 transition-colors',
+                      'w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors',
                       moveDestination === folder.id
-                        ? 'bg-blue-50 text-blue-700 font-medium'
+                        ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 font-medium'
                         : 'text-gray-700'
                     )}
                     style={{ paddingLeft: `${(folder._depth ?? 0) * 16 + 12}px` }}
@@ -561,7 +561,7 @@ export default function DrivePage() {
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setShowMoveDialog(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
               >
                 Cancel
               </button>
@@ -607,8 +607,8 @@ function SidebarButton({
       className={cn(
         'w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-colors',
         active
-          ? 'bg-blue-50 text-blue-700 font-medium'
-          : 'text-gray-700 hover:bg-gray-100'
+          ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 font-medium'
+          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100'
       )}
     >
       <Icon className="h-4 w-4" />
@@ -667,7 +667,7 @@ function SidebarFolderNode({
         {hasChildren ? (
           <button
             onClick={() => setExpanded(!expanded)}
-            className="p-0.5 text-gray-400 hover:text-gray-600"
+            className="p-0.5 text-gray-400 dark:text-gray-500 hover:text-gray-600"
             style={{ marginLeft: `${depth * 12}px` }}
           >
             <ChevronRight
@@ -682,8 +682,8 @@ function SidebarFolderNode({
           className={cn(
             'flex-1 flex items-center gap-1.5 px-2 py-1 text-sm rounded-md transition-colors truncate',
             isActive
-              ? 'bg-blue-50 text-blue-700 font-medium'
-              : 'text-gray-700 hover:bg-gray-100'
+              ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 font-medium'
+              : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100'
           )}
         >
           <FolderIcon className="h-4 w-4 text-blue-500 shrink-0" />

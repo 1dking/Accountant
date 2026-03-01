@@ -28,7 +28,7 @@ export default function CollaboratorAvatars({ users }: CollaboratorAvatarsProps)
         </div>
       ))}
       {overflow > 0 && (
-        <div className="h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-medium text-gray-600 bg-gray-200 border-2 border-white">
+        <div className="h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-medium text-gray-600 dark:text-gray-400 bg-gray-200 dark:bg-gray-700 border-2 border-white">
           +{overflow}
         </div>
       )}

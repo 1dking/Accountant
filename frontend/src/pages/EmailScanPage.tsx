@@ -50,13 +50,13 @@ export default function EmailScanPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Email Scan</h1>
-          <p className="text-gray-500 mt-1">Scan Gmail for invoices, receipts, and attachments</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Email Scan</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">Scan Gmail for invoices, receipts, and attachments</p>
         </div>
       </div>
 
       {/* Controls */}
-      <div className="bg-white border rounded-lg p-4">
+      <div className="bg-white dark:bg-gray-900 border rounded-lg p-4">
         <div className="flex flex-col sm:flex-row gap-3">
           <select
             value={selectedAccount}
@@ -85,7 +85,7 @@ export default function EmailScanPage() {
           </button>
         </div>
         {!selectedAccount && accounts.length > 0 && (
-          <p className="text-xs text-gray-400 mt-2">Select a Gmail account to start scanning.</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">Select a Gmail account to start scanning.</p>
         )}
         {accounts.length === 0 && (
           <p className="text-xs text-amber-600 mt-2">
@@ -96,46 +96,46 @@ export default function EmailScanPage() {
 
       {/* Results */}
       {resultsLoading ? (
-        <p className="text-gray-400 py-8 text-center text-sm">Loading results...</p>
+        <p className="text-gray-400 dark:text-gray-500 py-8 text-center text-sm">Loading results...</p>
       ) : results.length > 0 ? (
-        <div className="bg-white border rounded-lg overflow-hidden">
+        <div className="bg-white dark:bg-gray-900 border rounded-lg overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b bg-gray-50">
-                <th className="text-left px-4 py-3 text-gray-500 font-medium">Subject</th>
-                <th className="text-left px-4 py-3 text-gray-500 font-medium">From</th>
-                <th className="text-left px-4 py-3 text-gray-500 font-medium">Date</th>
-                <th className="text-left px-4 py-3 text-gray-500 font-medium">Attachments</th>
-                <th className="text-left px-4 py-3 text-gray-500 font-medium">Status</th>
-                <th className="text-right px-4 py-3 text-gray-500 font-medium">Actions</th>
+              <tr className="border-b bg-gray-50 dark:bg-gray-950">
+                <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Subject</th>
+                <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">From</th>
+                <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Date</th>
+                <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Attachments</th>
+                <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Status</th>
+                <th className="text-right px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Actions</th>
               </tr>
             </thead>
             <tbody>
               {results.map((result) => (
-                <tr key={result.id} className="border-b hover:bg-gray-50">
+                <tr key={result.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800">
                   <td className="px-4 py-3">
-                    <div className="font-medium text-gray-900 truncate max-w-xs">
+                    <div className="font-medium text-gray-900 dark:text-gray-100 truncate max-w-xs">
                       {result.subject || '(No subject)'}
                     </div>
                     {result.snippet && (
-                      <div className="text-xs text-gray-400 truncate max-w-xs mt-0.5">
+                      <div className="text-xs text-gray-400 dark:text-gray-500 truncate max-w-xs mt-0.5">
                         {result.snippet}
                       </div>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-gray-600 truncate max-w-[180px]">
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400 truncate max-w-[180px]">
                     {result.sender || '—'}
                   </td>
-                  <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
+                  <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">
                     {result.date ? formatDate(result.date) : '—'}
                   </td>
                   <td className="px-4 py-3">
                     {result.has_attachments ? (
-                      <span className="flex items-center gap-1 text-blue-600 text-xs">
+                      <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400 text-xs">
                         <FileText className="w-3.5 h-3.5" /> Yes
                       </span>
                     ) : (
-                      <span className="text-gray-400 text-xs">No</span>
+                      <span className="text-gray-400 dark:text-gray-500 text-xs">No</span>
                     )}
                   </td>
                   <td className="px-4 py-3">
@@ -144,7 +144,7 @@ export default function EmailScanPage() {
                         <CheckCircle className="w-3.5 h-3.5" /> Imported
                       </span>
                     ) : (
-                      <span className="text-xs text-gray-400">Pending</span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500">Pending</span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-right">
@@ -165,10 +165,10 @@ export default function EmailScanPage() {
           </table>
         </div>
       ) : (
-        <div className="text-center py-16 bg-white border rounded-lg">
+        <div className="text-center py-16 bg-white dark:bg-gray-900 border rounded-lg">
           <Inbox className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500">No scan results yet.</p>
-          <p className="text-gray-400 text-sm mt-1">
+          <p className="text-gray-500 dark:text-gray-400">No scan results yet.</p>
+          <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">
             Select a Gmail account and click "Scan Now" to search for invoices and receipts.
           </p>
         </div>

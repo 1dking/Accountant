@@ -71,8 +71,8 @@ export default function BankTransactionsPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Bank Transactions</h1>
-          <p className="text-gray-500 mt-1">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Bank Transactions</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">
             View and categorize transactions from connected bank accounts
           </p>
         </div>
@@ -81,7 +81,7 @@ export default function BankTransactionsPage() {
             <button
               onClick={() => applyRulesMutation.mutate()}
               disabled={applyRulesMutation.isPending}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
             >
               <ListChecks className="w-4 h-4" />
               {applyRulesMutation.isPending ? 'Applying...' : 'Apply Rules'}
@@ -110,8 +110,8 @@ export default function BankTransactionsPage() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white border rounded-lg p-4 flex flex-wrap gap-3 items-center">
-        <Filter className="w-4 h-4 text-gray-400" />
+      <div className="bg-white dark:bg-gray-900 border rounded-lg p-4 flex flex-wrap gap-3 items-center">
+        <Filter className="w-4 h-4 text-gray-400 dark:text-gray-500" />
         <select
           value={connectionId}
           onChange={(e) => { setConnectionId(e.target.value); setPage(1) }}
@@ -140,39 +140,39 @@ export default function BankTransactionsPage() {
           <option value="expense">Expenses</option>
           <option value="income">Income</option>
         </select>
-        <span className="text-sm text-gray-400 ml-auto">
+        <span className="text-sm text-gray-400 dark:text-gray-500 ml-auto">
           {meta.total} transaction{meta.total !== 1 ? 's' : ''}
         </span>
       </div>
 
       {/* Transactions */}
       {isLoading ? (
-        <p className="text-gray-400 py-8 text-center text-sm">Loading transactions...</p>
+        <p className="text-gray-400 dark:text-gray-500 py-8 text-center text-sm">Loading transactions...</p>
       ) : transactions.length > 0 ? (
         <>
-          <div className="bg-white border rounded-lg overflow-hidden">
+          <div className="bg-white dark:bg-gray-900 border rounded-lg overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b bg-gray-50">
-                  <th className="text-left px-4 py-3 text-gray-500 font-medium">Date</th>
-                  <th className="text-left px-4 py-3 text-gray-500 font-medium">Description</th>
-                  <th className="text-left px-4 py-3 text-gray-500 font-medium">Category</th>
-                  <th className="text-right px-4 py-3 text-gray-500 font-medium">Amount</th>
-                  <th className="text-left px-4 py-3 text-gray-500 font-medium">Status</th>
-                  <th className="text-right px-4 py-3 text-gray-500 font-medium">Actions</th>
+                <tr className="border-b bg-gray-50 dark:bg-gray-950">
+                  <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Date</th>
+                  <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Description</th>
+                  <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Category</th>
+                  <th className="text-right px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Amount</th>
+                  <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Status</th>
+                  <th className="text-right px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {transactions.map((txn) => (
-                  <tr key={txn.id} className="border-b hover:bg-gray-50">
-                    <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{formatDate(txn.date)}</td>
+                  <tr key={txn.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800">
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">{formatDate(txn.date)}</td>
                     <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900">{txn.merchant_name || txn.name}</div>
+                      <div className="font-medium text-gray-900 dark:text-gray-100">{txn.merchant_name || txn.name}</div>
                       {txn.merchant_name && txn.name !== txn.merchant_name && (
-                        <div className="text-xs text-gray-400">{txn.name}</div>
+                        <div className="text-xs text-gray-400 dark:text-gray-500">{txn.name}</div>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">{txn.category || '—'}</td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs">{txn.category || '—'}</td>
                     <td className="px-4 py-3 text-right">
                       <span className={`flex items-center justify-end gap-1 font-medium ${txn.is_income ? 'text-green-600' : 'text-gray-900'}`}>
                         {txn.is_income ? <ArrowDownRight className="w-3.5 h-3.5" /> : <ArrowUpRight className="w-3.5 h-3.5" />}
@@ -187,7 +187,7 @@ export default function BankTransactionsPage() {
                           {txn.matched_expense_id ? 'Expense' : txn.matched_income_id ? 'Income' : 'Ignored'}
                         </span>
                       ) : (
-                        <span className="text-xs text-gray-400">Uncategorized</span>
+                        <span className="text-xs text-gray-400 dark:text-gray-500">Uncategorized</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -210,7 +210,7 @@ export default function BankTransactionsPage() {
                           <button
                             onClick={() => categorizeMutation.mutate({ txnId: txn.id, asType: 'ignore' })}
                             disabled={categorizeMutation.isPending}
-                            className="px-2 py-1 text-xs border rounded hover:bg-gray-50 text-gray-500"
+                            className="px-2 py-1 text-xs border rounded hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400"
                           >
                             Ignore
                           </button>
@@ -229,17 +229,17 @@ export default function BankTransactionsPage() {
               <button
                 onClick={() => setPage(Math.max(1, page - 1))}
                 disabled={page === 1}
-                className="px-3 py-1.5 text-sm border rounded-lg disabled:opacity-50 hover:bg-gray-50"
+                className="px-3 py-1.5 text-sm border rounded-lg disabled:opacity-50 hover:bg-gray-50 dark:hover:bg-gray-800"
               >
                 Previous
               </button>
-              <span className="text-sm text-gray-500">
+              <span className="text-sm text-gray-500 dark:text-gray-400">
                 Page {page} of {totalPages}
               </span>
               <button
                 onClick={() => setPage(Math.min(totalPages, page + 1))}
                 disabled={page >= totalPages}
-                className="px-3 py-1.5 text-sm border rounded-lg disabled:opacity-50 hover:bg-gray-50"
+                className="px-3 py-1.5 text-sm border rounded-lg disabled:opacity-50 hover:bg-gray-50 dark:hover:bg-gray-800"
               >
                 Next
               </button>
@@ -247,18 +247,18 @@ export default function BankTransactionsPage() {
           )}
         </>
       ) : connections.length === 0 ? (
-        <div className="text-center py-16 bg-white border rounded-lg">
+        <div className="text-center py-16 bg-white dark:bg-gray-900 border rounded-lg">
           <Landmark className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500">No bank accounts connected.</p>
-          <p className="text-gray-400 text-sm mt-1">
+          <p className="text-gray-500 dark:text-gray-400">No bank accounts connected.</p>
+          <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">
             Go to Settings &gt; Banking to connect a bank account.
           </p>
         </div>
       ) : (
-        <div className="text-center py-16 bg-white border rounded-lg">
+        <div className="text-center py-16 bg-white dark:bg-gray-900 border rounded-lg">
           <Landmark className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500">No transactions found.</p>
-          <p className="text-gray-400 text-sm mt-1">
+          <p className="text-gray-500 dark:text-gray-400">No transactions found.</p>
+          <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">
             Click "Sync" to import transactions from your bank.
           </p>
         </div>

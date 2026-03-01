@@ -5,7 +5,7 @@ import { listSmsLogs, sendSms, getIntegrationSettings, saveIntegrationSettings }
 import { formatDate } from '@/lib/utils'
 
 const statusColors: Record<string, string> = {
-  sent: 'bg-blue-100 text-blue-700',
+  sent: 'bg-blue-100 dark:bg-blue-900/50 text-blue-700',
   delivered: 'bg-green-100 text-green-700',
   failed: 'bg-red-100 text-red-700',
 }
@@ -77,26 +77,26 @@ export default function SmsSettings() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-medium text-gray-900">SMS Notifications (Twilio)</h2>
+      <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">SMS Notifications (Twilio)</h2>
 
       {msg && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">{msg}</div>
+        <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">{msg}</div>
       )}
 
       {/* Twilio Config Form */}
       <form
         onSubmit={(e) => { e.preventDefault(); saveMutation.mutate() }}
-        className="bg-white border rounded-lg p-5 space-y-4"
+        className="bg-white dark:bg-gray-900 border rounded-lg p-5 space-y-4"
       >
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-medium text-gray-700">Twilio Configuration</h3>
+          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Twilio Configuration</h3>
           {isConfigured && (
             <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Configured</span>
           )}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Account SID</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Account SID</label>
             <input
               type="text"
               value={configForm.account_sid}
@@ -106,7 +106,7 @@ export default function SmsSettings() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Auth Token</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Auth Token</label>
             <input
               type="password"
               value={configForm.auth_token}
@@ -116,7 +116,7 @@ export default function SmsSettings() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">From Number</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">From Number</label>
             <input
               type="tel"
               value={configForm.from_number}
@@ -137,8 +137,8 @@ export default function SmsSettings() {
       </form>
 
       {/* Send test SMS */}
-      <div className="bg-white border rounded-lg p-5">
-        <h3 className="text-sm font-medium text-gray-700 mb-3">Send Test SMS</h3>
+      <div className="bg-white dark:bg-gray-900 border rounded-lg p-5">
+        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Send Test SMS</h3>
         <div className="flex gap-2">
           <input
             type="tel"
@@ -167,30 +167,30 @@ export default function SmsSettings() {
 
       {/* SMS Logs */}
       {logs.length > 0 && (
-        <div className="bg-white border rounded-lg overflow-hidden">
+        <div className="bg-white dark:bg-gray-900 border rounded-lg overflow-hidden">
           <div className="px-5 py-3 border-b">
-            <h3 className="text-sm font-medium text-gray-700">SMS History</h3>
+            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">SMS History</h3>
           </div>
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b bg-gray-50">
-                <th className="text-left px-4 py-2 text-gray-500 font-medium">Recipient</th>
-                <th className="text-left px-4 py-2 text-gray-500 font-medium">Message</th>
-                <th className="text-left px-4 py-2 text-gray-500 font-medium">Status</th>
-                <th className="text-left px-4 py-2 text-gray-500 font-medium">Date</th>
+              <tr className="border-b bg-gray-50 dark:bg-gray-950">
+                <th className="text-left px-4 py-2 text-gray-500 dark:text-gray-400 font-medium">Recipient</th>
+                <th className="text-left px-4 py-2 text-gray-500 dark:text-gray-400 font-medium">Message</th>
+                <th className="text-left px-4 py-2 text-gray-500 dark:text-gray-400 font-medium">Status</th>
+                <th className="text-left px-4 py-2 text-gray-500 dark:text-gray-400 font-medium">Date</th>
               </tr>
             </thead>
             <tbody>
               {logs.slice(0, 20).map((log) => (
                 <tr key={log.id} className="border-b">
-                  <td className="px-4 py-2 text-gray-900">{log.recipient}</td>
-                  <td className="px-4 py-2 text-gray-600 max-w-xs truncate">{log.message}</td>
+                  <td className="px-4 py-2 text-gray-900 dark:text-gray-100">{log.recipient}</td>
+                  <td className="px-4 py-2 text-gray-600 dark:text-gray-400 max-w-xs truncate">{log.message}</td>
                   <td className="px-4 py-2">
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${statusColors[log.status] || 'bg-gray-100 text-gray-600'}`}>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${statusColors[log.status] || 'bg-gray-100 dark:bg-gray-800 text-gray-600'}`}>
                       {log.status}
                     </span>
                   </td>
-                  <td className="px-4 py-2 text-gray-500">{formatDate(log.created_at)}</td>
+                  <td className="px-4 py-2 text-gray-500 dark:text-gray-400">{formatDate(log.created_at)}</td>
                 </tr>
               ))}
             </tbody>
@@ -198,9 +198,9 @@ export default function SmsSettings() {
         </div>
       )}
 
-      <div className="bg-gray-50 border rounded-lg p-4 text-sm text-gray-600">
-        <h4 className="font-medium text-gray-700 mb-1">SMS Features</h4>
-        <ul className="list-disc list-inside space-y-1 text-gray-500">
+      <div className="bg-gray-50 dark:bg-gray-950 border rounded-lg p-4 text-sm text-gray-600 dark:text-gray-400">
+        <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-1">SMS Features</h4>
+        <ul className="list-disc list-inside space-y-1 text-gray-500 dark:text-gray-400">
           <li>Send invoice summaries with payment links via SMS</li>
           <li>Overdue payment reminders</li>
           <li>Payment confirmation notifications</li>

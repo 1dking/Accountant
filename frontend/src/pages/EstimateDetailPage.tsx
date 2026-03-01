@@ -105,7 +105,7 @@ export default function EstimateDetailPage() {
   if (estimateQuery.isLoading) {
     return (
       <div className="p-6">
-        <p className="text-gray-400">Loading estimate...</p>
+        <p className="text-gray-400 dark:text-gray-500">Loading estimate...</p>
       </div>
     );
   }
@@ -116,7 +116,7 @@ export default function EstimateDetailPage() {
         <p className="text-red-500">Failed to load estimate.</p>
         <button
           onClick={() => navigate('/estimates')}
-          className="mt-2 text-blue-600 hover:underline"
+          className="mt-2 text-blue-600 dark:text-blue-400 hover:underline"
         >
           Back to Estimates
         </button>
@@ -151,7 +151,7 @@ export default function EstimateDetailPage() {
       <div className="mb-6">
         <button
           onClick={() => navigate('/estimates')}
-          className="flex items-center gap-1 text-gray-500 hover:text-gray-700 mb-4 transition-colors"
+          className="flex items-center gap-1 text-gray-500 dark:text-gray-400 hover:text-gray-700 mb-4 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           <span className="text-sm">Back to Estimates</span>
@@ -160,19 +160,19 @@ export default function EstimateDetailPage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-semibold text-gray-900">
+              <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
                 {estimate.estimate_number}
               </h1>
               <span
-                className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusInfo?.color ?? 'bg-gray-100 text-gray-700'}`}
+                className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusInfo?.color ?? 'bg-gray-100 dark:bg-gray-800 text-gray-700'}`}
               >
                 {statusInfo?.label ?? estimate.status}
               </span>
             </div>
-            <p className="text-gray-500 mt-1">
+            <p className="text-gray-500 dark:text-gray-400 mt-1">
               {estimate.contact?.company_name}
               {estimate.contact?.email && (
-                <span className="text-gray-400"> &middot; {estimate.contact.email}</span>
+                <span className="text-gray-400 dark:text-gray-500"> &middot; {estimate.contact.email}</span>
               )}
             </p>
           </div>
@@ -236,7 +236,7 @@ export default function EstimateDetailPage() {
               <button
                 onClick={() => emailMutation.mutate()}
                 disabled={emailMutation.isPending}
-                className="flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                 title="Email estimate to client"
               >
                 <Mail className="w-4 h-4" />
@@ -245,7 +245,7 @@ export default function EstimateDetailPage() {
 
               <button
                 onClick={() => setShowShareDialog(true)}
-                className="flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                 title="Create shareable link"
               >
                 <Link className="w-4 h-4" />
@@ -268,14 +268,14 @@ export default function EstimateDetailPage() {
 
       {/* Delete Confirmation */}
       {deleteConfirm && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 flex items-center justify-between">
+        <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 rounded-xl p-4 mb-6 flex items-center justify-between">
           <p className="text-sm text-red-700">
             Are you sure you want to delete this estimate? This action cannot be undone.
           </p>
           <div className="flex items-center gap-2 ml-4">
             <button
               onClick={() => setDeleteConfirm(false)}
-              className="px-3 py-1.5 text-sm border rounded-lg hover:bg-white transition-colors"
+              className="px-3 py-1.5 text-sm border rounded-lg hover:bg-white dark:bg-gray-900 transition-colors"
             >
               Cancel
             </button>
@@ -292,49 +292,49 @@ export default function EstimateDetailPage() {
 
       {/* Action message */}
       {actionMsg && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-6 text-sm text-blue-700">
+        <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 rounded-lg p-3 mb-6 text-sm text-blue-700">
           {actionMsg}
         </div>
       )}
 
       {/* Convert mutation error */}
       {convertMutation.isError && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-6 text-sm text-red-700">
+        <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 rounded-lg p-3 mb-6 text-sm text-red-700">
           Failed to convert estimate to invoice. Please try again.
         </div>
       )}
 
       {/* Estimate Details */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-          <h3 className="text-sm font-medium text-gray-500 mb-2">Issue Date</h3>
-          <p className="text-gray-900">{formatDate(estimate.issue_date)}</p>
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
+          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Issue Date</h3>
+          <p className="text-gray-900 dark:text-gray-100">{formatDate(estimate.issue_date)}</p>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-          <h3 className="text-sm font-medium text-gray-500 mb-2">Expiry Date</h3>
-          <p className="text-gray-900">{formatDate(estimate.expiry_date)}</p>
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
+          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Expiry Date</h3>
+          <p className="text-gray-900 dark:text-gray-100">{formatDate(estimate.expiry_date)}</p>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-          <h3 className="text-sm font-medium text-gray-500 mb-2">Total</h3>
-          <p className="text-2xl font-semibold text-gray-900">
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
+          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Total</h3>
+          <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
             {formatCurrency(estimate.total, currency)}
           </p>
         </div>
       </div>
 
       {/* Line Items Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-6">
-        <div className="px-5 py-4 border-b border-gray-100">
-          <h2 className="text-lg font-medium text-gray-900">Line Items</h2>
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden mb-6">
+        <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+          <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">Line Items</h2>
         </div>
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-gray-100">
-              <th className="text-left px-5 py-3 text-gray-500 font-medium">Description</th>
-              <th className="text-right px-5 py-3 text-gray-500 font-medium">Qty</th>
-              <th className="text-right px-5 py-3 text-gray-500 font-medium">Unit Price</th>
-              <th className="text-right px-5 py-3 text-gray-500 font-medium">Tax %</th>
-              <th className="text-right px-5 py-3 text-gray-500 font-medium">Total</th>
+            <tr className="border-b border-gray-100 dark:border-gray-700">
+              <th className="text-left px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Description</th>
+              <th className="text-right px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Qty</th>
+              <th className="text-right px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Unit Price</th>
+              <th className="text-right px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Tax %</th>
+              <th className="text-right px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Total</th>
             </tr>
           </thead>
           <tbody>
@@ -344,15 +344,15 @@ export default function EstimateDetailPage() {
               const lineTotal = lineSubtotal + lineTax;
               return (
                 <tr key={index} className="border-b border-gray-50">
-                  <td className="px-5 py-3 text-gray-900">{item.description}</td>
-                  <td className="px-5 py-3 text-right text-gray-700">{item.quantity}</td>
-                  <td className="px-5 py-3 text-right text-gray-700">
+                  <td className="px-5 py-3 text-gray-900 dark:text-gray-100">{item.description}</td>
+                  <td className="px-5 py-3 text-right text-gray-700 dark:text-gray-300">{item.quantity}</td>
+                  <td className="px-5 py-3 text-right text-gray-700 dark:text-gray-300">
                     {formatCurrency(item.unit_price, currency)}
                   </td>
-                  <td className="px-5 py-3 text-right text-gray-500">
+                  <td className="px-5 py-3 text-right text-gray-500 dark:text-gray-400">
                     {item.tax_rate ? `${item.tax_rate}%` : '--'}
                   </td>
-                  <td className="px-5 py-3 text-right font-medium text-gray-900">
+                  <td className="px-5 py-3 text-right font-medium text-gray-900 dark:text-gray-100">
                     {formatCurrency(lineTotal, currency)}
                   </td>
                 </tr>
@@ -362,29 +362,29 @@ export default function EstimateDetailPage() {
         </table>
 
         {/* Totals */}
-        <div className="border-t border-gray-100 px-5 py-4">
+        <div className="border-t border-gray-100 dark:border-gray-700 px-5 py-4">
           <div className="flex flex-col items-end gap-1">
             <div className="flex justify-between w-64">
-              <span className="text-sm text-gray-500">Subtotal</span>
-              <span className="text-sm text-gray-900">{formatCurrency(subtotal, currency)}</span>
+              <span className="text-sm text-gray-500 dark:text-gray-400">Subtotal</span>
+              <span className="text-sm text-gray-900 dark:text-gray-100">{formatCurrency(subtotal, currency)}</span>
             </div>
             {taxTotal > 0 && (
               <div className="flex justify-between w-64">
-                <span className="text-sm text-gray-500">Tax</span>
-                <span className="text-sm text-gray-900">{formatCurrency(taxTotal, currency)}</span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">Tax</span>
+                <span className="text-sm text-gray-900 dark:text-gray-100">{formatCurrency(taxTotal, currency)}</span>
               </div>
             )}
             {discountAmount > 0 && (
               <div className="flex justify-between w-64">
-                <span className="text-sm text-gray-500">Discount</span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">Discount</span>
                 <span className="text-sm text-red-600">
                   -{formatCurrency(discountAmount, currency)}
                 </span>
               </div>
             )}
-            <div className="flex justify-between w-64 pt-2 border-t border-gray-200 mt-1">
-              <span className="text-sm font-medium text-gray-900">Total</span>
-              <span className="text-sm font-semibold text-gray-900">
+            <div className="flex justify-between w-64 pt-2 border-t border-gray-200 dark:border-gray-700 mt-1">
+              <span className="text-sm font-medium text-gray-900 dark:text-gray-100">Total</span>
+              <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                 {formatCurrency(total, currency)}
               </span>
             </div>
@@ -394,9 +394,9 @@ export default function EstimateDetailPage() {
 
       {/* Notes */}
       {estimate.notes && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-6">
-          <h3 className="text-sm font-medium text-gray-500 mb-2">Notes</h3>
-          <p className="text-sm text-gray-700 whitespace-pre-wrap">{estimate.notes}</p>
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5 mb-6">
+          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Notes</h3>
+          <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{estimate.notes}</p>
         </div>
       )}
 

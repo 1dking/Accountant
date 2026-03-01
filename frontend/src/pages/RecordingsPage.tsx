@@ -102,27 +102,27 @@ export default function RecordingsPage() {
     <div className="p-6 h-full">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Recordings</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Recordings</h1>
       </div>
 
       <div className="flex gap-6 h-[calc(100vh-10rem)]">
         {/* Left sidebar: contacts */}
-        <div className="w-64 flex-shrink-0 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
-          <div className="p-3 border-b border-gray-100">
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Contacts</h3>
+        <div className="w-64 flex-shrink-0 bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col">
+          <div className="p-3 border-b border-gray-100 dark:border-gray-700">
+            <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Contacts</h3>
           </div>
           <div className="flex-1 overflow-y-auto">
             <button
               onClick={() => setSelectedContact(null)}
               className={`w-full text-left px-4 py-2.5 text-sm border-b border-gray-50 transition-colors ${
                 selectedContact === null
-                  ? 'bg-blue-50 text-blue-700 font-medium'
-                  : 'text-gray-700 hover:bg-gray-50'
+                  ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 font-medium'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50'
               }`}
             >
               <div className="flex items-center justify-between">
                 <span>All Recordings</span>
-                <span className="text-xs text-gray-400">{allRecordings.length}</span>
+                <span className="text-xs text-gray-400 dark:text-gray-500">{allRecordings.length}</span>
               </div>
             </button>
             {contactItems.map((item) => (
@@ -131,18 +131,18 @@ export default function RecordingsPage() {
                 onClick={() => setSelectedContact(item.id)}
                 className={`w-full text-left px-4 py-2.5 text-sm border-b border-gray-50 transition-colors ${
                   selectedContact === item.id
-                    ? 'bg-blue-50 text-blue-700 font-medium'
-                    : 'text-gray-700 hover:bg-gray-50'
+                    ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 font-medium'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50'
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <span className="truncate">{item.name}</span>
-                  <span className="text-xs text-gray-400">{item.count}</span>
+                  <span className="text-xs text-gray-400 dark:text-gray-500">{item.count}</span>
                 </div>
               </button>
             ))}
             {!loadingByContact && contactItems.length === 0 && (
-              <p className="px-4 py-6 text-xs text-gray-400 text-center">No contacts with recordings</p>
+              <p className="px-4 py-6 text-xs text-gray-400 dark:text-gray-500 text-center">No contacts with recordings</p>
             )}
           </div>
         </div>
@@ -152,25 +152,25 @@ export default function RecordingsPage() {
           {/* Filters */}
           <div className="flex items-center gap-3 mb-4">
             <div className="relative flex-1 max-w-xs">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search recordings..."
-                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <input
               type="date"
               value={dateFilter}
               onChange={(e) => setDateFilter(e.target.value)}
-              className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             {dateFilter && (
               <button
                 onClick={() => setDateFilter('')}
-                className="text-xs text-gray-500 hover:text-gray-700"
+                className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700"
               >
                 Clear date
               </button>
@@ -180,7 +180,7 @@ export default function RecordingsPage() {
           {/* Loading */}
           {isLoading && (
             <div className="flex items-center justify-center py-20">
-              <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+              <Loader2 className="h-6 w-6 animate-spin text-gray-400 dark:text-gray-500" />
             </div>
           )}
 
@@ -188,8 +188,8 @@ export default function RecordingsPage() {
           {!isLoading && filteredRecordings.length === 0 && (
             <div className="text-center py-20">
               <Video className="h-10 w-10 mx-auto mb-3 text-gray-300" />
-              <p className="text-gray-500 text-sm">No recordings found</p>
-              <p className="text-gray-400 text-xs mt-1">Recording will appear here after a meeting is recorded</p>
+              <p className="text-gray-500 dark:text-gray-400 text-sm">No recordings found</p>
+              <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">Recording will appear here after a meeting is recorded</p>
             </div>
           )}
 
@@ -198,7 +198,7 @@ export default function RecordingsPage() {
             <div className="flex-1 overflow-y-auto">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredRecordings.map((rec) => (
-                  <div key={rec.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                  <div key={rec.id} className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
                     {/* Video player or thumbnail area */}
                     {playingId === rec.id && rec.status === 'available' ? (
                       <div className="bg-black">
@@ -213,7 +213,7 @@ export default function RecordingsPage() {
                       </div>
                     ) : (
                       <div className="bg-gray-900 aspect-video flex items-center justify-center relative">
-                        <Video className="h-8 w-8 text-gray-600" />
+                        <Video className="h-8 w-8 text-gray-600 dark:text-gray-400" />
                         {rec.status === 'available' && (
                           <button
                             onClick={() => setPlayingId(rec.id)}
@@ -234,14 +234,14 @@ export default function RecordingsPage() {
                         {playingId === rec.id && (
                           <button
                             onClick={() => setPlayingId(null)}
-                            className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"
+                            className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 flex items-center gap-1"
                           >
                             <Square className="h-3 w-3" /> Close
                           </button>
                         )}
                       </div>
 
-                      <div className="space-y-1.5 text-xs text-gray-500">
+                      <div className="space-y-1.5 text-xs text-gray-500 dark:text-gray-400">
                         <div className="flex items-center gap-1.5">
                           <Calendar className="h-3 w-3" />
                           <span>{formatDate(rec.created_at)}</span>
@@ -253,7 +253,7 @@ export default function RecordingsPage() {
                           </div>
                         )}
                         {rec.file_size != null && (
-                          <p className="text-xs text-gray-400">{formatFileSize(rec.file_size)}</p>
+                          <p className="text-xs text-gray-400 dark:text-gray-500">{formatFileSize(rec.file_size)}</p>
                         )}
                       </div>
 
@@ -262,7 +262,7 @@ export default function RecordingsPage() {
                         <div className="flex gap-2 mt-3 pt-3 border-t border-gray-50">
                           <button
                             onClick={() => setPlayingId(playingId === rec.id ? null : rec.id)}
-                            className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium"
+                            className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 font-medium"
                           >
                             <Play className="h-3.5 w-3.5" />
                             {playingId === rec.id ? 'Playing' : 'Play'}
@@ -270,7 +270,7 @@ export default function RecordingsPage() {
                           <a
                             href={getRecordingStreamUrl(rec.id)}
                             download
-                            className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800 font-medium"
+                            className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-800 font-medium"
                           >
                             <Download className="h-3.5 w-3.5" />
                             Download

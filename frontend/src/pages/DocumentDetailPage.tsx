@@ -91,8 +91,8 @@ export default function DocumentDetailPage() {
     return (
       <div className="p-6">
         <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 rounded w-1/3" />
-          <div className="h-64 bg-gray-200 rounded" />
+          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
+          <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded" />
         </div>
       </div>
     )
@@ -101,8 +101,8 @@ export default function DocumentDetailPage() {
   if (!doc) {
     return (
       <div className="p-6 text-center">
-        <h2 className="text-lg font-medium text-gray-900">Document not found</h2>
-        <button onClick={() => navigate('/documents')} className="mt-2 text-blue-600 hover:underline">
+        <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">Document not found</h2>
+        <button onClick={() => navigate('/documents')} className="mt-2 text-blue-600 dark:text-blue-400 hover:underline">
           Back to documents
         </button>
       </div>
@@ -126,19 +126,19 @@ export default function DocumentDetailPage() {
   return (
     <div className="flex h-[calc(100vh-49px)]">
       {/* Preview area */}
-      <div className="flex-1 bg-gray-100 p-6 overflow-y-auto">
-        <button onClick={() => navigate('/documents')} className="text-sm text-blue-600 hover:underline mb-4 block">
+      <div className="flex-1 bg-gray-100 dark:bg-gray-800 p-6 overflow-y-auto">
+        <button onClick={() => navigate('/documents')} className="text-sm text-blue-600 dark:text-blue-400 hover:underline mb-4 block">
           {'\u2190'} Back to documents
         </button>
 
         {doc.mime_type === 'application/pdf' ? (
           <iframe
             src={getDownloadUrl(doc.id)}
-            className="w-full h-[calc(100%-40px)] bg-white rounded-lg shadow"
+            className="w-full h-[calc(100%-40px)] bg-white dark:bg-gray-900 rounded-lg shadow"
             title={doc.title || doc.original_filename}
           />
         ) : doc.mime_type.startsWith('image/') ? (
-          <div className="flex items-center justify-center bg-white rounded-lg shadow p-4">
+          <div className="flex items-center justify-center bg-white dark:bg-gray-900 rounded-lg shadow p-4">
             <img
               src={getDownloadUrl(doc.id)}
               alt={doc.title || doc.original_filename}
@@ -146,9 +146,9 @@ export default function DocumentDetailPage() {
             />
           </div>
         ) : (
-          <div className="bg-white rounded-lg shadow p-8 text-center">
+          <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-8 text-center">
             <div className="text-6xl mb-4">{'\uD83D\uDCC4'}</div>
-            <p className="text-gray-700 font-medium">{doc.original_filename}</p>
+            <p className="text-gray-700 dark:text-gray-300 font-medium">{doc.original_filename}</p>
             <a
               href={getDownloadUrl(doc.id)}
               download
@@ -166,18 +166,18 @@ export default function DocumentDetailPage() {
       </div>
 
       {/* Metadata panel */}
-      <div className="w-80 bg-white border-l overflow-y-auto p-4 space-y-5">
+      <div className="w-80 bg-white dark:bg-gray-900 border-l overflow-y-auto p-4 space-y-5">
         {/* Title & status */}
         <div>
           {editing ? (
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full text-lg font-bold text-gray-900 border-b border-blue-500 focus:outline-none pb-1"
+              className="w-full text-lg font-bold text-gray-900 dark:text-gray-100 border-b border-blue-500 focus:outline-none pb-1"
               placeholder="Document title"
             />
           ) : (
-            <h2 className="text-lg font-bold text-gray-900">{doc.title || doc.original_filename}</h2>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{doc.title || doc.original_filename}</h2>
           )}
           {statusInfo && (
             <span className={`inline-block mt-1 px-2 py-0.5 text-xs rounded-full ${statusInfo.color}`}>
@@ -191,12 +191,12 @@ export default function DocumentDetailPage() {
           <a
             href={getDownloadUrl(doc.id)}
             download
-            className="px-3 py-1.5 text-sm border rounded-md hover:bg-gray-50"
+            className="px-3 py-1.5 text-sm border rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
           >
             Download
           </a>
           {canEdit && !editing && (
-            <button onClick={startEditing} className="px-3 py-1.5 text-sm border rounded-md hover:bg-gray-50">
+            <button onClick={startEditing} className="px-3 py-1.5 text-sm border rounded-md hover:bg-gray-50 dark:hover:bg-gray-800">
               Edit
             </button>
           )}
@@ -205,7 +205,7 @@ export default function DocumentDetailPage() {
               <button onClick={saveEdits} className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700">
                 Save
               </button>
-              <button onClick={() => setEditing(false)} className="px-3 py-1.5 text-sm border rounded-md hover:bg-gray-50">
+              <button onClick={() => setEditing(false)} className="px-3 py-1.5 text-sm border rounded-md hover:bg-gray-50 dark:hover:bg-gray-800">
                 Cancel
               </button>
             </>
@@ -225,7 +225,7 @@ export default function DocumentDetailPage() {
 
         {/* Description */}
         <div>
-          <label className="text-xs font-medium text-gray-500 uppercase">Description</label>
+          <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Description</label>
           {editing ? (
             <textarea
               value={description}
@@ -235,32 +235,32 @@ export default function DocumentDetailPage() {
               placeholder="Add a description..."
             />
           ) : (
-            <p className="text-sm text-gray-700 mt-1">{doc.description || 'No description'}</p>
+            <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">{doc.description || 'No description'}</p>
           )}
         </div>
 
         {/* Type */}
         <div>
-          <label className="text-xs font-medium text-gray-500 uppercase">Type</label>
+          <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Type</label>
           {editing ? (
             <select
               value={docType}
               onChange={(e) => setDocType(e.target.value as DocumentType)}
-              className="w-full mt-1 px-2 py-1 text-sm border rounded-md bg-white"
+              className="w-full mt-1 px-2 py-1 text-sm border rounded-md bg-white dark:bg-gray-900"
             >
               {DOCUMENT_TYPES.map((t) => (
                 <option key={t.value} value={t.value}>{t.label}</option>
               ))}
             </select>
           ) : (
-            <p className="text-sm text-gray-700 mt-1 capitalize">{doc.document_type.replace('_', ' ')}</p>
+            <p className="text-sm text-gray-700 dark:text-gray-300 mt-1 capitalize">{doc.document_type.replace('_', ' ')}</p>
           )}
         </div>
 
         {/* File info */}
         <div>
-          <label className="text-xs font-medium text-gray-500 uppercase">File Info</label>
-          <div className="text-sm text-gray-700 mt-1 space-y-1">
+          <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">File Info</label>
+          <div className="text-sm text-gray-700 dark:text-gray-300 mt-1 space-y-1">
             <p>Name: {doc.original_filename}</p>
             <p>Size: {formatFileSize(doc.file_size)}</p>
             <p>Type: {doc.mime_type}</p>
@@ -270,15 +270,15 @@ export default function DocumentDetailPage() {
 
         {/* Tags */}
         <div>
-          <label className="text-xs font-medium text-gray-500 uppercase">Tags</label>
+          <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Tags</label>
           <div className="flex flex-wrap gap-1 mt-1">
             {doc.tags.length === 0 ? (
-              <p className="text-sm text-gray-400">No tags</p>
+              <p className="text-sm text-gray-400 dark:text-gray-500">No tags</p>
             ) : (
               doc.tags.map((tag) => (
                 <span
                   key={tag.id}
-                  className="px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-600"
+                  className="px-2 py-0.5 text-xs rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
                   style={tag.color ? { backgroundColor: tag.color + '20', color: tag.color } : undefined}
                 >
                   {tag.name}
@@ -298,11 +298,11 @@ export default function DocumentDetailPage() {
         {/* Create Expense / Income from extracted data */}
         {canEdit && doc.extracted_metadata && (
           <div className="space-y-2">
-            <label className="text-xs font-medium text-gray-500 uppercase">Create from Document</label>
+            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Create from Document</label>
             <button
               onClick={() => createExpenseMutation.mutate()}
               disabled={createExpenseMutation.isPending}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-50 transition-colors"
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-red-700 bg-red-50 dark:bg-red-900/30 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-50 transition-colors"
             >
               {createExpenseMutation.isPending ? 'Creating...' : 'Create Expense'}
             </button>
@@ -314,7 +314,7 @@ export default function DocumentDetailPage() {
             <button
               onClick={() => createIncomeMutation.mutate()}
               disabled={createIncomeMutation.isPending}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 disabled:opacity-50 transition-colors"
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-green-700 bg-green-50 dark:bg-green-900/30 border border-green-200 rounded-lg hover:bg-green-100 disabled:opacity-50 transition-colors"
             >
               {createIncomeMutation.isPending ? 'Creating...' : 'Create Income'}
             </button>
@@ -329,7 +329,7 @@ export default function DocumentDetailPage() {
         {/* Approval */}
         {canEdit && doc.status === 'draft' && (
           <div>
-            <label className="text-xs font-medium text-gray-500 uppercase">Approval</label>
+            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Approval</label>
             {user?.role === 'admin' ? (
               <div className="flex gap-2 mt-1">
                 <button
@@ -378,12 +378,12 @@ export default function DocumentDetailPage() {
         {/* Versions */}
         {versions.length > 0 && (
           <div>
-            <label className="text-xs font-medium text-gray-500 uppercase">Version History</label>
+            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Version History</label>
             <div className="mt-1 space-y-1">
               {versions.map((v) => (
-                <div key={v.id} className="text-sm text-gray-700 flex items-center justify-between">
+                <div key={v.id} className="text-sm text-gray-700 dark:text-gray-300 flex items-center justify-between">
                   <span>v{v.version_number} - {formatFileSize(v.file_size)}</span>
-                  <span className="text-xs text-gray-400">{formatDate(v.created_at)}</span>
+                  <span className="text-xs text-gray-400 dark:text-gray-500">{formatDate(v.created_at)}</span>
                 </div>
               ))}
             </div>

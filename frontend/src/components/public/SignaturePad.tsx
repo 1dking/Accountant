@@ -109,7 +109,7 @@ export default function SignaturePad({
         <canvas
           ref={canvasRef}
           style={{ height: `${height}px` }}
-          className="w-full border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 cursor-crosshair touch-none"
+          className="w-full border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-950 cursor-crosshair touch-none"
           onMouseDown={startDrawing}
           onMouseMove={draw}
           onMouseUp={endDrawing}
@@ -120,7 +120,7 @@ export default function SignaturePad({
         />
         {!hasSignature && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <span className="text-gray-400 text-sm">Sign here</span>
+            <span className="text-gray-400 dark:text-gray-500 text-sm">Sign here</span>
           </div>
         )}
       </div>
@@ -128,7 +128,7 @@ export default function SignaturePad({
         <button
           type="button"
           onClick={clear}
-          className="text-sm text-gray-500 hover:text-gray-700"
+          className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700"
         >
           Clear signature
         </button>

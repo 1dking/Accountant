@@ -65,13 +65,13 @@ export default function ShareDialog({ docId, isOpen, onClose }: ShareDialogProps
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
+      <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl w-full max-w-md mx-4">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b">
-          <h2 className="text-lg font-semibold text-gray-900">Share document</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Share document</h2>
           <button
             onClick={onClose}
-            className="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+            className="p-1 rounded-md text-gray-400 dark:text-gray-500 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700"
           >
             <X className="h-5 w-5" />
           </button>
@@ -84,7 +84,7 @@ export default function ShareDialog({ docId, isOpen, onClose }: ShareDialogProps
               <select
                 value={selectedUserId}
                 onChange={(e) => setSelectedUserId(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none pr-8"
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none pr-8"
               >
                 <option value="">Select a team member...</option>
                 {availableUsers.map((u) => (
@@ -93,12 +93,12 @@ export default function ShareDialog({ docId, isOpen, onClose }: ShareDialogProps
                   </option>
                 ))}
               </select>
-              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500 pointer-events-none" />
             </div>
             <select
               value={permission}
               onChange={(e) => setPermission(e.target.value as OfficePermission)}
-              className="px-3 py-2 text-sm border border-gray-300 rounded-md bg-white"
+              className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900"
             >
               <option value="view">View</option>
               <option value="edit">Edit</option>
@@ -113,35 +113,35 @@ export default function ShareDialog({ docId, isOpen, onClose }: ShareDialogProps
           </div>
 
           {availableUsers.length === 0 && allUsers.length > 0 && (
-            <p className="text-xs text-gray-500">All team members already have access.</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">All team members already have access.</p>
           )}
 
           {/* Current collaborators */}
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <Users className="h-4 w-4 text-gray-500" />
-              <h3 className="text-sm font-medium text-gray-700">People with access</h3>
+              <Users className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">People with access</h3>
             </div>
             {collaborators.length === 0 ? (
-              <p className="text-sm text-gray-500 py-2">Only you have access</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 py-2">Only you have access</p>
             ) : (
               <div className="space-y-2 max-h-48 overflow-y-auto">
                 {collaborators.map((collab) => (
                   <div key={collab.id} className="flex items-center gap-3 py-2">
-                    <div className="h-8 w-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-medium shrink-0">
+                    <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xs font-medium shrink-0">
                       {getInitials(collab.user_name)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">{collab.user_name}</p>
-                      <p className="text-xs text-gray-500 truncate">{collab.user_email}</p>
+                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{collab.user_name}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{collab.user_email}</p>
                     </div>
-                    <span className="text-xs text-gray-500 capitalize px-2 py-0.5 bg-gray-100 rounded-full">
+                    <span className="text-xs text-gray-500 dark:text-gray-400 capitalize px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full">
                       {collab.permission}
                     </span>
                     <button
                       onClick={() => unshareMutation.mutate(collab.user_id)}
                       disabled={unshareMutation.isPending}
-                      className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md"
+                      className="p-1 text-gray-400 dark:text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-md"
                       title="Remove access"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -154,10 +154,10 @@ export default function ShareDialog({ docId, isOpen, onClose }: ShareDialogProps
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3 border-t bg-gray-50 rounded-b-lg flex justify-end">
+        <div className="px-5 py-3 border-t bg-gray-50 dark:bg-gray-950 rounded-b-lg flex justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md"
+            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
           >
             Done
           </button>

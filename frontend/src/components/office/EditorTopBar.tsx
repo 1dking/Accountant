@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router'
-import { ArrowLeft, Star, Share2, FileText, Table2, Presentation } from 'lucide-react'
+import { ArrowLeft, Star, Share2, FileText, Table2, Presentation, BookOpen } from 'lucide-react'
 import CollaboratorAvatars from './CollaboratorAvatars'
 import ShareDialog from './ShareDialog'
 import type { DocType } from '@/types/models'
@@ -19,6 +19,7 @@ interface EditorTopBarProps {
   onStar: () => void
   connectedUsers?: AwarenessUser[]
   connectionStatus?: 'connected' | 'connecting' | 'disconnected'
+  onReadView?: () => void
 }
 
 const DOC_ICONS: Record<DocType, typeof FileText> = {
@@ -48,6 +49,7 @@ export default function EditorTopBar({
   onStar,
   connectedUsers = [],
   connectionStatus = 'connecting',
+  onReadView,
 }: EditorTopBarProps) {
   const navigate = useNavigate()
   const [editingTitle, setEditingTitle] = useState(false)
@@ -88,11 +90,11 @@ export default function EditorTopBar({
 
   return (
     <>
-      <div className="bg-white border-b px-4 py-2 flex items-center gap-3">
+      <div className="bg-white dark:bg-gray-900 border-b px-4 py-2 flex items-center gap-3">
         {/* Back button */}
         <button
           onClick={() => navigate(BACK_ROUTES[docType])}
-          className="p-1.5 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+          className="p-1.5 rounded-md text-gray-500 dark:text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700"
           title={`Back to ${docType === 'document' ? 'Docs' : docType === 'spreadsheet' ? 'Sheets' : 'Slides'}`}
         >
           <ArrowLeft className="h-5 w-5" />
@@ -110,12 +112,12 @@ export default function EditorTopBar({
             onChange={(e) => setLocalTitle(e.target.value)}
             onBlur={handleTitleBlur}
             onKeyDown={handleTitleKeyDown}
-            className="text-lg font-medium text-gray-900 bg-transparent border-b-2 border-blue-500 outline-none px-1 py-0 min-w-[200px]"
+            className="text-lg font-medium text-gray-900 dark:text-gray-100 bg-transparent border-b-2 border-blue-500 outline-none px-1 py-0 min-w-[200px]"
           />
         ) : (
           <button
             onClick={() => setEditingTitle(true)}
-            className="text-lg font-medium text-gray-900 hover:bg-gray-50 px-1 py-0 rounded min-w-0 truncate"
+            className="text-lg font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 px-1 py-0 rounded min-w-0 truncate"
             title="Click to rename"
           >
             {title || 'Untitled'}
@@ -128,7 +130,7 @@ export default function EditorTopBar({
           className={`p-1.5 rounded-md transition-colors ${
             isStarred
               ? 'text-yellow-500 hover:bg-yellow-50'
-              : 'text-gray-400 hover:text-yellow-500 hover:bg-gray-100'
+              : 'text-gray-400 dark:text-gray-500 hover:text-yellow-500 hover:bg-gray-100'
           }`}
           title={isStarred ? 'Remove star' : 'Add star'}
         >
@@ -146,7 +148,7 @@ export default function EditorTopBar({
                   : 'bg-red-500'
             }`}
           />
-          <span className="text-xs text-gray-400 capitalize">{connectionStatus}</span>
+          <span className="text-xs text-gray-400 dark:text-gray-500 capitalize">{connectionStatus}</span>
         </div>
 
         <div className="flex-1" />
@@ -154,10 +156,21 @@ export default function EditorTopBar({
         {/* Collaborator avatars */}
         <CollaboratorAvatars users={connectedUsers} />
 
+        {/* Read view button */}
+        {onReadView && (
+          <button
+            onClick={onReadView}
+            className="p-1.5 rounded-md text-gray-500 dark:text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            title="Read view"
+          >
+            <BookOpen className="h-5 w-5" />
+          </button>
+        )}
+
         {/* Share button */}
         <button
           onClick={() => setShowShare(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 rounded-full hover:bg-blue-100 transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 rounded-full hover:bg-blue-100 transition-colors"
         >
           <Share2 className="h-4 w-4" />
           Share

@@ -42,8 +42,8 @@ function ToolbarButton({ onClick, isActive, disabled, title, children }: Toolbar
       className={cn(
         'p-1.5 rounded-md transition-colors',
         isActive
-          ? 'bg-blue-100 text-blue-700'
-          : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
+          ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700'
+          : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900',
         disabled && 'opacity-40 cursor-not-allowed'
       )}
     >
@@ -53,7 +53,7 @@ function ToolbarButton({ onClick, isActive, disabled, title, children }: Toolbar
 }
 
 function ToolbarSeparator() {
-  return <div className="w-px h-6 bg-gray-200 mx-1" />
+  return <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1" />
 }
 
 export default function DocToolbar({ editor }: DocToolbarProps) {
@@ -71,7 +71,7 @@ export default function DocToolbar({ editor }: DocToolbarProps) {
   }
 
   return (
-    <div className="bg-white border-b px-3 py-1.5 flex items-center gap-0.5 flex-wrap">
+    <div className="bg-white dark:bg-gray-900 border-b px-3 py-1.5 flex items-center gap-0.5 flex-wrap">
       {/* Undo / Redo */}
       <ToolbarButton
         onClick={() => editor.chain().focus().undo().run()}
