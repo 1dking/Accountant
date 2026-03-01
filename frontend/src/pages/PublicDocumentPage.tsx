@@ -103,9 +103,11 @@ export default function PublicDocumentPage() {
                   />
                 )}
                 <div>
-                  <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                    {company?.company_name || 'Business'}
-                  </h1>
+                  {company?.company_name && (
+                    <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                      {company.company_name}
+                    </h1>
+                  )}
                   {company?.address_line1 && (
                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
                       {company.address_line1}
@@ -444,9 +446,15 @@ export default function PublicDocumentPage() {
         </div>
 
         {/* Footer */}
-        <p className="text-center text-xs text-gray-400 dark:text-gray-500 mt-6">
-          Powered by Accountant
-        </p>
+        {company?.has_logo && (
+          <div className="flex justify-center mt-6">
+            <img
+              src="/api/settings/company/logo"
+              alt="Logo"
+              className="h-8 w-auto object-contain opacity-50"
+            />
+          </div>
+        )}
       </div>
     </div>
   )
