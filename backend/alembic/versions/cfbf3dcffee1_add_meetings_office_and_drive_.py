@@ -9,7 +9,6 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import sqlite
 
 # revision identifiers, used by Alembic.
 revision: str = 'cfbf3dcffee1'
@@ -28,7 +27,7 @@ def upgrade() -> None:
     sa.Column('folder_id', sa.Uuid(), nullable=True),
     sa.Column('yjs_state', sa.LargeBinary(), nullable=True),
     sa.Column('content_text', sa.Text(), nullable=True),
-    sa.Column('content_json', sqlite.JSON(), nullable=True),
+    sa.Column('content_json', sa.JSON(), nullable=True),
     sa.Column('thumbnail_path', sa.String(length=500), nullable=True),
     sa.Column('is_starred', sa.Boolean(), server_default='0', nullable=False),
     sa.Column('is_trashed', sa.Boolean(), server_default='0', nullable=False),

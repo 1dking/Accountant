@@ -103,7 +103,14 @@ export async function downloadInvoicePdf(id: string, invoiceNumber?: string) {
   const res = await fetch(`/api/invoices/${id}/pdf`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   })
-  if (!res.ok) throw new Error('Failed to download PDF')
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`
+    try {
+      const body = await res.json()
+      detail = body?.error?.message || body?.detail || detail
+    } catch { /* response wasn't JSON */ }
+    throw new Error(detail)
+  }
   const blob = await res.blob()
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')

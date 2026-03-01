@@ -131,7 +131,7 @@ export default function InvoiceDetailPage() {
   if (invoiceQuery.isLoading) {
     return (
       <div className="p-6">
-        <p className="text-gray-400">Loading invoice...</p>
+        <p className="text-gray-400 dark:text-gray-500">Loading invoice...</p>
       </div>
     );
   }
@@ -142,7 +142,7 @@ export default function InvoiceDetailPage() {
         <p className="text-red-500">Failed to load invoice.</p>
         <button
           onClick={() => navigate('/invoices')}
-          className="mt-2 text-blue-600 hover:underline"
+          className="mt-2 text-blue-600 dark:text-blue-400 hover:underline"
         >
           Back to Invoices
         </button>
@@ -180,8 +180,8 @@ export default function InvoiceDetailPage() {
   const handleDownloadPdf = async () => {
     try {
       await downloadInvoicePdf(id!, invoice?.invoice_number);
-    } catch {
-      showActionMsg('Failed to download PDF.');
+    } catch (err) {
+      showActionMsg(`PDF download failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
   };
 
@@ -196,7 +196,7 @@ export default function InvoiceDetailPage() {
       <div className="mb-6">
         <button
           onClick={() => navigate('/invoices')}
-          className="flex items-center gap-1 text-gray-500 hover:text-gray-700 mb-4 transition-colors"
+          className="flex items-center gap-1 text-gray-500 dark:text-gray-400 hover:text-gray-700 mb-4 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           <span className="text-sm">Back to Invoices</span>
@@ -205,19 +205,19 @@ export default function InvoiceDetailPage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-semibold text-gray-900">
+              <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
                 {invoice.invoice_number}
               </h1>
               <span
-                className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusInfo?.color ?? 'bg-gray-100 text-gray-700'}`}
+                className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusInfo?.color ?? 'bg-gray-100 dark:bg-gray-800 text-gray-700'}`}
               >
                 {statusInfo?.label ?? invoice.status}
               </span>
             </div>
-            <p className="text-gray-500 mt-1">
+            <p className="text-gray-500 dark:text-gray-400 mt-1">
               {invoice.contact?.company_name}
               {invoice.contact?.email && (
-                <span className="text-gray-400"> &middot; {invoice.contact.email}</span>
+                <span className="text-gray-400 dark:text-gray-500"> &middot; {invoice.contact.email}</span>
               )}
             </p>
           </div>
@@ -227,7 +227,7 @@ export default function InvoiceDetailPage() {
             <div className="flex items-center gap-2 flex-wrap">
               <button
                 onClick={handleDownloadPdf}
-                className="flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
               >
                 <Download className="w-4 h-4" />
                 Download PDF
@@ -257,7 +257,7 @@ export default function InvoiceDetailPage() {
               <button
                 onClick={() => emailMutation.mutate()}
                 disabled={emailMutation.isPending}
-                className="flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                 title="Email invoice with PDF"
               >
                 <Mail className="w-4 h-4" />
@@ -267,7 +267,7 @@ export default function InvoiceDetailPage() {
               <button
                 onClick={() => paymentLinkMutation.mutate()}
                 disabled={paymentLinkMutation.isPending}
-                className="flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                 title="Create Stripe payment link"
               >
                 <Link className="w-4 h-4" />
@@ -276,7 +276,7 @@ export default function InvoiceDetailPage() {
 
               <button
                 onClick={() => setShowShareDialog(true)}
-                className="flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                 title="Create shareable public link"
               >
                 <Link className="w-4 h-4" />
@@ -298,7 +298,7 @@ export default function InvoiceDetailPage() {
               <button
                 onClick={() => smsMutation.mutate()}
                 disabled={smsMutation.isPending}
-                className="flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                 title="Send invoice via SMS"
               >
                 <MessageSquare className="w-4 h-4" />
@@ -321,14 +321,14 @@ export default function InvoiceDetailPage() {
 
       {/* Delete Confirmation */}
       {deleteConfirm && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 flex items-center justify-between">
+        <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 rounded-xl p-4 mb-6 flex items-center justify-between">
           <p className="text-sm text-red-700">
             Are you sure you want to delete this invoice? This action cannot be undone.
           </p>
           <div className="flex items-center gap-2 ml-4">
             <button
               onClick={() => setDeleteConfirm(false)}
-              className="px-3 py-1.5 text-sm border rounded-lg hover:bg-white transition-colors"
+              className="px-3 py-1.5 text-sm border rounded-lg hover:bg-white dark:bg-gray-900 transition-colors"
             >
               Cancel
             </button>
@@ -345,42 +345,42 @@ export default function InvoiceDetailPage() {
 
       {/* Action message */}
       {actionMsg && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-6 text-sm text-blue-700">
+        <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 rounded-lg p-3 mb-6 text-sm text-blue-700">
           {actionMsg}
         </div>
       )}
 
       {/* Invoice Details */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-          <h3 className="text-sm font-medium text-gray-500 mb-2">Issue Date</h3>
-          <p className="text-gray-900">{formatDate(invoice.issue_date)}</p>
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
+          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Issue Date</h3>
+          <p className="text-gray-900 dark:text-gray-100">{formatDate(invoice.issue_date)}</p>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-          <h3 className="text-sm font-medium text-gray-500 mb-2">Due Date</h3>
-          <p className="text-gray-900">{formatDate(invoice.due_date)}</p>
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
+          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Due Date</h3>
+          <p className="text-gray-900 dark:text-gray-100">{formatDate(invoice.due_date)}</p>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-          <h3 className="text-sm font-medium text-gray-500 mb-2">Balance Due</h3>
-          <p className="text-2xl font-semibold text-gray-900">
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
+          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Balance Due</h3>
+          <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
             {formatCurrency(balanceDue, currency)}
           </p>
         </div>
       </div>
 
       {/* Line Items Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-6">
-        <div className="px-5 py-4 border-b border-gray-100">
-          <h2 className="text-lg font-medium text-gray-900">Line Items</h2>
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden mb-6">
+        <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+          <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">Line Items</h2>
         </div>
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-gray-100">
-              <th className="text-left px-5 py-3 text-gray-500 font-medium">Description</th>
-              <th className="text-right px-5 py-3 text-gray-500 font-medium">Qty</th>
-              <th className="text-right px-5 py-3 text-gray-500 font-medium">Unit Price</th>
-              <th className="text-right px-5 py-3 text-gray-500 font-medium">Tax %</th>
-              <th className="text-right px-5 py-3 text-gray-500 font-medium">Total</th>
+            <tr className="border-b border-gray-100 dark:border-gray-700">
+              <th className="text-left px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Description</th>
+              <th className="text-right px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Qty</th>
+              <th className="text-right px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Unit Price</th>
+              <th className="text-right px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Tax %</th>
+              <th className="text-right px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Total</th>
             </tr>
           </thead>
           <tbody>
@@ -390,15 +390,15 @@ export default function InvoiceDetailPage() {
               const lineTotal = lineSubtotal + lineTax;
               return (
                 <tr key={index} className="border-b border-gray-50">
-                  <td className="px-5 py-3 text-gray-900">{item.description}</td>
-                  <td className="px-5 py-3 text-right text-gray-700">{item.quantity}</td>
-                  <td className="px-5 py-3 text-right text-gray-700">
+                  <td className="px-5 py-3 text-gray-900 dark:text-gray-100">{item.description}</td>
+                  <td className="px-5 py-3 text-right text-gray-700 dark:text-gray-300">{item.quantity}</td>
+                  <td className="px-5 py-3 text-right text-gray-700 dark:text-gray-300">
                     {formatCurrency(item.unit_price, currency)}
                   </td>
-                  <td className="px-5 py-3 text-right text-gray-500">
+                  <td className="px-5 py-3 text-right text-gray-500 dark:text-gray-400">
                     {item.tax_rate ? `${item.tax_rate}%` : '—'}
                   </td>
-                  <td className="px-5 py-3 text-right font-medium text-gray-900">
+                  <td className="px-5 py-3 text-right font-medium text-gray-900 dark:text-gray-100">
                     {formatCurrency(lineTotal, currency)}
                   </td>
                 </tr>
@@ -408,43 +408,43 @@ export default function InvoiceDetailPage() {
         </table>
 
         {/* Totals */}
-        <div className="border-t border-gray-100 px-5 py-4">
+        <div className="border-t border-gray-100 dark:border-gray-700 px-5 py-4">
           <div className="flex flex-col items-end gap-1">
             <div className="flex justify-between w-64">
-              <span className="text-sm text-gray-500">Subtotal</span>
-              <span className="text-sm text-gray-900">{formatCurrency(subtotal, currency)}</span>
+              <span className="text-sm text-gray-500 dark:text-gray-400">Subtotal</span>
+              <span className="text-sm text-gray-900 dark:text-gray-100">{formatCurrency(subtotal, currency)}</span>
             </div>
             {taxTotal > 0 && (
               <div className="flex justify-between w-64">
-                <span className="text-sm text-gray-500">Tax</span>
-                <span className="text-sm text-gray-900">{formatCurrency(taxTotal, currency)}</span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">Tax</span>
+                <span className="text-sm text-gray-900 dark:text-gray-100">{formatCurrency(taxTotal, currency)}</span>
               </div>
             )}
             {discountAmount > 0 && (
               <div className="flex justify-between w-64">
-                <span className="text-sm text-gray-500">Discount</span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">Discount</span>
                 <span className="text-sm text-red-600">
                   -{formatCurrency(discountAmount, currency)}
                 </span>
               </div>
             )}
-            <div className="flex justify-between w-64 pt-2 border-t border-gray-200 mt-1">
-              <span className="text-sm font-medium text-gray-900">Total</span>
-              <span className="text-sm font-semibold text-gray-900">
+            <div className="flex justify-between w-64 pt-2 border-t border-gray-200 dark:border-gray-700 mt-1">
+              <span className="text-sm font-medium text-gray-900 dark:text-gray-100">Total</span>
+              <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                 {formatCurrency(total, currency)}
               </span>
             </div>
             {totalPaid > 0 && (
               <>
                 <div className="flex justify-between w-64">
-                  <span className="text-sm text-gray-500">Paid</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">Paid</span>
                   <span className="text-sm text-green-600">
                     -{formatCurrency(totalPaid, currency)}
                   </span>
                 </div>
-                <div className="flex justify-between w-64 pt-1 border-t border-gray-200">
-                  <span className="text-sm font-medium text-gray-900">Balance Due</span>
-                  <span className="text-sm font-semibold text-gray-900">
+                <div className="flex justify-between w-64 pt-1 border-t border-gray-200 dark:border-gray-700">
+                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100">Balance Due</span>
+                  <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                     {formatCurrency(balanceDue, currency)}
                   </span>
                 </div>
@@ -458,15 +458,15 @@ export default function InvoiceDetailPage() {
       {(invoice.notes || invoice.payment_terms) && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           {invoice.notes && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-              <h3 className="text-sm font-medium text-gray-500 mb-2">Notes</h3>
-              <p className="text-sm text-gray-700 whitespace-pre-wrap">{invoice.notes}</p>
+            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
+              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Notes</h3>
+              <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{invoice.notes}</p>
             </div>
           )}
           {invoice.payment_terms && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-              <h3 className="text-sm font-medium text-gray-500 mb-2">Payment Terms</h3>
-              <p className="text-sm text-gray-700 whitespace-pre-wrap">{invoice.payment_terms}</p>
+            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
+              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Payment Terms</h3>
+              <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{invoice.payment_terms}</p>
             </div>
           )}
         </div>
@@ -474,17 +474,17 @@ export default function InvoiceDetailPage() {
 
       {/* Payment History */}
       {invoice.payments && invoice.payments.length > 0 && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-6">
-          <div className="px-5 py-4 border-b border-gray-100">
-            <h2 className="text-lg font-medium text-gray-900">Payment History</h2>
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden mb-6">
+          <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+            <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">Payment History</h2>
           </div>
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-100">
-                <th className="text-left px-5 py-3 text-gray-500 font-medium">Date</th>
-                <th className="text-left px-5 py-3 text-gray-500 font-medium">Method</th>
-                <th className="text-left px-5 py-3 text-gray-500 font-medium">Reference</th>
-                <th className="text-right px-5 py-3 text-gray-500 font-medium">Amount</th>
+              <tr className="border-b border-gray-100 dark:border-gray-700">
+                <th className="text-left px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Date</th>
+                <th className="text-left px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Method</th>
+                <th className="text-left px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Reference</th>
+                <th className="text-right px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Amount</th>
               </tr>
             </thead>
             <tbody>
@@ -494,11 +494,11 @@ export default function InvoiceDetailPage() {
                 );
                 return (
                   <tr key={index} className="border-b border-gray-50">
-                    <td className="px-5 py-3 text-gray-900">{formatDate(payment.date)}</td>
-                    <td className="px-5 py-3 text-gray-700">
+                    <td className="px-5 py-3 text-gray-900 dark:text-gray-100">{formatDate(payment.date)}</td>
+                    <td className="px-5 py-3 text-gray-700 dark:text-gray-300">
                       {methodInfo?.label ?? payment.payment_method ?? '—'}
                     </td>
-                    <td className="px-5 py-3 text-gray-500">{payment.reference || '—'}</td>
+                    <td className="px-5 py-3 text-gray-500 dark:text-gray-400">{payment.reference || '—'}</td>
                     <td className="px-5 py-3 text-right font-medium text-green-600">
                       {formatCurrency(payment.amount, currency)}
                     </td>
@@ -512,12 +512,12 @@ export default function InvoiceDetailPage() {
 
       {/* Record Payment Form */}
       {showPaymentForm && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-6">
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5 mb-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-medium text-gray-900">Record Payment</h2>
+            <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">Record Payment</h2>
             <button
               onClick={() => setShowPaymentForm(false)}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
+              className="text-gray-400 dark:text-gray-500 hover:text-gray-600 transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
@@ -525,7 +525,7 @@ export default function InvoiceDetailPage() {
           <form onSubmit={handleRecordPayment} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Amount <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -538,12 +538,12 @@ export default function InvoiceDetailPage() {
                   onChange={(e) =>
                     setPaymentData({ ...paymentData, amount: parseFloat(e.target.value) || 0 })
                   }
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder={`Max: ${formatCurrency(balanceDue, currency)}`}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Date <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -553,11 +553,11 @@ export default function InvoiceDetailPage() {
                   onChange={(e) =>
                     setPaymentData({ ...paymentData, date: e.target.value })
                   }
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Payment Method
                 </label>
                 <select
@@ -565,7 +565,7 @@ export default function InvoiceDetailPage() {
                   onChange={(e) =>
                     setPaymentData({ ...paymentData, payment_method: e.target.value })
                   }
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   {PAYMENT_METHODS.map((method) => (
                     <option key={method.value} value={method.value}>
@@ -575,7 +575,7 @@ export default function InvoiceDetailPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Reference
                 </label>
                 <input
@@ -584,20 +584,20 @@ export default function InvoiceDetailPage() {
                   onChange={(e) =>
                     setPaymentData({ ...paymentData, reference: e.target.value })
                   }
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="e.g., Check #1234"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
               <textarea
                 value={paymentData.notes}
                 onChange={(e) =>
                   setPaymentData({ ...paymentData, notes: e.target.value })
                 }
                 rows={2}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                 placeholder="Optional payment notes..."
               />
             </div>
@@ -612,7 +612,7 @@ export default function InvoiceDetailPage() {
               <button
                 type="button"
                 onClick={() => setShowPaymentForm(false)}
-                className="px-4 py-2 text-sm border rounded-lg hover:bg-gray-50 transition-colors"
+                className="px-4 py-2 text-sm border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
               >
                 Cancel
               </button>
