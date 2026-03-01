@@ -107,7 +107,7 @@ async def share_estimate(
     await service.get_estimate(db, estimate_id)
     token = await create_public_token(db, ResourceType.ESTIMATE, estimate_id, current_user)
     base_url = str(request.base_url).rstrip("/")
-    shareable_url = f"{base_url}/view/{token.token}"
+    shareable_url = f"{base_url}/p/{token.token}"
     return {"data": {"id": str(token.id), "token": token.token, "resource_type": "estimate", "resource_id": str(estimate_id), "shareable_url": shareable_url}}
 
 
