@@ -65,10 +65,22 @@ def generate_livekit_token(
 
     try:
         from livekit.api import VideoGrants
-        grant = VideoGrants(room_join=True, room=room_name)
+        grant = VideoGrants(
+            room_join=True,
+            room=room_name,
+            can_publish=True,
+            can_subscribe=True,
+            can_publish_data=True,
+        )
     except ImportError:
         from livekit.api import VideoGrant
-        grant = VideoGrant(room_join=True, room=room_name)
+        grant = VideoGrant(
+            room_join=True,
+            room=room_name,
+            can_publish=True,
+            can_subscribe=True,
+            can_publish_data=True,
+        )
 
     token = AccessToken(settings.livekit_api_key, settings.livekit_api_secret)
     token.with_identity(identity)
