@@ -48,7 +48,7 @@ def upgrade() -> None:
         'public_access_tokens',
         sa.Column('id', sa.Uuid(), nullable=False),
         sa.Column('token', sa.String(length=64), nullable=False),
-        sa.Column('resource_type', sa.Enum('estimate', 'invoice', name='resourcetype'), nullable=False),
+        sa.Column('resource_type', sa.Enum('ESTIMATE', 'INVOICE', name='resourcetype'), nullable=False),
         sa.Column('resource_id', sa.Uuid(), nullable=False),
         sa.Column('expires_at', sa.DateTime(timezone=True), nullable=True),
         sa.Column('is_active', sa.Boolean(), server_default='1', nullable=False),
