@@ -432,6 +432,9 @@ async def livekit_ws_proxy(websocket: WebSocket):
     if qs:
         upstream_url += f"?{qs}"
 
+    conn_id = id(websocket)
+    logger.info("LiveKit proxy [%s]: opening upstream %s", conn_id, upstream_url.split("?")[0])
+
     await websocket.accept()
 
     try:
@@ -440,7 +443,12 @@ async def livekit_ws_proxy(websocket: WebSocket):
             additional_headers={},
             max_size=None,
             open_timeout=10,
+            ping_interval=20,
+            ping_timeout=20,
+            close_timeout=5,
         ) as lk_ws:
+
+            logger.info("LiveKit proxy [%s]: upstream connected", conn_id)
 
             async def client_to_livekit():
                 """Forward frames from browser to LiveKit."""
@@ -453,8 +461,8 @@ async def livekit_ws_proxy(websocket: WebSocket):
                             await lk_ws.send(msg["bytes"])
                         elif "text" in msg and msg["text"]:
                             await lk_ws.send(msg["text"])
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("LiveKit proxy [%s]: client→LK ended: %s", conn_id, exc)
 
             async def livekit_to_client():
                 """Forward frames from LiveKit to browser."""
@@ -464,24 +472,28 @@ async def livekit_ws_proxy(websocket: WebSocket):
                             await websocket.send_bytes(message)
                         else:
                             await websocket.send_text(message)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("LiveKit proxy [%s]: LK→client ended: %s", conn_id, exc)
 
             # Run both directions concurrently
+            tasks = [
+                asyncio.create_task(client_to_livekit(), name=f"c2lk-{conn_id}"),
+                asyncio.create_task(livekit_to_client(), name=f"lk2c-{conn_id}"),
+            ]
+
             done, pending = await asyncio.wait(
-                [
-                    asyncio.create_task(client_to_livekit()),
-                    asyncio.create_task(livekit_to_client()),
-                ],
+                tasks,
                 return_when=asyncio.FIRST_COMPLETED,
             )
 
-            # Cancel the remaining task
+            # Cancel the remaining tasks
             for task in pending:
                 task.cancel()
 
+            logger.info("LiveKit proxy [%s]: connection closed", conn_id)
+
     except Exception:
-        logger.debug("LiveKit proxy connection closed", exc_info=True)
+        logger.warning("LiveKit proxy [%s]: connection error", conn_id, exc_info=True)
     finally:
         try:
             await websocket.close()

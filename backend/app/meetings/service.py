@@ -436,9 +436,13 @@ async def join_meeting_as_guest(
     await db.commit()
     await db.refresh(participant)
 
-    # Generate token with guest identity
+    # Use a unique identity per connection so that sharing the same invite
+    # link with multiple people doesn't cause LiveKit to kick the first
+    # connection.  LiveKit treats each identity as one participant — if two
+    # connections use the same identity, the first gets disconnected.
     display_name = participant.guest_name or "Guest"
-    identity = f"guest-{participant.id}"
+    session_suffix = secrets.token_hex(4)
+    identity = f"guest-{participant.id}-{session_suffix}"
 
     token = generate_livekit_token(
         meeting.livekit_room_name, identity, settings,
