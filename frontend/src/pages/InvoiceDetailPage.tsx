@@ -18,7 +18,7 @@ import {
   sendInvoice,
   deleteInvoice,
   recordPayment,
-  getInvoicePdfUrl,
+  downloadInvoicePdf,
 } from '@/api/invoices';
 import {
   sendInvoiceEmail,
@@ -177,9 +177,12 @@ export default function InvoiceDetailPage() {
     invoice.status === 'viewed' ||
     invoice.status === 'partially_paid';
 
-  const handleDownloadPdf = () => {
-    const url = getInvoicePdfUrl(id!);
-    window.open(url, '_blank');
+  const handleDownloadPdf = async () => {
+    try {
+      await downloadInvoicePdf(id!, invoice?.invoice_number);
+    } catch {
+      showActionMsg('Failed to download PDF.');
+    }
   };
 
   const handleRecordPayment = (e: React.FormEvent) => {

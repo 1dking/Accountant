@@ -97,3 +97,20 @@ export async function getInvoiceStats() {
 export function getInvoicePdfUrl(id: string) {
   return `/api/invoices/${id}/pdf`
 }
+
+export async function downloadInvoicePdf(id: string, invoiceNumber?: string) {
+  const token = localStorage.getItem('access_token')
+  const res = await fetch(`/api/invoices/${id}/pdf`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+  if (!res.ok) throw new Error('Failed to download PDF')
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = invoiceNumber ? `Invoice-${invoiceNumber}.pdf` : 'invoice.pdf'
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}

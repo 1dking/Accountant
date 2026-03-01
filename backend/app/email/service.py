@@ -260,7 +260,7 @@ async def send_invoice_email(
     )
 
     # Generate PDF attachment
-    pdf_bytes = await generate_invoice_pdf(invoice_id, db)
+    pdf_bytes = generate_invoice_pdf(invoice)
     attachments = [
         (f"Invoice-{invoice.invoice_number}.pdf", pdf_bytes, "application/pdf"),
     ]

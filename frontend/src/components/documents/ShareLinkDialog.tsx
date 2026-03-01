@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { createShareLink } from '@/api/public'
 import { X, Copy, Check, Loader2, Link } from 'lucide-react'
@@ -19,6 +19,8 @@ export default function ShareLinkDialog({
   const [copied, setCopied] = useState(false)
   const [shareUrl, setShareUrl] = useState('')
 
+  const hasFired = useRef(false)
+
   const createMutation = useMutation({
     mutationFn: () => createShareLink(resourceType, resourceId),
     onSuccess: (response) => {
@@ -29,9 +31,15 @@ export default function ShareLinkDialog({
   })
 
   // Auto-create link when dialog opens
-  if (isOpen && !shareUrl && !createMutation.isPending && !createMutation.isError) {
-    createMutation.mutate()
-  }
+  useEffect(() => {
+    if (isOpen && !shareUrl && !hasFired.current) {
+      hasFired.current = true
+      createMutation.mutate()
+    }
+    if (!isOpen) {
+      hasFired.current = false
+    }
+  }, [isOpen])
 
   if (!isOpen) return null
 
