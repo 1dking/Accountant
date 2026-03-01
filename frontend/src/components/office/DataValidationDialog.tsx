@@ -20,10 +20,6 @@ const VALIDATION_TYPES: { value: ValidationType; label: string; description: str
   { value: 'custom', label: 'Custom Formula', description: 'Use a custom formula for validation' },
 ]
 
-function getTypeLabel(type: ValidationType): string {
-  return VALIDATION_TYPES.find((t) => t.value === type)?.label ?? type
-}
-
 interface EditorState {
   type: ValidationType
   min: string

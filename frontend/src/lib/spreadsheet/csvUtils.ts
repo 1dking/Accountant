@@ -1,5 +1,5 @@
 import type { CellData, SheetData } from './types'
-import { cellId, colLabel, parseCellRef } from './types'
+import { cellId, parseCellRef } from './types'
 
 /**
  * Detect the most likely delimiter in a CSV string by checking the first line.

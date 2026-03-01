@@ -1607,24 +1607,6 @@ export default function SheetEditorPage() {
   // ---------------------------------------------------------------------------
   // Compute frozen offsets for sticky positioning
   // ---------------------------------------------------------------------------
-  const frozenColsWidth = useMemo(() => {
-    let w = 0
-    for (let c = 0; c < freezeCol; c++) {
-      if (hiddenCols.has(c)) continue
-      w += getColWidth(c)
-    }
-    return w
-  }, [freezeCol, hiddenCols, getColWidth])
-
-  const frozenRowsHeight = useMemo(() => {
-    let h = 0
-    for (let r = 0; r < freezeRow; r++) {
-      if (filteredHiddenRows.has(r)) continue
-      h += getRowHeight(r)
-    }
-    return h
-  }, [freezeRow, filteredHiddenRows, getRowHeight])
-
   // ---------------------------------------------------------------------------
   // Build cell style
   // ---------------------------------------------------------------------------

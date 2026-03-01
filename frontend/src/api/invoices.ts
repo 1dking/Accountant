@@ -99,10 +99,33 @@ export function getInvoicePdfUrl(id: string) {
 }
 
 export async function downloadInvoicePdf(id: string, invoiceNumber?: string) {
-  const token = localStorage.getItem('access_token')
-  const res = await fetch(`/api/invoices/${id}/pdf`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  })
+  const doFetch = () => {
+    const token = localStorage.getItem('access_token')
+    return fetch(`/api/invoices/${id}/pdf`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+  }
+
+  let res = await doFetch()
+
+  // Auto-refresh token on 401 (raw fetch bypasses api client's retry)
+  if (res.status === 401) {
+    const refreshToken = localStorage.getItem('refresh_token')
+    if (refreshToken) {
+      const refreshRes = await fetch('/api/auth/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      })
+      if (refreshRes.ok) {
+        const { data } = await refreshRes.json()
+        localStorage.setItem('access_token', data.access_token)
+        localStorage.setItem('refresh_token', data.refresh_token)
+        res = await doFetch()
+      }
+    }
+  }
+
   if (!res.ok) {
     let detail = `HTTP ${res.status}`
     try {

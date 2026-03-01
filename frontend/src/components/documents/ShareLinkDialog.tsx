@@ -94,7 +94,7 @@ export default function ShareLinkDialog({
           {createMutation.isError && (
             <div className="py-4">
               <p className="text-sm text-red-600">
-                Failed to create share link. Please try again.
+                Failed to create share link: {createMutation.error instanceof Error ? createMutation.error.message : 'Unknown error'}
               </p>
               <button
                 onClick={() => createMutation.mutate()}

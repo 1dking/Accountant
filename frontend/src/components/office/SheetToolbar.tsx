@@ -327,7 +327,7 @@ export default function SheetToolbar({
       {/* Group 5: Number Format */}
       <select
         value={currentFormat}
-        onChange={(e) => onSetFormat(e.target.value as CellData['format'])}
+        onChange={(e) => onSetFormat(e.target.value as 'plain' | 'number' | 'currency' | 'percent' | 'date')}
         title="Number format"
         className="h-7 px-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
       >
