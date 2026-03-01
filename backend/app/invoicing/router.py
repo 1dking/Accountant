@@ -13,6 +13,7 @@ from app.dependencies import get_current_user, get_db, require_role
 from app.invoicing import service
 from app.invoicing.models import InvoiceStatus
 from app.invoicing.pdf import generate_invoice_pdf
+from app.settings.service import get_company_settings, get_logo_bytes
 from app.public.models import ResourceType
 from app.public.service import create_public_token, revoke_token
 from app.invoicing.schemas import (
@@ -121,11 +122,52 @@ async def record_payment(
 @router.get("/{invoice_id}/pdf")
 async def get_invoice_pdf(
     invoice_id: uuid.UUID,
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
     _: Annotated[User, Depends(get_current_user)],
 ) -> Response:
+    from app.documents.storage import LocalStorage
+
     invoice = await service.get_invoice(db, invoice_id)
-    pdf_bytes = generate_invoice_pdf(invoice)
+
+    # Fetch company branding
+    company = await get_company_settings(db)
+    business_name = (company.company_name if company and company.company_name else "Invoice")
+    company_address = None
+    logo_bytes = None
+    company_email = None
+    company_phone = None
+
+    if company:
+        parts = []
+        if company.address_line1:
+            parts.append(company.address_line1)
+        city_state = ", ".join(filter(None, [company.city, company.state]))
+        if city_state:
+            if company.zip_code:
+                city_state += f" {company.zip_code}"
+            parts.append(city_state)
+        if company.country:
+            parts.append(company.country)
+        if parts:
+            company_address = ", ".join(parts)
+        company_email = company.company_email
+        company_phone = company.company_phone
+
+        # Fetch logo
+        storage = LocalStorage(request.app.state.settings.storage_path)
+        logo_result = await get_logo_bytes(db, storage)
+        if logo_result:
+            logo_bytes = logo_result[0]
+
+    pdf_bytes = generate_invoice_pdf(
+        invoice,
+        business_name=business_name,
+        logo_bytes=logo_bytes,
+        company_address=company_address,
+        company_email=company_email,
+        company_phone=company_phone,
+    )
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",

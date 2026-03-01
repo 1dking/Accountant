@@ -22,6 +22,9 @@ def generate_invoice_pdf(
     invoice: Invoice,
     business_name: str = "Accountant",
     logo_bytes: bytes | None = None,
+    company_address: str | None = None,
+    company_email: str | None = None,
+    company_phone: str | None = None,
 ) -> bytes:
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
@@ -50,6 +53,15 @@ def generate_invoice_pdf(
 
     # Header
     elements.append(Paragraph(business_name, title_style))
+    if company_address:
+        elements.append(Paragraph(company_address, subtitle_style))
+    contact_parts = []
+    if company_email:
+        contact_parts.append(company_email)
+    if company_phone:
+        contact_parts.append(company_phone)
+    if contact_parts:
+        elements.append(Paragraph(" | ".join(contact_parts), subtitle_style))
     elements.append(Spacer(1, 6))
     elements.append(Paragraph(f"Invoice #{invoice.invoice_number}", subtitle_style))
     elements.append(Spacer(1, 20))

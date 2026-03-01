@@ -259,8 +259,33 @@ async def send_invoice_email(
         year=now.year,
     )
 
+    # Fetch company branding for PDF
+    from app.settings.service import get_company_settings
+
+    company = await get_company_settings(db)
+    pdf_kwargs: dict = {}
+    if company:
+        if company.company_name:
+            pdf_kwargs["business_name"] = company.company_name
+        addr_parts = []
+        if company.address_line1:
+            addr_parts.append(company.address_line1)
+        city_state = ", ".join(filter(None, [company.city, company.state]))
+        if city_state:
+            if company.zip_code:
+                city_state += f" {company.zip_code}"
+            addr_parts.append(city_state)
+        if company.country:
+            addr_parts.append(company.country)
+        if addr_parts:
+            pdf_kwargs["company_address"] = ", ".join(addr_parts)
+        if company.company_email:
+            pdf_kwargs["company_email"] = company.company_email
+        if company.company_phone:
+            pdf_kwargs["company_phone"] = company.company_phone
+
     # Generate PDF attachment
-    pdf_bytes = generate_invoice_pdf(invoice)
+    pdf_bytes = generate_invoice_pdf(invoice, **pdf_kwargs)
     attachments = [
         (f"Invoice-{invoice.invoice_number}.pdf", pdf_bytes, "application/pdf"),
     ]
