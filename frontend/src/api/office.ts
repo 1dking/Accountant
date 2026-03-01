@@ -37,6 +37,10 @@ export async function shareOfficeDoc(id: string, data: { user_id: string; permis
   return api.post<ApiResponse<{ message: string }>>(`/office/${id}/share`, data)
 }
 
+export async function unshareOfficeDoc(id: string, userId: string) {
+  return api.delete<ApiResponse<{ message: string }>>(`/office/${id}/share/${userId}`)
+}
+
 export async function duplicateOfficeDoc(id: string) {
   return api.post<ApiResponse<OfficeDocument>>(`/office/${id}/duplicate`)
 }

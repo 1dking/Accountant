@@ -81,7 +81,6 @@ async def list_smtp_configs(
 ) -> Sequence[SmtpConfig]:
     result = await db.execute(
         select(SmtpConfig)
-        .where(SmtpConfig.created_by == user.id)
         .order_by(SmtpConfig.created_at.desc())
     )
     return result.scalars().all()

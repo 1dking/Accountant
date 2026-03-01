@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { shareOfficeDoc, getOfficeCollaborators } from '@/api/office'
-import { X, UserPlus, Users } from 'lucide-react'
+import { shareOfficeDoc, unshareOfficeDoc, getOfficeCollaborators } from '@/api/office'
+import { listUsers } from '@/api/auth'
+import { X, UserPlus, Users, Trash2, ChevronDown } from 'lucide-react'
 import { getInitials } from '@/lib/utils'
+import { useAuthStore } from '@/stores/authStore'
 import type { OfficePermission } from '@/types/models'
 
 interface ShareDialogProps {
@@ -13,7 +15,8 @@ interface ShareDialogProps {
 
 export default function ShareDialog({ docId, isOpen, onClose }: ShareDialogProps) {
   const queryClient = useQueryClient()
-  const [email, setEmail] = useState('')
+  const currentUser = useAuthStore((s) => s.user)
+  const [selectedUserId, setSelectedUserId] = useState('')
   const [permission, setPermission] = useState<OfficePermission>('edit')
 
   const { data: collabData } = useQuery({
@@ -22,16 +25,39 @@ export default function ShareDialog({ docId, isOpen, onClose }: ShareDialogProps
     enabled: isOpen,
   })
 
+  const { data: usersData } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => listUsers(),
+    enabled: isOpen,
+  })
+
   const collaborators = collabData?.data ?? []
+  const allUsers = usersData?.data ?? []
+
+  // Filter out current user and already-shared users
+  const collabUserIds = new Set(collaborators.map((c) => c.user_id))
+  const availableUsers = allUsers.filter(
+    (u) => u.id !== currentUser?.id && !collabUserIds.has(u.id) && u.is_active
+  )
 
   const shareMutation = useMutation({
-    mutationFn: () => shareOfficeDoc(docId, { user_id: email, permission }),
+    mutationFn: () => shareOfficeDoc(docId, { user_id: selectedUserId, permission }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['office-collaborators', docId] })
-      setEmail('')
+      setSelectedUserId('')
     },
     onError: (err: Error) => {
       alert(`Failed to share: ${err.message}`)
+    },
+  })
+
+  const unshareMutation = useMutation({
+    mutationFn: (userId: string) => unshareOfficeDoc(docId, userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['office-collaborators', docId] })
+    },
+    onError: (err: Error) => {
+      alert(`Failed to remove access: ${err.message}`)
     },
   })
 
@@ -54,30 +80,41 @@ export default function ShareDialog({ docId, isOpen, onClose }: ShareDialogProps
         {/* Add people */}
         <div className="px-5 py-4 space-y-4">
           <div className="flex items-center gap-2">
-            <input
-              type="text"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Enter user email or ID..."
-              className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            <div className="relative flex-1">
+              <select
+                value={selectedUserId}
+                onChange={(e) => setSelectedUserId(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none pr-8"
+              >
+                <option value="">Select a team member...</option>
+                {availableUsers.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.full_name} ({u.email})
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+            </div>
             <select
               value={permission}
               onChange={(e) => setPermission(e.target.value as OfficePermission)}
               className="px-3 py-2 text-sm border border-gray-300 rounded-md bg-white"
             >
               <option value="view">View</option>
-              <option value="comment">Comment</option>
               <option value="edit">Edit</option>
             </select>
             <button
               onClick={() => shareMutation.mutate()}
-              disabled={!email.trim() || shareMutation.isPending}
+              disabled={!selectedUserId || shareMutation.isPending}
               className="px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <UserPlus className="h-4 w-4" />
             </button>
           </div>
+
+          {availableUsers.length === 0 && allUsers.length > 0 && (
+            <p className="text-xs text-gray-500">All team members already have access.</p>
+          )}
 
           {/* Current collaborators */}
           <div>
@@ -101,6 +138,14 @@ export default function ShareDialog({ docId, isOpen, onClose }: ShareDialogProps
                     <span className="text-xs text-gray-500 capitalize px-2 py-0.5 bg-gray-100 rounded-full">
                       {collab.permission}
                     </span>
+                    <button
+                      onClick={() => unshareMutation.mutate(collab.user_id)}
+                      disabled={unshareMutation.isPending}
+                      className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md"
+                      title="Remove access"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   </div>
                 ))}
               </div>

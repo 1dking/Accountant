@@ -248,11 +248,10 @@ async def accept_estimate(
 async def revoke_token(
     db: AsyncSession, token_id: uuid.UUID, user: User
 ) -> None:
-    """Deactivate a public access token (only the creator can revoke)."""
+    """Deactivate a public access token."""
     result = await db.execute(
         select(PublicAccessToken).where(
             PublicAccessToken.id == token_id,
-            PublicAccessToken.created_by == user.id,
         )
     )
     pat = result.scalar_one_or_none()
