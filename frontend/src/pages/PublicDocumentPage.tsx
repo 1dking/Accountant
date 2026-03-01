@@ -108,18 +108,19 @@ export default function PublicDocumentPage() {
                       {company.company_name}
                     </h1>
                   )}
-                  {company?.address_line1 && (
+                  {(company?.address_line1 || company?.city || company?.state || company?.country) && (
                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                      {company.address_line1}
-                      {company.city && `, ${company.city}`}
-                      {company.state && `, ${company.state}`}
-                      {company.zip_code && ` ${company.zip_code}`}
+                      {[
+                        company.address_line1,
+                        [company.city, company.state].filter(Boolean).join(', '),
+                        company.zip_code,
+                        company.country,
+                      ].filter(Boolean).join(', ')}
                     </p>
                   )}
-                  {company?.company_email && (
+                  {(company?.company_email || company?.company_phone) && (
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {company.company_email}
-                      {company.company_phone && ` | ${company.company_phone}`}
+                      {[company.company_email, company.company_phone].filter(Boolean).join(' | ')}
                     </p>
                   )}
                 </div>
