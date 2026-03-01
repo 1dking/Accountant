@@ -3,7 +3,7 @@ import uuid
 from datetime import date
 from typing import Optional, Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -138,13 +138,16 @@ async def get_invoice_pdf(
 @router.post("/{invoice_id}/share", status_code=201)
 async def share_invoice(
     invoice_id: uuid.UUID,
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
 ) -> dict:
     """Create a shareable public link for an invoice."""
     await service.get_invoice(db, invoice_id)
     token = await create_public_token(db, ResourceType.INVOICE, invoice_id, current_user)
-    return {"data": {"id": str(token.id), "token": token.token, "resource_type": "invoice", "resource_id": str(invoice_id)}}
+    base_url = str(request.base_url).rstrip("/")
+    shareable_url = f"{base_url}/view/{token.token}"
+    return {"data": {"id": str(token.id), "token": token.token, "resource_type": "invoice", "resource_id": str(invoice_id), "shareable_url": shareable_url}}
 
 
 @router.delete("/{invoice_id}/share/{token_id}")

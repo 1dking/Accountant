@@ -3,7 +3,7 @@ import uuid
 from datetime import date
 from typing import Optional, Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import Role, User
@@ -98,6 +98,7 @@ async def convert_to_invoice(
 @router.post("/{estimate_id}/share", status_code=201)
 async def share_estimate(
     estimate_id: uuid.UUID,
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
 ) -> dict:
@@ -105,7 +106,9 @@ async def share_estimate(
     # Verify estimate exists
     await service.get_estimate(db, estimate_id)
     token = await create_public_token(db, ResourceType.ESTIMATE, estimate_id, current_user)
-    return {"data": {"id": str(token.id), "token": token.token, "resource_type": "estimate", "resource_id": str(estimate_id)}}
+    base_url = str(request.base_url).rstrip("/")
+    shareable_url = f"{base_url}/view/{token.token}"
+    return {"data": {"id": str(token.id), "token": token.token, "resource_type": "estimate", "resource_id": str(estimate_id), "shareable_url": shareable_url}}
 
 
 @router.delete("/{estimate_id}/share/{token_id}")
