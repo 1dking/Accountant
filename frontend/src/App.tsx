@@ -141,7 +141,7 @@ function AuthenticatedApp() {
         <Route path="/meetings" element={<MeetingsPage />} />
         <Route path="/meetings/new" element={<NewMeetingPage />} />
         <Route path="/meetings/:id" element={<MeetingDetailPage />} />
-        <Route path="/meetings/:id/room" element={<MeetingRoomPage />} />
+        {/* MeetingRoomPage rendered outside AppShell — see top-level routes */}
         <Route path="/recordings" element={<RecordingsPage />} />
         <Route path="/docs" element={<DocsHomePage />} />
         <Route path="/docs/:id" element={<DocEditorPage />} />
@@ -181,6 +181,14 @@ export default function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/p/:token" element={<PublicDocumentPage />} />
             <Route path="/meetings/:id/guest" element={<MeetingGuestJoinPage />} />
+            <Route
+              path="/meetings/:id/room"
+              element={
+                <ProtectedRoute>
+                  <MeetingRoomPage />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/*"
               element={

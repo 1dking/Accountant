@@ -1,13 +1,21 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { PhoneOff, Circle, Square, Loader2, Upload } from 'lucide-react'
-import { LiveKitRoom, VideoConference, useRoomContext } from '@livekit/components-react'
+import { Circle, Square, Loader2, Upload, PhoneOff } from 'lucide-react'
+import {
+  LiveKitRoom,
+  GridLayout,
+  ParticipantTile,
+  RoomAudioRenderer,
+  ControlBar,
+  useTracks,
+  useRoomContext,
+  Chat,
+} from '@livekit/components-react'
 import '@livekit/components-styles'
+import { Track } from 'livekit-client'
 import { startMeeting, joinMeeting, endMeeting, uploadRecording } from '@/api/meetings'
 
-// In dev: set VITE_LIVEKIT_URL=ws://localhost:7880 in .env
-// In production: auto-derives wss://domain/api/meetings/livekit-proxy
 const LIVEKIT_URL =
   import.meta.env.VITE_LIVEKIT_URL ||
   `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/api/meetings/livekit-proxy`
@@ -24,7 +32,6 @@ function RecordingControls({ meetingId }: { meetingId: string }) {
 
   const handleStartRecording = useCallback(async () => {
     try {
-      // Collect all audio and video tracks from the room
       const tracks: MediaStreamTrack[] = []
 
       for (const p of room.remoteParticipants.values()) {
@@ -35,7 +42,6 @@ function RecordingControls({ meetingId }: { meetingId: string }) {
         }
       }
 
-      // Add local tracks
       const localP = room.localParticipant
       for (const pub of localP.trackPublications.values()) {
         if (pub.track?.mediaStreamTrack) {
@@ -85,7 +91,7 @@ function RecordingControls({ meetingId }: { meetingId: string }) {
         }
       }
 
-      recorder.start(1000) // collect chunks every second
+      recorder.start(1000)
       mediaRecorderRef.current = recorder
       setIsRecording(true)
     } catch (err: any) {
@@ -101,7 +107,6 @@ function RecordingControls({ meetingId }: { meetingId: string }) {
     }
   }, [])
 
-  // Stop recording if component unmounts
   useEffect(() => {
     return () => {
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
@@ -111,12 +116,12 @@ function RecordingControls({ meetingId }: { meetingId: string }) {
   }, [])
 
   return (
-    <>
+    <div className="lk-button-group" style={{ display: 'flex', gap: '0.5rem' }}>
       {!isRecording ? (
         <button
           onClick={handleStartRecording}
           disabled={isUploading}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors disabled:opacity-50"
+          className="lk-button"
           title="Start recording"
         >
           <Circle className="h-4 w-4 text-red-400" />
@@ -125,25 +130,76 @@ function RecordingControls({ meetingId }: { meetingId: string }) {
       ) : (
         <button
           onClick={handleStopRecording}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors animate-pulse"
+          className="lk-button"
           title="Stop recording"
+          style={{ background: '#dc2626' }}
         >
           <Square className="h-4 w-4" />
-          Stop Recording
+          Stop
         </button>
       )}
 
       {isUploading && (
-        <span className="flex items-center gap-1.5 text-xs text-blue-400">
-          <Upload className="h-3.5 w-3.5 animate-bounce" />
+        <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: '#60a5fa' }}>
+          <Upload className="h-3.5 w-3.5" />
           {uploadProgress}
         </span>
       )}
-
       {!isUploading && uploadProgress && (
-        <span className="text-xs text-green-400">{uploadProgress}</span>
+        <span style={{ fontSize: '12px', color: '#4ade80' }}>{uploadProgress}</span>
       )}
-    </>
+    </div>
+  )
+}
+
+function MeetingStage({ meetingId, onEndMeeting, endingMeeting }: {
+  meetingId: string
+  onEndMeeting: () => void
+  endingMeeting: boolean
+}) {
+  const tracks = useTracks(
+    [
+      { source: Track.Source.Camera, withPlaceholder: true },
+      { source: Track.Source.ScreenShare, withPlaceholder: false },
+    ],
+    { onlySubscribed: false },
+  )
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* Video grid */}
+      <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+        <GridLayout tracks={tracks} style={{ height: '100%' }}>
+          <ParticipantTile />
+        </GridLayout>
+      </div>
+
+      <RoomAudioRenderer />
+
+      {/* LiveKit built-in controls + our extras */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.5rem', background: '#1f2937' }}>
+        <ControlBar
+          variation="minimal"
+          controls={{
+            microphone: true,
+            camera: true,
+            screenShare: true,
+            leave: false,
+            chat: true,
+          }}
+        />
+        <RecordingControls meetingId={meetingId} />
+        <button
+          onClick={onEndMeeting}
+          disabled={endingMeeting}
+          className="lk-button lk-disconnect-button"
+          style={{ background: '#dc2626', color: 'white', borderRadius: '9999px', padding: '0.5rem 1rem' }}
+        >
+          <PhoneOff className="h-4 w-4" />
+          {endingMeeting ? 'Ending...' : 'End Meeting'}
+        </button>
+      </div>
+    </div>
   )
 }
 
@@ -190,7 +246,7 @@ export default function MeetingRoomPage() {
     navigate(`/meetings/${id}`)
   }, [navigate, id])
 
-  const handleHangUp = () => {
+  const handleEndMeeting = () => {
     if (confirm('End this meeting for all participants?')) {
       endMut.mutate()
     } else {
@@ -200,7 +256,7 @@ export default function MeetingRoomPage() {
 
   if (connecting) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className="h-screen bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin text-white mx-auto mb-4" />
           <p className="text-white text-sm">Connecting to meeting...</p>
@@ -211,7 +267,7 @@ export default function MeetingRoomPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className="h-screen bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-400 text-sm mb-4">{error}</p>
           <button
@@ -227,41 +283,27 @@ export default function MeetingRoomPage() {
 
   if (!token || !roomName) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <p className="text-gray-400 dark:text-gray-500 text-sm">Unable to join meeting</p>
+      <div className="h-screen bg-gray-900 flex items-center justify-center">
+        <p className="text-gray-400 text-sm">Unable to join meeting</p>
       </div>
     )
   }
 
   return (
-    <div className="h-screen bg-gray-900 flex flex-col">
+    <div style={{ height: '100vh', background: '#111827' }}>
       <LiveKitRoom
         serverUrl={LIVEKIT_URL}
         token={token}
         connect={true}
         onDisconnected={handleDisconnect}
         data-lk-theme="default"
-        style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
+        style={{ height: '100%' }}
       >
-        {/* Top bar with recording + end meeting */}
-        <div className="bg-gray-800 border-b border-gray-700 px-4 py-2 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <RecordingControls meetingId={id!} />
-          </div>
-          <button
-            onClick={handleHangUp}
-            disabled={endMut.isPending}
-            className="flex items-center gap-2 px-4 py-1.5 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
-          >
-            <PhoneOff className="h-4 w-4" />
-            {endMut.isPending ? 'Ending...' : 'End Meeting'}
-          </button>
-        </div>
-
-        {/* LiveKit video conference with built-in controls (mic, camera, screen share, chat) */}
-        <div style={{ flex: 1, minHeight: 0 }}>
-          <VideoConference />
-        </div>
+        <MeetingStage
+          meetingId={id!}
+          onEndMeeting={handleEndMeeting}
+          endingMeeting={endMut.isPending}
+        />
       </LiveKitRoom>
     </div>
   )
