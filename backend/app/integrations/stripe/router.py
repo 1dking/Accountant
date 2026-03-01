@@ -57,7 +57,10 @@ async def create_payment_link(
     user: User = Depends(require_role([Role.ACCOUNTANT, Role.ADMIN])),
 ):
     settings = _get_settings(request)
-    link = await service.create_checkout_session(db, data.invoice_id, user, settings)
+    base_url = str(request.base_url).rstrip("/")
+    link = await service.create_checkout_session(
+        db, data.invoice_id, user, settings, base_url=base_url
+    )
     return {"data": PaymentLinkResponse.model_validate(link)}
 
 

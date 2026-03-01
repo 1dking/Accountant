@@ -34,6 +34,7 @@ async def create_checkout_session(
     invoice_id: uuid.UUID,
     user: User,
     settings: Settings,
+    base_url: str = "",
 ) -> StripePaymentLink:
     """Create a Stripe Checkout Session for an invoice."""
     from app.invoicing.models import Invoice
@@ -46,6 +47,9 @@ async def create_checkout_session(
         raise NotFoundError(f"Invoice {invoice_id} not found")
 
     amount_cents = int(round(invoice.total * 100))
+
+    # Use the request origin so URLs work in both dev and production
+    origin = base_url.rstrip("/") if base_url else "http://localhost:5173"
 
     session = stripe_lib.checkout.Session.create(
         payment_method_types=["card"],
@@ -63,8 +67,8 @@ async def create_checkout_session(
             }
         ],
         mode="payment",
-        success_url="http://localhost:5173/invoices?payment=success",
-        cancel_url="http://localhost:5173/invoices?payment=cancelled",
+        success_url=f"{origin}/invoices?payment=success",
+        cancel_url=f"{origin}/invoices?payment=cancelled",
         metadata={
             "invoice_id": str(invoice.id),
             "invoice_number": invoice.invoice_number,
