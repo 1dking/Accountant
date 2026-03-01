@@ -368,6 +368,18 @@ async def list_meeting_recordings(
     return {"data": [MeetingRecordingResponse.model_validate(r) for r in recordings]}
 
 
+@router.delete("/recordings/{recording_id}")
+async def delete_recording(
+    recording_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.ACCOUNTANT]))],
+    storage: Annotated[StorageBackend, Depends(get_storage)],
+) -> dict:
+    """Delete a recording and its file."""
+    await service.delete_recording(db, recording_id, current_user, storage)
+    return {"data": {"message": "Recording deleted"}}
+
+
 # ---------------------------------------------------------------------------
 # Participant endpoints
 # ---------------------------------------------------------------------------

@@ -708,6 +708,33 @@ async def get_recording_stream_info(
     return recording
 
 
+async def delete_recording(
+    db: AsyncSession,
+    recording_id: uuid.UUID,
+    user: User,
+    storage: "StorageBackend",
+) -> None:
+    """Delete a recording and its file from storage."""
+    from app.documents.storage import StorageBackend  # noqa: F811
+
+    result = await db.execute(
+        select(MeetingRecording).where(MeetingRecording.id == recording_id)
+    )
+    recording = result.scalar_one_or_none()
+    if recording is None:
+        raise NotFoundError("MeetingRecording", str(recording_id))
+
+    # Delete file from storage
+    if recording.storage_path:
+        try:
+            await storage.delete(recording.storage_path)
+        except Exception:
+            pass  # file may already be gone
+
+    await db.delete(recording)
+    await db.commit()
+
+
 # ---------------------------------------------------------------------------
 # Participants
 # ---------------------------------------------------------------------------

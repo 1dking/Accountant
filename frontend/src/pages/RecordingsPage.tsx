@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { Video, Search, Play, Download, Clock, Calendar, Loader2, Square } from 'lucide-react'
-import { listRecordings, listRecordingsByContact, getRecordingStreamUrl } from '@/api/meetings'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Video, Search, Play, Download, Clock, Calendar, Loader2, Square, Trash2 } from 'lucide-react'
+import { listRecordings, listRecordingsByContact, getRecordingStreamUrl, deleteRecording } from '@/api/meetings'
 import type { MeetingRecording } from '@/types/models'
 
 function formatDate(iso: string): string {
@@ -42,10 +42,19 @@ function RecordingStatusBadge({ status }: { status: string }) {
 }
 
 export default function RecordingsPage() {
+  const queryClient = useQueryClient()
   const [selectedContact, setSelectedContact] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [dateFilter, setDateFilter] = useState('')
   const [playingId, setPlayingId] = useState<string | null>(null)
+
+  const deleteRecordingMut = useMutation({
+    mutationFn: (recordingId: string) => deleteRecording(recordingId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['recordings'] })
+      queryClient.invalidateQueries({ queryKey: ['recordings-by-contact'] })
+    },
+  })
 
   const { data: allRecordingsData, isLoading: loadingAll } = useQuery({
     queryKey: ['recordings'],
@@ -258,25 +267,35 @@ export default function RecordingsPage() {
                       </div>
 
                       {/* Actions */}
-                      {rec.status === 'available' && (
-                        <div className="flex gap-2 mt-3 pt-3 border-t border-gray-50">
-                          <button
-                            onClick={() => setPlayingId(playingId === rec.id ? null : rec.id)}
-                            className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 font-medium"
-                          >
-                            <Play className="h-3.5 w-3.5" />
-                            {playingId === rec.id ? 'Playing' : 'Play'}
-                          </button>
-                          <a
-                            href={getRecordingStreamUrl(rec.id)}
-                            download
-                            className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-800 font-medium"
-                          >
-                            <Download className="h-3.5 w-3.5" />
-                            Download
-                          </a>
-                        </div>
-                      )}
+                      <div className="flex gap-2 mt-3 pt-3 border-t border-gray-50">
+                        {rec.status === 'available' && (
+                          <>
+                            <button
+                              onClick={() => setPlayingId(playingId === rec.id ? null : rec.id)}
+                              className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 font-medium"
+                            >
+                              <Play className="h-3.5 w-3.5" />
+                              {playingId === rec.id ? 'Playing' : 'Play'}
+                            </button>
+                            <a
+                              href={getRecordingStreamUrl(rec.id)}
+                              download
+                              className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-800 font-medium"
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                              Download
+                            </a>
+                          </>
+                        )}
+                        <button
+                          onClick={() => { if (confirm('Delete this recording?')) deleteRecordingMut.mutate(rec.id) }}
+                          disabled={deleteRecordingMut.isPending}
+                          className="flex items-center gap-1 text-xs text-red-600 dark:text-red-400 hover:text-red-700 font-medium ml-auto"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Delete
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}

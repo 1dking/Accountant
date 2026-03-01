@@ -3,11 +3,11 @@ import { useParams, useNavigate } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, Video, Phone, PhoneOff, Users, Calendar, Clock,
-  Copy, Play, Download, Circle, Square, Loader2, Plus, X,
+  Copy, Play, Download, Circle, Square, Loader2, Plus, X, Trash2,
 } from 'lucide-react'
 import {
   getMeeting, cancelMeeting, endMeeting, addParticipant,
-  removeParticipant, getRecordingStreamUrl,
+  removeParticipant, getRecordingStreamUrl, deleteRecording,
 } from '@/api/meetings'
 import type { MeetingStatus, MeetingParticipant } from '@/types/models'
 
@@ -110,6 +110,14 @@ export default function MeetingDetailPage() {
     mutationFn: (pid: string) => removeParticipant(id!, pid),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['meeting', id] })
+    },
+  })
+
+  const deleteRecordingMut = useMutation({
+    mutationFn: (recordingId: string) => deleteRecording(recordingId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['meeting', id] })
+      queryClient.invalidateQueries({ queryKey: ['recordings'] })
     },
   })
 
@@ -388,6 +396,14 @@ export default function MeetingDetailPage() {
                         </a>
                       </>
                     )}
+                    <button
+                      onClick={() => { if (confirm('Delete this recording?')) deleteRecordingMut.mutate(rec.id) }}
+                      disabled={deleteRecordingMut.isPending}
+                      className="flex items-center gap-1 text-xs text-red-600 dark:text-red-400 hover:text-red-700 font-medium"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Delete
+                    </button>
                   </div>
                 </div>
 

@@ -130,6 +130,10 @@ export async function uploadRecording(meetingId: string, file: Blob): Promise<Ap
   return response.json() as Promise<ApiResponse<MeetingRecording>>
 }
 
+export function deleteRecording(recordingId: string) {
+  return api.delete<ApiResponse<{ message: string }>>(`/meetings/recordings/${recordingId}`)
+}
+
 export async function addParticipant(meetingId: string, data: { email?: string; contact_id?: string; guest_name?: string; guest_email?: string }) {
   return api.post<ApiResponse<MeetingParticipant>>(`/meetings/${meetingId}/participants`, data)
 }
