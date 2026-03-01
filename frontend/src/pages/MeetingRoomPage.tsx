@@ -235,36 +235,34 @@ export default function MeetingRoomPage() {
 
   return (
     <div className="h-screen bg-gray-900 flex flex-col">
-      {/* Video Area */}
-      <div className="flex-1 relative">
-        <LiveKitRoom
-          serverUrl={LIVEKIT_URL}
-          token={token}
-          connect={true}
-          onDisconnected={handleDisconnect}
-          data-lk-theme="default"
-          style={{ height: '100%' }}
-        >
-          <VideoConference />
-
-          {/* Control Bar */}
-          <div className="absolute bottom-0 left-0 right-0 bg-gray-800/90 backdrop-blur border-t border-gray-700 px-4 py-3">
-            <div className="flex items-center justify-center gap-3">
-              <RecordingControls meetingId={id!} />
-
-              {/* Hang up */}
-              <button
-                onClick={handleHangUp}
-                disabled={endMut.isPending}
-                className="flex items-center gap-2 px-6 py-2 text-sm font-medium text-white bg-red-600 rounded-full hover:bg-red-700 transition-colors disabled:opacity-50"
-              >
-                <PhoneOff className="h-4 w-4" />
-                {endMut.isPending ? 'Ending...' : 'Hang Up'}
-              </button>
-            </div>
+      <LiveKitRoom
+        serverUrl={LIVEKIT_URL}
+        token={token}
+        connect={true}
+        onDisconnected={handleDisconnect}
+        data-lk-theme="default"
+        style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
+      >
+        {/* Top bar with recording + end meeting */}
+        <div className="bg-gray-800 border-b border-gray-700 px-4 py-2 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3">
+            <RecordingControls meetingId={id!} />
           </div>
-        </LiveKitRoom>
-      </div>
+          <button
+            onClick={handleHangUp}
+            disabled={endMut.isPending}
+            className="flex items-center gap-2 px-4 py-1.5 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+          >
+            <PhoneOff className="h-4 w-4" />
+            {endMut.isPending ? 'Ending...' : 'End Meeting'}
+          </button>
+        </div>
+
+        {/* LiveKit video conference with built-in controls (mic, camera, screen share, chat) */}
+        <div style={{ flex: 1, minHeight: 0 }}>
+          <VideoConference />
+        </div>
+      </LiveKitRoom>
     </div>
   )
 }
