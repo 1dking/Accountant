@@ -46,6 +46,7 @@ import MeetingRoomPage from '@/pages/MeetingRoomPage'
 import MeetingGuestJoinPage from '@/pages/MeetingGuestJoinPage'
 import RecordingsPage from '@/pages/RecordingsPage'
 import HelpPage from '@/pages/HelpPage'
+import PublicDocumentPage from '@/pages/PublicDocumentPage'
 import DocsHomePage from '@/pages/DocsHomePage'
 import SheetsHomePage from '@/pages/SheetsHomePage'
 import SlidesHomePage from '@/pages/SlidesHomePage'
@@ -166,6 +167,7 @@ export default function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/p/:token" element={<PublicDocumentPage />} />
             <Route path="/meetings/:id/guest" element={<MeetingGuestJoinPage />} />
             <Route
               path="/*"

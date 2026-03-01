@@ -19,6 +19,8 @@ from app.estimates.schemas import (
     EstimateUpdate,
 )
 from app.invoicing.schemas import InvoiceResponse
+from app.public.models import ResourceType
+from app.public.service import create_public_token, revoke_token
 
 router = APIRouter()
 
@@ -91,3 +93,41 @@ async def convert_to_invoice(
 ) -> dict:
     invoice = await service.convert_to_invoice(db, estimate_id, current_user)
     return {"data": InvoiceResponse.model_validate(invoice)}
+
+
+@router.post("/{estimate_id}/share", status_code=201)
+async def share_estimate(
+    estimate_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+) -> dict:
+    """Create a shareable public link for an estimate."""
+    # Verify estimate exists
+    await service.get_estimate(db, estimate_id)
+    token = await create_public_token(db, ResourceType.ESTIMATE, estimate_id, current_user)
+    return {"data": {"id": str(token.id), "token": token.token, "resource_type": "estimate", "resource_id": str(estimate_id)}}
+
+
+@router.delete("/{estimate_id}/share/{token_id}")
+async def revoke_estimate_share(
+    estimate_id: uuid.UUID,
+    token_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+) -> dict:
+    """Revoke a shareable link for an estimate."""
+    await revoke_token(db, token_id, current_user)
+    return {"data": {"message": "Share link revoked"}}
+
+
+@router.post("/{estimate_id}/send-email")
+async def send_estimate_email_endpoint(
+    estimate_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+) -> dict:
+    """Send an estimate via email to the client."""
+    from app.email.service import send_estimate_email
+
+    result = await send_estimate_email(db, estimate_id, None, current_user)
+    return {"data": result}

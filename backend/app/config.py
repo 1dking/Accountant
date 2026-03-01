@@ -65,6 +65,9 @@ class Settings(BaseSettings):
     twilio_auth_token: str = ""
     twilio_from_number: str = ""
 
+    # Public access
+    public_base_url: str = "http://localhost:5173"
+
     # LiveKit (video meetings)
     livekit_url: str = ""
     livekit_api_key: str = ""

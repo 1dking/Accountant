@@ -70,3 +70,7 @@ export async function deleteEstimate(id: string) {
 export async function convertEstimateToInvoice(id: string) {
   return api.post<ApiResponse<Invoice>>(`/estimates/${id}/convert-to-invoice`)
 }
+
+export async function sendEstimateEmail(id: string) {
+  return api.post<ApiResponse<{ detail: string }>>(`/estimates/${id}/send-email`)
+}

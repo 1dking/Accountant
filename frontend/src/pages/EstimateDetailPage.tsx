@@ -8,13 +8,17 @@ import {
   FileText,
   CheckCircle,
   XCircle,
+  Mail,
+  Link,
 } from 'lucide-react';
 import {
   getEstimate,
   updateEstimate,
   deleteEstimate,
   convertEstimateToInvoice,
+  sendEstimateEmail,
 } from '@/api/estimates';
+import ShareLinkDialog from '@/components/documents/ShareLinkDialog';
 import { useAuthStore } from '@/stores/authStore';
 import { ESTIMATE_STATUSES } from '@/lib/constants';
 import { formatDate } from '@/lib/utils';
@@ -31,6 +35,7 @@ export default function EstimateDetailPage() {
 
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [actionMsg, setActionMsg] = useState('');
+  const [showShareDialog, setShowShareDialog] = useState(false);
 
   const showActionMsg = (msg: string) => {
     setActionMsg(msg);
@@ -78,6 +83,15 @@ export default function EstimateDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       navigate(`/invoices/${response.data.id}`);
     },
+  });
+
+  const emailMutation = useMutation({
+    mutationFn: () => sendEstimateEmail(id!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['estimate', id] });
+      showActionMsg('Estimate email sent to client!');
+    },
+    onError: () => showActionMsg('Failed to send email. Check SMTP settings.'),
   });
 
   const deleteMutation = useMutation({
@@ -218,6 +232,25 @@ export default function EstimateDetailPage() {
                   View Invoice
                 </button>
               )}
+
+              <button
+                onClick={() => emailMutation.mutate()}
+                disabled={emailMutation.isPending}
+                className="flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 transition-colors"
+                title="Email estimate to client"
+              >
+                <Mail className="w-4 h-4" />
+                Email
+              </button>
+
+              <button
+                onClick={() => setShowShareDialog(true)}
+                className="flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 transition-colors"
+                title="Create shareable link"
+              >
+                <Link className="w-4 h-4" />
+                Share Link
+              </button>
 
               {isDraft && (
                 <button
@@ -366,6 +399,13 @@ export default function EstimateDetailPage() {
           <p className="text-sm text-gray-700 whitespace-pre-wrap">{estimate.notes}</p>
         </div>
       )}
+
+      <ShareLinkDialog
+        isOpen={showShareDialog}
+        resourceType="estimate"
+        resourceId={id!}
+        onClose={() => setShowShareDialog(false)}
+      />
     </div>
   );
 }

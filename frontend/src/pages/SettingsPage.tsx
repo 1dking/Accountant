@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router'
-import { User, Mail, Inbox, Landmark, CreditCard, MessageSquare, Bell, Lock, Receipt } from 'lucide-react'
+import { User, Mail, Inbox, Landmark, CreditCard, MessageSquare, Bell, Lock, Receipt, Building2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/authStore'
 import ProfileSettings from '@/components/settings/ProfileSettings'
@@ -14,8 +14,10 @@ import CategorizationRules from '@/components/settings/CategorizationRules'
 import ReminderSettings from '@/components/settings/ReminderSettings'
 import PeriodSettings from '@/components/settings/PeriodSettings'
 import TaxSettings from '@/components/settings/TaxSettings'
+import BrandingSettings from '@/components/settings/BrandingSettings'
 
 const TABS: { id: string; label: string; icon: typeof User; adminOnly?: boolean }[] = [
+  { id: 'branding', label: 'Branding', icon: Building2 },
   { id: 'profile', label: 'Profile', icon: User },
   { id: 'users', label: 'Users', icon: User, adminOnly: true },
   { id: 'email', label: 'Email (SMTP)', icon: Mail },
@@ -76,6 +78,7 @@ export default function SettingsPage() {
 
         {/* Tab content */}
         <div className="flex-1 min-w-0">
+          {activeTab === 'branding' && <BrandingSettings />}
           {activeTab === 'profile' && <ProfileSettings />}
           {activeTab === 'users' && user?.role === 'admin' && <UserManagement />}
           {activeTab === 'email' && <SmtpSettings />}

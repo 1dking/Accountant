@@ -13,6 +13,8 @@ from app.dependencies import get_current_user, get_db, require_role
 from app.invoicing import service
 from app.invoicing.models import InvoiceStatus
 from app.invoicing.pdf import generate_invoice_pdf
+from app.public.models import ResourceType
+from app.public.service import create_public_token, revoke_token
 from app.invoicing.schemas import (
     InvoiceCreate,
     InvoiceFilter,
@@ -131,3 +133,27 @@ async def get_invoice_pdf(
             "Content-Disposition": f'attachment; filename="invoice-{invoice.invoice_number}.pdf"'
         },
     )
+
+
+@router.post("/{invoice_id}/share", status_code=201)
+async def share_invoice(
+    invoice_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+) -> dict:
+    """Create a shareable public link for an invoice."""
+    await service.get_invoice(db, invoice_id)
+    token = await create_public_token(db, ResourceType.INVOICE, invoice_id, current_user)
+    return {"data": {"id": str(token.id), "token": token.token, "resource_type": "invoice", "resource_id": str(invoice_id)}}
+
+
+@router.delete("/{invoice_id}/share/{token_id}")
+async def revoke_invoice_share(
+    invoice_id: uuid.UUID,
+    token_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+) -> dict:
+    """Revoke a shareable link for an invoice."""
+    await revoke_token(db, token_id, current_user)
+    return {"data": {"message": "Share link revoked"}}

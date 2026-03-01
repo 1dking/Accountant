@@ -26,6 +26,7 @@ import {
   sendPaymentReminderEmail,
   sendInvoiceSms,
 } from '@/api/integrations';
+import ShareLinkDialog from '@/components/documents/ShareLinkDialog';
 import { useAuthStore } from '@/stores/authStore';
 import { INVOICE_STATUSES, PAYMENT_METHODS } from '@/lib/constants';
 import { formatDate } from '@/lib/utils';
@@ -51,6 +52,7 @@ export default function InvoiceDetailPage() {
   });
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [actionMsg, setActionMsg] = useState('');
+  const [showShareDialog, setShowShareDialog] = useState(false);
 
   const showActionMsg = (msg: string) => {
     setActionMsg(msg);
@@ -267,6 +269,15 @@ export default function InvoiceDetailPage() {
               >
                 <Link className="w-4 h-4" />
                 Payment Link
+              </button>
+
+              <button
+                onClick={() => setShowShareDialog(true)}
+                className="flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 transition-colors"
+                title="Create shareable public link"
+              >
+                <Link className="w-4 h-4" />
+                Share Link
               </button>
 
               {(invoice.status === 'overdue' || invoice.status === 'sent') && (
@@ -611,6 +622,13 @@ export default function InvoiceDetailPage() {
           </form>
         </div>
       )}
+
+      <ShareLinkDialog
+        isOpen={showShareDialog}
+        resourceType="invoice"
+        resourceId={id!}
+        onClose={() => setShowShareDialog(false)}
+      />
     </div>
   );
 }

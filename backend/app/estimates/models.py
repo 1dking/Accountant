@@ -43,6 +43,12 @@ class Estimate(TimestampMixin, Base):
     )
     created_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
 
+    # E-Signature fields
+    signature_data: Mapped[str | None] = mapped_column(Text, nullable=True)
+    signed_by_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    signed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    signer_ip: Mapped[str | None] = mapped_column(String(45), nullable=True)
+
     # Relationships
     contact: Mapped["Contact"] = relationship("Contact", lazy="selectin")
     line_items: Mapped[list["EstimateLineItem"]] = relationship(

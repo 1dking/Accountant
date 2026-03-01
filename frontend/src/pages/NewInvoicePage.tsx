@@ -1,9 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import { createInvoice } from '@/api/invoices';
 import { listContacts } from '@/api/contacts';
+import { getCompanySettings } from '@/api/settings';
 import type { InvoiceLineItemData, InvoiceCreateData } from '@/api/invoices';
 
 const formatCurrency = (amount: number, currency = 'USD') =>
@@ -37,6 +38,23 @@ export default function NewInvoicePage() {
     queryKey: ['contacts', 'client-list'],
     queryFn: () => listContacts({ type: 'client', page_size: 100 }),
   });
+
+  const settingsQuery = useQuery({
+    queryKey: ['company-settings'],
+    queryFn: getCompanySettings,
+  });
+
+  // Auto-fill defaults from company settings
+  useEffect(() => {
+    const settings = settingsQuery.data?.data;
+    if (!settings) return;
+    if (settings.default_tax_rate?.rate && taxRate === 0) {
+      setTaxRate(settings.default_tax_rate.rate);
+    }
+    if (settings.default_currency) {
+      setCurrency(settings.default_currency);
+    }
+  }, [settingsQuery.data]);
 
   const contacts = contactsQuery.data?.data ?? [];
 

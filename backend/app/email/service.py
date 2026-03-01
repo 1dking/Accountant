@@ -320,3 +320,72 @@ async def send_payment_reminder(
     await send_email(smtp_config, to_email, email_subject, html_body)
 
     return {"detail": f"Payment reminder sent to {to_email}"}
+
+
+async def send_estimate_email(
+    db: AsyncSession,
+    estimate_id: uuid.UUID,
+    smtp_config_id: Optional[uuid.UUID],
+    user: User,
+) -> dict:
+    """Load an estimate, generate PDF, create a public link, and send via email."""
+    from app.estimates.models import Estimate, EstimateStatus
+    from app.estimates.pdf import generate_estimate_pdf
+    from app.public.models import ResourceType
+    from app.public.service import create_public_token
+    from sqlalchemy.orm import selectinload
+
+    # Resolve SMTP config
+    if smtp_config_id:
+        smtp_config = await get_smtp_config(db, smtp_config_id)
+    else:
+        smtp_config = await get_default_config(db)
+
+    # Load estimate with relationships
+    result = await db.execute(
+        select(Estimate)
+        .options(selectinload(Estimate.contact), selectinload(Estimate.line_items))
+        .where(Estimate.id == estimate_id)
+    )
+    estimate = result.scalar_one_or_none()
+    if estimate is None:
+        raise NotFoundError(f"Estimate {estimate_id} not found")
+
+    # Determine recipient
+    to_email: Optional[str] = None
+    if estimate.contact:
+        to_email = estimate.contact.email
+    if not to_email:
+        raise ValidationError("No recipient email address found on estimate contact")
+
+    # Create a public access token for the "View Estimate" link
+    pat = await create_public_token(db, ResourceType.ESTIMATE, estimate_id, user)
+    from app.config import Settings
+    settings = Settings()
+    view_url = f"{settings.public_base_url}/p/{pat.token}"
+
+    # Render HTML
+    now = datetime.now(timezone.utc)
+    html_body = render_template(
+        "estimate.html",
+        estimate=estimate,
+        custom_message=None,
+        company_name=smtp_config.from_name,
+        view_url=view_url,
+        year=now.year,
+    )
+
+    # Generate PDF attachment
+    pdf_bytes = generate_estimate_pdf(estimate)
+    attachments = [
+        (f"Estimate-{estimate.estimate_number}.pdf", pdf_bytes, "application/pdf"),
+    ]
+
+    await send_email(smtp_config, to_email, f"Estimate {estimate.estimate_number}", html_body, attachments)
+
+    # Mark as sent if still draft
+    if estimate.status == EstimateStatus.DRAFT:
+        estimate.status = EstimateStatus.SENT
+        await db.commit()
+
+    return {"detail": f"Estimate email sent to {to_email}"}
