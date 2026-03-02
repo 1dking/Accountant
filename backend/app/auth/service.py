@@ -1,12 +1,11 @@
 
-import uuid
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import RefreshToken, Role, User
-from app.auth.schemas import TokenResponse, UserCreate
+from app.auth.schemas import AdminUserUpdate, TokenResponse, UserCreate, UserUpdate
 from app.auth.utils import (
     create_access_token,
     create_refresh_token,
@@ -14,8 +13,10 @@ from app.auth.utils import (
     hash_token,
     verify_password,
 )
+from app.collaboration.service import log_activity
 from app.config import Settings
 from app.core.exceptions import ConflictError, ForbiddenError, NotFoundError, ValidationError
+from app.core.pagination import PaginationParams, build_pagination_meta
 
 
 async def register_user(
@@ -42,6 +43,16 @@ async def register_user(
     db.add(user)
     await db.commit()
     await db.refresh(user)
+
+    await log_activity(
+        db,
+        user_id=user.id,
+        action="user_registered",
+        resource_type="user",
+        resource_id=str(user.id),
+        details={"email": user.email, "role": user.role.value},
+    )
+
     return user
 
 
@@ -94,6 +105,14 @@ async def authenticate_user(
     )
     db.add(token_record)
     await db.commit()
+
+    await log_activity(
+        db,
+        user_id=user.id,
+        action="user_login",
+        resource_type="user",
+        resource_id=str(user.id),
+    )
 
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
@@ -158,3 +177,94 @@ async def revoke_refresh_token(db: AsyncSession, refresh_token: str) -> None:
     if stored_token:
         stored_token.revoked = True
         await db.commit()
+
+
+async def update_user_profile(
+    db: AsyncSession,
+    user: User,
+    updates: UserUpdate,
+) -> User:
+    if updates.full_name is not None:
+        user.full_name = updates.full_name
+    if updates.password is not None:
+        user.hashed_password = hash_password(updates.password)
+    await db.commit()
+    await db.refresh(user)
+
+    await log_activity(
+        db,
+        user_id=user.id,
+        action="profile_updated",
+        resource_type="user",
+        resource_id=str(user.id),
+    )
+
+    return user
+
+
+async def list_users(
+    db: AsyncSession,
+    pagination: PaginationParams | None = None,
+) -> list[User] | tuple[list[User], dict]:
+    query = select(User).order_by(User.created_at)
+
+    if pagination is None:
+        result = await db.execute(query)
+        return list(result.scalars().all())
+
+    total = await db.scalar(select(func.count()).select_from(User)) or 0
+    query = query.offset(pagination.offset).limit(pagination.page_size)
+    result = await db.execute(query)
+    users = list(result.scalars().all())
+    return users, build_pagination_meta(total, pagination)
+
+
+async def admin_update_user(
+    db: AsyncSession,
+    user_id: str,
+    updates: AdminUserUpdate,
+) -> User:
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise NotFoundError("User", user_id)
+    if updates.email is not None and updates.email != user.email:
+        existing = await db.execute(select(User).where(User.email == updates.email))
+        if existing.scalar_one_or_none() is not None:
+            raise ConflictError(f"A user with email {updates.email} already exists.")
+        user.email = updates.email
+    if updates.full_name is not None:
+        user.full_name = updates.full_name
+    if updates.password is not None:
+        user.hashed_password = hash_password(updates.password)
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
+async def update_user_role(
+    db: AsyncSession,
+    user_id: str,
+    role: Role,
+) -> User:
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise NotFoundError("User", user_id)
+    user.role = role
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
+async def deactivate_user(
+    db: AsyncSession,
+    user_id: str,
+) -> str:
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise NotFoundError("User", user_id)
+    user.is_active = False
+    await db.commit()
+    return user.email

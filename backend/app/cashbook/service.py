@@ -27,6 +27,7 @@ from app.cashbook.schemas import (
     PaymentAccountCreate,
     PaymentAccountUpdate,
 )
+from app.collaboration.service import log_activity
 from app.core.exceptions import ConflictError, ForbiddenError, NotFoundError, ValidationError
 from app.core.pagination import PaginationParams, build_pagination_meta
 
@@ -208,6 +209,16 @@ async def create_category(
     db.add(category)
     await db.commit()
     await db.refresh(category)
+
+    await log_activity(
+        db,
+        user_id=user.id,
+        action="category_created",
+        resource_type="transaction_category",
+        resource_id=str(category.id),
+        details={"name": category.name, "category_type": category.category_type.value},
+    )
+
     return category
 
 
@@ -278,6 +289,16 @@ async def create_account(
     db.add(account)
     await db.commit()
     await db.refresh(account)
+
+    await log_activity(
+        db,
+        user_id=user.id,
+        action="account_created",
+        resource_type="payment_account",
+        resource_id=str(account.id),
+        details={"name": account.name, "account_type": account.account_type.value},
+    )
+
     return account
 
 
@@ -342,6 +363,43 @@ async def get_account_current_balance(
     ) or 0.0
 
     return account.opening_balance + float(income_sum) - float(expense_sum)
+
+
+async def get_account_balances_batch(
+    db: AsyncSession,
+    account_ids: list[uuid.UUID],
+) -> dict[uuid.UUID, float]:
+    """Calculate current balances for multiple accounts in two queries (not N+1)."""
+    if not account_ids:
+        return {}
+
+    # Get opening balances
+    result = await db.execute(
+        select(PaymentAccount.id, PaymentAccount.opening_balance).where(
+            PaymentAccount.id.in_(account_ids)
+        )
+    )
+    opening = {row.id: float(row.opening_balance) for row in result}
+
+    # Get income and expense sums grouped by account
+    for entry_type, sign in [(EntryType.INCOME, 1), (EntryType.EXPENSE, -1)]:
+        sums_result = await db.execute(
+            select(
+                CashbookEntry.account_id,
+                func.coalesce(func.sum(CashbookEntry.total_amount), 0.0),
+            )
+            .where(
+                CashbookEntry.account_id.in_(account_ids),
+                CashbookEntry.entry_type == entry_type,
+            )
+            .group_by(CashbookEntry.account_id)
+        )
+        for row in sums_result:
+            acct_id = row[0]
+            if acct_id in opening:
+                opening[acct_id] += sign * float(row[1])
+
+    return opening
 
 
 # ---------------------------------------------------------------------------
@@ -413,6 +471,16 @@ async def create_entry(
     db.add(entry)
     await db.commit()
     await db.refresh(entry)
+
+    await log_activity(
+        db,
+        user_id=user.id,
+        action="cashbook_entry_created",
+        resource_type="cashbook_entry",
+        resource_id=str(entry.id),
+        details={"entry_type": entry.entry_type.value, "amount": entry.total_amount},
+    )
+
     return entry
 
 
@@ -585,6 +653,16 @@ async def update_entry(
 
     await db.commit()
     await db.refresh(entry)
+
+    await log_activity(
+        db,
+        user_id=user.id,
+        action="cashbook_entry_updated",
+        resource_type="cashbook_entry",
+        resource_id=str(entry.id),
+        details={"entry_type": entry.entry_type.value, "amount": entry.total_amount},
+    )
+
     return entry
 
 
@@ -631,6 +709,15 @@ async def bulk_create_entries(
     await db.commit()
     for entry in created:
         await db.refresh(entry)
+
+    await log_activity(
+        db,
+        user_id=user.id,
+        action="cashbook_entries_imported",
+        resource_type="cashbook_entry",
+        resource_id=str(account_id),
+        details={"count": len(created), "source": "excel_import"},
+    )
 
     return created
 

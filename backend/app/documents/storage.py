@@ -79,3 +79,7 @@ class LocalStorage:
         """Check whether a file exists at the given storage path."""
         full_path = self._full_path(storage_path)
         return await asyncio.to_thread(full_path.exists)
+
+    def get_full_path(self, storage_path: str) -> Path:
+        """Return the full filesystem path for a storage path."""
+        return self._full_path(storage_path)

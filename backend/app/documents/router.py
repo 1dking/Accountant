@@ -8,7 +8,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import Role, User
@@ -289,10 +289,11 @@ async def delete_folder_endpoint(
 async def list_tags_endpoint(
     db: Annotated[AsyncSession, Depends(get_db)],
     _: Annotated[User, Depends(get_current_user)],
+    pagination: Annotated[PaginationParams, Depends(get_pagination)],
 ) -> dict:
-    """Return all tags."""
-    tags = await list_tags(db)
-    return {"data": [TagResponse.model_validate(t) for t in tags]}
+    """Return tags with pagination."""
+    tags, meta = await list_tags(db, pagination)
+    return {"data": [TagResponse.model_validate(t) for t in tags], "meta": meta}
 
 
 @router.post("/tags", status_code=201)
@@ -416,12 +417,28 @@ async def download(
     db: Annotated[AsyncSession, Depends(get_db)],
     _: Annotated[User, Depends(get_current_user_or_token)],
     storage: Annotated[StorageBackend, Depends(get_storage)],
-) -> StreamingResponse:
+):
     """Download a document as a streaming response.
 
     Accepts authentication via Bearer header or ?token= query parameter
     so it can be used in <img>, <iframe>, and <a> tags.
+
+    Uses FileResponse for local storage to stream from disk without
+    loading the entire file into memory.
     """
+    document = await get_document(db, document_id)
+
+    # Stream from disk if local storage (avoids loading into memory)
+    if hasattr(storage, "get_full_path"):
+        file_path = storage.get_full_path(document.storage_path)
+        return FileResponse(
+            path=str(file_path),
+            media_type=document.mime_type,
+            filename=document.original_filename,
+            headers={"Content-Disposition": f'inline; filename="{document.original_filename}"'},
+        )
+
+    # Fallback for non-local storage backends
     data, document = await download_document(db, storage, document_id)
     return StreamingResponse(
         io.BytesIO(data),
@@ -529,29 +546,89 @@ async def stream_document(
 
     Supports partial content requests (Range: bytes=start-end) and returns
     206 Partial Content with the appropriate Content-Range header.
+
+    Uses file-based streaming for local storage to avoid loading entire
+    files into memory (important for large video files).
     """
+    document = await get_document(db, document_id)
+
+    # Use file-based streaming for local storage
+    if hasattr(storage, "get_full_path"):
+        file_path = storage.get_full_path(document.storage_path)
+        file_size = file_path.stat().st_size
+
+        range_header = request.headers.get("range")
+        if range_header:
+            range_str = range_header.strip().lower()
+            if range_str.startswith("bytes="):
+                range_str = range_str[6:]
+                parts = range_str.split("-", 1)
+                start = int(parts[0]) if parts[0] else 0
+                end = int(parts[1]) if parts[1] else file_size - 1
+                start = max(0, start)
+                end = min(end, file_size - 1)
+                content_length = end - start + 1
+
+                async def range_generator():
+                    chunk_size = 64 * 1024  # 64KB chunks
+                    with open(file_path, "rb") as f:
+                        f.seek(start)
+                        remaining = content_length
+                        while remaining > 0:
+                            read_size = min(chunk_size, remaining)
+                            chunk = f.read(read_size)
+                            if not chunk:
+                                break
+                            remaining -= len(chunk)
+                            yield chunk
+
+                return StreamingResponse(
+                    range_generator(),
+                    status_code=206,
+                    media_type=document.mime_type,
+                    headers={
+                        "Content-Range": f"bytes {start}-{end}/{file_size}",
+                        "Accept-Ranges": "bytes",
+                        "Content-Length": str(content_length),
+                        "Content-Disposition": f'inline; filename="{document.original_filename}"',
+                    },
+                )
+
+        # No Range header — stream full file in chunks
+        async def file_generator():
+            chunk_size = 64 * 1024
+            with open(file_path, "rb") as f:
+                while chunk := f.read(chunk_size):
+                    yield chunk
+
+        return StreamingResponse(
+            file_generator(),
+            media_type=document.mime_type,
+            headers={
+                "Accept-Ranges": "bytes",
+                "Content-Length": str(file_size),
+                "Content-Disposition": f'inline; filename="{document.original_filename}"',
+            },
+        )
+
+    # Fallback: load into memory for non-local storage backends
     data, document = await download_document(db, storage, document_id)
     file_size = len(data)
 
     range_header = request.headers.get("range")
     if range_header:
-        # Parse Range header: "bytes=start-end"
         range_str = range_header.strip().lower()
         if range_str.startswith("bytes="):
             range_str = range_str[6:]
             parts = range_str.split("-", 1)
             start = int(parts[0]) if parts[0] else 0
             end = int(parts[1]) if parts[1] else file_size - 1
-
-            # Clamp values
             start = max(0, start)
             end = min(end, file_size - 1)
-
             content_length = end - start + 1
-            chunk = data[start : end + 1]
 
             return StreamingResponse(
-                io.BytesIO(chunk),
+                io.BytesIO(data[start : end + 1]),
                 status_code=206,
                 media_type=document.mime_type,
                 headers={
@@ -562,7 +639,6 @@ async def stream_document(
                 },
             )
 
-    # No Range header -- return full file
     return StreamingResponse(
         io.BytesIO(data),
         media_type=document.mime_type,

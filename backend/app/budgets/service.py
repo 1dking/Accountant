@@ -9,6 +9,7 @@ from app.accounting.models import Expense, ExpenseCategory
 from app.auth.models import User
 from app.budgets.models import Budget, PeriodType
 from app.budgets.schemas import BudgetCreate, BudgetUpdate, BudgetVsActual
+from app.collaboration.service import log_activity
 from app.core.exceptions import ConflictError, NotFoundError
 from app.core.pagination import PaginationParams, build_pagination_meta
 
@@ -34,6 +35,16 @@ async def create_budget(
     db.add(budget)
     await db.commit()
     await db.refresh(budget)
+
+    await log_activity(
+        db,
+        user_id=user.id,
+        action="budget_created",
+        resource_type="budget",
+        resource_id=str(budget.id),
+        details={"name": budget.name, "amount": budget.amount, "year": budget.year},
+    )
+
     return budget
 
 
@@ -52,7 +63,11 @@ async def list_budgets(
     count_q = select(func.count()).select_from(query.subquery())
     total = (await db.execute(count_q)).scalar() or 0
 
-    query = query.order_by(Budget.year.desc(), Budget.month).offset(pagination.offset).limit(pagination.page_size)
+    query = (
+        query.order_by(Budget.year.desc(), Budget.month)
+        .offset(pagination.offset)
+        .limit(pagination.page_size)
+    )
     result = await db.execute(query)
     budgets = list(result.scalars().all())
 
@@ -76,6 +91,16 @@ async def update_budget(
         setattr(budget, key, value)
     await db.commit()
     await db.refresh(budget)
+
+    await log_activity(
+        db,
+        user_id=user.id,
+        action="budget_updated",
+        resource_type="budget",
+        resource_id=str(budget.id),
+        details={"name": budget.name, "amount": budget.amount},
+    )
+
     return budget
 
 

@@ -8,6 +8,7 @@ from sqlalchemy import extract, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import User
+from app.collaboration.service import log_activity
 from app.core.exceptions import NotFoundError, ValidationError
 from app.core.pagination import PaginationParams, build_pagination_meta
 from app.documents.models import Document
@@ -32,6 +33,16 @@ async def create_income(
     db.add(income)
     await db.commit()
     await db.refresh(income)
+
+    await log_activity(
+        db,
+        user_id=user.id,
+        action="income_created",
+        resource_type="income",
+        resource_id=str(income.id),
+        details={"amount": income.amount, "category": income.category.value},
+    )
+
     return income
 
 
@@ -54,6 +65,16 @@ async def create_income_from_payment(
     db.add(income)
     await db.commit()
     await db.refresh(income)
+
+    await log_activity(
+        db,
+        user_id=user.id,
+        action="income_created",
+        resource_type="income",
+        resource_id=str(income.id),
+        details={"amount": income.amount, "source": "invoice_payment", "invoice_id": str(invoice.id)},
+    )
+
     return income
 
 
@@ -93,6 +114,16 @@ async def create_income_from_document(
     db.add(income)
     await db.commit()
     await db.refresh(income)
+
+    await log_activity(
+        db,
+        user_id=user.id,
+        action="income_created",
+        resource_type="income",
+        resource_id=str(income.id),
+        details={"amount": income.amount, "source": "document", "document_id": str(document_id)},
+    )
+
     return income
 
 
@@ -145,6 +176,16 @@ async def update_income(
         setattr(income, key, value)
     await db.commit()
     await db.refresh(income)
+
+    await log_activity(
+        db,
+        user_id=user.id,
+        action="income_updated",
+        resource_type="income",
+        resource_id=str(income.id),
+        details={"amount": income.amount},
+    )
+
     return income
 
 

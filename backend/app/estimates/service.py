@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.auth.models import User
+from app.collaboration.service import log_activity
 from app.core.exceptions import NotFoundError, ValidationError
 from app.core.pagination import PaginationParams, build_pagination_meta
 from app.estimates.models import Estimate, EstimateLineItem, EstimateStatus
@@ -79,6 +80,16 @@ async def create_estimate(
 
     await db.commit()
     await db.refresh(estimate)
+
+    await log_activity(
+        db,
+        user_id=user.id,
+        action="estimate_created",
+        resource_type="estimate",
+        resource_id=str(estimate.id),
+        details={"estimate_number": estimate.estimate_number, "total": estimate.total},
+    )
+
     return estimate
 
 
@@ -165,6 +176,16 @@ async def update_estimate(
 
     await db.commit()
     await db.refresh(estimate)
+
+    await log_activity(
+        db,
+        user_id=user.id,
+        action="estimate_updated",
+        resource_type="estimate",
+        resource_id=str(estimate.id),
+        details={"estimate_number": estimate.estimate_number, "total": estimate.total},
+    )
+
     return estimate
 
 
@@ -222,6 +243,16 @@ async def convert_to_invoice(
 
     await db.commit()
     await db.refresh(invoice)
+
+    await log_activity(
+        db,
+        user_id=user.id,
+        action="estimate_converted",
+        resource_type="estimate",
+        resource_id=str(estimate.id),
+        details={"estimate_number": estimate.estimate_number, "invoice_id": str(invoice.id), "invoice_number": invoice.invoice_number},
+    )
+
     return invoice
 
 

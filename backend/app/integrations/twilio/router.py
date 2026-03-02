@@ -1,9 +1,12 @@
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import Role, User
 from app.config import Settings
+from app.core.pagination import PaginationParams, get_pagination
 from app.dependencies import get_current_user, get_db, require_role
 
 from . import service
@@ -56,8 +59,9 @@ async def send_reminder_sms(
 
 @router.get("/logs", response_model=dict)
 async def list_sms_logs(
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+    pagination: Annotated[PaginationParams, Depends(get_pagination)],
 ):
-    logs = await service.list_sms_logs(db, user.id)
-    return {"data": [SmsLogResponse.model_validate(log) for log in logs]}
+    logs, meta = await service.list_sms_logs(db, user.id, pagination)
+    return {"data": [SmsLogResponse.model_validate(log) for log in logs], "meta": meta}

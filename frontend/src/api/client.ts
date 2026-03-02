@@ -133,4 +133,54 @@ export const api = {
     const response = await doFetch()
     return handleResponse<T>(response, doFetch)
   },
+
+  async download(path: string): Promise<Blob> {
+    const doFetch = async () => {
+      const headers = await getAuthHeaders()
+      return fetch(`${BASE_URL}${path}`, { headers })
+    }
+    let response = await doFetch()
+    if (response.status === 401) {
+      const refreshed = await tryRefreshToken()
+      if (refreshed) {
+        response = await doFetch()
+      }
+    }
+    if (!response.ok) {
+      let detail = `HTTP ${response.status}`
+      try {
+        const body = await response.json()
+        detail = body?.error?.message || body?.detail || detail
+      } catch { /* response wasn't JSON */ }
+      throw new Error(detail)
+    }
+    return response.blob()
+  },
+
+  async postDownload(path: string, body?: unknown): Promise<Blob> {
+    const doFetch = async () => {
+      const headers = await getAuthHeaders()
+      return fetch(`${BASE_URL}${path}`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: body ? JSON.stringify(body) : undefined,
+      })
+    }
+    let response = await doFetch()
+    if (response.status === 401) {
+      const refreshed = await tryRefreshToken()
+      if (refreshed) {
+        response = await doFetch()
+      }
+    }
+    if (!response.ok) {
+      let detail = `HTTP ${response.status}`
+      try {
+        const body = await response.json()
+        detail = body?.error?.message || body?.detail || detail
+      } catch { /* response wasn't JSON */ }
+      throw new Error(detail)
+    }
+    return response.blob()
+  },
 }

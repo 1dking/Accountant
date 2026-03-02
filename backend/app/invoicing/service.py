@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.auth.models import User
+from app.collaboration.service import log_activity
 from app.core.exceptions import NotFoundError, ValidationError
 from app.core.pagination import PaginationParams, build_pagination_meta
 from app.invoicing.models import Invoice, InvoiceLineItem, InvoicePayment, InvoiceStatus
@@ -86,6 +87,16 @@ async def create_invoice(
 
     await db.commit()
     await db.refresh(invoice)
+
+    await log_activity(
+        db,
+        user_id=user.id,
+        action="invoice_created",
+        resource_type="invoice",
+        resource_id=str(invoice.id),
+        details={"invoice_number": invoice.invoice_number, "total": invoice.total},
+    )
+
     return invoice
 
 
@@ -181,6 +192,16 @@ async def update_invoice(
 
     await db.commit()
     await db.refresh(invoice)
+
+    await log_activity(
+        db,
+        user_id=user.id,
+        action="invoice_updated",
+        resource_type="invoice",
+        resource_id=str(invoice.id),
+        details={"invoice_number": invoice.invoice_number, "total": invoice.total},
+    )
+
     return invoice
 
 
@@ -225,6 +246,15 @@ async def record_payment(
 
     await db.commit()
     await db.refresh(payment)
+
+    await log_activity(
+        db,
+        user_id=user.id,
+        action="payment_recorded",
+        resource_type="invoice",
+        resource_id=str(invoice.id),
+        details={"payment_id": str(payment.id), "amount": payment.amount, "status": invoice.status.value},
+    )
 
     # Auto-create income entry
     try:

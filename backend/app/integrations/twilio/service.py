@@ -1,12 +1,13 @@
 
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import User
 from app.config import Settings
 from app.core.exceptions import NotFoundError, ValidationError
+from app.core.pagination import PaginationParams, build_pagination_meta
 
 from .models import SmsLog, SmsStatus
 
@@ -193,11 +194,21 @@ async def send_payment_confirmation_sms(
 
 
 async def list_sms_logs(
-    db: AsyncSession, user_id: uuid.UUID
-) -> list[SmsLog]:
-    result = await db.execute(
-        select(SmsLog)
-        .where(SmsLog.created_by == user_id)
-        .order_by(SmsLog.created_at.desc())
-    )
-    return list(result.scalars().all())
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    pagination: PaginationParams | None = None,
+) -> list[SmsLog] | tuple[list[SmsLog], dict]:
+    base_query = select(SmsLog).where(SmsLog.created_by == user_id)
+
+    if pagination is None:
+        result = await db.execute(base_query.order_by(SmsLog.created_at.desc()))
+        return list(result.scalars().all())
+
+    total = await db.scalar(
+        select(func.count()).select_from(base_query.subquery())
+    ) or 0
+    query = base_query.order_by(SmsLog.created_at.desc())
+    query = query.offset(pagination.offset).limit(pagination.page_size)
+    result = await db.execute(query)
+    logs = list(result.scalars().all())
+    return logs, build_pagination_meta(total, pagination)

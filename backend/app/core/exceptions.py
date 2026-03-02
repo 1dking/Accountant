@@ -32,6 +32,11 @@ class ForbiddenError(AppError):
         super().__init__(code="FORBIDDEN", message=message, status_code=403)
 
 
+class RateLimitError(AppError):
+    def __init__(self, message: str = "Too many requests. Please try again later."):
+        super().__init__(code="RATE_LIMITED", message=message, status_code=429)
+
+
 class ValidationError(AppError):
     def __init__(self, message: str):
         super().__init__(code="VALIDATION_ERROR", message=message, status_code=422)

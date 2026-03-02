@@ -283,19 +283,7 @@ export async function exportQuickBooks(data: {
   date_to?: string
   include: 'expenses' | 'income' | 'invoices' | 'all'
 }) {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  const token = localStorage.getItem('access_token')
-  if (token) headers['Authorization'] = `Bearer ${token}`
-
-  const response = await fetch('/api/export/quickbooks', {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(data),
-  })
-
-  if (!response.ok) throw new Error('Export failed')
-
-  const blob = await response.blob()
+  const blob = await api.postDownload('/export/quickbooks', data)
   const ext = data.format === 'iif' ? 'iif' : 'csv'
   const url = window.URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -306,14 +294,7 @@ export async function exportQuickBooks(data: {
 }
 
 export async function exportChartOfAccounts() {
-  const headers: Record<string, string> = {}
-  const token = localStorage.getItem('access_token')
-  if (token) headers['Authorization'] = `Bearer ${token}`
-
-  const response = await fetch('/api/export/chart-of-accounts', { headers })
-  if (!response.ok) throw new Error('Export failed')
-
-  const blob = await response.blob()
+  const blob = await api.download('/export/chart-of-accounts')
   const url = window.URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url

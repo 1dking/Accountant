@@ -117,6 +117,13 @@ async def upload_document(
             f"File size {len(file_data)} exceeds maximum allowed size of {settings.max_upload_size} bytes."
         )
 
+    # Validate MIME type
+    if content_type not in ALLOWED_MIME_TYPES:
+        raise ValidationError(
+            f"File type '{content_type}' is not allowed. "
+            f"Accepted types: PDF, images, spreadsheets, documents, CSV, JSON."
+        )
+
     # Validate folder exists if specified
     if folder_id is not None:
         result = await db.execute(select(Folder).where(Folder.id == folder_id))
@@ -663,10 +670,22 @@ async def create_tag(db: AsyncSession, data: TagCreate) -> Tag:
     return tag
 
 
-async def list_tags(db: AsyncSession) -> list[Tag]:
-    """Return all tags ordered by name."""
-    result = await db.execute(select(Tag).order_by(Tag.name))
-    return list(result.scalars().all())
+async def list_tags(
+    db: AsyncSession,
+    pagination: PaginationParams | None = None,
+) -> list[Tag] | tuple[list[Tag], dict]:
+    """Return tags ordered by name, optionally paginated."""
+    query = select(Tag).order_by(Tag.name)
+
+    if pagination is None:
+        result = await db.execute(query)
+        return list(result.scalars().all())
+
+    total = await db.scalar(select(func.count()).select_from(Tag)) or 0
+    query = query.offset(pagination.offset).limit(pagination.page_size)
+    result = await db.execute(query)
+    tags = list(result.scalars().all())
+    return tags, build_pagination_meta(total, pagination)
 
 
 async def update_tag(

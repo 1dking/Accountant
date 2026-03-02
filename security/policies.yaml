@@ -3,7 +3,7 @@
 
 authentication:
   method: jwt
-  token_expiry_minutes: 1440  # 24 hours
+  token_expiry_minutes: 30  # refresh tokens (7-day) handle session extension
   algorithm: HS256
   password_hashing: bcrypt
   min_password_length: 8

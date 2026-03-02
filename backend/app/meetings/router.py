@@ -7,7 +7,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile, File, WebSocket
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -142,18 +142,29 @@ async def download_recording(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user_or_token)],
     storage: Annotated[StorageBackend, Depends(get_storage)],
-) -> StreamingResponse:
-    """Download a recording file."""
+):
+    """Download a recording file. Streams from disk for local storage."""
     recording = await service.get_recording_stream_info(db, recording_id, current_user)
     if not recording.storage_path:
         raise ValidationError("Recording file is not available.")
+
+    ext = recording.mime_type.split("/")[-1] if recording.mime_type else "webm"
+    filename = f"recording-{recording.id}.{ext}"
+
+    if hasattr(storage, "get_full_path"):
+        file_path = storage.get_full_path(recording.storage_path)
+        return FileResponse(
+            path=str(file_path),
+            media_type=recording.mime_type,
+            filename=filename,
+        )
 
     data = await storage.read(recording.storage_path)
     return StreamingResponse(
         io.BytesIO(data),
         media_type=recording.mime_type,
         headers={
-            "Content-Disposition": f'attachment; filename="recording-{recording.id}.{recording.mime_type.split("/")[-1]}"',
+            "Content-Disposition": f'attachment; filename="{filename}"',
             "Content-Length": str(len(data)),
         },
     )
@@ -167,18 +178,73 @@ async def stream_recording(
     storage: Annotated[StorageBackend, Depends(get_storage)],
     request: Request,
 ) -> StreamingResponse:
-    """Stream a recording with Range header support."""
+    """Stream a recording with Range header support.
+
+    Uses file-based streaming for local storage to avoid loading
+    large video files into memory.
+    """
     recording = await service.get_recording_stream_info(db, recording_id, current_user)
     if not recording.storage_path:
         raise ValidationError("Recording file is not available.")
 
+    # File-based streaming for local storage
+    if hasattr(storage, "get_full_path"):
+        file_path = storage.get_full_path(recording.storage_path)
+        total_size = file_path.stat().st_size
+
+        range_header = request.headers.get("range")
+        if range_header:
+            range_str = range_header.replace("bytes=", "")
+            parts = range_str.split("-")
+            start = int(parts[0]) if parts[0] else 0
+            end = int(parts[1]) if parts[1] else total_size - 1
+            end = min(end, total_size - 1)
+            content_length = end - start + 1
+
+            async def range_gen():
+                chunk_size = 64 * 1024
+                with open(file_path, "rb") as f:
+                    f.seek(start)
+                    remaining = content_length
+                    while remaining > 0:
+                        chunk = f.read(min(chunk_size, remaining))
+                        if not chunk:
+                            break
+                        remaining -= len(chunk)
+                        yield chunk
+
+            return StreamingResponse(
+                range_gen(),
+                status_code=206,
+                media_type=recording.mime_type,
+                headers={
+                    "Content-Range": f"bytes {start}-{end}/{total_size}",
+                    "Content-Length": str(content_length),
+                    "Accept-Ranges": "bytes",
+                },
+            )
+
+        async def full_gen():
+            chunk_size = 64 * 1024
+            with open(file_path, "rb") as f:
+                while chunk := f.read(chunk_size):
+                    yield chunk
+
+        return StreamingResponse(
+            full_gen(),
+            media_type=recording.mime_type,
+            headers={
+                "Content-Length": str(total_size),
+                "Accept-Ranges": "bytes",
+            },
+        )
+
+    # Fallback: load into memory for non-local storage
     data = await storage.read(recording.storage_path)
     total_size = len(data)
 
-    # Handle Range header for partial content
     range_header = request.headers.get("range")
     if range_header:
-        # Parse "bytes=start-end"
         range_str = range_header.replace("bytes=", "")
         parts = range_str.split("-")
         start = int(parts[0]) if parts[0] else 0

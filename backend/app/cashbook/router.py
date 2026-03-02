@@ -111,10 +111,11 @@ async def list_accounts(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict:
     accounts = await service.list_accounts(db, current_user.id)
+    balances = await service.get_account_balances_batch(db, [a.id for a in accounts])
     result = []
     for acct in accounts:
         resp = PaymentAccountResponse.model_validate(acct)
-        resp.current_balance = await service.get_account_current_balance(db, acct.id)
+        resp.current_balance = balances.get(acct.id, acct.opening_balance)
         result.append(resp)
     return {"data": [r.model_dump(mode="json") for r in result]}
 

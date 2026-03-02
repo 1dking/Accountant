@@ -117,17 +117,7 @@ export function getRecordingStreamUrl(recordingId: string): string {
 export async function uploadRecording(meetingId: string, file: Blob): Promise<ApiResponse<MeetingRecording>> {
   const formData = new FormData()
   formData.append('file', file, `recording-${Date.now()}.webm`)
-  const token = localStorage.getItem('access_token') || ''
-  const response = await fetch(`/api/meetings/${meetingId}/recordings/upload`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
-    body: formData,
-  })
-  if (!response.ok) {
-    const body = await response.json().catch(() => null)
-    throw new Error(body?.error?.message || `Failed to upload recording (${response.status})`)
-  }
-  return response.json() as Promise<ApiResponse<MeetingRecording>>
+  return api.upload<ApiResponse<MeetingRecording>>(`/meetings/${meetingId}/recordings/upload`, formData)
 }
 
 export function deleteRecording(recordingId: string) {

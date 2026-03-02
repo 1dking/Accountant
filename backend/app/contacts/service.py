@@ -5,6 +5,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import User
+from app.collaboration.service import log_activity
 from app.contacts.models import Contact
 from app.contacts.schemas import ContactCreate, ContactFilter, ContactUpdate
 from app.core.exceptions import NotFoundError
@@ -21,6 +22,19 @@ async def create_contact(
     db.add(contact)
     await db.commit()
     await db.refresh(contact)
+
+    await log_activity(
+        db,
+        user_id=user.id,
+        action="contact_created",
+        resource_type="contact",
+        resource_id=str(contact.id),
+        details={
+            "company_name": contact.company_name,
+            "type": contact.type.value if contact.type else None,
+        },
+    )
+
     return contact
 
 
@@ -48,7 +62,11 @@ async def list_contacts(
     total = (await db.execute(count_query)).scalar() or 0
 
     # Fetch
-    query = query.order_by(Contact.company_name).offset(pagination.offset).limit(pagination.page_size)
+    query = (
+        query.order_by(Contact.company_name)
+        .offset(pagination.offset)
+        .limit(pagination.page_size)
+    )
     result = await db.execute(query)
     contacts = list(result.scalars().all())
 
@@ -72,6 +90,16 @@ async def update_contact(
         setattr(contact, key, value)
     await db.commit()
     await db.refresh(contact)
+
+    await log_activity(
+        db,
+        user_id=user.id,
+        action="contact_updated",
+        resource_type="contact",
+        resource_id=str(contact.id),
+        details={"company_name": contact.company_name},
+    )
+
     return contact
 
 
