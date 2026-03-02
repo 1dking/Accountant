@@ -9,6 +9,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import Role, User
@@ -91,6 +92,55 @@ def get_storage(request: Request) -> StorageBackend:
 logger = logging.getLogger(__name__)
 
 
+async def _resolve_folder_from_path(
+    db: AsyncSession,
+    user: User,
+    relative_path: str,
+    parent_folder_id: uuid.UUID | None,
+) -> uuid.UUID | None:
+    """Create intermediate folders from a webkitRelativePath and return the
+    final folder ID where the file should be placed.
+
+    ``relative_path`` looks like ``"TopFolder/Sub/file.pdf"``.  We strip the
+    filename (last segment) and create ``TopFolder`` then ``Sub`` under
+    *parent_folder_id*, returning ``Sub``'s id.
+    """
+    import posixpath
+
+    parts = posixpath.normpath(relative_path).split("/")
+    # Drop the filename (last segment)
+    folder_parts = parts[:-1]
+    if not folder_parts:
+        return parent_folder_id
+
+    current_parent = parent_folder_id
+    for folder_name in folder_parts:
+        if not folder_name or folder_name == ".":
+            continue
+        # Try to find existing folder with this name under current parent
+        from app.documents.models import Folder
+        result = await db.execute(
+            select(Folder).where(
+                Folder.name == folder_name,
+                Folder.parent_id == current_parent,
+            )
+        )
+        existing = result.scalar_one_or_none()
+        if existing:
+            current_parent = existing.id
+        else:
+            new_folder = await create_folder(
+                db,
+                FolderCreate(
+                    name=folder_name,
+                    parent_id=current_parent,
+                ),
+                user,
+            )
+            current_parent = new_folder.id
+    return current_parent
+
+
 async def _run_ai_extraction(document_id: uuid.UUID, storage_path: str, settings) -> None:
     """Background task: run AI extraction on a newly uploaded document."""
     from app.ai.service import process_document_ai
@@ -119,10 +169,23 @@ async def upload(
     folder_id: uuid.UUID | None = None,
     document_type: DocumentType = DocumentType.OTHER,
     title: str | None = None,
+    relative_path: str | None = None,
 ) -> dict:
-    """Upload a new document. Auto-triggers AI extraction in background."""
+    """Upload a new document. Auto-triggers AI extraction in background.
+
+    When ``relative_path`` is provided (from webkitdirectory folder uploads),
+    intermediate folders are created automatically so the uploaded file ends
+    up in the correct nested folder.
+    """
     file_data = await file.read()
     settings = request.app.state.settings
+
+    # Resolve folder from relative_path (folder uploads)
+    target_folder_id = folder_id
+    if relative_path:
+        target_folder_id = await _resolve_folder_from_path(
+            db, current_user, relative_path, folder_id,
+        )
 
     document = await upload_document(
         db=db,
@@ -131,7 +194,7 @@ async def upload(
         filename=file.filename or "unnamed",
         content_type=file.content_type or "application/octet-stream",
         user=current_user,
-        folder_id=folder_id,
+        folder_id=target_folder_id,
         settings=settings,
         document_type=document_type.value,
         title=title,

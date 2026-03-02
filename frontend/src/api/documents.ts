@@ -22,6 +22,9 @@ export async function uploadDocuments(
     formData.append('file', file)
     if (folderId) formData.append('folder_id', folderId)
     if (tags?.length) tags.forEach((t) => formData.append('tags', t))
+    // Preserve folder structure for webkitdirectory uploads
+    const relativePath = (file as any).webkitRelativePath as string | undefined
+    if (relativePath) formData.append('relative_path', relativePath)
     try {
       const res = await api.upload<ApiResponse<Document>>('/documents/upload', formData)
       const result: UploadResult = { file, document: res.data }

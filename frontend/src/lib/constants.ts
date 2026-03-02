@@ -60,6 +60,7 @@ export const ACCEPTED_FILE_TYPES = {
   'text/xml': ['.xml'],
   // Archives
   'application/zip': ['.zip'],
+  'application/x-zip-compressed': ['.zip'],
   'application/gzip': ['.gz'],
   'application/x-rar-compressed': ['.rar'],
   'application/x-7z-compressed': ['.7z'],

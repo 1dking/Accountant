@@ -123,6 +123,8 @@ _EXTENSION_TO_MIME: dict[str, str] = {
     "mp3": "audio/mpeg",
     "wav": "audio/wav",
     "ogg": "audio/ogg",
+    "weba": "audio/webm",
+    "m4a": "audio/mp4",
 }
 
 
