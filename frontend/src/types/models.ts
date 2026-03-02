@@ -46,6 +46,8 @@ export interface DocumentListItem {
   title: string | null
   folder_id: string | null
   uploaded_by: string
+  is_starred: boolean
+  is_trashed: boolean
   tags: Tag[]
   created_at: string
   updated_at: string

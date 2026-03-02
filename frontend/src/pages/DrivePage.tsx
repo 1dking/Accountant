@@ -55,6 +55,7 @@ export default function DrivePage() {
   const [showNewFolderDialog, setShowNewFolderDialog] = useState(false)
   const [newFolderName, setNewFolderName] = useState('')
   const [showPlusMenu, setShowPlusMenu] = useState(false)
+  const [isFolderUploading, setIsFolderUploading] = useState(false)
   const [showMoveDialog, setShowMoveDialog] = useState(false)
   const [moveTarget, setMoveTarget] = useState<{ id: string; type: 'file' | 'folder' } | null>(null)
   const [moveDestination, setMoveDestination] = useState<string | null>(null)
@@ -231,6 +232,7 @@ export default function DrivePage() {
   }
 
   const handleUploadComplete = () => {
+    queryClient.invalidateQueries({ queryKey: ['folders'] })
     queryClient.invalidateQueries({ queryKey: ['documents'] })
     queryClient.invalidateQueries({ queryKey: ['storage-usage'] })
     queryClient.invalidateQueries({ queryKey: ['recent'] })
@@ -245,10 +247,14 @@ export default function DrivePage() {
   const handleFolderInputChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files || files.length === 0) return
-    setShowUpload(true)
+    setIsFolderUploading(true)
     try {
       const result = await uploadDocuments(Array.from(files), currentFolderId ?? undefined)
-      handleUploadComplete()
+      // Invalidate folders too — _resolve_folder_from_path creates new folders on the backend
+      queryClient.invalidateQueries({ queryKey: ['folders'] })
+      queryClient.invalidateQueries({ queryKey: ['documents'] })
+      queryClient.invalidateQueries({ queryKey: ['storage-usage'] })
+      queryClient.invalidateQueries({ queryKey: ['recent'] })
       const count = result.data.length
       const failCount = result.failures.length
       if (failCount > 0) {
@@ -259,8 +265,10 @@ export default function DrivePage() {
     } catch (err: any) {
       console.error('Folder upload failed:', err)
       toast.error(err.message || 'Folder upload failed')
+    } finally {
+      setIsFolderUploading(false)
+      e.target.value = ''
     }
-    e.target.value = ''
   }
 
   const handleConfirmMove = () => {
@@ -304,7 +312,7 @@ export default function DrivePage() {
       mime_type: doc.mime_type,
       file_size: doc.file_size,
       updated_at: doc.updated_at,
-      starred: doc.starred,
+      starred: doc.is_starred,
     }))
     isLoading = recentLoading
   }
@@ -403,10 +411,11 @@ export default function DrivePage() {
                 </button>
                 <button
                   onClick={handleFolderUploadClick}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  disabled={isFolderUploading}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
                 >
                   <FolderUp className="h-4 w-4" />
-                  Upload Folder
+                  {isFolderUploading ? 'Uploading...' : 'Upload Folder'}
                 </button>
                 <button
                   onClick={() => {

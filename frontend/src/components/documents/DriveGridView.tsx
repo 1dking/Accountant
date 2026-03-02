@@ -344,16 +344,18 @@ export function documentsToItems(
       folder_id: f.parent_id,
     }))
 
-  const fileItems: DriveItem[] = docs.map((doc: any) => ({
-    id: doc.id,
-    type: 'file' as const,
-    name: doc.title || doc.original_filename || doc.filename,
-    mime_type: doc.mime_type,
-    file_size: doc.file_size,
-    updated_at: doc.updated_at,
-    starred: doc.starred,
-    folder_id: doc.folder_id,
-  }))
+  const fileItems: DriveItem[] = docs
+    .filter((doc: any) => (doc.folder_id ?? null) === currentFolderId)
+    .map((doc: any) => ({
+      id: doc.id,
+      type: 'file' as const,
+      name: doc.title || doc.original_filename || doc.filename,
+      mime_type: doc.mime_type,
+      file_size: doc.file_size,
+      updated_at: doc.updated_at,
+      starred: doc.is_starred,
+      folder_id: doc.folder_id,
+    }))
 
   return [...folderItems, ...fileItems]
 }

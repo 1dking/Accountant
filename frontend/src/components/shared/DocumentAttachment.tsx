@@ -55,6 +55,8 @@ export default function DocumentAttachment({
           title: uploaded.title,
           folder_id: uploaded.folder_id,
           uploaded_by: uploaded.uploaded_by,
+          is_starred: false,
+          is_trashed: false,
           tags: uploaded.tags,
           created_at: uploaded.created_at,
           updated_at: uploaded.updated_at,
