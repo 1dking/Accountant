@@ -1,0 +1,80 @@
+# Monitoring Configuration
+# Defines health checks, log levels, and alerting thresholds.
+
+health_checks:
+  backend:
+    endpoint: "/api/system/health"
+    interval_seconds: 30
+    timeout_seconds: 5
+    expected_status: 200
+    expected_body:
+      data:
+        status: "healthy"
+
+  livekit:
+    check: "process_running"
+    process_name: "livekit-server"
+    port: 7880
+
+  hocuspocus:
+    check: "process_running"
+    process_name: "node"
+    port: 1234
+
+logging:
+  format: json
+  default_level: INFO
+  module_levels:
+    app.auth: INFO
+    app.ai: INFO
+    app.documents: INFO
+    app.invoicing: INFO
+    app.meetings: INFO
+    app.integrations.stripe: INFO
+    app.integrations.plaid: INFO
+    app.core.scheduler: WARNING
+    sqlalchemy.engine: WARNING
+    uvicorn.access: INFO
+
+  fields:
+    - timestamp
+    - level
+    - module
+    - message
+    - correlation_id
+    - user_id
+    - request_id
+
+alerts:
+  error_rate:
+    threshold_per_minute: 10
+    severity: warning
+  error_rate_critical:
+    threshold_per_minute: 50
+    severity: critical
+
+  response_time:
+    p95_threshold_ms: 2000
+    p99_threshold_ms: 5000
+    severity: warning
+
+  disk_usage:
+    threshold_percent: 85
+    severity: warning
+  disk_usage_critical:
+    threshold_percent: 95
+    severity: critical
+
+  health_check_failure:
+    consecutive_failures: 3
+    severity: critical
+
+metrics:
+  collect:
+    - request_count
+    - request_duration_ms
+    - error_count
+    - active_connections
+    - database_query_count
+    - storage_bytes_used
+    - active_users

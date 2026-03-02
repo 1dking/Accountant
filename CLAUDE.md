@@ -56,3 +56,52 @@ Local (SQLite) or deployed (PostgreSQL).
 - Use synchronous database calls.
 - Put business logic in routers -- routers only validate input and call services.
 - Use `select *` or load full document file contents into memory for listing endpoints.
+
+---
+
+## Agent Architecture
+
+This project follows a multi-layer agent architecture for structured, repeatable operations.
+
+### Layers
+
+| Layer | Purpose | Location |
+|-------|---------|----------|
+| **Directive** | SOPs defining what to do, inputs, outputs, edge cases, security | `directives/` |
+| **Orchestration** | Intelligent routing, decision-making, error handling | Claude Code (this agent) |
+| **Execution** | Deterministic scripts for deployment, builds, maintenance | `execution/`, `deploy.sh` |
+| **Observability** | Monitoring, logging, alerting, audit trails | `observability/` |
+| **Evaluation** | Test suites, quality gates, benchmarks | `evaluation/` |
+| **Security** | Policies, access controls, input validation patterns | `security/` |
+
+### Operating Principles
+
+1. **Security-first**: Every directive includes threat model and security requirements. All inputs validated, outputs verified.
+2. **Observability by default**: Structured logging, correlation IDs, health checks, audit trails.
+3. **Check for tools first**: Before writing a script, check `execution/` per the directive. Only create new scripts if none exist.
+4. **Self-anneal when things break**: Read error → fix → test → update directive with learnings.
+5. **Update directives as you learn**: Directives are living documents. Update with API constraints, edge cases, timing, security findings.
+6. **Continuous evaluation**: Run tests before/after changes. Measure accuracy, safety, performance, cost.
+
+### Framework Directory Structure
+
+```
+directives/           # SOPs: deployment, build, API endpoint, migration, incident response
+execution/            # Deterministic scripts (references deploy.sh)
+.tmp/                 # Temporary processing files (gitignored)
+observability/        # Monitoring configs, structured logging
+evaluation/           # Test suites, quality gates, benchmarks
+security/             # Policies, access control reference, validation patterns
+config/               # System configuration (agent.yaml)
+logs/                 # Runtime logs (gitignored)
+```
+
+### Key Directives
+
+| Directive | When to use |
+|-----------|-------------|
+| `directives/deployment.md` | Deploying to VPS, running update.sh |
+| `directives/build.md` | Setting up dev environment, building frontend |
+| `directives/api-endpoint.md` | Creating a new backend module/endpoint |
+| `directives/database-migration.md` | Adding/changing database models |
+| `directives/incident-response.md` | When something breaks in production |

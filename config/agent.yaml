@@ -1,0 +1,56 @@
+# Accountant Platform - System Configuration
+# This file defines project metadata, service topology, and operational settings.
+
+project:
+  name: Accountant
+  description: Full-stack document vault & accounting suite
+  repo: https://github.com/1dking/Accountant
+
+environments:
+  development:
+    backend_port: 8000
+    frontend_port: 5173
+    database: sqlite
+    debug: true
+  production:
+    backend_port: 8000
+    livekit_port: 7880
+    livekit_rtc_udp: "50000-50200"
+    livekit_tcp_fallback: 7881
+    hocuspocus_port: 1234
+    database: postgresql
+    debug: false
+
+services:
+  backend:
+    command: "uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    health_check: "/api/system/health"
+    depends_on: [database]
+  frontend:
+    command: "pnpm dev"
+    build: "pnpm build"
+    served_by: backend  # production: static files served via FastAPI
+  livekit:
+    command: "./livekit-server --config livekit.yaml"
+    ports: [7880, 7881]
+  hocuspocus:
+    command: "node server.js"
+    port: 1234
+    directory: backend/hocuspocus
+
+features:
+  meetings: true
+  ai_assistant: true
+  stripe_payments: true
+  email_integration: true
+  plaid_banking: true
+  twilio_sms: true
+
+deployment:
+  target: dreamhost_vps
+  user: dynamic  # set during deploy
+  app_dir: "~/Accountant"
+  proxy_port: 8000  # only port exposed by DreamHost
+  ssl: certbot
+  script: deploy.sh
+  helpers: [start.sh, stop.sh, update.sh, logs.sh, status.sh]

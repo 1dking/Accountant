@@ -1,0 +1,64 @@
+# Test Suite Configuration
+# Defines test categories, quality gates, and coverage requirements.
+
+framework:
+  backend: pytest
+  async_mode: auto  # pytest-asyncio
+  test_path: backend/tests/
+  fixtures: backend/tests/conftest.py
+
+categories:
+  unit:
+    description: Test individual service functions in isolation
+    pattern: "test_*_unit.py"
+    fast: true
+
+  integration:
+    description: Test API endpoints end-to-end with test database
+    pattern: "test_*_api.py"
+    requires: [database]
+
+  security:
+    description: Auth/authz boundary tests
+    pattern: "test_*_security.py"
+    checks:
+      - unauthenticated_returns_401
+      - wrong_role_returns_403
+      - public_endpoints_accessible
+      - jwt_expiry_enforced
+
+  performance:
+    description: Response time and query count benchmarks
+    pattern: "test_*_perf.py"
+    thresholds:
+      max_response_time_ms: 500
+      max_db_queries_per_request: 10
+
+quality_gates:
+  pre_commit:
+    - lint_passes  # ruff check .
+    - format_passes  # ruff format --check .
+    - typescript_builds  # cd frontend && pnpm build
+
+  pre_deploy:
+    - all_tests_pass
+    - no_new_lint_errors
+    - health_check_passes
+    - typescript_builds
+
+  coverage:
+    minimum_percent: 0  # start at 0, increase as tests are added
+    target_percent: 80
+
+required_tests_per_endpoint:
+  - happy_path  # Normal request returns expected data
+  - auth_401    # Missing/invalid token returns 401
+  - role_403    # Wrong role returns 403
+  - validation  # Bad input returns 422
+
+commands:
+  run_all: "cd backend && pytest -v"
+  run_coverage: "cd backend && pytest --cov=app --cov-report=term-missing"
+  run_category: "cd backend && pytest -v -k '{category}'"
+  lint: "cd backend && ruff check . && ruff format --check ."
+  typecheck: "cd frontend && pnpm build"

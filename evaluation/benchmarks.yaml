@@ -1,0 +1,57 @@
+# Performance Benchmarks
+# Baseline targets for response times, query counts, and resource usage.
+
+response_time:
+  # Maximum acceptable response times (milliseconds)
+  fast:  # Simple reads, health checks
+    p50: 50
+    p95: 200
+    p99: 500
+    endpoints:
+      - "GET /api/system/health"
+      - "GET /api/settings/company/logo"
+
+  standard:  # CRUD operations
+    p50: 100
+    p95: 500
+    p99: 1000
+    endpoints:
+      - "GET /api/invoices"
+      - "GET /api/contacts"
+      - "GET /api/documents"
+      - "POST /api/invoices"
+      - "PUT /api/invoices/{id}"
+
+  slow:  # Complex operations, reports, AI
+    p50: 500
+    p95: 2000
+    p99: 5000
+    endpoints:
+      - "GET /api/reports/*"
+      - "POST /api/ai/chat"
+      - "POST /api/documents/{id}/extract"
+      - "GET /api/invoices/{id}/pdf"
+
+  upload:  # File uploads
+    p50: 1000
+    p95: 5000
+    p99: 10000
+    endpoints:
+      - "POST /api/documents/upload"
+      - "POST /api/meetings/{id}/recordings/upload"
+
+database:
+  max_queries_per_request: 10  # aim for N+1 prevention via selectinload
+  max_query_time_ms: 100
+  connection_pool_size: 5  # for production PostgreSQL
+
+resource_limits:
+  max_upload_size_mb: 50
+  max_memory_per_request_mb: 256
+  max_concurrent_websockets: 100
+  max_storage_per_tenant_gb: 10
+
+frontend:
+  initial_load_time_ms: 3000
+  time_to_interactive_ms: 5000
+  bundle_size_limit_mb: 5  # matches workbox maximumFileSizeToCacheInBytes

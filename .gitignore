@@ -41,3 +41,7 @@ htmlcov/
 
 # Build
 *.log
+
+# Agent framework (temp files and runtime logs)
+.tmp/
+logs/

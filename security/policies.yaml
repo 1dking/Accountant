@@ -1,0 +1,116 @@
+# Security Policies
+# Defines authentication, authorization, rate limiting, and data classification rules.
+
+authentication:
+  method: jwt
+  token_expiry_minutes: 1440  # 24 hours
+  algorithm: HS256
+  password_hashing: bcrypt
+  min_password_length: 8
+
+  public_endpoints:
+    - "GET /api/system/health"
+    - "GET /api/system/stats"
+    - "POST /api/auth/login"
+    - "POST /api/auth/register"
+    - "GET /api/public/view/{token}"
+    - "POST /api/public/view/{token}/accept"
+    - "POST /api/public/view/{token}/pay"
+    - "GET /api/settings/company/logo"
+    - "GET /api/meetings/guest/{token}"
+    - "POST /api/meetings/guest/{token}/join"
+
+  token_query_param_endpoints:
+    # These accept ?token= for browser contexts (img src, downloads, streams)
+    - "GET /api/meetings/recordings/{id}/stream"
+    - "GET /api/meetings/recordings/{id}/download"
+
+authorization:
+  roles:
+    admin:
+      description: Full system access
+      permissions: ["*"]
+    accountant:
+      description: Financial operations and document management
+      permissions:
+        - "invoices.*"
+        - "estimates.*"
+        - "expenses.*"
+        - "contacts.*"
+        - "documents.*"
+        - "meetings.*"
+        - "reports.read"
+        - "settings.update"
+    viewer:
+      description: Read-only access
+      permissions:
+        - "*.read"
+        - "documents.read"
+
+  role_restricted_operations:
+    delete_invoice: [admin]
+    delete_estimate: [admin]
+    delete_recording: [admin, accountant]
+    manage_users: [admin]
+    update_settings: [admin, accountant]
+    create_invoice: [admin, accountant]
+    record_payment: [admin, accountant]
+
+input_validation:
+  file_upload:
+    max_size_mb: 50
+    allowed_extensions:
+      documents: [pdf, jpg, jpeg, png, gif, webp, xlsx, xls, csv, doc, docx]
+      logo: [jpg, jpeg, png, gif, webp, svg]
+      recording: [webm, mp4]
+    scan_for_malware: false  # not implemented yet
+
+  string_limits:
+    company_name: 255
+    email: 255
+    phone: 50
+    address: 255
+    notes: 10000
+    description: 5000
+
+rate_limiting:
+  enabled: false  # implement when needed
+  defaults:
+    requests_per_minute: 60
+    burst: 10
+  endpoints:
+    login:
+      requests_per_minute: 10
+      burst: 5
+    ai_chat:
+      requests_per_minute: 20
+      burst: 3
+
+data_classification:
+  public:
+    - company logo
+    - shared invoice/estimate (via public token)
+    - system health status
+  internal:
+    - business logic and configuration
+    - invoice/estimate data
+    - contact information
+    - meeting recordings
+  confidential:
+    - user credentials (passwords, tokens)
+    - API keys (Stripe, Anthropic, Plaid, Twilio)
+    - encryption keys (SECRET_KEY, FERNET_KEY)
+    - bank account details (via Plaid)
+  restricted:
+    - payment card data (handled by Stripe, never stored)
+
+encryption:
+  at_rest:
+    method: fernet
+    key_env: FERNET_KEY
+    applies_to:
+      - smtp_passwords
+      - integration_credentials
+  in_transit:
+    method: tls
+    enforced: true  # via nginx/certbot on VPS
