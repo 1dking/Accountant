@@ -182,7 +182,7 @@ export async function listRecent() {
 }
 
 export async function getStorageUsage() {
-  return api.get<ApiResponse<{ total_bytes: number; document_count: number; folder_count: number }>>('/documents/storage-usage')
+  return api.get<ApiResponse<{ used_bytes: number; file_count: number; folder_count: number }>>('/documents/storage-usage')
 }
 
 export async function emptyTrash() {

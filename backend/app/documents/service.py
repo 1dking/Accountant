@@ -1374,12 +1374,20 @@ async def get_storage_usage(
     db: AsyncSession,
     user_id: uuid.UUID,
 ) -> dict:
-    """Return total storage used: {used_bytes: int, file_count: int}."""
-    result = await db.execute(
+    """Return total storage used: {used_bytes, file_count, folder_count}."""
+    file_result = await db.execute(
         select(
             func.coalesce(func.sum(Document.file_size), 0),
             func.count(Document.id),
         ).where(Document.uploaded_by == user_id)
     )
-    row = result.one()
-    return {"used_bytes": int(row[0]), "file_count": int(row[1])}
+    file_row = file_result.one()
+    folder_result = await db.execute(
+        select(func.count(Folder.id)).where(Folder.created_by == user_id)
+    )
+    folder_count = folder_result.scalar_one() or 0
+    return {
+        "used_bytes": int(file_row[0]),
+        "file_count": int(file_row[1]),
+        "folder_count": int(folder_count),
+    }

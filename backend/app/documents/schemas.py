@@ -242,3 +242,4 @@ class MoveFolderRequest(BaseModel):
 class StorageUsageResponse(BaseModel):
     used_bytes: int
     file_count: int
+    folder_count: int

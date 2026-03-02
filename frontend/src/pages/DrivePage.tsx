@@ -232,11 +232,12 @@ export default function DrivePage() {
   }
 
   const handleUploadComplete = () => {
-    queryClient.invalidateQueries({ queryKey: ['folders'] })
-    queryClient.invalidateQueries({ queryKey: ['documents'] })
+    setShowUpload(false)
+    // refetchQueries forces an immediate active refetch (bypasses staleTime)
+    queryClient.refetchQueries({ queryKey: ['documents'] })
+    queryClient.refetchQueries({ queryKey: ['folders'] })
     queryClient.invalidateQueries({ queryKey: ['storage-usage'] })
     queryClient.invalidateQueries({ queryKey: ['recent'] })
-    setShowUpload(false)
   }
 
   const handleFolderUploadClick = () => {
@@ -250,9 +251,9 @@ export default function DrivePage() {
     setIsFolderUploading(true)
     try {
       const result = await uploadDocuments(Array.from(files), currentFolderId ?? undefined)
-      // Invalidate folders too — _resolve_folder_from_path creates new folders on the backend
-      queryClient.invalidateQueries({ queryKey: ['folders'] })
-      queryClient.invalidateQueries({ queryKey: ['documents'] })
+      // _resolve_folder_from_path creates new folders on the backend; refetch both
+      queryClient.refetchQueries({ queryKey: ['documents'] })
+      queryClient.refetchQueries({ queryKey: ['folders'] })
       queryClient.invalidateQueries({ queryKey: ['storage-usage'] })
       queryClient.invalidateQueries({ queryKey: ['recent'] })
       const count = result.data.length

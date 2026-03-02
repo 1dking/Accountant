@@ -12,7 +12,7 @@ export default function StorageUsage() {
   const usage = data?.data
   if (!usage) return null
 
-  const totalBytes = usage.total_bytes
+  const totalBytes = usage.used_bytes
   // Assume a reasonable storage limit for the visual bar (10 GB)
   const storageLimit = 10 * 1024 * 1024 * 1024
   const percentage = Math.min((totalBytes / storageLimit) * 100, 100)
@@ -35,7 +35,7 @@ export default function StorageUsage() {
         {formatFileSize(totalBytes)} used
       </p>
       <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-        {usage.document_count} files, {usage.folder_count} folders
+        {usage.file_count} files, {usage.folder_count ?? 0} folders
       </p>
     </div>
   )
