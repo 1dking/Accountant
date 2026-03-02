@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, type ChangeEvent } from 'react'
 import { useNavigate } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { DndContext, type DragEndEvent } from '@dnd-kit/core'
+import { toast } from 'sonner'
 import {
   listDocuments,
   getFolderTree,
@@ -112,9 +113,15 @@ export default function DrivePage() {
     mutationFn: (data: { name: string; parent_id?: string }) => createFolder(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['folders'] })
+      queryClient.invalidateQueries({ queryKey: ['documents'] })
       queryClient.invalidateQueries({ queryKey: ['storage-usage'] })
       setShowNewFolderDialog(false)
       setNewFolderName('')
+      toast.success('Folder created')
+    },
+    onError: (err: Error) => {
+      console.error('Create folder failed:', err)
+      toast.error(err.message || 'Failed to create folder')
     },
   })
 
@@ -126,6 +133,11 @@ export default function DrivePage() {
       queryClient.invalidateQueries({ queryKey: ['folders'] })
       queryClient.invalidateQueries({ queryKey: ['starred'] })
       queryClient.invalidateQueries({ queryKey: ['recent'] })
+      toast.success('File moved')
+    },
+    onError: (err: Error) => {
+      console.error('Move document failed:', err)
+      toast.error(err.message || 'Failed to move file')
     },
   })
 
@@ -135,6 +147,11 @@ export default function DrivePage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['folders'] })
       queryClient.invalidateQueries({ queryKey: ['documents'] })
+      toast.success('Folder moved')
+    },
+    onError: (err: Error) => {
+      console.error('Move folder failed:', err)
+      toast.error(err.message || 'Failed to move folder')
     },
   })
 
@@ -228,13 +245,20 @@ export default function DrivePage() {
   const handleFolderInputChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files || files.length === 0) return
-    // Show the upload zone so user sees progress
     setShowUpload(true)
     try {
-      await uploadDocuments(Array.from(files), currentFolderId ?? undefined)
+      const result = await uploadDocuments(Array.from(files), currentFolderId ?? undefined)
       handleUploadComplete()
-    } catch {
-      // Errors are handled per-file inside uploadDocuments
+      const count = result.data.length
+      const failCount = result.failures.length
+      if (failCount > 0) {
+        toast.warning(`Uploaded ${count} file(s), ${failCount} failed`)
+      } else {
+        toast.success(`Uploaded ${count} file(s)`)
+      }
+    } catch (err: any) {
+      console.error('Folder upload failed:', err)
+      toast.error(err.message || 'Folder upload failed')
     }
     e.target.value = ''
   }
