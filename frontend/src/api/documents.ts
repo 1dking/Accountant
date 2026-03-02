@@ -3,17 +3,46 @@ import type { ApiResponse, ApiListResponse, DocumentFilters } from '@/types/api'
 import type { Document, DocumentListItem, DocumentVersion, Folder, Tag } from '@/types/models'
 
 // Documents
-export async function uploadDocuments(files: File[], folderId?: string, tags?: string[]) {
-  const results: Document[] = []
-  for (const file of files) {
+export interface UploadResult {
+  file: File
+  document?: Document
+  error?: string
+}
+
+export async function uploadDocuments(
+  files: File[],
+  folderId?: string,
+  tags?: string[],
+  onFileComplete?: (result: UploadResult, index: number, total: number) => void,
+) {
+  const results: UploadResult[] = []
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i]
     const formData = new FormData()
     formData.append('file', file)
     if (folderId) formData.append('folder_id', folderId)
     if (tags?.length) tags.forEach((t) => formData.append('tags', t))
-    const res = await api.upload<ApiResponse<Document>>('/documents/upload', formData)
-    results.push(res.data)
+    try {
+      const res = await api.upload<ApiResponse<Document>>('/documents/upload', formData)
+      const result: UploadResult = { file, document: res.data }
+      results.push(result)
+      onFileComplete?.(result, i, files.length)
+    } catch (err: any) {
+      const result: UploadResult = { file, error: err.message || 'Upload failed' }
+      results.push(result)
+      onFileComplete?.(result, i, files.length)
+    }
   }
-  return { data: results }
+  const successes = results.filter((r) => r.document)
+  const failures = results.filter((r) => r.error)
+  if (failures.length > 0 && successes.length === 0) {
+    throw new Error(
+      failures.length === 1
+        ? failures[0].error!
+        : `All ${failures.length} files failed to upload`,
+    )
+  }
+  return { data: successes.map((r) => r.document!), failures }
 }
 
 export async function listDocuments(filters: DocumentFilters = {}) {

@@ -31,16 +31,49 @@ export const ROLES = [
 ] as const
 
 export const ACCEPTED_FILE_TYPES = {
+  // Documents
   'application/pdf': ['.pdf'],
-  'image/jpeg': ['.jpg', '.jpeg'],
-  'image/png': ['.png'],
-  'image/webp': ['.webp'],
   'application/msword': ['.doc'],
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+  'application/rtf': ['.rtf'],
+  // Spreadsheets
   'application/vnd.ms-excel': ['.xls'],
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-  'text/csv': ['.csv'],
+  // Presentations
+  'application/vnd.ms-powerpoint': ['.ppt'],
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
+  // Images
+  'image/jpeg': ['.jpg', '.jpeg'],
+  'image/png': ['.png'],
+  'image/gif': ['.gif'],
+  'image/webp': ['.webp'],
+  'image/tiff': ['.tiff', '.tif'],
+  'image/svg+xml': ['.svg'],
+  'image/bmp': ['.bmp'],
+  'image/heic': ['.heic'],
+  'image/heif': ['.heif'],
+  // Text / data
   'text/plain': ['.txt'],
+  'text/csv': ['.csv'],
+  'application/json': ['.json'],
+  'application/xml': ['.xml'],
+  'text/xml': ['.xml'],
+  // Archives
+  'application/zip': ['.zip'],
+  'application/gzip': ['.gz'],
+  'application/x-rar-compressed': ['.rar'],
+  'application/x-7z-compressed': ['.7z'],
+  // Video
+  'video/mp4': ['.mp4'],
+  'video/webm': ['.webm'],
+  'video/quicktime': ['.mov'],
+  'video/x-msvideo': ['.avi'],
+  // Audio
+  'audio/mpeg': ['.mp3'],
+  'audio/wav': ['.wav'],
+  'audio/ogg': ['.ogg'],
+  'audio/webm': ['.weba'],
+  'audio/mp4': ['.m4a'],
 }
 
 export const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50MB

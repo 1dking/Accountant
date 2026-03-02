@@ -41,19 +41,102 @@ from app.documents.storage import StorageBackend
 # ---------------------------------------------------------------------------
 
 ALLOWED_MIME_TYPES: set[str] = {
+    # Documents
     "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/rtf",
+    # Spreadsheets
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    # Presentations
+    "application/vnd.ms-powerpoint",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    # Images
     "image/png",
     "image/jpeg",
-    "image/tiff",
+    "image/gif",
     "image/webp",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    "application/vnd.ms-excel",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    "application/msword",
+    "image/tiff",
+    "image/svg+xml",
+    "image/bmp",
+    "image/heic",
+    "image/heif",
+    # Text / data
     "text/plain",
     "text/csv",
+    "text/xml",
     "application/json",
+    "application/xml",
+    # Archives
+    "application/zip",
+    "application/x-zip-compressed",
+    "application/gzip",
+    "application/x-rar-compressed",
+    "application/x-7z-compressed",
+    # Video
+    "video/mp4",
+    "video/webm",
+    "video/quicktime",
+    "video/x-msvideo",
+    # Audio
+    "audio/mpeg",
+    "audio/wav",
+    "audio/ogg",
+    "audio/webm",
+    "audio/mp4",
 }
+
+# Map file extensions to MIME types for octet-stream fallback
+_EXTENSION_TO_MIME: dict[str, str] = {
+    "pdf": "application/pdf",
+    "doc": "application/msword",
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "xls": "application/vnd.ms-excel",
+    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "ppt": "application/vnd.ms-powerpoint",
+    "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "png": "image/png",
+    "jpg": "image/jpeg",
+    "jpeg": "image/jpeg",
+    "gif": "image/gif",
+    "webp": "image/webp",
+    "tiff": "image/tiff",
+    "tif": "image/tiff",
+    "svg": "image/svg+xml",
+    "bmp": "image/bmp",
+    "heic": "image/heic",
+    "heif": "image/heif",
+    "txt": "text/plain",
+    "csv": "text/csv",
+    "json": "application/json",
+    "xml": "application/xml",
+    "rtf": "application/rtf",
+    "zip": "application/zip",
+    "gz": "application/gzip",
+    "rar": "application/x-rar-compressed",
+    "7z": "application/x-7z-compressed",
+    "mp4": "video/mp4",
+    "webm": "video/webm",
+    "mov": "video/quicktime",
+    "avi": "video/x-msvideo",
+    "mp3": "audio/mpeg",
+    "wav": "audio/wav",
+    "ogg": "audio/ogg",
+}
+
+
+def _resolve_mime_type(content_type: str, filename: str) -> str:
+    """Resolve the actual MIME type, falling back to extension-based lookup.
+
+    Browsers sometimes send ``application/octet-stream`` when they can't
+    determine the real type.  In that case we infer from the file extension.
+    """
+    if content_type and content_type != "application/octet-stream":
+        return content_type
+
+    ext = _extension_from_filename(filename).lower()
+    return _EXTENSION_TO_MIME.get(ext, content_type or "application/octet-stream")
 
 
 # ---------------------------------------------------------------------------
@@ -113,15 +196,29 @@ async def upload_document(
 
     # Validate file size (0 = unlimited)
     if settings.max_upload_size > 0 and len(file_data) > settings.max_upload_size:
-        raise ValidationError(
-            f"File size {len(file_data)} exceeds maximum allowed size of {settings.max_upload_size} bytes."
+        logger.warning(
+            "Upload rejected: file too large — filename=%s size=%d max=%d user=%s",
+            filename, len(file_data), settings.max_upload_size, user.id,
         )
+        max_size = settings.max_upload_size
+        raise ValidationError(
+            f"File size {len(file_data)} exceeds maximum "
+            f"allowed size of {max_size} bytes."
+        )
+
+    # Resolve MIME type (handles octet-stream fallback via extension)
+    content_type = _resolve_mime_type(content_type, filename)
 
     # Validate MIME type
     if content_type not in ALLOWED_MIME_TYPES:
+        logger.warning(
+            "Upload rejected: disallowed MIME type — filename=%s content_type=%s user=%s",
+            filename, content_type, user.id,
+        )
         raise ValidationError(
             f"File type '{content_type}' is not allowed. "
-            f"Accepted types: PDF, images, spreadsheets, documents, CSV, JSON."
+            f"Accepted types: PDF, images, spreadsheets, documents, CSV, JSON, "
+            f"archives, audio, and video."
         )
 
     # Validate folder exists if specified
@@ -176,6 +273,12 @@ async def upload_document(
 
     await db.commit()
     await db.refresh(document)
+
+    logger.info(
+        "Document uploaded — id=%s filename=%s mime=%s size=%d user=%s folder=%s",
+        document.id, filename, content_type, len(file_data), user.id, folder_id,
+    )
+
     return document
 
 
@@ -468,8 +571,25 @@ async def upload_version(
 
     # Validate file size (0 = unlimited)
     if settings.max_upload_size > 0 and len(file_data) > settings.max_upload_size:
+        logger.warning(
+            "Version upload rejected: file too large — doc=%s size=%d user=%s",
+            document_id, len(file_data), user.id,
+        )
+        max_size = settings.max_upload_size
         raise ValidationError(
-            f"File size {len(file_data)} exceeds maximum allowed size of {settings.max_upload_size} bytes."
+            f"File size {len(file_data)} exceeds maximum "
+            f"allowed size of {max_size} bytes."
+        )
+
+    # Resolve and validate MIME type
+    content_type = _resolve_mime_type(content_type, filename)
+    if content_type not in ALLOWED_MIME_TYPES:
+        logger.warning(
+            "Version upload rejected: disallowed MIME — doc=%s mime=%s user=%s",
+            document_id, content_type, user.id,
+        )
+        raise ValidationError(
+            f"File type '{content_type}' is not allowed."
         )
 
     document = await get_document(db, document_id)
@@ -520,6 +640,12 @@ async def upload_version(
 
     await db.commit()
     await db.refresh(version)
+
+    logger.info(
+        "Version uploaded — doc=%s version=%d filename=%s size=%d user=%s",
+        document_id, next_version, filename, len(file_data), user.id,
+    )
+
     return version
 
 

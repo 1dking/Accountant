@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, type ChangeEvent } from 'react'
 import { useNavigate } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { DndContext, type DragEndEvent } from '@dnd-kit/core'
@@ -10,6 +10,7 @@ import {
   listRecent,
   moveDocument,
   moveFolder as moveFolderApi,
+  uploadDocuments,
 } from '@/api/documents'
 import DriveGridView, { documentsToItems, type DriveItem } from '@/components/documents/DriveGridView'
 import DriveBreadcrumb from '@/components/documents/DriveBreadcrumb'
@@ -26,6 +27,7 @@ import type { Folder } from '@/types/models'
 import {
   Upload,
   FolderPlus,
+  FolderUp,
   Plus,
   LayoutList,
   LayoutGrid,
@@ -61,6 +63,7 @@ export default function DrivePage() {
   const [contextItem, setContextItem] = useState<ContextMenuItem | null>(null)
 
   const plusMenuRef = useRef<HTMLDivElement>(null)
+  const folderInputRef = useRef<HTMLInputElement>(null)
   const debouncedSearch = useDebounce(searchQuery, 300)
 
   // ---- Data fetching ----
@@ -217,6 +220,25 @@ export default function DrivePage() {
     setShowUpload(false)
   }
 
+  const handleFolderUploadClick = () => {
+    setShowPlusMenu(false)
+    folderInputRef.current?.click()
+  }
+
+  const handleFolderInputChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+    // Show the upload zone so user sees progress
+    setShowUpload(true)
+    try {
+      await uploadDocuments(Array.from(files), currentFolderId ?? undefined)
+      handleUploadComplete()
+    } catch {
+      // Errors are handled per-file inside uploadDocuments
+    }
+    e.target.value = ''
+  }
+
   const handleConfirmMove = () => {
     if (!moveTarget) return
     if (moveTarget.type === 'file') {
@@ -271,6 +293,17 @@ export default function DrivePage() {
 
   return (
     <div className="flex h-[calc(100vh-49px)]">
+      {/* Hidden folder upload input */}
+      <input
+        ref={folderInputRef}
+        type="file"
+        className="hidden"
+        onChange={handleFolderInputChange}
+        /* @ts-expect-error webkitdirectory is non-standard but widely supported */
+        webkitdirectory=""
+        multiple
+      />
+
       {/* ===== Left Sidebar ===== */}
       <div className="w-56 border-r bg-white dark:bg-gray-900 flex flex-col overflow-y-auto shrink-0">
         <div className="p-3 space-y-0.5">
@@ -343,6 +376,13 @@ export default function DrivePage() {
                 >
                   <Upload className="h-4 w-4" />
                   Upload File
+                </button>
+                <button
+                  onClick={handleFolderUploadClick}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+                >
+                  <FolderUp className="h-4 w-4" />
+                  Upload Folder
                 </button>
                 <button
                   onClick={() => {
