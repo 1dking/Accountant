@@ -384,7 +384,7 @@ export default function EmailScanPage() {
 
   // Scan mutation
   const scanMutation = useMutation({
-    mutationFn: (pageToken?: string) => scanGmailEmails({
+    mutationFn: (pageToken: string | undefined) => scanGmailEmails({
       gmail_account_id: selectedAccount,
       query: searchQuery,
       max_results: 50,
@@ -505,7 +505,7 @@ export default function EmailScanPage() {
   const handleStartScan = () => {
     setScanCount(0)
     setScanPageToken(null)
-    scanMutation.mutate()
+    scanMutation.mutate(undefined)
   }
 
   const handleLoadMore = () => {
