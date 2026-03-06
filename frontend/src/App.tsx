@@ -74,6 +74,8 @@ import PageBuilderPage from '@/pages/PageBuilderPage'
 import SchedulingPage from '@/pages/SchedulingPage'
 import BrandingPage from '@/pages/BrandingPage'
 import PortalAdminPage from '@/pages/PortalAdminPage'
+import PipelinesPage from '@/pages/PipelinesPage'
+import ConversationsPage from '@/pages/ConversationsPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -157,6 +159,8 @@ function AuthenticatedApp() {
         <Route path="/budgets/new" element={<NewBudgetPage />} />
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/inbox" element={<InboxPage />} />
+        <Route path="/conversations" element={<ConversationsPage />} />
+        <Route path="/pipelines" element={<PipelinesPage />} />
         <Route path="/email-scan" element={<EmailScanPage />} />
         <Route path="/bank-transactions" element={<BankTransactionsPage />} />
         <Route path="/capture" element={<CapturePage />} />

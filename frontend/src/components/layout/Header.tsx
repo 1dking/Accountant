@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
-import { Menu, Bell, Search } from 'lucide-react'
+import { Menu, Bell, Search, Sparkles } from 'lucide-react'
 import { useNotificationStore } from '@/stores/notificationStore'
 import { useUiStore } from '@/stores/uiStore'
 import { formatRelativeTime } from '@/lib/utils'
@@ -8,7 +8,7 @@ import { formatRelativeTime } from '@/lib/utils'
 export default function Header() {
   const navigate = useNavigate()
   const { unreadCount, notifications, markRead, markAllRead } = useNotificationStore()
-  const { toggleSidebar } = useUiStore()
+  const { panelState, openSidebar, openOBrain, closePanel } = useUiStore()
   const [showNotifications, setShowNotifications] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
 
@@ -20,11 +20,27 @@ export default function Header() {
     }
   }
 
+  const handleToggleSidebar = () => {
+    if (panelState === 'sidebar') {
+      closePanel()
+    } else {
+      openSidebar()
+    }
+  }
+
+  const handleToggleOBrain = () => {
+    if (panelState === 'obrain') {
+      closePanel()
+    } else {
+      openOBrain()
+    }
+  }
+
   return (
     <header className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-700 px-4 py-2 flex items-center justify-between gap-4">
       <div className="flex items-center gap-3">
         <button
-          onClick={toggleSidebar}
+          onClick={handleToggleSidebar}
           className="p-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors"
           aria-label="Toggle sidebar"
         >
@@ -39,13 +55,27 @@ export default function Header() {
             type="search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search documents..."
+            placeholder="Search..."
             className="w-full pl-9 pr-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50/50 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
           />
         </div>
       </form>
 
       <div className="flex items-center gap-1">
+        {/* O-Brain button */}
+        <button
+          onClick={handleToggleOBrain}
+          className={`relative p-2 rounded-lg transition-colors ${
+            panelState === 'obrain'
+              ? 'bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'
+              : 'hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400'
+          }`}
+          aria-label="Toggle O-Brain"
+          title="O-Brain AI Assistant"
+        >
+          <Sparkles className="h-5 w-5" />
+        </button>
+
         {/* Notification bell */}
         <div className="relative">
           <button
