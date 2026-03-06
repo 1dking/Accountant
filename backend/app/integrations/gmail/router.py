@@ -49,8 +49,9 @@ async def gmail_callback(
 ):
     settings = _get_settings(request)
     await service.handle_oauth_callback(db, code, state, settings)
+    base_url = _get_settings(request).public_base_url.rstrip("/")
     return RedirectResponse(
-        url="http://localhost:5173/settings?tab=gmail&connected=true"
+        url=f"{base_url}/settings?tab=gmail&connected=true"
     )
 
 
