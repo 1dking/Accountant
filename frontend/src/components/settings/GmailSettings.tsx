@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Mail, Trash2 } from 'lucide-react'
-import { connectGmail, listGmailAccounts, disconnectGmailAccount } from '@/api/integrations'
+import { Mail, Trash2, RefreshCw } from 'lucide-react'
+import { connectGmail, listGmailAccounts, disconnectGmailAccount, scanGmailEmails } from '@/api/integrations'
 import { formatDate } from '@/lib/utils'
+import { toast } from 'sonner'
 
 export default function GmailSettings() {
   const queryClient = useQueryClient()
@@ -22,6 +23,19 @@ export default function GmailSettings() {
   const disconnectMutation = useMutation({
     mutationFn: disconnectGmailAccount,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['gmail-accounts'] }),
+  })
+
+  const syncMutation = useMutation({
+    mutationFn: (accountId: string) => scanGmailEmails({ gmail_account_id: accountId, max_results: 50 }),
+    onSuccess: (data) => {
+      const count = data?.data?.length ?? 0
+      toast.success(count > 0 ? `Found ${count} new email(s)` : 'No new emails found')
+      queryClient.invalidateQueries({ queryKey: ['gmail-accounts'] })
+      queryClient.invalidateQueries({ queryKey: ['gmail-results'] })
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || 'Sync failed')
+    },
   })
 
   const accounts = data?.data ?? []
@@ -60,13 +74,23 @@ export default function GmailSettings() {
                 Last synced: {account.last_sync_at ? formatDate(account.last_sync_at) : 'Never'}
               </p>
             </div>
-            <button
-              onClick={() => { if (confirm(`Disconnect ${account.email}?`)) disconnectMutation.mutate(account.id) }}
-              className="flex items-center gap-1 px-2 py-1 text-sm text-red-600 border border-red-200 rounded hover:bg-red-50"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              Disconnect
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => syncMutation.mutate(account.id)}
+                disabled={syncMutation.isPending}
+                className="flex items-center gap-1 px-2 py-1 text-sm text-blue-600 border border-blue-200 rounded hover:bg-blue-50 dark:hover:bg-blue-950 disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
+                {syncMutation.isPending ? 'Syncing...' : 'Sync Now'}
+              </button>
+              <button
+                onClick={() => { if (confirm(`Disconnect ${account.email}?`)) disconnectMutation.mutate(account.id) }}
+                className="flex items-center gap-1 px-2 py-1 text-sm text-red-600 border border-red-200 rounded hover:bg-red-50 dark:hover:bg-red-950"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Disconnect
+              </button>
+            </div>
           </div>
         ))}
 
