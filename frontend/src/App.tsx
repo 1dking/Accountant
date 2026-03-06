@@ -73,6 +73,7 @@ import CommunicationPage from '@/pages/CommunicationPage'
 import PageBuilderPage from '@/pages/PageBuilderPage'
 import SchedulingPage from '@/pages/SchedulingPage'
 import BrandingPage from '@/pages/BrandingPage'
+import PortalAdminPage from '@/pages/PortalAdminPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -179,6 +180,7 @@ function AuthenticatedApp() {
         <Route path="/page-builder" element={<PageBuilderPage />} />
         <Route path="/scheduling" element={<SchedulingPage />} />
         <Route path="/branding" element={<BrandingPage />} />
+        <Route path="/portal-admin" element={<PortalAdminPage />} />
         <Route path="/help" element={<HelpPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

@@ -1,10 +1,13 @@
 import { useNavigate } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import {
-  FileText,
-  HardDrive,
-  ClipboardCheck,
+  DollarSign,
+  FileSignature,
+  CalendarDays,
+  Inbox,
   ChevronRight,
+  ClipboardCheck,
+  AlertCircle,
 } from 'lucide-react'
 import {
   LineChart,
@@ -16,15 +19,17 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import { useAuthStore } from '@/stores/authStore'
-import { getSystemStats } from '@/api/auth'
-import { listDocuments } from '@/api/documents'
 import { listActivity } from '@/api/collaboration'
 import { getUpcoming } from '@/api/calendar'
 import { listPendingApprovals } from '@/api/accounting'
-import { formatFileSize, formatDate, formatRelativeTime } from '@/lib/utils'
-import { DOCUMENT_STATUSES, EVENT_TYPES } from '@/lib/constants'
+import { getInvoiceStats } from '@/api/invoices'
+import { getProposalStats } from '@/api/proposals'
+import { getUnreadCount } from '@/api/inbox'
+import { schedulingApi } from '@/api/scheduling'
+import { formatDate, formatRelativeTime } from '@/lib/utils'
+import { EVENT_TYPES } from '@/lib/constants'
 import ActivityPanel from '@/components/dashboard/ActivityPanel'
-import type { DocumentListItem, CalendarEvent, ActivityLogEntry, ExpenseApproval } from '@/types/models'
+import type { CalendarEvent, ActivityLogEntry, ExpenseApproval } from '@/types/models'
 
 function buildChartData(activities: ActivityLogEntry[]) {
   const days: Record<string, number> = {}
@@ -42,6 +47,10 @@ function buildChartData(activities: ActivityLogEntry[]) {
   return Object.entries(days).map(([name, count]) => ({ name, count }))
 }
 
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value)
+}
+
 export default function DashboardPage() {
   const { user } = useAuthStore()
   const navigate = useNavigate()
@@ -54,15 +63,25 @@ export default function DashboardPage() {
     day: 'numeric',
   })
 
-  const { data: statsData } = useQuery({
-    queryKey: ['system-stats'],
-    queryFn: getSystemStats,
+  const { data: invoiceStatsData } = useQuery({
+    queryKey: ['invoice-stats'],
+    queryFn: getInvoiceStats,
   })
 
-  const { data: docsData } = useQuery({
-    queryKey: ['documents', { page_size: 5, sort_by: 'updated_at', sort_order: 'desc' }],
-    queryFn: () =>
-      listDocuments({ page_size: 5, sort_by: 'updated_at', sort_order: 'desc' }),
+  const { data: proposalStatsData } = useQuery({
+    queryKey: ['proposal-stats'],
+    queryFn: getProposalStats,
+  })
+
+  const { data: unreadData } = useQuery({
+    queryKey: ['inbox-unread'],
+    queryFn: getUnreadCount,
+    refetchInterval: 60000,
+  })
+
+  const { data: bookingsData } = useQuery({
+    queryKey: ['upcoming-bookings'],
+    queryFn: () => schedulingApi.listAllBookings(1, 5, 'confirmed'),
   })
 
   const { data: chartActivity } = useQuery({
@@ -80,33 +99,68 @@ export default function DashboardPage() {
     queryFn: () => listPendingApprovals(),
   })
 
-  const stats = statsData?.data
-  const recentDocs: DocumentListItem[] = docsData?.data ?? []
+  const invoiceStats = invoiceStatsData?.data
+  const proposalStats = proposalStatsData?.data
+  const unreadCount = unreadData?.data
+  const bookings: any[] = (bookingsData as any)?.data ?? []
   const upcoming: CalendarEvent[] = upcomingData?.data ?? []
   const pendingApprovals: ExpenseApproval[] = pendingApprovalsData?.data ?? []
   const chartData = buildChartData(chartActivity?.data ?? [])
 
   const statCards = [
     {
-      label: 'Documents',
-      value: stats?.document_count ?? 0,
-      icon: FileText,
-      iconBg: 'bg-blue-100',
-      iconColor: 'text-blue-600',
+      label: 'Total Revenue',
+      value: formatCurrency(invoiceStats?.total_paid_this_month ?? 0),
+      sublabel: 'Paid this month',
+      icon: DollarSign,
+      iconBg: 'bg-green-100 dark:bg-green-900/30',
+      iconColor: 'text-green-600 dark:text-green-400',
+      path: '/invoices',
     },
     {
-      label: 'Storage Used',
-      value: formatFileSize(stats?.storage_used ?? 0),
-      icon: HardDrive,
-      iconBg: 'bg-purple-100',
-      iconColor: 'text-purple-600',
+      label: 'Outstanding',
+      value: formatCurrency(invoiceStats?.total_outstanding ?? 0),
+      sublabel: `${invoiceStats?.invoice_count ?? 0} invoices`,
+      icon: AlertCircle,
+      iconBg: 'bg-amber-100 dark:bg-amber-900/30',
+      iconColor: 'text-amber-600 dark:text-amber-400',
+      path: '/invoices',
     },
     {
-      label: 'Pending Reviews',
-      value: stats?.pending_approvals ?? 0,
+      label: 'Proposals Pending',
+      value: (proposalStats?.sent_count ?? 0) + (proposalStats?.viewed_count ?? 0),
+      sublabel: `${proposalStats?.signed_count ?? 0} signed`,
+      icon: FileSignature,
+      iconBg: 'bg-blue-100 dark:bg-blue-900/30',
+      iconColor: 'text-blue-600 dark:text-blue-400',
+      path: '/proposals',
+    },
+    {
+      label: 'Upcoming Meetings',
+      value: bookings.length,
+      sublabel: 'confirmed bookings',
+      icon: CalendarDays,
+      iconBg: 'bg-purple-100 dark:bg-purple-900/30',
+      iconColor: 'text-purple-600 dark:text-purple-400',
+      path: '/scheduling',
+    },
+    {
+      label: 'Unread Messages',
+      value: unreadCount?.total ?? 0,
+      sublabel: `${unreadCount?.email ?? 0} email, ${unreadCount?.sms ?? 0} sms`,
+      icon: Inbox,
+      iconBg: 'bg-rose-100 dark:bg-rose-900/30',
+      iconColor: 'text-rose-600 dark:text-rose-400',
+      path: '/inbox',
+    },
+    {
+      label: 'Pending Approvals',
+      value: pendingApprovals.length,
+      sublabel: 'expense approvals',
       icon: ClipboardCheck,
-      iconBg: 'bg-amber-100',
-      iconColor: 'text-amber-600',
+      iconBg: 'bg-orange-100 dark:bg-orange-900/30',
+      iconColor: 'text-orange-600 dark:text-orange-400',
+      path: '/expenses',
     },
   ]
 
@@ -121,31 +175,33 @@ export default function DashboardPage() {
               Hello, {firstName}
             </h1>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-              Here's what's happening with your documents
+              Here's your business at a glance
             </p>
           </div>
           <p className="text-sm text-gray-400 dark:text-gray-500 shrink-0">{todayStr}</p>
         </div>
 
         {/* Stat cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
           {statCards.map((card) => {
             const Icon = card.icon
             return (
-              <div
+              <button
                 key={card.label}
-                className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5 flex items-center gap-4"
+                onClick={() => navigate(card.path)}
+                className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5 flex items-center gap-4 hover:border-blue-200 dark:hover:border-blue-800 transition-colors text-left"
               >
                 <div
                   className={`h-11 w-11 rounded-lg ${card.iconBg} ${card.iconColor} flex items-center justify-center shrink-0`}
                 >
                   <Icon className="h-5 w-5" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm text-gray-500 dark:text-gray-400">{card.label}</p>
                   <p className="text-xl font-bold text-gray-900 dark:text-gray-100">{card.value}</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">{card.sublabel}</p>
                 </div>
-              </div>
+              </button>
             )
           })}
         </div>
@@ -192,56 +248,46 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Two-column: Recent Docs + Upcoming */}
+        {/* Two-column: Upcoming Bookings + Upcoming Deadlines */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Recent Documents */}
+          {/* Upcoming Bookings */}
           <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
             <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                Recent Documents
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                <CalendarDays className="h-4 w-4 text-purple-500" />
+                Upcoming Bookings
               </h2>
               <button
-                onClick={() => navigate('/documents')}
+                onClick={() => navigate('/scheduling')}
                 className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-0.5"
               >
                 View All <ChevronRight className="h-3 w-3" />
               </button>
             </div>
             <div className="divide-y divide-gray-50 dark:divide-gray-800">
-              {recentDocs.length === 0 ? (
+              {bookings.length === 0 ? (
                 <p className="p-5 text-sm text-gray-400 dark:text-gray-500 text-center">
-                  No documents yet
+                  No upcoming bookings
                 </p>
               ) : (
-                recentDocs.map((doc) => {
-                  const statusInfo = DOCUMENT_STATUSES.find(
-                    (s) => s.value === doc.status
-                  )
-                  return (
-                    <button
-                      key={doc.id}
-                      onClick={() => navigate(`/documents/${doc.id}`)}
-                      className="w-full text-left px-5 py-3 flex items-center gap-3 hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors"
-                    >
-                      <FileText className="h-4 w-4 text-gray-400 dark:text-gray-500 shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                          {doc.title || doc.original_filename}
-                        </p>
-                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                          {formatDate(doc.updated_at)}
-                        </p>
-                      </div>
-                      {statusInfo && (
-                        <span
-                          className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${statusInfo.color}`}
-                        >
-                          {statusInfo.label}
-                        </span>
-                      )}
-                    </button>
-                  )
-                })
+                bookings.slice(0, 5).map((booking: any) => (
+                  <div
+                    key={booking.id}
+                    className="px-5 py-3 flex items-center justify-between"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                        {booking.guest_name}
+                      </p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500">
+                        {booking.guest_email}
+                      </p>
+                    </div>
+                    <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0 ml-3">
+                      {formatDate(booking.start_time)}
+                    </span>
+                  </div>
+                ))
               )}
             </div>
           </div>
