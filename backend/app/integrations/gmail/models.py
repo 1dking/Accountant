@@ -43,6 +43,7 @@ class GmailScanResult(TimestampMixin, Base):
         DateTime(timezone=True), nullable=True
     )
     snippet: Mapped[str | None] = mapped_column(Text, nullable=True)
+    body_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     has_attachments: Mapped[bool] = mapped_column(Boolean, default=False)
     is_processed: Mapped[bool] = mapped_column(Boolean, default=False)
     matched_invoice_id: Mapped[uuid.UUID | None] = mapped_column(
@@ -50,4 +51,10 @@ class GmailScanResult(TimestampMixin, Base):
     )
     matched_document_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("documents.id", ondelete="SET NULL"), nullable=True
+    )
+    matched_expense_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("expenses.id", ondelete="SET NULL"), nullable=True
+    )
+    matched_income_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("income_entries.id", ondelete="SET NULL"), nullable=True
     )

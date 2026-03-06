@@ -4,15 +4,17 @@ from typing import Optional
 import base64
 import mimetypes
 import os
+import re
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
+from decimal import Decimal, InvalidOperation
 from email import encoders
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import parsedate_to_datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import User
@@ -21,6 +23,49 @@ from app.core.encryption import get_encryption_service
 from app.core.exceptions import NotFoundError, ValidationError
 
 from .models import GmailAccount, GmailScanResult
+
+
+# ---------------------------------------------------------------------------
+# Vendor-to-category mapping (learns from usage patterns)
+# ---------------------------------------------------------------------------
+
+VENDOR_CATEGORY_MAP: dict[str, str] = {
+    "anthropic": "Software & SaaS",
+    "openai": "Software & SaaS",
+    "vercel": "Hosting & Infrastructure",
+    "aws": "Hosting & Infrastructure",
+    "amazon web services": "Hosting & Infrastructure",
+    "google cloud": "Hosting & Infrastructure",
+    "digitalocean": "Hosting & Infrastructure",
+    "dreamhost": "Hosting & Infrastructure",
+    "heroku": "Hosting & Infrastructure",
+    "github": "Software & SaaS",
+    "stripe": "Payment Processing",
+    "paypal": "Payment Processing",
+    "slack": "Software & SaaS",
+    "zoom": "Software & SaaS",
+    "microsoft": "Software & SaaS",
+    "adobe": "Software & SaaS",
+    "figma": "Software & SaaS",
+    "notion": "Software & SaaS",
+    "canva": "Software & SaaS",
+    "twilio": "Communication",
+    "mailchimp": "Marketing",
+    "hubspot": "Marketing",
+    "quickbooks": "Accounting Software",
+    "uber": "Travel & Transport",
+    "lyft": "Travel & Transport",
+    "delta": "Travel & Transport",
+    "united airlines": "Travel & Transport",
+    "hilton": "Travel & Transport",
+    "marriott": "Travel & Transport",
+    "staples": "Office Supplies",
+    "office depot": "Office Supplies",
+    "comcast": "Utilities",
+    "verizon": "Utilities",
+    "at&t": "Utilities",
+    "t-mobile": "Utilities",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -177,7 +222,7 @@ async def disconnect_account(
     result = await db.execute(stmt)
     account = result.scalar_one_or_none()
     if not account:
-        raise NotFoundError("Gmail account not found")
+        raise NotFoundError("Gmail account", "unknown")
 
     await db.delete(account)
     await db.commit()
@@ -208,6 +253,43 @@ def _has_attachments(payload: dict) -> bool:
     return False
 
 
+def _extract_body_text(payload: dict) -> str:
+    """Extract plain text body from message payload recursively."""
+    mime_type = payload.get("mimeType", "")
+
+    # Direct text/plain body
+    if mime_type == "text/plain":
+        data = payload.get("body", {}).get("data", "")
+        if data:
+            return base64.urlsafe_b64decode(data).decode("utf-8", errors="replace")
+
+    # Multipart — recurse
+    parts = payload.get("parts", [])
+    for part in parts:
+        part_mime = part.get("mimeType", "")
+        if part_mime == "text/plain":
+            data = part.get("body", {}).get("data", "")
+            if data:
+                return base64.urlsafe_b64decode(data).decode("utf-8", errors="replace")
+        elif part_mime.startswith("multipart/"):
+            text = _extract_body_text(part)
+            if text:
+                return text
+
+    # Fall back to text/html if no plain text
+    for part in parts:
+        if part.get("mimeType", "") == "text/html":
+            data = part.get("body", {}).get("data", "")
+            if data:
+                html = base64.urlsafe_b64decode(data).decode("utf-8", errors="replace")
+                # Strip HTML tags for a rough text extraction
+                text = re.sub(r"<[^>]+>", " ", html)
+                text = re.sub(r"\s+", " ", text).strip()
+                return text[:5000]
+
+    return ""
+
+
 async def scan_emails(
     db: AsyncSession,
     gmail_account_id: uuid.UUID,
@@ -215,8 +297,14 @@ async def scan_emails(
     max_results: int,
     user: User,
     settings: Settings,
-) -> list[GmailScanResult]:
-    """Search Gmail, save results, and detect attachments."""
+    after_date: date | None = None,
+    before_date: date | None = None,
+    page_token: str | None = None,
+) -> tuple[list[GmailScanResult], str | None]:
+    """Search Gmail, save results, and detect attachments.
+
+    Returns (results, next_page_token).
+    """
     stmt = select(GmailAccount).where(
         GmailAccount.id == gmail_account_id,
         GmailAccount.user_id == user.id,
@@ -225,19 +313,35 @@ async def scan_emails(
     result = await db.execute(stmt)
     gmail_account = result.scalar_one_or_none()
     if not gmail_account:
-        raise NotFoundError("Gmail account not found or inactive")
+        raise NotFoundError("Gmail account", "inactive")
 
     service = await _get_gmail_service(gmail_account, settings)
 
     search_query = query or "has:attachment (invoice OR receipt OR payment)"
+
+    # Add date range filters
+    if after_date:
+        search_query += f" after:{after_date.isoformat()}"
+    if before_date:
+        search_query += f" before:{before_date.isoformat()}"
+
+    list_kwargs: dict = {
+        "userId": "me",
+        "q": search_query,
+        "maxResults": max_results,
+    }
+    if page_token:
+        list_kwargs["pageToken"] = page_token
+
     response = (
         service.users()
         .messages()
-        .list(userId="me", q=search_query, maxResults=max_results)
+        .list(**list_kwargs)
         .execute()
     )
 
     messages = response.get("messages", [])
+    next_page_token = response.get("nextPageToken")
     scan_results: list[GmailScanResult] = []
 
     for msg_ref in messages:
@@ -271,6 +375,7 @@ async def scan_emails(
                 parsed_date = None
 
         attachments_found = _has_attachments(msg.get("payload", {}))
+        body_text = _extract_body_text(msg.get("payload", {}))
 
         scan_result = GmailScanResult(
             gmail_account_id=gmail_account_id,
@@ -279,6 +384,7 @@ async def scan_emails(
             sender=sender[:255] if sender else None,
             date=parsed_date,
             snippet=msg.get("snippet"),
+            body_text=body_text[:5000] if body_text else None,
             has_attachments=attachments_found,
             is_processed=False,
         )
@@ -293,7 +399,223 @@ async def scan_emails(
     for sr in scan_results:
         await db.refresh(sr)
 
-    return scan_results
+    return scan_results, next_page_token
+
+
+# ---------------------------------------------------------------------------
+# List results with pagination
+# ---------------------------------------------------------------------------
+
+
+async def list_results_paginated(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    gmail_account_id: uuid.UUID | None = None,
+    is_processed: bool | None = None,
+    has_attachments: bool | None = None,
+    search: str | None = None,
+    page: int = 1,
+    page_size: int = 50,
+) -> tuple[list[GmailScanResult], int]:
+    """List scan results with filters and pagination. Returns (results, total)."""
+    base_stmt = (
+        select(GmailScanResult)
+        .join(GmailAccount, GmailScanResult.gmail_account_id == GmailAccount.id)
+        .where(GmailAccount.user_id == user_id)
+    )
+
+    if gmail_account_id:
+        base_stmt = base_stmt.where(GmailScanResult.gmail_account_id == gmail_account_id)
+    if is_processed is not None:
+        base_stmt = base_stmt.where(GmailScanResult.is_processed == is_processed)
+    if has_attachments is not None:
+        base_stmt = base_stmt.where(GmailScanResult.has_attachments == has_attachments)
+    if search:
+        pattern = f"%{search}%"
+        base_stmt = base_stmt.where(
+            or_(
+                GmailScanResult.subject.ilike(pattern),
+                GmailScanResult.sender.ilike(pattern),
+                GmailScanResult.snippet.ilike(pattern),
+            )
+        )
+
+    # Count
+    count_stmt = select(func.count()).select_from(base_stmt.subquery())
+    total = (await db.execute(count_stmt)).scalar() or 0
+
+    # Page
+    stmt = (
+        base_stmt
+        .order_by(GmailScanResult.date.desc().nullslast())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
+    result = await db.execute(stmt)
+    rows = list(result.scalars().all())
+
+    return rows, total
+
+
+# ---------------------------------------------------------------------------
+# Delete scan results
+# ---------------------------------------------------------------------------
+
+
+async def delete_scan_result(
+    db: AsyncSession,
+    result_id: uuid.UUID,
+    user_id: uuid.UUID,
+) -> None:
+    """Delete a single scan result."""
+    stmt = (
+        select(GmailScanResult)
+        .join(GmailAccount, GmailScanResult.gmail_account_id == GmailAccount.id)
+        .where(GmailScanResult.id == result_id, GmailAccount.user_id == user_id)
+    )
+    result = await db.execute(stmt)
+    scan_result = result.scalar_one_or_none()
+    if not scan_result:
+        raise NotFoundError("Scan result", str(result_id))
+
+    await db.delete(scan_result)
+    await db.commit()
+
+
+async def bulk_delete_scan_results(
+    db: AsyncSession,
+    result_ids: list[uuid.UUID],
+    user_id: uuid.UUID,
+) -> int:
+    """Delete multiple scan results. Returns count deleted."""
+    stmt = (
+        select(GmailScanResult)
+        .join(GmailAccount, GmailScanResult.gmail_account_id == GmailAccount.id)
+        .where(GmailScanResult.id.in_(result_ids), GmailAccount.user_id == user_id)
+    )
+    result = await db.execute(stmt)
+    rows = result.scalars().all()
+    count = 0
+    for row in rows:
+        await db.delete(row)
+        count += 1
+    await db.commit()
+    return count
+
+
+# ---------------------------------------------------------------------------
+# Email parsing / auto-categorization
+# ---------------------------------------------------------------------------
+
+
+def _parse_amount_from_text(text: str) -> Decimal | None:
+    """Try to extract a monetary amount from text."""
+    # Patterns: $1,234.56 or USD 1234.56 or Total: $99.99
+    patterns = [
+        r"\$\s*([\d,]+\.?\d{0,2})",
+        r"(?:total|amount|charge|payment|due|balance)[:\s]*\$?\s*([\d,]+\.?\d{0,2})",
+        r"(?:USD|EUR|GBP)\s*([\d,]+\.?\d{0,2})",
+    ]
+    for pattern in patterns:
+        matches = re.findall(pattern, text, re.IGNORECASE)
+        for match in matches:
+            try:
+                val = Decimal(match.replace(",", ""))
+                if Decimal("0.01") <= val <= Decimal("999999.99"):
+                    return val
+            except (InvalidOperation, ValueError):
+                continue
+    return None
+
+
+def _parse_date_from_text(text: str) -> date | None:
+    """Try to extract a date from text."""
+    # Common date patterns
+    patterns = [
+        (r"(\d{1,2})[/-](\d{1,2})[/-](\d{4})", "%m/%d/%Y"),
+        (r"(\d{4})[/-](\d{1,2})[/-](\d{1,2})", "%Y-%m-%d"),
+        (r"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+(\d{1,2}),?\s+(\d{4})", None),
+    ]
+    for pattern, fmt in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            try:
+                if fmt:
+                    from datetime import datetime as dt
+                    parts = match.groups()
+                    date_str = "/".join(parts)
+                    return dt.strptime(date_str, fmt).date()
+                else:
+                    # Month name format
+                    from datetime import datetime as dt
+                    return dt.strptime(match.group(0).replace(",", ""), "%b %d %Y").date()
+            except (ValueError, IndexError):
+                continue
+    return None
+
+
+def _extract_vendor_from_sender(sender: str | None) -> str | None:
+    """Extract vendor name from email sender field."""
+    if not sender:
+        return None
+    # "Vendor Name <email@domain.com>" → "Vendor Name"
+    match = re.match(r'^"?([^"<]+)"?\s*<', sender)
+    if match:
+        name = match.group(1).strip()
+        if name and not "@" in name:
+            return name
+    # Plain email: vendor@domain.com → domain
+    match = re.search(r"@([\w.-]+)\.", sender)
+    if match:
+        return match.group(1).replace("-", " ").title()
+    return sender.strip()
+
+
+def _suggest_category(vendor_name: str | None) -> str | None:
+    """Suggest an expense category based on vendor name."""
+    if not vendor_name:
+        return None
+    vendor_lower = vendor_name.lower()
+    for key, category in VENDOR_CATEGORY_MAP.items():
+        if key in vendor_lower:
+            return category
+    return None
+
+
+def parse_email_for_import(
+    subject: str | None,
+    sender: str | None,
+    body_text: str | None,
+    email_date: datetime | None,
+) -> dict:
+    """Parse email content and return structured data for import."""
+    combined_text = " ".join(filter(None, [subject, body_text or ""]))
+
+    vendor_name = _extract_vendor_from_sender(sender)
+    amount = _parse_amount_from_text(combined_text)
+    parsed_date = _parse_date_from_text(combined_text)
+
+    # Use email date if no date found in body
+    if not parsed_date and email_date:
+        parsed_date = email_date.date() if isinstance(email_date, datetime) else email_date
+
+    category_suggestion = _suggest_category(vendor_name)
+
+    # Determine if this looks like income (payment received, deposit, etc.)
+    income_keywords = ["payment received", "deposit", "credited", "income", "paid you", "transfer received"]
+    is_income = any(kw in combined_text.lower() for kw in income_keywords)
+
+    description = subject or "Imported from email"
+
+    return {
+        "vendor_name": vendor_name,
+        "amount": str(amount) if amount else None,
+        "currency": "USD",
+        "date": parsed_date.isoformat() if parsed_date else None,
+        "description": description[:500] if description else None,
+        "category_suggestion": category_suggestion,
+        "record_type": "income" if is_income else "expense",
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -326,7 +648,7 @@ async def import_attachment(
     result = await db.execute(stmt)
     scan_result = result.scalar_one_or_none()
     if not scan_result:
-        raise NotFoundError("Scan result not found")
+        raise NotFoundError("Scan result", str(result_id))
 
     # Ensure the Gmail account belongs to this user
     acct_stmt = select(GmailAccount).where(
@@ -336,7 +658,7 @@ async def import_attachment(
     acct_result = await db.execute(acct_stmt)
     gmail_account = acct_result.scalar_one_or_none()
     if not gmail_account:
-        raise NotFoundError("Gmail account not found")
+        raise NotFoundError("Gmail account", "unknown")
 
     if not scan_result.has_attachments:
         raise ValidationError("This email has no attachments to import")
@@ -405,6 +727,174 @@ async def import_attachment(
 
 
 # ---------------------------------------------------------------------------
+# Full import flow: attachment + expense/income creation
+# ---------------------------------------------------------------------------
+
+
+async def import_email_full(
+    db: AsyncSession,
+    result_id: uuid.UUID,
+    user: User,
+    settings: Settings,
+    record_type: str = "expense",
+    vendor_name: str | None = None,
+    description: str | None = None,
+    amount: Decimal | None = None,
+    currency: str = "USD",
+    record_date: date | str | None = None,
+    category_id: uuid.UUID | None = None,
+    income_category: str | None = None,
+    notes: str | None = None,
+) -> dict:
+    """Import email: download attachment, create expense or income record.
+
+    Returns dict with document_id, expense_id or income_id.
+    """
+    from app.documents.models import Document
+    from app.accounting.models import Expense, ExpenseStatus
+    from app.income.models import Income, IncomeCategory
+
+    stmt = select(GmailScanResult).where(GmailScanResult.id == result_id)
+    result = await db.execute(stmt)
+    scan_result = result.scalar_one_or_none()
+    if not scan_result:
+        raise NotFoundError("Scan result", str(result_id))
+
+    if scan_result.is_processed:
+        raise ValidationError("This email has already been imported")
+
+    # Ensure the Gmail account belongs to this user
+    acct_stmt = select(GmailAccount).where(
+        GmailAccount.id == scan_result.gmail_account_id,
+        GmailAccount.user_id == user.id,
+    )
+    acct_result = await db.execute(acct_stmt)
+    gmail_account = acct_result.scalar_one_or_none()
+    if not gmail_account:
+        raise NotFoundError("Gmail account", "unknown")
+
+    # --- Step 1: Download attachment if present ---
+    document_id = None
+    if scan_result.has_attachments:
+        service = await _get_gmail_service(gmail_account, settings)
+        msg = (
+            service.users()
+            .messages()
+            .get(userId="me", id=scan_result.message_id, format="full")
+            .execute()
+        )
+        attachment_parts = _find_attachment_parts(msg.get("payload", {}))
+        if attachment_parts:
+            part = attachment_parts[0]
+            att_id = part["body"]["attachmentId"]
+            filename = part.get("filename", "attachment")
+
+            att = (
+                service.users()
+                .messages()
+                .attachments()
+                .get(userId="me", messageId=scan_result.message_id, id=att_id)
+                .execute()
+            )
+            file_data = base64.urlsafe_b64decode(att["data"])
+
+            storage_dir = os.path.join("storage", "documents", str(user.id))
+            os.makedirs(storage_dir, exist_ok=True)
+            file_path = os.path.join(storage_dir, f"{uuid.uuid4()}_{filename}")
+
+            with open(file_path, "wb") as f:
+                f.write(file_data)
+
+            mime_type = (
+                part.get("mimeType")
+                or mimetypes.guess_type(filename)[0]
+                or "application/octet-stream"
+            )
+
+            document = Document(
+                user_id=user.id,
+                filename=filename,
+                file_path=file_path,
+                file_size=len(file_data),
+                mime_type=mime_type,
+                source="gmail",
+            )
+            db.add(document)
+            await db.flush()
+            document_id = document.id
+
+    # --- Step 2: Create expense or income record ---
+    # Parse date string if needed
+    parsed_record_date = None
+    if record_date:
+        if isinstance(record_date, str):
+            try:
+                parsed_record_date = date.fromisoformat(record_date)
+            except ValueError:
+                parsed_record_date = None
+        else:
+            parsed_record_date = record_date
+
+    use_date = parsed_record_date or (
+        scan_result.date.date() if scan_result.date else date.today()
+    )
+    use_description = description or scan_result.subject or "Imported from email"
+    use_amount = amount or Decimal("0.00")
+
+    response_data: dict = {"document_id": str(document_id) if document_id else None}
+
+    if record_type == "income":
+        cat = IncomeCategory.OTHER
+        if income_category:
+            try:
+                cat = IncomeCategory(income_category)
+            except ValueError:
+                pass
+
+        income = Income(
+            id=uuid.uuid4(),
+            document_id=document_id,
+            category=cat,
+            description=use_description[:1000],
+            amount=use_amount,
+            currency=currency,
+            date=use_date,
+            notes=notes or f"Imported from email: {scan_result.sender}",
+            created_by=user.id,
+        )
+        db.add(income)
+        await db.flush()
+        scan_result.matched_income_id = income.id
+        response_data["income_id"] = str(income.id)
+    else:
+        expense = Expense(
+            id=uuid.uuid4(),
+            document_id=document_id,
+            category_id=category_id,
+            vendor_name=vendor_name,
+            description=use_description[:1000],
+            amount=use_amount if use_amount > 0 else Decimal("0.01"),
+            currency=currency,
+            date=use_date,
+            status=ExpenseStatus.DRAFT,
+            notes=notes or f"Imported from email: {scan_result.sender}",
+            user_id=user.id,
+        )
+        db.add(expense)
+        await db.flush()
+        scan_result.matched_expense_id = expense.id
+        response_data["expense_id"] = str(expense.id)
+
+    # --- Step 3: Mark as processed ---
+    scan_result.is_processed = True
+    if document_id:
+        scan_result.matched_document_id = document_id
+
+    await db.commit()
+    return response_data
+
+
+# ---------------------------------------------------------------------------
 # Sending email
 # ---------------------------------------------------------------------------
 
@@ -432,7 +922,7 @@ async def send_email_via_gmail(
     result = await db.execute(stmt)
     gmail_account = result.scalar_one_or_none()
     if not gmail_account:
-        raise NotFoundError("Gmail account not found or inactive")
+        raise NotFoundError("Gmail account", "inactive")
 
     service = await _get_gmail_service(gmail_account, settings)
 
@@ -487,7 +977,7 @@ async def scan_all_accounts(db: AsyncSession, settings: Settings) -> int:
                     self.id = uid
 
             user_stub = _UserStub(account.user_id)
-            results = await scan_emails(
+            results, _ = await scan_emails(
                 db=db,
                 gmail_account_id=account.id,
                 query=None,

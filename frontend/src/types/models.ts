@@ -635,11 +635,37 @@ export interface GmailScanResult {
   sender: string | null
   date: string | null
   snippet: string | null
+  body_text: string | null
   has_attachments: boolean
   is_processed: boolean
   matched_invoice_id: string | null
   matched_document_id: string | null
+  matched_expense_id: string | null
+  matched_income_id: string | null
   created_at: string
+}
+
+export interface EmailParsedData {
+  vendor_name: string | null
+  amount: string | null
+  currency: string
+  date: string | null
+  description: string | null
+  category_suggestion: string | null
+  record_type: 'expense' | 'income'
+  attachments: { name: string; has_file: boolean }[]
+}
+
+export interface EmailImportRequest {
+  record_type: 'expense' | 'income'
+  vendor_name?: string | null
+  description?: string | null
+  amount?: number | null
+  currency?: string
+  date?: string | null
+  category_id?: string | null
+  income_category?: string | null
+  notes?: string | null
 }
 
 // Categorization Rules

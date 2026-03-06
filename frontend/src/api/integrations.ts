@@ -4,6 +4,8 @@ import type {
   SmtpConfig,
   GmailAccount,
   GmailScanResult,
+  EmailParsedData,
+  EmailImportRequest,
   PlaidConnection,
   PlaidTransaction,
   CategorizationRule,
@@ -96,17 +98,58 @@ export async function scanGmailEmails(data: {
   gmail_account_id: string
   query?: string
   max_results?: number
+  after_date?: string
+  before_date?: string
+  page_token?: string
 }) {
-  return api.post<{ data: GmailScanResult[] }>('/integrations/gmail/scan', data)
+  return api.post<{ data: GmailScanResult[]; meta: { next_page_token: string | null } }>(
+    '/integrations/gmail/scan', data
+  )
 }
 
-export async function listGmailScanResults(gmailAccountId?: string) {
-  const query = gmailAccountId ? `?gmail_account_id=${gmailAccountId}` : ''
-  return api.get<{ data: GmailScanResult[] }>(`/integrations/gmail/results${query}`)
+export async function listGmailScanResults(filters: {
+  gmail_account_id?: string
+  is_processed?: boolean
+  has_attachments?: boolean
+  search?: string
+  page?: number
+  page_size?: number
+} = {}) {
+  const params = new URLSearchParams()
+  Object.entries(filters).forEach(([key, val]) => {
+    if (val !== undefined && val !== null) params.set(key, String(val))
+  })
+  const query = params.toString()
+  return api.get<{
+    data: GmailScanResult[]
+    meta: { total: number; page: number; page_size: number; total_pages: number }
+  }>(`/integrations/gmail/results${query ? `?${query}` : ''}`)
+}
+
+export async function parseEmailForImport(resultId: string) {
+  return api.get<ApiResponse<EmailParsedData>>(`/integrations/gmail/results/${resultId}/parse`)
 }
 
 export async function importGmailAttachment(resultId: string) {
   return api.post<ApiResponse<{ document_id: string }>>(`/integrations/gmail/results/${resultId}/import`)
+}
+
+export async function importEmailFull(resultId: string, data: EmailImportRequest) {
+  return api.post<ApiResponse<{
+    document_id: string | null
+    expense_id: string | null
+    income_id: string | null
+  }>>(`/integrations/gmail/results/${resultId}/import-full`, data)
+}
+
+export async function deleteGmailScanResult(resultId: string) {
+  return api.delete<ApiResponse<{ detail: string }>>(`/integrations/gmail/results/${resultId}`)
+}
+
+export async function bulkDeleteGmailScanResults(resultIds: string[]) {
+  return api.post<ApiResponse<{ deleted: number }>>('/integrations/gmail/results/bulk-delete', {
+    result_ids: resultIds,
+  })
 }
 
 export async function sendEmailViaGmail(data: {
