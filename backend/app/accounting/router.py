@@ -27,6 +27,7 @@ from app.accounting.schemas import (
     ExpenseUpdate,
 )
 from app.auth.models import Role, User
+from app.core.idempotency import IdempotencyResult, require_idempotency_key
 from app.core.pagination import PaginationParams, get_pagination
 from app.dependencies import get_current_user, get_db, require_role
 
@@ -128,9 +129,14 @@ async def create_expense(
     data: ExpenseCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    idempotency: Annotated[IdempotencyResult, Depends(require_idempotency_key)],
 ) -> dict:
+    if idempotency.cached_response is not None:
+        return idempotency.cached_response
     expense = await service.create_expense(db, data, current_user)
-    return {"data": ExpenseResponse.model_validate(expense)}
+    result = {"data": ExpenseResponse.model_validate(expense)}
+    await idempotency.save(result, status_code=201)
+    return result
 
 
 @router.post("/expenses/from-document/{document_id}", status_code=201)
@@ -138,10 +144,15 @@ async def create_expense_from_document(
     document_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    idempotency: Annotated[IdempotencyResult, Depends(require_idempotency_key)],
 ) -> dict:
     """Create an expense pre-filled from a document's AI-extracted metadata."""
+    if idempotency.cached_response is not None:
+        return idempotency.cached_response
     expense = await service.create_expense_from_document(db, document_id, current_user)
-    return {"data": ExpenseResponse.model_validate(expense)}
+    result = {"data": ExpenseResponse.model_validate(expense)}
+    await idempotency.save(result, status_code=201)
+    return result
 
 
 @router.get("/expenses/pending-approvals")

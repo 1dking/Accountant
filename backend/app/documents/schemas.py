@@ -1,6 +1,7 @@
 """Pydantic schemas for the documents module."""
 
 
+from decimal import Decimal
 from typing import Optional
 
 import uuid
@@ -216,7 +217,7 @@ class QuickCaptureResponse(BaseModel):
     document_title: str
     extraction: dict | None = None
     expense_id: uuid.UUID | None = None
-    expense_amount: float | None = None
+    expense_amount: Decimal | None = None
     expense_vendor: str | None = None
     expense_date: str | None = None
     processing_time_ms: int

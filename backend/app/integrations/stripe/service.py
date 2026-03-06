@@ -1,6 +1,7 @@
 
 import uuid
 from datetime import datetime, timezone
+from decimal import Decimal
 
 import stripe as stripe_lib
 from sqlalchemy import select
@@ -46,7 +47,7 @@ async def create_checkout_session(
     if not invoice:
         raise NotFoundError(f"Invoice {invoice_id} not found")
 
-    amount_cents = int(round(invoice.total * 100))
+    amount_cents = int(Decimal(str(invoice.total)) * Decimal('100'))
 
     # Use the request origin so URLs work in both dev and production
     origin = base_url.rstrip("/") if base_url else "http://localhost:5173"
@@ -142,7 +143,7 @@ async def create_subscription(
 
     stripe_interval = interval_map.get(data.interval, "month")
     stripe_interval_count = interval_count_map.get(data.interval, 1)
-    amount_cents = int(round(data.amount * 100))
+    amount_cents = int(Decimal(str(data.amount)) * Decimal('100'))
 
     # Create Price + Subscription
     price = stripe_lib.Price.create(
@@ -297,7 +298,7 @@ async def _handle_checkout_completed(
         if invoice:
             payment = InvoicePayment(
                 invoice_id=invoice.id,
-                amount=float(session.get("amount_total", 0)) / 100,
+                amount=Decimal(str(session.get("amount_total", 0))) / Decimal('100'),
                 date=date_type.today(),
                 payment_method="stripe",
                 reference=session.get("payment_intent"),
@@ -314,7 +315,7 @@ async def _handle_checkout_completed(
                 invoice_id=invoice.id,
                 category=IncomeCategory.INVOICE_PAYMENT,
                 description=f"Stripe payment for Invoice {invoice.invoice_number}",
-                amount=float(session.get("amount_total", 0)) / 100,
+                amount=Decimal(str(session.get("amount_total", 0))) / Decimal('100'),
                 currency=invoice.currency,
                 date=date_type.today(),
                 payment_method="stripe",
@@ -373,7 +374,7 @@ async def _handle_payment_intent_succeeded(
         )
         invoice = inv_result.scalar_one_or_none()
         if invoice:
-            amount_paid = float(payment_intent.get("amount_received", 0)) / 100
+            amount_paid = Decimal(str(payment_intent.get("amount_received", 0))) / Decimal('100')
 
             # Check for duplicate payment (idempotency)
             existing_refs = {p.reference for p in (invoice.payments or []) if p.reference}
@@ -390,7 +391,7 @@ async def _handle_payment_intent_succeeded(
             )
             db.add(payment)
 
-            total_paid = sum(p.amount for p in (invoice.payments or [])) + amount_paid
+            total_paid = sum((Decimal(str(p.amount)) for p in (invoice.payments or [])), Decimal('0')) + amount_paid
             if total_paid >= invoice.total:
                 invoice.status = InvoiceStatus.PAID
             else:
@@ -436,7 +437,7 @@ async def _handle_subscription_payment(
     from app.income.models import Income, IncomeCategory
     from datetime import date as date_type
 
-    amount = float(invoice.get("amount_paid", 0)) / 100
+    amount = Decimal(str(invoice.get("amount_paid", 0))) / Decimal('100')
 
     income = Income(
         contact_id=sub.contact_id,

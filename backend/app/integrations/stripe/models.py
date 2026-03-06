@@ -3,7 +3,9 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, Float, ForeignKey, String, Text
+from decimal import Decimal
+
+from sqlalchemy import DateTime, Enum, ForeignKey, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base, TimestampMixin
@@ -39,7 +41,7 @@ class StripePaymentLink(TimestampMixin, Base):
     checkout_session_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     payment_intent_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     payment_url: Mapped[str | None] = mapped_column(Text, nullable=True)
-    amount: Mapped[float] = mapped_column(Float)
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
     currency: Mapped[str] = mapped_column(String(3), default="USD")
     status: Mapped[PaymentLinkStatus] = mapped_column(
         Enum(PaymentLinkStatus), default=PaymentLinkStatus.PENDING
@@ -63,7 +65,7 @@ class StripeSubscription(TimestampMixin, Base):
     stripe_subscription_id: Mapped[str] = mapped_column(String(255), unique=True)
     stripe_customer_id: Mapped[str] = mapped_column(String(255))
     name: Mapped[str] = mapped_column(String(255))
-    amount: Mapped[float] = mapped_column(Float)
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
     currency: Mapped[str] = mapped_column(String(3), default="USD")
     interval: Mapped[SubscriptionInterval] = mapped_column(Enum(SubscriptionInterval))
     status: Mapped[SubscriptionStatus] = mapped_column(

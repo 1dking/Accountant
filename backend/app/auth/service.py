@@ -1,4 +1,5 @@
 
+import uuid as _uuid
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import func, select
@@ -141,7 +142,10 @@ async def refresh_tokens(
     if stored_token is None:
         raise ValidationError("Refresh token not found or already revoked.")
 
-    if stored_token.expires_at < datetime.now(timezone.utc):
+    expires_at = stored_token.expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if expires_at < datetime.now(timezone.utc):
         raise ValidationError("Refresh token has expired.")
 
     # Revoke old token
@@ -224,7 +228,7 @@ async def admin_update_user(
     user_id: str,
     updates: AdminUserUpdate,
 ) -> User:
-    result = await db.execute(select(User).where(User.id == user_id))
+    result = await db.execute(select(User).where(User.id == _uuid.UUID(user_id)))
     user = result.scalar_one_or_none()
     if user is None:
         raise NotFoundError("User", user_id)
@@ -247,7 +251,7 @@ async def update_user_role(
     user_id: str,
     role: Role,
 ) -> User:
-    result = await db.execute(select(User).where(User.id == user_id))
+    result = await db.execute(select(User).where(User.id == _uuid.UUID(user_id)))
     user = result.scalar_one_or_none()
     if user is None:
         raise NotFoundError("User", user_id)
@@ -261,7 +265,7 @@ async def deactivate_user(
     db: AsyncSession,
     user_id: str,
 ) -> str:
-    result = await db.execute(select(User).where(User.id == user_id))
+    result = await db.execute(select(User).where(User.id == _uuid.UUID(user_id)))
     user = result.scalar_one_or_none()
     if user is None:
         raise NotFoundError("User", user_id)

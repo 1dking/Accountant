@@ -1,6 +1,7 @@
 """Business logic for the accounting module."""
 
 
+from decimal import Decimal
 from typing import Optional
 
 import uuid
@@ -484,7 +485,7 @@ async def get_spending_by_category(
             category_id=row.category_id,
             category_name=row.category_name or "Uncategorized",
             category_color=row.category_color,
-            total=float(row.total or 0),
+            total=Decimal(str(row.total)) if row.total else Decimal('0'),
             count=row.count,
         )
         for row in result.all()
@@ -521,7 +522,7 @@ async def get_spending_by_month(
         MonthlySpend(
             year=int(row.year),
             month=int(row.month),
-            total=float(row.total or 0),
+            total=Decimal(str(row.total)) if row.total else Decimal('0'),
             count=row.count,
         )
         for row in result.all()
@@ -558,7 +559,7 @@ async def get_spending_by_vendor(
     return [
         VendorSpend(
             vendor_name=row.vendor_name or "Unknown",
-            total=float(row.total or 0),
+            total=Decimal(str(row.total)) if row.total else Decimal('0'),
             count=row.count,
         )
         for row in result.all()

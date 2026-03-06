@@ -46,6 +46,7 @@ def create_refresh_token(user_id: uuid.UUID, settings: Settings | None = None) -
         "sub": str(user_id),
         "exp": expire,
         "type": "refresh",
+        "jti": uuid.uuid4().hex,  # unique per token to avoid hash collisions
     }
     return jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
 

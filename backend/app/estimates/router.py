@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import Role, User
+from app.core.idempotency import IdempotencyResult, require_idempotency_key
 from app.core.pagination import PaginationParams, get_pagination
 from app.dependencies import get_current_user, get_db, require_role
 from app.estimates import service
@@ -49,9 +50,14 @@ async def create_estimate(
     data: EstimateCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    idempotency: Annotated[IdempotencyResult, Depends(require_idempotency_key)],
 ) -> dict:
+    if idempotency.cached_response is not None:
+        return idempotency.cached_response
     estimate = await service.create_estimate(db, data, current_user)
-    return {"data": EstimateResponse.model_validate(estimate)}
+    result = {"data": EstimateResponse.model_validate(estimate)}
+    await idempotency.save(result, status_code=201)
+    return result
 
 
 @router.get("/{estimate_id}")

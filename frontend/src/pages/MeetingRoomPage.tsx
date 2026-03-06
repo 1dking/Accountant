@@ -218,8 +218,22 @@ export default function MeetingRoomPage() {
   useEffect(() => {
     if (!id) return
     setConnecting(true)
-    const connect = action === 'join' ? joinMeeting(id) : startMeeting(id)
-    connect
+
+    const connectToMeeting = async () => {
+      if (action === 'join') {
+        return joinMeeting(id)
+      }
+      // When starting, try startMeeting first. If it fails (e.g. meeting is
+      // already in progress and another user started it), fall back to join
+      // so we don't recreate the room and kick existing participants.
+      try {
+        return await startMeeting(id)
+      } catch {
+        return joinMeeting(id)
+      }
+    }
+
+    connectToMeeting()
       .then((res) => {
         setToken(res.data.token)
         setRoomName(res.data.room_name)

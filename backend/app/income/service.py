@@ -1,4 +1,5 @@
 
+from decimal import Decimal
 from typing import Optional
 
 import uuid
@@ -210,7 +211,7 @@ async def get_income_summary(
         func.count(Income.id),
     ).select_from(base.subquery())
     row = (await db.execute(total_q)).one()
-    total_amount = float(row[0])
+    total_amount = Decimal(str(row[0])) if row[0] else Decimal('0')
     income_count = row[1]
 
     # By category
@@ -224,7 +225,7 @@ async def get_income_summary(
         cat_q = cat_q.where(Income.date <= date_to)
     cat_rows = (await db.execute(cat_q)).all()
     by_category = [
-        IncomeCategorySummary(category=r[0].value, total=float(r[1]), count=r[2])
+        IncomeCategorySummary(category=r[0].value, total=Decimal(str(r[1])) if r[1] else Decimal('0'), count=r[2])
         for r in cat_rows
     ]
 
@@ -245,7 +246,7 @@ async def get_income_summary(
         month_q = month_q.where(Income.date <= date_to)
     month_rows = (await db.execute(month_q)).all()
     by_month = [
-        IncomeMonthSummary(year=int(r[0]), month=int(r[1]), total=float(r[2]), count=r[3])
+        IncomeMonthSummary(year=int(r[0]), month=int(r[1]), total=Decimal(str(r[2])) if r[2] else Decimal('0'), count=r[3])
         for r in month_rows
     ]
 

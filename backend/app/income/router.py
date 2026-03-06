@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import Role, User
+from app.core.idempotency import IdempotencyResult, require_idempotency_key
 from app.core.pagination import PaginationParams, get_pagination
 from app.dependencies import get_current_user, get_db, require_role
 from app.income import service
@@ -57,9 +58,14 @@ async def create_income(
     data: IncomeCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    idempotency: Annotated[IdempotencyResult, Depends(require_idempotency_key)],
 ) -> dict:
+    if idempotency.cached_response is not None:
+        return idempotency.cached_response
     income = await service.create_income(db, data, current_user)
-    return {"data": IncomeResponse.model_validate(income)}
+    result = {"data": IncomeResponse.model_validate(income)}
+    await idempotency.save(result, status_code=201)
+    return result
 
 
 @router.post("/from-document/{document_id}", status_code=201)
@@ -67,10 +73,15 @@ async def create_income_from_document(
     document_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    idempotency: Annotated[IdempotencyResult, Depends(require_idempotency_key)],
 ) -> dict:
     """Create an income entry pre-filled from a document's AI-extracted metadata."""
+    if idempotency.cached_response is not None:
+        return idempotency.cached_response
     income = await service.create_income_from_document(db, document_id, current_user)
-    return {"data": IncomeResponse.model_validate(income)}
+    result = {"data": IncomeResponse.model_validate(income)}
+    await idempotency.save(result, status_code=201)
+    return result
 
 
 @router.get("/{income_id}")

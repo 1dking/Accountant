@@ -2,15 +2,16 @@
 
 
 import uuid
+from decimal import Decimal
 
 from pydantic import BaseModel, Field
 
 
 class LineItem(BaseModel):
     description: str
-    quantity: float | None = None
-    unit_price: float | None = None
-    total: float | None = None
+    quantity: Decimal | None = None
+    unit_price: Decimal | None = None
+    total: Decimal | None = None
 
 
 class ReceiptExtractionResult(BaseModel):
@@ -18,11 +19,11 @@ class ReceiptExtractionResult(BaseModel):
     vendor_address: str | None = None
     date: str | None = None
     currency: str = "USD"
-    subtotal: float | None = None
-    tax_amount: float | None = None
-    tax_rate: float | None = None
-    total_amount: float | None = None
-    tip_amount: float | None = None
+    subtotal: Decimal | None = None
+    tax_amount: Decimal | None = None
+    tax_rate: Decimal | None = None
+    total_amount: Decimal | None = None
+    tip_amount: Decimal | None = None
     payment_method: str | None = None
     line_items: list[LineItem] = Field(default_factory=list)
     category: str | None = None

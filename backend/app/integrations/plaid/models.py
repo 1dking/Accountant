@@ -2,7 +2,9 @@
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, String, Text
+from decimal import Decimal
+
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base, TimestampMixin
@@ -36,7 +38,7 @@ class PlaidTransaction(TimestampMixin, Base):
     )
     plaid_transaction_id: Mapped[str] = mapped_column(String(255), unique=True)
     account_id: Mapped[str] = mapped_column(String(255))
-    amount: Mapped[float] = mapped_column(Float)
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
     date: Mapped[date] = mapped_column(Date, index=True)
     name: Mapped[str] = mapped_column(String(500))
     merchant_name: Mapped[str | None] = mapped_column(String(255), nullable=True)

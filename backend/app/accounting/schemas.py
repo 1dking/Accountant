@@ -1,6 +1,7 @@
 """Pydantic schemas for the accounting module."""
 
 
+from decimal import Decimal
 from typing import Optional
 
 import uuid
@@ -47,18 +48,18 @@ class ExpenseCategoryResponse(BaseModel):
 
 class ExpenseLineItemCreate(BaseModel):
     description: str = Field(min_length=1, max_length=500)
-    quantity: float | None = None
-    unit_price: float | None = None
-    total: float
+    quantity: Decimal | None = None
+    unit_price: Decimal | None = None
+    total: Decimal
 
 
 class ExpenseLineItemResponse(BaseModel):
     id: uuid.UUID
     expense_id: uuid.UUID
     description: str
-    quantity: float | None
-    unit_price: float | None
-    total: float
+    quantity: Decimal | None
+    unit_price: Decimal | None
+    total: Decimal
 
     model_config = {"from_attributes": True}
 
@@ -71,9 +72,9 @@ class ExpenseLineItemResponse(BaseModel):
 class ExpenseCreate(BaseModel):
     vendor_name: str | None = Field(None, max_length=255)
     description: str | None = Field(None, max_length=1000)
-    amount: float = Field(gt=0)
+    amount: Decimal = Field(gt=Decimal(0))
     currency: str = Field(default="USD", max_length=3)
-    tax_amount: float | None = None
+    tax_amount: Decimal | None = None
     date: date
     payment_method: PaymentMethod | None = None
     category_id: uuid.UUID | None = None
@@ -86,9 +87,9 @@ class ExpenseCreate(BaseModel):
 class ExpenseUpdate(BaseModel):
     vendor_name: str | None = Field(None, max_length=255)
     description: str | None = Field(None, max_length=1000)
-    amount: float | None = Field(None, gt=0)
+    amount: Decimal | None = Field(None, gt=Decimal(0))
     currency: str | None = Field(None, max_length=3)
-    tax_amount: float | None = None
+    tax_amount: Decimal | None = None
     date: Optional[date] = None
     payment_method: PaymentMethod | None = None
     status: ExpenseStatus | None = None
@@ -105,9 +106,9 @@ class ExpenseResponse(BaseModel):
     user_id: uuid.UUID
     vendor_name: str | None
     description: str | None
-    amount: float
+    amount: Decimal
     currency: str
-    tax_amount: float | None
+    tax_amount: Decimal | None
     date: date
     payment_method: PaymentMethod | None
     status: ExpenseStatus
@@ -130,7 +131,7 @@ class ExpenseListItem(BaseModel):
     user_id: uuid.UUID
     vendor_name: str | None
     description: str | None
-    amount: float
+    amount: Decimal
     currency: str
     date: date
     payment_method: PaymentMethod | None
@@ -154,8 +155,8 @@ class ExpenseFilter(BaseModel):
     payment_method: PaymentMethod | None = None
     date_from: Optional[date] = None
     date_to: Optional[date] = None
-    min_amount: float | None = None
-    max_amount: float | None = None
+    min_amount: Decimal | None = None
+    max_amount: Decimal | None = None
     user_id: uuid.UUID | None = None
 
 
@@ -163,27 +164,27 @@ class CategorySpend(BaseModel):
     category_id: uuid.UUID | None
     category_name: str
     category_color: str | None
-    total: float
+    total: Decimal
     count: int
 
 
 class MonthlySpend(BaseModel):
     year: int
     month: int
-    total: float
+    total: Decimal
     count: int
 
 
 class VendorSpend(BaseModel):
     vendor_name: str
-    total: float
+    total: Decimal
     count: int
 
 
 class ExpenseSummary(BaseModel):
-    total_amount: float
+    total_amount: Decimal
     expense_count: int
-    average_amount: float
+    average_amount: Decimal
     by_category: list[CategorySpend]
     by_month: list[MonthlySpend]
     top_vendors: list[VendorSpend]

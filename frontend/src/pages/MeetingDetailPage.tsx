@@ -5,6 +5,7 @@ import {
   ArrowLeft, Video, Phone, PhoneOff, Users, Calendar, Clock,
   Copy, Play, Download, Circle, Square, Loader2, Plus, X, Trash2,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import {
   getMeeting, cancelMeeting, endMeeting, addParticipant,
   removeParticipant, getRecordingStreamUrl, deleteRecording,
@@ -116,8 +117,12 @@ export default function MeetingDetailPage() {
   const deleteRecordingMut = useMutation({
     mutationFn: (recordingId: string) => deleteRecording(recordingId),
     onSuccess: () => {
+      toast.success('Recording deleted')
       queryClient.invalidateQueries({ queryKey: ['meeting', id] })
       queryClient.invalidateQueries({ queryKey: ['recordings'] })
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || 'Failed to delete recording')
     },
   })
 

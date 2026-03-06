@@ -39,7 +39,10 @@ logger = logging.getLogger(__name__)
 
 def _get_livekit_api(settings: Settings):
     """Create LiveKit API client. Raise ValidationError if not configured."""
-    from livekit.api import LiveKitAPI
+    try:
+        from livekit.api import LiveKitAPI
+    except ModuleNotFoundError:
+        raise ValidationError("LiveKit SDK is not installed.")
 
     if not settings.livekit_url or not settings.livekit_api_key:
         raise ValidationError("LiveKit is not configured.")
@@ -311,27 +314,28 @@ async def start_meeting(
     if meeting.status not in (MeetingStatus.SCHEDULED, MeetingStatus.IN_PROGRESS):
         raise ValidationError("Meeting cannot be started in its current state.")
 
-    lk_api = _get_livekit_api(settings)
+    # Only create the LiveKit room when first starting (SCHEDULED → IN_PROGRESS).
+    # If the meeting is already IN_PROGRESS we skip room creation because calling
+    # create_room again can reset the room and disconnect existing participants.
+    if meeting.status == MeetingStatus.SCHEDULED:
+        lk_api = _get_livekit_api(settings)
+        try:
+            from livekit.api import CreateRoomRequest
 
-    # Create the LiveKit room
-    try:
-        from livekit.api import CreateRoomRequest
+            await lk_api.room.create_room(
+                CreateRoomRequest(name=meeting.livekit_room_name)
+            )
+        except Exception:
+            logger.warning(
+                "LiveKit room creation failed for meeting %s, room may already exist",
+                meeting.id,
+                exc_info=True,
+            )
 
-        await lk_api.room.create_room(
-            CreateRoomRequest(name=meeting.livekit_room_name)
-        )
-    except Exception:
-        logger.warning(
-            "LiveKit room creation failed for meeting %s, room may already exist",
-            meeting.id,
-            exc_info=True,
-        )
-
-    # Update meeting status
-    meeting.status = MeetingStatus.IN_PROGRESS
-    meeting.actual_start = datetime.now(timezone.utc)
-    await db.commit()
-    await db.refresh(meeting)
+        meeting.status = MeetingStatus.IN_PROGRESS
+        meeting.actual_start = datetime.now(timezone.utc)
+        await db.commit()
+        await db.refresh(meeting)
 
     # Generate host token
     identity = f"user-{user.id}"

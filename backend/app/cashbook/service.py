@@ -4,6 +4,7 @@ import logging
 import time
 import uuid
 from datetime import date
+from decimal import Decimal
 from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import func, or_, select
@@ -109,17 +110,19 @@ DEFAULT_CATEGORIES = [
 # ---------------------------------------------------------------------------
 
 
-def calculate_tax(total_amount: float, tax_rate: float) -> float:
+def calculate_tax(total_amount: float, tax_rate: float) -> Decimal:
     """Extract tax from a tax-inclusive amount.
 
     For Ontario HST at 13%: tax = total - (total / 1.13)
     This matches the spreadsheet formula: =amount/1.13
     """
     if tax_rate <= 0:
-        return 0.0
-    tax_multiplier = 1 + (tax_rate / 100)
-    pre_tax = total_amount / tax_multiplier
-    return round(total_amount - pre_tax, 2)
+        return Decimal('0')
+    amount = Decimal(str(total_amount))
+    rate = Decimal(str(tax_rate))
+    tax_multiplier = Decimal('1') + (rate / Decimal('100'))
+    pre_tax = amount / tax_multiplier
+    return (amount - pre_tax).quantize(Decimal('0.01'))
 
 
 # ---------------------------------------------------------------------------
@@ -337,6 +340,20 @@ async def update_account(
 
 async def delete_account(db: AsyncSession, account_id: uuid.UUID) -> None:
     account = await get_account(db, account_id)
+
+    # Warn if account still has transactions
+    entry_count = (
+        await db.execute(
+            select(func.count()).where(CashbookEntry.account_id == account_id)
+        )
+    ).scalar() or 0
+
+    if entry_count:
+        raise ConflictError(
+            f"Cannot deactivate account: it has {entry_count} transaction(s). "
+            "Delete or move them first."
+        )
+
     account.is_active = False
     await db.commit()
 
@@ -344,7 +361,7 @@ async def delete_account(db: AsyncSession, account_id: uuid.UUID) -> None:
 async def get_account_current_balance(
     db: AsyncSession,
     account_id: uuid.UUID,
-) -> float:
+) -> Decimal:
     """Calculate the current balance for an account."""
     account = await get_account(db, account_id)
 
@@ -353,22 +370,22 @@ async def get_account_current_balance(
             CashbookEntry.account_id == account_id,
             CashbookEntry.entry_type == EntryType.INCOME,
         )
-    ) or 0.0
+    ) or 0
 
     expense_sum = await db.scalar(
         select(func.coalesce(func.sum(CashbookEntry.total_amount), 0.0)).where(
             CashbookEntry.account_id == account_id,
             CashbookEntry.entry_type == EntryType.EXPENSE,
         )
-    ) or 0.0
+    ) or 0
 
-    return account.opening_balance + float(income_sum) - float(expense_sum)
+    return Decimal(str(account.opening_balance)) + Decimal(str(income_sum)) - Decimal(str(expense_sum))
 
 
 async def get_account_balances_batch(
     db: AsyncSession,
     account_ids: list[uuid.UUID],
-) -> dict[uuid.UUID, float]:
+) -> dict[uuid.UUID, Decimal]:
     """Calculate current balances for multiple accounts in two queries (not N+1)."""
     if not account_ids:
         return {}
@@ -379,7 +396,7 @@ async def get_account_balances_batch(
             PaymentAccount.id.in_(account_ids)
         )
     )
-    opening = {row.id: float(row.opening_balance) for row in result}
+    opening = {row.id: Decimal(str(row.opening_balance)) for row in result}
 
     # Get income and expense sums grouped by account
     for entry_type, sign in [(EntryType.INCOME, 1), (EntryType.EXPENSE, -1)]:
@@ -397,7 +414,7 @@ async def get_account_balances_batch(
         for row in sums_result:
             acct_id = row[0]
             if acct_id in opening:
-                opening[acct_id] += sign * float(row[1])
+                opening[acct_id] += sign * Decimal(str(row[1]))
 
     return opening
 
@@ -536,7 +553,7 @@ async def list_entries(
                     & (CashbookEntry.created_at < entries[0].created_at),
                 ),
             )
-        ) or 0.0
+        ) or 0
 
         carry_forward_expense = await db.scalar(
             select(func.coalesce(func.sum(CashbookEntry.total_amount), 0.0)).where(
@@ -548,15 +565,15 @@ async def list_entries(
                     & (CashbookEntry.created_at < entries[0].created_at),
                 ),
             )
-        ) or 0.0
+        ) or 0
 
-        running = opening_balance + float(carry_forward_income) - float(carry_forward_expense)
+        running = Decimal(str(opening_balance)) + Decimal(str(carry_forward_income)) - Decimal(str(carry_forward_expense))
 
         for entry in entries:
             if entry.entry_type == EntryType.INCOME:
-                running += entry.total_amount
+                running += Decimal(str(entry.total_amount))
             else:
-                running -= entry.total_amount
+                running -= Decimal(str(entry.total_amount))
 
             entry_dict = {
                 "id": entry.id,
@@ -575,7 +592,7 @@ async def list_entries(
                 "source_id": entry.source_id,
                 "notes": entry.notes,
                 "user_id": entry.user_id,
-                "bank_balance": round(running, 2),
+                "bank_balance": running.quantize(Decimal('0.01')),
                 "category": entry.category,
                 "created_at": entry.created_at,
                 "updated_at": entry.updated_at,
@@ -743,7 +760,7 @@ async def get_summary(
             CashbookEntry.entry_type == EntryType.INCOME,
             CashbookEntry.date.between(date_from, date_to),
         )
-    ) or 0.0
+    ) or 0
 
     # Expense total
     total_expenses = await db.scalar(
@@ -752,7 +769,7 @@ async def get_summary(
             CashbookEntry.entry_type == EntryType.EXPENSE,
             CashbookEntry.date.between(date_from, date_to),
         )
-    ) or 0.0
+    ) or 0
 
     # Tax collected (income entries)
     total_tax_collected = await db.scalar(
@@ -762,7 +779,7 @@ async def get_summary(
             CashbookEntry.date.between(date_from, date_to),
             CashbookEntry.tax_amount.isnot(None),
         )
-    ) or 0.0
+    ) or 0
 
     # Tax paid (expense entries)
     total_tax_paid = await db.scalar(
@@ -772,7 +789,7 @@ async def get_summary(
             CashbookEntry.date.between(date_from, date_to),
             CashbookEntry.tax_amount.isnot(None),
         )
-    ) or 0.0
+    ) or 0
 
     # Entries before the period for opening balance
     pre_income = await db.scalar(
@@ -781,7 +798,7 @@ async def get_summary(
             CashbookEntry.entry_type == EntryType.INCOME,
             CashbookEntry.date < date_from,
         )
-    ) or 0.0
+    ) or 0
 
     pre_expense = await db.scalar(
         select(func.coalesce(func.sum(CashbookEntry.total_amount), 0.0)).where(
@@ -789,10 +806,15 @@ async def get_summary(
             CashbookEntry.entry_type == EntryType.EXPENSE,
             CashbookEntry.date < date_from,
         )
-    ) or 0.0
+    ) or 0
 
-    opening_balance = account.opening_balance + float(pre_income) - float(pre_expense)
-    net_change = float(total_income) - float(total_expenses)
+    d_total_income = Decimal(str(total_income))
+    d_total_expenses = Decimal(str(total_expenses))
+    d_pre_income = Decimal(str(pre_income))
+    d_pre_expense = Decimal(str(pre_expense))
+
+    opening_balance = Decimal(str(account.opening_balance)) + d_pre_income - d_pre_expense
+    net_change = d_total_income - d_total_expenses
     closing_balance = opening_balance + net_change
 
     # Category totals
@@ -827,21 +849,21 @@ async def get_summary(
             category_name=row.category_name or "Uncategorized",
             category_type=row.cat_type,
             entry_type=row.entry_type,
-            total_amount=float(row.total_amount or 0),
-            total_tax=float(row.total_tax or 0),
+            total_amount=Decimal(str(row.total_amount)) if row.total_amount else Decimal('0'),
+            total_tax=Decimal(str(row.total_tax)) if row.total_tax else Decimal('0'),
             count=row.count,
         )
         for row in cat_result.all()
     ]
 
     return {
-        "opening_balance": round(opening_balance, 2),
-        "closing_balance": round(closing_balance, 2),
-        "total_income": round(float(total_income), 2),
-        "total_expenses": round(float(total_expenses), 2),
-        "net_change": round(net_change, 2),
-        "total_tax_collected": round(float(total_tax_collected), 2),
-        "total_tax_paid": round(float(total_tax_paid), 2),
+        "opening_balance": opening_balance.quantize(Decimal('0.01')),
+        "closing_balance": closing_balance.quantize(Decimal('0.01')),
+        "total_income": d_total_income.quantize(Decimal('0.01')),
+        "total_expenses": d_total_expenses.quantize(Decimal('0.01')),
+        "net_change": net_change.quantize(Decimal('0.01')),
+        "total_tax_collected": Decimal(str(total_tax_collected)).quantize(Decimal('0.01')),
+        "total_tax_paid": Decimal(str(total_tax_paid)).quantize(Decimal('0.01')),
         "category_totals": category_totals,
         "period_start": date_from,
         "period_end": date_to,

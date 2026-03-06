@@ -143,7 +143,7 @@ export default function MeetingsPage() {
               <div className="mt-4 pt-3 border-t border-gray-50 dark:border-gray-800">
                 {meeting.status === 'in_progress' && (
                   <button
-                    onClick={(e) => { e.stopPropagation(); navigate(`/meetings/${meeting.id}/room`) }}
+                    onClick={(e) => { e.stopPropagation(); navigate(`/meetings/${meeting.id}/room?action=join`) }}
                     className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors"
                   >
                     <Video className="h-3.5 w-3.5" />

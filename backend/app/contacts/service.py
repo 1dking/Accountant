@@ -8,7 +8,7 @@ from app.auth.models import User
 from app.collaboration.service import log_activity
 from app.contacts.models import Contact
 from app.contacts.schemas import ContactCreate, ContactFilter, ContactUpdate
-from app.core.exceptions import NotFoundError
+from app.core.exceptions import ConflictError, NotFoundError
 from app.core.pagination import PaginationParams, build_pagination_meta
 
 
@@ -105,5 +105,33 @@ async def update_contact(
 
 async def delete_contact(db: AsyncSession, contact_id: uuid.UUID) -> None:
     contact = await get_contact(db, contact_id)
+
+    # Prevent cascade-deleting invoices/estimates that reference this contact
+    from app.invoicing.models import Invoice
+    from app.estimates.models import Estimate
+
+    invoice_count = (
+        await db.execute(
+            select(func.count()).where(Invoice.contact_id == contact_id)
+        )
+    ).scalar() or 0
+
+    estimate_count = (
+        await db.execute(
+            select(func.count()).where(Estimate.contact_id == contact_id)
+        )
+    ).scalar() or 0
+
+    if invoice_count or estimate_count:
+        parts = []
+        if invoice_count:
+            parts.append(f"{invoice_count} invoice(s)")
+        if estimate_count:
+            parts.append(f"{estimate_count} estimate(s)")
+        raise ConflictError(
+            f"Cannot delete contact: it has {' and '.join(parts)}. "
+            "Delete or reassign them first."
+        )
+
     await db.delete(contact)
     await db.commit()

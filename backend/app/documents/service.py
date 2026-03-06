@@ -710,10 +710,11 @@ async def create_folder(
 
 
 async def get_folder_tree(db: AsyncSession) -> list[Folder]:
-    """Return all root-level folders with children eagerly loaded (via model relationship)."""
+    """Return all root-level folders with children eagerly loaded."""
     result = await db.execute(
         select(Folder)
         .where(Folder.parent_id.is_(None))
+        .options(selectinload(Folder.children))
         .order_by(Folder.name)
     )
     return list(result.scalars().unique().all())
@@ -761,11 +762,36 @@ async def delete_folder(
     folder_id: uuid.UUID,
     user: User,
 ) -> None:
-    """Delete a folder (CASCADE will remove child folders via FK)."""
+    """Delete a folder. Blocked if the folder (or subfolders) contain documents."""
     result = await db.execute(select(Folder).where(Folder.id == folder_id))
     folder = result.scalar_one_or_none()
     if folder is None:
         raise NotFoundError("Folder", str(folder_id))
+
+    # Collect this folder + all descendant folder IDs
+    folder_ids = [folder_id]
+    queue = [folder_id]
+    while queue:
+        parent = queue.pop()
+        children = (
+            await db.execute(select(Folder.id).where(Folder.parent_id == parent))
+        ).scalars().all()
+        for child_id in children:
+            folder_ids.append(child_id)
+            queue.append(child_id)
+
+    # Check for documents in any of these folders
+    doc_count = (
+        await db.execute(
+            select(func.count()).where(Document.folder_id.in_(folder_ids))
+        )
+    ).scalar() or 0
+
+    if doc_count:
+        raise ConflictError(
+            f"Cannot delete folder: it contains {doc_count} document(s). "
+            "Move or delete them first."
+        )
 
     await _create_audit_log(
         db,

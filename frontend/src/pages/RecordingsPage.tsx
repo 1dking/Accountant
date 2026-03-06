@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Video, Search, Play, Download, Clock, Calendar, Loader2, Square, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { listRecordings, listRecordingsByContact, getRecordingStreamUrl, deleteRecording } from '@/api/meetings'
 import type { MeetingRecording } from '@/types/models'
 
@@ -51,8 +52,12 @@ export default function RecordingsPage() {
   const deleteRecordingMut = useMutation({
     mutationFn: (recordingId: string) => deleteRecording(recordingId),
     onSuccess: () => {
+      toast.success('Recording deleted')
       queryClient.invalidateQueries({ queryKey: ['recordings'] })
       queryClient.invalidateQueries({ queryKey: ['recordings-by-contact'] })
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || 'Failed to delete recording')
     },
   })
 

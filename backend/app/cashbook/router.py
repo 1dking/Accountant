@@ -29,6 +29,7 @@ from app.cashbook.schemas import (
     TransactionCategoryResponse,
     TransactionCategoryUpdate,
 )
+from app.core.idempotency import IdempotencyResult, require_idempotency_key
 from app.core.pagination import PaginationParams, get_pagination
 from app.dependencies import get_current_user, get_db, require_role
 from app.documents.storage import LocalStorage, StorageBackend
@@ -233,9 +234,14 @@ async def create_entry(
     data: CashbookEntryCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    idempotency: Annotated[IdempotencyResult, Depends(require_idempotency_key)],
 ) -> dict:
+    if idempotency.cached_response is not None:
+        return idempotency.cached_response
     entry = await service.create_entry(db, data, current_user)
-    return {"data": CashbookEntryResponse.model_validate(entry)}
+    result = {"data": CashbookEntryResponse.model_validate(entry)}
+    await idempotency.save(result, status_code=201)
+    return result
 
 
 @router.get("/entries/{entry_id}")

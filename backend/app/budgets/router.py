@@ -9,6 +9,7 @@ from app.auth.models import Role, User
 from app.budgets import service
 from app.budgets.models import PeriodType
 from app.budgets.schemas import BudgetCreate, BudgetResponse, BudgetUpdate, BudgetVsActual
+from app.core.idempotency import IdempotencyResult, require_idempotency_key
 from app.core.pagination import PaginationParams, get_pagination
 from app.dependencies import get_current_user, get_db, require_role
 
@@ -52,9 +53,14 @@ async def create_budget(
     data: BudgetCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    idempotency: Annotated[IdempotencyResult, Depends(require_idempotency_key)],
 ) -> dict:
+    if idempotency.cached_response is not None:
+        return idempotency.cached_response
     budget = await service.create_budget(db, data, current_user)
-    return {"data": BudgetResponse.model_validate(budget)}
+    result = {"data": BudgetResponse.model_validate(budget)}
+    await idempotency.save(result, status_code=201)
+    return result
 
 
 @router.get("/{budget_id}")

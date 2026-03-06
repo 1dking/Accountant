@@ -1,10 +1,17 @@
 
+import json
 import uuid
 from datetime import datetime
+from decimal import Decimal
 
 from sqlalchemy import DateTime, event, func
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+
+def _json_serializer(obj):
+    """JSON serializer that handles Decimal, UUID, and datetime for JSON columns."""
+    return json.dumps(obj, default=str)
 
 
 class Base(DeclarativeBase):
@@ -42,6 +49,7 @@ def build_engine(database_url: str):
         database_url,
         echo=False,
         connect_args=connect_args,
+        json_serializer=_json_serializer,
     )
 
     if is_sqlite:

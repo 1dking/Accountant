@@ -1,6 +1,7 @@
 
 import uuid
 from datetime import date, datetime, timezone
+from decimal import Decimal
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,19 +28,19 @@ async def generate_estimate_number(db: AsyncSession) -> str:
     return f"EST-{count:04d}"
 
 
-def _calculate_line_total(item: EstimateLineItemCreate) -> float:
-    return round(item.quantity * item.unit_price, 2)
+def _calculate_line_total(item: EstimateLineItemCreate) -> Decimal:
+    return (Decimal(str(item.quantity)) * Decimal(str(item.unit_price))).quantize(Decimal('0.01'))
 
 
 def _calculate_estimate_totals(
     line_items: list[EstimateLineItemCreate],
     tax_rate: float | None,
     discount_amount: float,
-) -> tuple[float, float | None, float]:
-    subtotal = sum(_calculate_line_total(li) for li in line_items)
-    tax_amount = round(subtotal * (tax_rate / 100), 2) if tax_rate else None
-    total = subtotal + (tax_amount or 0) - discount_amount
-    return round(subtotal, 2), tax_amount, round(total, 2)
+) -> tuple[Decimal, Decimal | None, Decimal]:
+    subtotal = sum((_calculate_line_total(li) for li in line_items), Decimal('0'))
+    tax_amount = (subtotal * (Decimal(str(tax_rate)) / Decimal('100'))).quantize(Decimal('0.01')) if tax_rate else None
+    total = subtotal + (tax_amount or Decimal('0')) - Decimal(str(discount_amount))
+    return subtotal.quantize(Decimal('0.01')), tax_amount, total.quantize(Decimal('0.01'))
 
 
 async def create_estimate(

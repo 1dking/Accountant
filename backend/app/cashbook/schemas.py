@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Optional
 
 from pydantic import BaseModel, Field
@@ -51,7 +52,7 @@ class TransactionCategoryResponse(BaseModel):
 class PaymentAccountCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     account_type: AccountType
-    opening_balance: float = 0.0
+    opening_balance: Decimal = Decimal("0.0")
     opening_balance_date: date
     default_tax_rate_id: str | None = None
 
@@ -59,7 +60,7 @@ class PaymentAccountCreate(BaseModel):
 class PaymentAccountUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=100)
     account_type: AccountType | None = None
-    opening_balance: float | None = None
+    opening_balance: Decimal | None = None
     opening_balance_date: Optional[date] = None
     default_tax_rate_id: str | None = None
     is_active: bool | None = None
@@ -70,11 +71,11 @@ class PaymentAccountResponse(BaseModel):
     user_id: uuid.UUID
     name: str
     account_type: AccountType
-    opening_balance: float
+    opening_balance: Decimal
     opening_balance_date: date
     default_tax_rate_id: str | None
     is_active: bool
-    current_balance: float | None = None
+    current_balance: Decimal | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -91,8 +92,8 @@ class CashbookEntryCreate(BaseModel):
     entry_type: EntryType
     date: date
     description: str = Field(min_length=1, max_length=500)
-    total_amount: float = Field(gt=0)
-    tax_amount: float | None = None
+    total_amount: Decimal = Field(gt=Decimal(0))
+    tax_amount: Decimal | None = None
     tax_override: bool = False
     category_id: uuid.UUID | None = None
     contact_id: uuid.UUID | None = None
@@ -104,8 +105,8 @@ class CashbookEntryUpdate(BaseModel):
     entry_type: EntryType | None = None
     date: Optional[date] = None
     description: str | None = Field(None, min_length=1, max_length=500)
-    total_amount: float | None = Field(None, gt=0)
-    tax_amount: float | None = None
+    total_amount: Decimal | None = Field(None, gt=Decimal(0))
+    tax_amount: Decimal | None = None
     tax_override: bool | None = None
     category_id: uuid.UUID | None = None
     contact_id: uuid.UUID | None = None
@@ -119,9 +120,9 @@ class CashbookEntryResponse(BaseModel):
     entry_type: EntryType
     date: date
     description: str
-    total_amount: float
-    tax_amount: float | None
-    tax_rate_used: float | None
+    total_amount: Decimal
+    tax_amount: Decimal | None
+    tax_rate_used: Decimal | None
     tax_override: bool
     category_id: uuid.UUID | None
     contact_id: uuid.UUID | None
@@ -130,7 +131,7 @@ class CashbookEntryResponse(BaseModel):
     source_id: str | None
     notes: str | None
     user_id: uuid.UUID
-    bank_balance: float | None = None
+    bank_balance: Decimal | None = None
     category: TransactionCategoryResponse | None = None
     created_at: datetime
     updated_at: datetime
@@ -157,19 +158,19 @@ class CategoryTotal(BaseModel):
     category_name: str
     category_type: CategoryType | None
     entry_type: EntryType
-    total_amount: float
-    total_tax: float
+    total_amount: Decimal
+    total_tax: Decimal
     count: int
 
 
 class CashbookSummary(BaseModel):
-    opening_balance: float
-    closing_balance: float
-    total_income: float
-    total_expenses: float
-    net_change: float
-    total_tax_collected: float
-    total_tax_paid: float
+    opening_balance: Decimal
+    closing_balance: Decimal
+    total_income: Decimal
+    total_expenses: Decimal
+    net_change: Decimal
+    total_tax_collected: Decimal
+    total_tax_paid: Decimal
     category_totals: list[CategoryTotal]
     period_start: date
     period_end: date
@@ -185,10 +186,10 @@ class ParsedExcelRow(BaseModel):
     sheet_name: str
     date: date | None
     description: str
-    total_amount: float
+    total_amount: Decimal
     category_name: str | None
     entry_type: EntryType
-    tax_amount: float | None
+    tax_amount: Decimal | None
     errors: list[str] = Field(default_factory=list)
 
 
@@ -215,7 +216,7 @@ class CashbookCaptureResponse(BaseModel):
     document_title: str
     entry_id: uuid.UUID | None = None
     entry_type: EntryType | None = None
-    entry_amount: float | None = None
+    entry_amount: Decimal | None = None
     entry_description: str | None = None
     entry_date: str | None = None
     category_name: str | None = None

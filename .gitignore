@@ -38,6 +38,7 @@ Thumbs.db
 .coverage
 htmlcov/
 .pytest_cache/
+backend/test_data/
 
 # Build
 *.log

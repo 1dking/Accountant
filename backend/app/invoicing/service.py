@@ -1,6 +1,7 @@
 
 import uuid
 from datetime import date, datetime, timezone
+from decimal import Decimal
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,19 +29,19 @@ async def generate_invoice_number(db: AsyncSession) -> str:
     return f"INV-{count:04d}"
 
 
-def _calculate_line_total(item: InvoiceLineItemCreate) -> float:
-    return round(item.quantity * item.unit_price, 2)
+def _calculate_line_total(item: InvoiceLineItemCreate) -> Decimal:
+    return (Decimal(str(item.quantity)) * Decimal(str(item.unit_price))).quantize(Decimal('0.01'))
 
 
 def _calculate_invoice_totals(
     line_items: list[InvoiceLineItemCreate],
     tax_rate: float | None,
     discount_amount: float,
-) -> tuple[float, float | None, float]:
-    subtotal = sum(_calculate_line_total(li) for li in line_items)
-    tax_amount = round(subtotal * (tax_rate / 100), 2) if tax_rate else None
-    total = subtotal + (tax_amount or 0) - discount_amount
-    return round(subtotal, 2), tax_amount, round(total, 2)
+) -> tuple[Decimal, Decimal | None, Decimal]:
+    subtotal = sum((_calculate_line_total(li) for li in line_items), Decimal('0'))
+    tax_amount = (subtotal * (Decimal(str(tax_rate)) / Decimal('100'))).quantize(Decimal('0.01')) if tax_rate else None
+    total = subtotal + (tax_amount or Decimal('0')) - Decimal(str(discount_amount))
+    return subtotal.quantize(Decimal('0.01')), tax_amount, total.quantize(Decimal('0.01'))
 
 
 async def create_invoice(
@@ -238,8 +239,8 @@ async def record_payment(
     db.add(payment)
 
     # Update invoice status based on total payments
-    total_paid = sum(p.amount for p in invoice.payments) + data.amount
-    if total_paid >= invoice.total:
+    total_paid = sum((Decimal(str(p.amount)) for p in invoice.payments), Decimal('0')) + Decimal(str(data.amount))
+    if total_paid >= Decimal(str(invoice.total)):
         invoice.status = InvoiceStatus.PAID
     else:
         invoice.status = InvoiceStatus.PARTIALLY_PAID
@@ -289,9 +290,9 @@ async def get_invoice_stats(db: AsyncSession) -> dict:
     invoice_count = (await db.execute(count_q)).scalar() or 0
 
     return {
-        "total_outstanding": float(total_outstanding),
-        "total_overdue": float(total_overdue),
-        "total_paid_this_month": float(total_paid),
+        "total_outstanding": Decimal(str(total_outstanding)) if total_outstanding else Decimal('0'),
+        "total_overdue": Decimal(str(total_overdue)) if total_overdue else Decimal('0'),
+        "total_paid_this_month": Decimal(str(total_paid)) if total_paid else Decimal('0'),
         "invoice_count": invoice_count,
     }
 

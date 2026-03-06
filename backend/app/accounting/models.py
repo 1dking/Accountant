@@ -5,6 +5,8 @@ import enum
 import uuid
 from datetime import date, datetime
 
+from decimal import Decimal
+
 from sqlalchemy import (
     Boolean,
     Date,
@@ -12,6 +14,7 @@ from sqlalchemy import (
     Enum,
     Float,
     ForeignKey,
+    Numeric,
     String,
     Text,
     func,
@@ -79,9 +82,9 @@ class Expense(TimestampMixin, Base):
 
     vendor_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     description: Mapped[str | None] = mapped_column(String(1000), nullable=True)
-    amount: Mapped[float] = mapped_column(Float, nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     currency: Mapped[str] = mapped_column(String(3), default="USD", nullable=False)
-    tax_amount: Mapped[float | None] = mapped_column(Float, nullable=True)
+    tax_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
 
     payment_method: Mapped[PaymentMethod | None] = mapped_column(Enum(PaymentMethod), nullable=True)
@@ -116,9 +119,9 @@ class ExpenseLineItem(Base):
         ForeignKey("expenses.id", ondelete="CASCADE"), nullable=False, index=True
     )
     description: Mapped[str] = mapped_column(String(500), nullable=False)
-    quantity: Mapped[float | None] = mapped_column(Float, nullable=True)
-    unit_price: Mapped[float | None] = mapped_column(Float, nullable=True)
-    total: Mapped[float] = mapped_column(Float, nullable=False)
+    quantity: Mapped[Decimal | None] = mapped_column(Numeric(10, 4), nullable=True)
+    unit_price: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    total: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
 
     # Relationships
     expense: Mapped[Expense] = relationship("Expense", back_populates="line_items", lazy="selectin")

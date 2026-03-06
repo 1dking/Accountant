@@ -1,6 +1,7 @@
 
 import uuid
 from datetime import date
+from decimal import Decimal
 
 from sqlalchemy import extract, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -139,7 +140,8 @@ async def get_budget_vs_actual(
         if budget.category_id:
             expense_q = expense_q.where(Expense.category_id == budget.category_id)
 
-        actual = float((await db.execute(expense_q)).scalar() or 0)
+        actual_raw = (await db.execute(expense_q)).scalar() or 0
+        actual = Decimal(str(actual_raw))
 
         # Get category name
         cat_name = "Overall"
@@ -149,15 +151,19 @@ async def get_budget_vs_actual(
             )
             cat_name = cat_result.scalar() or "Unknown"
 
+        budgeted = Decimal(str(budget.amount))
+        remaining = budgeted - actual
+        percentage_used = (actual / budgeted * Decimal('100')).quantize(Decimal('0.1')) if budgeted > 0 else Decimal('0')
+
         results.append(BudgetVsActual(
             budget_id=budget.id,
             budget_name=budget.name,
             category_id=budget.category_id,
             category_name=cat_name,
-            budgeted_amount=budget.amount,
+            budgeted_amount=budgeted,
             actual_amount=actual,
-            remaining=budget.amount - actual,
-            percentage_used=round((actual / budget.amount) * 100, 1) if budget.amount > 0 else 0,
+            remaining=remaining,
+            percentage_used=percentage_used,
         ))
 
     return results

@@ -7,7 +7,7 @@ import logging
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -166,10 +166,10 @@ async def upload(
     current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
     storage: Annotated[StorageBackend, Depends(get_storage)],
     file: UploadFile = File(...),
-    folder_id: uuid.UUID | None = None,
-    document_type: DocumentType = DocumentType.OTHER,
-    title: str | None = None,
-    relative_path: str | None = None,
+    folder_id: uuid.UUID | None = Form(None),
+    document_type: DocumentType = Form(DocumentType.OTHER),
+    title: str | None = Form(None),
+    relative_path: str | None = Form(None),
 ) -> dict:
     """Upload a new document. Auto-triggers AI extraction in background.
 

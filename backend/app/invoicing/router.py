@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import Role, User
 from app.core.pagination import PaginationParams, get_pagination
+from app.core.idempotency import IdempotencyResult, require_idempotency_key
 from app.dependencies import get_current_user, get_db, require_role
 from app.invoicing import service
 from app.invoicing.models import InvoiceStatus
@@ -62,9 +63,14 @@ async def create_invoice(
     data: InvoiceCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    idempotency: Annotated[IdempotencyResult, Depends(require_idempotency_key)],
 ) -> dict:
+    if idempotency.cached_response is not None:
+        return idempotency.cached_response
     invoice = await service.create_invoice(db, data, current_user)
-    return {"data": InvoiceResponse.model_validate(invoice)}
+    result = {"data": InvoiceResponse.model_validate(invoice)}
+    await idempotency.save(result, status_code=201)
+    return result
 
 
 @router.get("/{invoice_id}")
@@ -114,9 +120,14 @@ async def record_payment(
     data: InvoicePaymentCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    idempotency: Annotated[IdempotencyResult, Depends(require_idempotency_key)],
 ) -> dict:
+    if idempotency.cached_response is not None:
+        return idempotency.cached_response
     payment = await service.record_payment(db, invoice_id, data, current_user)
-    return {"data": InvoicePaymentResponse.model_validate(payment)}
+    result = {"data": InvoicePaymentResponse.model_validate(payment)}
+    await idempotency.save(result, status_code=201)
+    return result
 
 
 @router.get("/{invoice_id}/pdf")

@@ -1,4 +1,5 @@
 
+from decimal import Decimal
 from typing import Optional
 
 import uuid
@@ -15,7 +16,7 @@ class IncomeCreate(BaseModel):
     document_id: uuid.UUID | None = None
     category: IncomeCategory = IncomeCategory.OTHER
     description: str = Field(min_length=1, max_length=1000)
-    amount: float = Field(gt=0)
+    amount: Decimal = Field(gt=Decimal(0))
     currency: str = Field(default="USD", max_length=3)
     date: date
     payment_method: str | None = Field(None, max_length=50)
@@ -28,7 +29,7 @@ class IncomeUpdate(BaseModel):
     invoice_id: uuid.UUID | None = None
     category: IncomeCategory | None = None
     description: str | None = Field(None, min_length=1, max_length=1000)
-    amount: float | None = Field(None, gt=0)
+    amount: Decimal | None = Field(None, gt=Decimal(0))
     currency: str | None = Field(None, max_length=3)
     date: Optional[date] = None
     payment_method: str | None = Field(None, max_length=50)
@@ -43,7 +44,7 @@ class IncomeResponse(BaseModel):
     document_id: uuid.UUID | None
     category: IncomeCategory
     description: str
-    amount: float
+    amount: Decimal
     currency: str
     date: date
     payment_method: str | None
@@ -63,7 +64,7 @@ class IncomeListItem(BaseModel):
     document_id: uuid.UUID | None
     category: IncomeCategory
     description: str
-    amount: float
+    amount: Decimal
     currency: str
     date: date
     payment_method: str | None
@@ -82,19 +83,19 @@ class IncomeFilter(BaseModel):
 
 class IncomeCategorySummary(BaseModel):
     category: str
-    total: float
+    total: Decimal
     count: int
 
 
 class IncomeMonthSummary(BaseModel):
     year: int
     month: int
-    total: float
+    total: Decimal
     count: int
 
 
 class IncomeSummary(BaseModel):
-    total_amount: float
+    total_amount: Decimal
     income_count: int
     by_category: list[IncomeCategorySummary]
     by_month: list[IncomeMonthSummary]

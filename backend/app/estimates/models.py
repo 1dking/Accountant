@@ -2,8 +2,9 @@
 import enum
 import uuid
 from datetime import date, datetime
+from decimal import Decimal
 
-from sqlalchemy import Date, DateTime, Enum, Float, ForeignKey, String, Text, func
+from sqlalchemy import Date, DateTime, Enum, ForeignKey, Numeric, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base, TimestampMixin
@@ -31,11 +32,11 @@ class Estimate(TimestampMixin, Base):
     status: Mapped[EstimateStatus] = mapped_column(
         Enum(EstimateStatus), default=EstimateStatus.DRAFT, nullable=False
     )
-    subtotal: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
-    tax_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
-    tax_amount: Mapped[float | None] = mapped_column(Float, nullable=True)
-    discount_amount: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
-    total: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    subtotal: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0, nullable=False)
+    tax_rate: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
+    tax_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    discount_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0, nullable=False)
+    total: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0, nullable=False)
     currency: Mapped[str] = mapped_column(String(3), default="USD", nullable=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     converted_invoice_id: Mapped[uuid.UUID | None] = mapped_column(
@@ -68,9 +69,9 @@ class EstimateLineItem(Base):
         ForeignKey("estimates.id", ondelete="CASCADE"), nullable=False, index=True
     )
     description: Mapped[str] = mapped_column(String(500), nullable=False)
-    quantity: Mapped[float] = mapped_column(Float, default=1.0, nullable=False)
-    unit_price: Mapped[float] = mapped_column(Float, nullable=False)
-    tax_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
-    total: Mapped[float] = mapped_column(Float, nullable=False)
+    quantity: Mapped[Decimal] = mapped_column(Numeric(10, 4), default=1, nullable=False)
+    unit_price: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    tax_rate: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
+    total: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
 
     estimate: Mapped[Estimate] = relationship("Estimate", back_populates="line_items")

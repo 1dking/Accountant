@@ -3,15 +3,16 @@
 import enum
 import uuid
 from datetime import date
+from decimal import Decimal
 
 from sqlalchemy import (
     Boolean,
     Date,
     Enum,
-    Float,
     ForeignKey,
     Index,
     Integer,
+    Numeric,
     String,
     Text,
 )
@@ -74,7 +75,7 @@ class PaymentAccount(TimestampMixin, Base):
     account_type: Mapped[AccountType] = mapped_column(
         Enum(AccountType), nullable=False
     )
-    opening_balance: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    opening_balance: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0, nullable=False)
     opening_balance_date: Mapped[date] = mapped_column(Date, nullable=False)
     default_tax_rate_id: Mapped[str | None] = mapped_column(
         ForeignKey("tax_rates.id", ondelete="SET NULL"), nullable=True
@@ -106,9 +107,9 @@ class CashbookEntry(TimestampMixin, Base):
     description: Mapped[str] = mapped_column(String(500), nullable=False)
 
     # Amount fields
-    total_amount: Mapped[float] = mapped_column(Float, nullable=False)
-    tax_amount: Mapped[float | None] = mapped_column(Float, nullable=True)
-    tax_rate_used: Mapped[float | None] = mapped_column(Float, nullable=True)
+    total_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    tax_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    tax_rate_used: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
     tax_override: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False
     )

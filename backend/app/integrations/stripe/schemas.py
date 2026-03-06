@@ -1,4 +1,5 @@
 
+from decimal import Decimal
 from typing import Optional
 
 import uuid
@@ -19,7 +20,7 @@ class PaymentLinkResponse(BaseModel):
     checkout_session_id: str | None = None
     payment_intent_id: str | None = None
     payment_url: str
-    amount: float
+    amount: Decimal
     currency: str
     status: str
     expires_at: Optional[datetime] = None
@@ -35,7 +36,7 @@ class StripeConfigResponse(BaseModel):
 class CreateSubscriptionRequest(BaseModel):
     contact_id: uuid.UUID
     name: str
-    amount: float
+    amount: Decimal
     currency: str = "USD"
     interval: str  # monthly | quarterly | yearly
 
@@ -48,7 +49,7 @@ class SubscriptionResponse(BaseModel):
     stripe_subscription_id: str
     stripe_customer_id: str
     name: str
-    amount: float
+    amount: Decimal
     currency: str
     interval: str
     status: str

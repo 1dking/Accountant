@@ -2,7 +2,9 @@
 import enum
 import uuid
 
-from sqlalchemy import Enum, Float, ForeignKey, Integer, String, UniqueConstraint
+from decimal import Decimal
+
+from sqlalchemy import Enum, ForeignKey, Integer, Numeric, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base, TimestampMixin
@@ -22,7 +24,7 @@ class Budget(TimestampMixin, Base):
     category_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("expense_categories.id", ondelete="SET NULL"), nullable=True, index=True
     )
-    amount: Mapped[float] = mapped_column(Float, nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     period_type: Mapped[PeriodType] = mapped_column(Enum(PeriodType), nullable=False)
     year: Mapped[int] = mapped_column(Integer, nullable=False)
     month: Mapped[int | None] = mapped_column(Integer, nullable=True)
