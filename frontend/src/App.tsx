@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { useNotificationStore } from '@/stores/notificationStore'
 import { useUiStore } from '@/stores/uiStore'
 import { wsClient } from '@/api/websocket'
+import { useBranding } from '@/hooks/useBranding'
 import AppShell from '@/components/layout/AppShell'
 import LoginPage from '@/pages/LoginPage'
 import DashboardPage from '@/pages/DashboardPage'
@@ -107,6 +108,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function AuthenticatedApp() {
   const { isAuthenticated } = useAuthStore()
   const { fetchNotifications, addNotification } = useNotificationStore()
+  const { orgName } = useBranding()
+
+  // Set browser tab title from branding
+  useEffect(() => {
+    document.title = orgName
+  }, [orgName])
 
   useEffect(() => {
     if (isAuthenticated) {

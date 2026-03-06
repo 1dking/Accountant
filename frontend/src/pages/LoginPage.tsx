@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useAuthStore } from '@/stores/authStore'
+import { usePublicBranding } from '@/hooks/useBranding'
 
 function GoogleIcon() {
   return (
@@ -20,6 +21,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const navigate = useNavigate()
   const { login } = useAuthStore()
+  const { logoUrl, orgName } = usePublicBranding()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -43,9 +45,17 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
       <div className="w-full max-w-md p-8 bg-white dark:bg-gray-900 rounded-lg shadow-md">
-        <h1 className="text-2xl font-bold text-center mb-6 text-gray-900 dark:text-gray-100">
-          Sign In
-        </h1>
+        {/* Branding */}
+        <div className="flex flex-col items-center mb-6">
+          {logoUrl ? (
+            <img src={logoUrl} alt={orgName} className="h-10 max-w-[200px] object-contain mb-3" />
+          ) : (
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">
+              {orgName}
+            </h1>
+          )}
+          <p className="text-sm text-gray-500 dark:text-gray-400">Sign in to your account</p>
+        </div>
 
         <button
           type="button"

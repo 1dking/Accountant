@@ -13,9 +13,9 @@ export default defineConfig({
       includeAssets: ['vite.svg', 'icons/*.png'],
       devOptions: { enabled: false },
       manifest: {
-        name: 'Accountant',
-        short_name: 'Accountant',
-        description: 'Document vault & accounting suite',
+        name: 'O-Brain',
+        short_name: 'O-Brain',
+        description: 'Business management suite',
         theme_color: '#2563eb',
         background_color: '#f9fafb',
         display: 'standalone',

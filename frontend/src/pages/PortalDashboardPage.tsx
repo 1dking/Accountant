@@ -1,12 +1,14 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { getPortalDashboard } from '../api/portal'
+import { usePublicBranding } from '@/hooks/useBranding'
 
 export default function PortalDashboardPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['portal', 'dashboard'],
     queryFn: getPortalDashboard,
   })
+  const { logoUrl, orgName } = usePublicBranding()
 
   const dashboard = data?.data
 
@@ -22,11 +24,18 @@ export default function PortalDashboardPage() {
     <div className="min-h-screen bg-background">
       <header className="border-b px-6 py-4">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">
-              Welcome{dashboard?.contact_name ? `, ${dashboard.contact_name}` : ''}
-            </h1>
-            <p className="text-muted-foreground">{dashboard?.company_name}</p>
+          <div className="flex items-center gap-4">
+            {logoUrl ? (
+              <img src={logoUrl} alt={orgName} className="h-8 max-w-[160px] object-contain" />
+            ) : (
+              <span className="text-lg font-bold">{orgName}</span>
+            )}
+            <div className="border-l pl-4">
+              <h1 className="text-lg font-semibold">
+                Welcome{dashboard?.contact_name ? `, ${dashboard.contact_name}` : ''}
+              </h1>
+              <p className="text-sm text-muted-foreground">{dashboard?.company_name}</p>
+            </div>
           </div>
           <nav className="flex gap-4 text-sm">
             <Link to="/portal" className="font-medium text-foreground">Dashboard</Link>
