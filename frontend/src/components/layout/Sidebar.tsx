@@ -38,8 +38,9 @@ import {
   UserCog,
   ChevronDown,
   ChevronRight,
+  MailSearch,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useUiStore } from '@/stores/uiStore'
 import { useAuthStore } from '@/stores/authStore'
 import { cn, getInitials } from '@/lib/utils'
@@ -54,13 +55,11 @@ interface NavItem {
 interface NavSection {
   title: string
   items: NavItem[]
-  defaultOpen?: boolean
 }
 
 const NAV_SECTIONS: NavSection[] = [
   {
     title: 'MAIN',
-    defaultOpen: true,
     items: [
       { path: '/', label: 'Dashboard', icon: LayoutDashboard },
       { path: '/calendar', label: 'Calendar', icon: Calendar },
@@ -69,14 +68,12 @@ const NAV_SECTIONS: NavSection[] = [
   },
   {
     title: 'CRM',
-    defaultOpen: true,
     items: [
       { path: '/contacts', label: 'Contacts', icon: Users },
     ],
   },
   {
     title: 'SALES',
-    defaultOpen: true,
     items: [
       { path: '/invoices', label: 'Invoices', icon: FileOutput },
       { path: '/proposals', label: 'Proposals', icon: FileSignature },
@@ -85,7 +82,6 @@ const NAV_SECTIONS: NavSection[] = [
   },
   {
     title: 'ACCOUNTING',
-    defaultOpen: true,
     items: [
       { path: '/cashbook', label: 'Cashbook', icon: BookOpen },
       { path: '/cashbook/reconcile', label: 'Reconcile', icon: Scale },
@@ -94,12 +90,12 @@ const NAV_SECTIONS: NavSection[] = [
       { path: '/recurring', label: 'Recurring', icon: RefreshCw },
       { path: '/budgets', label: 'Budgets', icon: PiggyBank },
       { path: '/bank-transactions', label: 'Banking', icon: Landmark },
+      { path: '/email-scan', label: 'Email Scanner', icon: MailSearch },
       { path: '/reports', label: 'Reports', icon: BarChart3 },
     ],
   },
   {
     title: 'COMMUNICATION',
-    defaultOpen: true,
     items: [
       { path: '/inbox', label: 'Inbox', icon: Inbox },
       { path: '/communication', label: 'Dialer & SMS', icon: Phone },
@@ -151,67 +147,34 @@ const NAV_SECTIONS: NavSection[] = [
   },
 ]
 
-function NavSectionGroup({
-  section,
-  isItemActive,
-  onNavigate,
-}: {
-  section: NavSection
-  isItemActive: (path: string) => boolean
-  onNavigate: (path: string) => void
-}) {
-  const [open, setOpen] = useState(section.defaultOpen ?? false)
-
-  // Auto-open if any child is active
-  const hasActive = section.items.some((item) => isItemActive(item.path))
-
-  const isOpen = open || hasActive
-
-  return (
-    <div className="mb-1">
-      <button
-        onClick={() => setOpen(!isOpen)}
-        className="w-full flex items-center justify-between px-3 py-1.5 text-[10px] font-semibold tracking-wider text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-      >
-        {section.title}
-        {isOpen ? (
-          <ChevronDown className="h-3 w-3" />
-        ) : (
-          <ChevronRight className="h-3 w-3" />
-        )}
-      </button>
-      {isOpen && (
-        <div className="space-y-0.5">
-          {section.items.map((item) => {
-            const Icon = item.icon
-            const active = isItemActive(item.path)
-            return (
-              <button
-                key={item.path}
-                onClick={() => onNavigate(item.path)}
-                className={cn(
-                  'w-full flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors',
-                  active
-                    ? 'bg-blue-50/70 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
-                )}
-              >
-                <Icon className="h-4 w-4" />
-                {item.label}
-              </button>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-}
-
 export default function Sidebar() {
   const navigate = useNavigate()
   const location = useLocation()
   const { sidebarOpen, isMobile, setSidebarOpen, theme, toggleTheme } = useUiStore()
   const { user, logout } = useAuthStore()
+
+  const isItemActive = (path: string) => {
+    if (path === '/') return location.pathname === '/'
+    if (path === '/cashbook/reconcile') return location.pathname === '/cashbook/reconcile'
+    if (path === '/cashbook') return location.pathname === '/cashbook' || location.pathname.startsWith('/cashbook/entries') || location.pathname === '/cashbook/new'
+    return location.pathname.startsWith(path)
+  }
+
+  // Determine which section contains the active page
+  const activeSectionIndex = useMemo(() => {
+    const idx = NAV_SECTIONS.findIndex((section) =>
+      section.items.some((item) => isItemActive(item.path))
+    )
+    return idx >= 0 ? idx : 0
+  }, [location.pathname])
+
+  // Accordion state: only one section open at a time
+  const [openSection, setOpenSection] = useState(activeSectionIndex)
+
+  // When the active page changes to a different section, auto-switch
+  if (openSection !== activeSectionIndex && NAV_SECTIONS[activeSectionIndex]?.items.some((item) => isItemActive(item.path))) {
+    setOpenSection(activeSectionIndex)
+  }
 
   if (!sidebarOpen) return null
 
@@ -220,12 +183,8 @@ export default function Sidebar() {
     if (isMobile) setSidebarOpen(false)
   }
 
-  const isItemActive = (path: string) => {
-    if (path === '/') return location.pathname === '/'
-    // Exact match for reconcile vs cashbook
-    if (path === '/cashbook/reconcile') return location.pathname === '/cashbook/reconcile'
-    if (path === '/cashbook') return location.pathname === '/cashbook' || location.pathname.startsWith('/cashbook/entries') || location.pathname === '/cashbook/new'
-    return location.pathname.startsWith(path)
+  const handleToggleSection = (index: number) => {
+    setOpenSection(openSection === index ? -1 : index)
   }
 
   const sidebar = (
@@ -253,14 +212,47 @@ export default function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 px-2 py-2 overflow-y-auto scrollbar-thin">
-        {NAV_SECTIONS.map((section) => (
-          <NavSectionGroup
-            key={section.title}
-            section={section}
-            isItemActive={isItemActive}
-            onNavigate={handleNavigate}
-          />
-        ))}
+        {NAV_SECTIONS.map((section, index) => {
+          const isOpen = openSection === index
+          return (
+            <div key={section.title} className="mb-1">
+              <button
+                onClick={() => handleToggleSection(index)}
+                className="w-full flex items-center justify-between px-3 py-1.5 text-[10px] font-semibold tracking-wider text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              >
+                {section.title}
+                {isOpen ? (
+                  <ChevronDown className="h-3 w-3" />
+                ) : (
+                  <ChevronRight className="h-3 w-3" />
+                )}
+              </button>
+              {isOpen && (
+                <div className="space-y-0.5">
+                  {section.items.map((item) => {
+                    const Icon = item.icon
+                    const active = isItemActive(item.path)
+                    return (
+                      <button
+                        key={item.path}
+                        onClick={() => handleNavigate(item.path)}
+                        className={cn(
+                          'w-full flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors',
+                          active
+                            ? 'bg-blue-50/70 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
+                        )}
+                      >
+                        <Icon className="h-4 w-4" />
+                        {item.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )
+        })}
       </nav>
 
       {/* Bottom section */}
