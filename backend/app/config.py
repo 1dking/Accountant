@@ -66,6 +66,10 @@ class Settings(BaseSettings):
     twilio_auth_token: str = ""
     twilio_from_number: str = ""
 
+    # GoHighLevel
+    ghl_api_key: str = ""
+    ghl_location_id: str = ""
+
     # Public access
     public_base_url: str = "http://localhost:5173"
 

@@ -42,6 +42,7 @@ import app.meetings.models  # noqa: F401
 import app.office.models  # noqa: F401
 import app.settings.models  # noqa: F401
 import app.public.models  # noqa: F401
+import app.proposals.models  # noqa: F401
 
 
 @asynccontextmanager
@@ -154,6 +155,7 @@ def create_app() -> FastAPI:
     from app.office.router import router as office_router
     from app.settings.router import router as settings_router
     from app.public.router import router as public_router
+    from app.proposals.router import router as proposals_router
 
     fastapi_app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
     fastapi_app.include_router(documents_router, prefix="/api/documents", tags=["documents"])
@@ -186,6 +188,7 @@ def create_app() -> FastAPI:
     fastapi_app.include_router(office_router, prefix="/api/office", tags=["office"])
     fastapi_app.include_router(settings_router, prefix="/api/settings/company", tags=["settings"])
     fastapi_app.include_router(public_router, prefix="/api/public", tags=["public"])
+    fastapi_app.include_router(proposals_router, prefix="/api/proposals", tags=["proposals"])
 
     # WebSocket endpoint
     @fastapi_app.websocket("/ws")

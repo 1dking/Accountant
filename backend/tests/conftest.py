@@ -90,6 +90,7 @@ def _import_all_models():
     import app.office.models  # noqa
     import app.settings.models  # noqa
     import app.public.models  # noqa
+    import app.proposals.models  # noqa
     import app.core.idempotency  # noqa
 
 

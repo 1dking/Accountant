@@ -57,6 +57,9 @@ import DocEditorPage from '@/pages/DocEditorPage'
 import DocReaderPage from '@/pages/DocReaderPage'
 import SheetEditorPage from '@/pages/SheetEditorPage'
 import SlideEditorPage from '@/pages/SlideEditorPage'
+import ProposalsPage from '@/pages/ProposalsPage'
+import ProposalEditorPage from '@/pages/ProposalEditorPage'
+import ProposalSigningPage from '@/pages/ProposalSigningPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -125,6 +128,9 @@ function AuthenticatedApp() {
         <Route path="/invoices" element={<InvoicesPage />} />
         <Route path="/invoices/new" element={<NewInvoicePage />} />
         <Route path="/invoices/:id" element={<InvoiceDetailPage />} />
+        <Route path="/proposals" element={<ProposalsPage />} />
+        <Route path="/proposals/:id/edit" element={<ProposalEditorPage />} />
+        <Route path="/proposals/:id" element={<ProposalEditorPage />} />
         <Route path="/estimates" element={<EstimatesPage />} />
         <Route path="/estimates/new" element={<NewEstimatePage />} />
         <Route path="/estimates/:id" element={<EstimateDetailPage />} />
@@ -184,6 +190,7 @@ export default function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/auth/google/callback" element={<GoogleCallbackPage />} />
             <Route path="/p/:token" element={<PublicDocumentPage />} />
+            <Route path="/proposals/sign/:token" element={<ProposalSigningPage />} />
             <Route path="/meetings/:id/guest" element={<MeetingGuestJoinPage />} />
             <Route
               path="/meetings/:id/room"

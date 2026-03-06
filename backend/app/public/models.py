@@ -11,6 +11,7 @@ from app.database import Base, TimestampMixin
 class ResourceType(str, enum.Enum):
     ESTIMATE = "estimate"
     INVOICE = "invoice"
+    PROPOSAL = "proposal"
 
 
 class PublicAccessToken(TimestampMixin, Base):

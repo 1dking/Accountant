@@ -324,6 +324,16 @@ async def _handle_checkout_completed(
             )
             db.add(income)
 
+    # Handle proposal payments
+    proposal_id_str = session.get("metadata", {}).get("proposal_id")
+    if proposal_id_str:
+        from app.proposals.service import handle_proposal_payment_webhook
+        await handle_proposal_payment_webhook(
+            db,
+            proposal_id_str=proposal_id_str,
+            payment_intent_id=session.get("payment_intent"),
+        )
+
     await db.commit()
 
 

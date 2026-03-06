@@ -27,6 +27,7 @@ import {
   Presentation,
   Sun,
   Moon,
+  FileSignature,
 } from 'lucide-react'
 import { useUiStore } from '@/stores/uiStore'
 import { useAuthStore } from '@/stores/authStore'
@@ -50,6 +51,7 @@ const NAV_ITEMS: NavItem[] = [
   { path: '/documents', label: 'Documents', icon: FileText },
   { path: '/contacts', label: 'Contacts', icon: Users },
   { path: '/invoices', label: 'Invoices', icon: FileOutput },
+  { path: '/proposals', label: 'Proposals', icon: FileSignature },
   { path: '/estimates', label: 'Estimates', icon: ClipboardList },
   { path: '/cashbook', label: 'Cashbook', icon: BookOpen },
   { path: '/expenses', label: 'Expenses', icon: Receipt },
