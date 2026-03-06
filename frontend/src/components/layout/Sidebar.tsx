@@ -120,13 +120,13 @@ const NAV_SECTIONS: NavSection[] = [
     title: 'STORAGE',
     items: [
       { path: '/drive', label: 'Drive', icon: HardDrive },
-      { path: '/recordings', label: 'Recordings', icon: Film },
     ],
   },
   {
     title: 'MEETINGS',
     items: [
       { path: '/meetings', label: 'Meetings', icon: Video },
+      { path: '/recordings', label: 'Recordings', icon: Film },
       { path: '/scheduling', label: 'Scheduling', icon: CalendarDays },
     ],
   },
