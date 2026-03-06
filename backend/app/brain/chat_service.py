@@ -151,7 +151,8 @@ async def chat_stream(
     # Rate limit check
     allowed, minutes = await check_rate_limit(db, user_id)
     if not allowed:
-        yield f'data: {json.dumps({"type": "text", "content": f"You\'ve been busy! I need a short break — I\'ll be ready again in {minutes} minutes. In the meantime, you can browse your data directly."})}\n\n'
+        rate_msg = "You've been busy! I need a short break — I'll be ready again in {} minutes. In the meantime, you can browse your data directly.".format(minutes)
+        yield f'data: {json.dumps({"type": "text", "content": rate_msg})}\n\n'
         yield f'data: {json.dumps({"type": "done"})}\n\n'
         return
 
