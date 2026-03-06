@@ -20,12 +20,18 @@ class UserLogin(BaseModel):
     password: str
 
 
+class GoogleAuthRequest(BaseModel):
+    code: str
+    redirect_uri: str | None = None
+
+
 class UserResponse(BaseModel):
     id: uuid.UUID
     email: str
     full_name: str
     role: Role
     is_active: bool
+    auth_provider: str = "local"
     created_at: datetime
 
     model_config = {"from_attributes": True}

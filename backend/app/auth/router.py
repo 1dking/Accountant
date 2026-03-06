@@ -1,14 +1,18 @@
 
+import logging
 import time
 from typing import Annotated
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Request
+from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import Role, User
 from app.auth.schemas import (
     AdminUserCreate,
     AdminUserUpdate,
+    GoogleAuthRequest,
     TokenRefreshRequest,
     UserCreate,
     UserLogin,
@@ -18,6 +22,7 @@ from app.auth.schemas import (
 )
 from app.auth.service import admin_update_user as admin_update_user_svc
 from app.auth.service import (
+    authenticate_google,
     authenticate_user,
     create_user,
     refresh_tokens,
@@ -28,9 +33,11 @@ from app.auth.service import (
 from app.auth.service import deactivate_user as deactivate_user_svc
 from app.auth.service import list_users as list_users_svc
 from app.auth.service import update_user_role as update_user_role_svc
-from app.core.exceptions import RateLimitError
+from app.core.exceptions import RateLimitError, ValidationError
 from app.core.pagination import PaginationParams, get_pagination
 from app.dependencies import get_current_user, get_db, require_role
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -200,3 +207,88 @@ async def deactivate_user(
 ) -> dict:
     email = await deactivate_user_svc(db, user_id)
     return {"data": {"message": f"User {email} deactivated"}}
+
+
+# ---------------------------------------------------------------------------
+# Google OAuth
+# ---------------------------------------------------------------------------
+GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
+GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
+GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
+
+
+@router.get("/google/login")
+async def google_login(request: Request) -> RedirectResponse:
+    """Redirect the browser to Google's consent screen."""
+    settings = request.app.state.settings
+    if not settings.google_client_id:
+        raise ValidationError("Google OAuth is not configured.")
+
+    params = {
+        "client_id": settings.google_client_id,
+        "redirect_uri": settings.google_oauth_redirect_uri,
+        "response_type": "code",
+        "scope": "openid email profile",
+        "access_type": "offline",
+        "prompt": "select_account",
+    }
+    return RedirectResponse(f"{GOOGLE_AUTH_URL}?{urlencode(params)}")
+
+
+@router.post("/google/callback")
+async def google_callback(
+    body: GoogleAuthRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
+) -> dict:
+    """Exchange Google auth code for tokens, then find/create user."""
+    import httpx
+
+    settings = request.app.state.settings
+    if not settings.google_client_id or not settings.google_client_secret:
+        raise ValidationError("Google OAuth is not configured.")
+
+    redirect_uri = body.redirect_uri or settings.google_oauth_redirect_uri
+
+    # Exchange auth code for Google tokens
+    async with httpx.AsyncClient() as client:
+        token_resp = await client.post(
+            GOOGLE_TOKEN_URL,
+            data={
+                "code": body.code,
+                "client_id": settings.google_client_id,
+                "client_secret": settings.google_client_secret,
+                "redirect_uri": redirect_uri,
+                "grant_type": "authorization_code",
+            },
+        )
+
+    if token_resp.status_code != 200:
+        logger.error("Google token exchange failed: %s", token_resp.text)
+        raise ValidationError("Failed to authenticate with Google.")
+
+    google_tokens = token_resp.json()
+    access_token = google_tokens.get("access_token")
+    if not access_token:
+        raise ValidationError("No access token from Google.")
+
+    # Get user info from Google
+    async with httpx.AsyncClient() as client:
+        userinfo_resp = await client.get(
+            GOOGLE_USERINFO_URL,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    if userinfo_resp.status_code != 200:
+        raise ValidationError("Failed to get user info from Google.")
+
+    userinfo = userinfo_resp.json()
+    google_id = userinfo.get("sub")
+    email = userinfo.get("email")
+    full_name = userinfo.get("name", "")
+
+    if not google_id or not email:
+        raise ValidationError("Incomplete user info from Google.")
+
+    tokens = await authenticate_google(db, google_id, email, full_name, settings)
+    return {"data": tokens}

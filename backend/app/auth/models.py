@@ -20,10 +20,12 @@ class User(TimestampMixin, Base):
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
-    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    hashed_password: Mapped[str | None] = mapped_column(String(255), nullable=True)
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[Role] = mapped_column(Enum(Role), default=Role.VIEWER, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    auth_provider: Mapped[str] = mapped_column(String(20), default="local", server_default="local", nullable=False)
+    google_id: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
 
 
 class RefreshToken(Base):

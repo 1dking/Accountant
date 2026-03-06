@@ -4,6 +4,7 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 
 from sqlalchemy import func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -22,11 +23,23 @@ from app.invoicing.schemas import (
 
 
 async def generate_invoice_number(db: AsyncSession) -> str:
+    """Generate the next sequential invoice number.
+
+    Uses ``FOR UPDATE`` on the latest row to serialise concurrent inserts,
+    preventing duplicate invoice numbers under parallel requests.
+    """
     result = await db.execute(
-        select(func.count(Invoice.id))
+        select(Invoice.invoice_number)
+        .order_by(Invoice.invoice_number.desc())
+        .limit(1)
+        .with_for_update()
     )
-    count = (result.scalar() or 0) + 1
-    return f"INV-{count:04d}"
+    last = result.scalar()
+    if last:
+        num = int(last.split("-")[1]) + 1
+    else:
+        num = 1
+    return f"INV-{num:04d}"
 
 
 def _calculate_line_total(item: InvoiceLineItemCreate) -> Decimal:
@@ -52,28 +65,42 @@ async def create_invoice(
 
     await assert_period_open(db, data.issue_date)
 
-    invoice_number = await generate_invoice_number(db)
     subtotal, tax_amount, total = _calculate_invoice_totals(
         data.line_items, data.tax_rate, data.discount_amount
     )
 
-    invoice = Invoice(
-        invoice_number=invoice_number,
-        contact_id=data.contact_id,
-        issue_date=data.issue_date,
-        due_date=data.due_date,
-        tax_rate=data.tax_rate,
-        tax_amount=tax_amount,
-        discount_amount=data.discount_amount,
-        subtotal=subtotal,
-        total=total,
-        currency=data.currency,
-        notes=data.notes,
-        payment_terms=data.payment_terms,
-        created_by=user.id,
-    )
-    db.add(invoice)
-    await db.flush()
+    # Retry loop handles the race condition when the invoices table is empty:
+    # FOR UPDATE cannot lock non-existent rows, so concurrent inserts may
+    # generate the same invoice number.  On IntegrityError we re-generate
+    # the number inside a SAVEPOINT so the outer transaction stays valid.
+    max_retries = 5
+    invoice = None
+    for attempt in range(max_retries):
+        invoice_number = await generate_invoice_number(db)
+        invoice = Invoice(
+            invoice_number=invoice_number,
+            contact_id=data.contact_id,
+            issue_date=data.issue_date,
+            due_date=data.due_date,
+            tax_rate=data.tax_rate,
+            tax_amount=tax_amount,
+            discount_amount=data.discount_amount,
+            subtotal=subtotal,
+            total=total,
+            currency=data.currency,
+            notes=data.notes,
+            payment_terms=data.payment_terms,
+            created_by=user.id,
+        )
+        nested = await db.begin_nested()
+        try:
+            db.add(invoice)
+            await db.flush()
+            break
+        except IntegrityError:
+            await nested.rollback()
+            if attempt == max_retries - 1:
+                raise
 
     for li in data.line_items:
         line = InvoiceLineItem(
@@ -225,7 +252,16 @@ async def send_invoice(db: AsyncSession, invoice_id: uuid.UUID) -> Invoice:
 async def record_payment(
     db: AsyncSession, invoice_id: uuid.UUID, data: InvoicePaymentCreate, user: User
 ) -> InvoicePayment:
-    invoice = await get_invoice(db, invoice_id)
+    # Lock the invoice row to serialise concurrent payments
+    result = await db.execute(
+        select(Invoice)
+        .where(Invoice.id == invoice_id)
+        .options(selectinload(Invoice.payments))
+        .with_for_update()
+    )
+    invoice = result.unique().scalar_one_or_none()
+    if invoice is None:
+        raise NotFoundError("Invoice", str(invoice_id))
 
     payment = InvoicePayment(
         invoice_id=invoice.id,
@@ -237,9 +273,15 @@ async def record_payment(
         recorded_by=user.id,
     )
     db.add(payment)
+    await db.flush()  # write payment so the DB sum includes it
 
-    # Update invoice status based on total payments
-    total_paid = sum((Decimal(str(p.amount)) for p in invoice.payments), Decimal('0')) + Decimal(str(data.amount))
+    # Re-query actual total from DB to avoid stale ORM cache
+    paid_result = await db.execute(
+        select(func.coalesce(func.sum(InvoicePayment.amount), 0))
+        .where(InvoicePayment.invoice_id == invoice.id)
+    )
+    total_paid = Decimal(str(paid_result.scalar()))
+
     if total_paid >= Decimal(str(invoice.total)):
         invoice.status = InvoiceStatus.PAID
     else:

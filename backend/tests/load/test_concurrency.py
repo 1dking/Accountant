@@ -19,10 +19,11 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.conftest import auth_header
+from tests.conftest import USING_SQLITE, auth_header
 
-_skip_sqlite = pytest.mark.skip(
-    reason="SQLite serialises writes through a single connection; true concurrency requires PostgreSQL"
+_skip_sqlite = pytest.mark.skipif(
+    USING_SQLITE,
+    reason="SQLite serialises writes through a single connection; true concurrency requires PostgreSQL",
 )
 
 

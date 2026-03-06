@@ -36,10 +36,11 @@ class Settings(BaseSettings):
     # Encryption
     fernet_key: str = ""
 
-    # Gmail OAuth
+    # Google OAuth (shared by login + Gmail integration)
     google_client_id: str = ""
     google_client_secret: str = ""
     google_redirect_uri: str = "http://localhost:8000/api/integrations/gmail/callback"
+    google_oauth_redirect_uri: str = "http://localhost:5173/auth/google/callback"
 
     # Plaid
     plaid_client_id: str = ""

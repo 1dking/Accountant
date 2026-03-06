@@ -89,7 +89,7 @@ async def authenticate_user(
     result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
 
-    if user is None or not verify_password(password, user.hashed_password):
+    if user is None or not user.hashed_password or not verify_password(password, user.hashed_password):
         raise ValidationError("Invalid email or password.")
 
     if not user.is_active:
@@ -272,3 +272,66 @@ async def deactivate_user(
     user.is_active = False
     await db.commit()
     return user.email
+
+
+async def authenticate_google(
+    db: AsyncSession,
+    google_id: str,
+    email: str,
+    full_name: str,
+    settings: Settings,
+) -> TokenResponse:
+    """Find or create a user from Google OAuth, then issue JWT tokens."""
+    # First try to find by google_id
+    result = await db.execute(select(User).where(User.google_id == google_id))
+    user = result.scalar_one_or_none()
+
+    if user is None:
+        # Try to find by email (link existing account)
+        result = await db.execute(select(User).where(User.email == email))
+        user = result.scalar_one_or_none()
+
+        if user is not None:
+            # Link Google to existing account
+            user.google_id = google_id
+            if user.auth_provider == "local":
+                user.auth_provider = "local+google"
+        else:
+            # Check if any users exist (first user gets ADMIN)
+            user_count = await db.scalar(select(func.count()).select_from(User))
+            role = Role.ADMIN if user_count == 0 else Role.VIEWER
+
+            user = User(
+                email=email,
+                hashed_password=None,
+                full_name=full_name or email.split("@")[0],
+                role=role,
+                auth_provider="google",
+                google_id=google_id,
+            )
+            db.add(user)
+
+    if not user.is_active:
+        raise ValidationError("Account is deactivated.")
+
+    access_token = create_access_token(user.id, user.role.value, settings)
+    refresh_token = create_refresh_token(user.id, settings)
+
+    token_record = RefreshToken(
+        user_id=user.id,
+        token_hash=hash_token(refresh_token),
+        expires_at=datetime.now(timezone.utc) + timedelta(days=settings.refresh_token_expire_days),
+    )
+    db.add(token_record)
+    await db.commit()
+
+    await log_activity(
+        db,
+        user_id=user.id,
+        action="user_login",
+        resource_type="user",
+        resource_id=str(user.id),
+        details={"method": "google"},
+    )
+
+    return TokenResponse(access_token=access_token, refresh_token=refresh_token)

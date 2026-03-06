@@ -1,6 +1,11 @@
-"""Root conftest: async in-memory SQLite DB, test client, auth helpers.
+"""Root conftest: test client, auth helpers, and database fixtures.
 
-Each test gets a fresh database (all tables recreated) for complete isolation.
+Database backend is chosen automatically:
+  - If ``TEST_DATABASE_URL`` env var is set → use that (PostgreSQL via asyncpg).
+  - Otherwise → fresh in-memory SQLite per test.
+
+PostgreSQL gives true concurrent-write testing.  SQLite is the zero-config
+default for local development.
 """
 
 import asyncio
@@ -31,11 +36,21 @@ from app.config import Settings
 from app.database import Base
 
 # ---------------------------------------------------------------------------
-# Settings override — in-memory SQLite, deterministic secret
+# Database backend detection
+# ---------------------------------------------------------------------------
+
+TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "")
+USE_POSTGRES = TEST_DATABASE_URL.startswith("postgresql")
+
+# Expose a flag so test files can conditionally skip.
+USING_SQLITE = not USE_POSTGRES
+
+# ---------------------------------------------------------------------------
+# Settings override — deterministic secret, test storage paths
 # ---------------------------------------------------------------------------
 
 TEST_SETTINGS = Settings(
-    database_url="sqlite+aiosqlite:///:memory:",
+    database_url=TEST_DATABASE_URL if USE_POSTGRES else "sqlite+aiosqlite:///:memory:",
     secret_key="test-secret-key-for-deterministic-tokens",
     storage_path="./test_data/documents",
     recordings_storage_path="./test_data/recordings",
@@ -93,36 +108,52 @@ def event_loop():
 
 
 # ---------------------------------------------------------------------------
-# Per-test engine + session: fully isolated in-memory DB each time
+# Per-test engine + session
 # ---------------------------------------------------------------------------
 
 @pytest_asyncio.fixture()
 async def engine():
-    """Fresh in-memory SQLite engine per test — complete isolation.
+    """Create a test engine.
 
-    StaticPool ensures all sessions share the SAME connection so fixture data
-    committed in the ``db`` session is visible to API-handler sessions.
+    SQLite:      in-memory + StaticPool (single connection, complete isolation).
+    PostgreSQL:  real connection pool; tables are created then dropped per test.
     """
     from app.database import _json_serializer
 
-    eng = create_async_engine(
-        "sqlite+aiosqlite:///:memory:",
-        echo=False,
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-        json_serializer=_json_serializer,
-    )
+    if USE_POSTGRES:
+        eng = create_async_engine(
+            TEST_DATABASE_URL,
+            echo=False,
+            json_serializer=_json_serializer,
+            pool_size=10,
+            max_overflow=20,
+        )
+    else:
+        eng = create_async_engine(
+            "sqlite+aiosqlite:///:memory:",
+            echo=False,
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+            json_serializer=_json_serializer,
+        )
 
-    @event.listens_for(eng.sync_engine, "connect")
-    def _set_pragma(dbapi_conn, _):
-        cursor = dbapi_conn.cursor()
-        cursor.execute("PRAGMA foreign_keys=ON")
-        cursor.close()
+        @event.listens_for(eng.sync_engine, "connect")
+        def _set_pragma(dbapi_conn, _):
+            cursor = dbapi_conn.cursor()
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.close()
 
+    # Create all tables
     async with eng.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
     yield eng
+
+    # Tear down: drop all tables (PostgreSQL needs this for isolation)
+    if USE_POSTGRES:
+        async with eng.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+
     await eng.dispose()
 
 

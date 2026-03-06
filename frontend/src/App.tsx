@@ -47,6 +47,7 @@ import MeetingDetailPage from '@/pages/MeetingDetailPage'
 import MeetingRoomPage from '@/pages/MeetingRoomPage'
 import MeetingGuestJoinPage from '@/pages/MeetingGuestJoinPage'
 import RecordingsPage from '@/pages/RecordingsPage'
+import GoogleCallbackPage from '@/pages/GoogleCallbackPage'
 import HelpPage from '@/pages/HelpPage'
 import PublicDocumentPage from '@/pages/PublicDocumentPage'
 import DocsHomePage from '@/pages/DocsHomePage'
@@ -181,6 +182,7 @@ export default function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/auth/google/callback" element={<GoogleCallbackPage />} />
             <Route path="/p/:token" element={<PublicDocumentPage />} />
             <Route path="/meetings/:id/guest" element={<MeetingGuestJoinPage />} />
             <Route
