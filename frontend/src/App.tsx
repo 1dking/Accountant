@@ -70,6 +70,9 @@ import PortalMeetingsPage from '@/pages/PortalMeetingsPage'
 import WorkflowsPage from '@/pages/WorkflowsPage'
 import FormsPage from '@/pages/FormsPage'
 import CommunicationPage from '@/pages/CommunicationPage'
+import PageBuilderPage from '@/pages/PageBuilderPage'
+import SchedulingPage from '@/pages/SchedulingPage'
+import BrandingPage from '@/pages/BrandingPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -173,6 +176,9 @@ function AuthenticatedApp() {
         <Route path="/workflows" element={<WorkflowsPage />} />
         <Route path="/forms" element={<FormsPage />} />
         <Route path="/communication" element={<CommunicationPage />} />
+        <Route path="/page-builder" element={<PageBuilderPage />} />
+        <Route path="/scheduling" element={<SchedulingPage />} />
+        <Route path="/branding" element={<BrandingPage />} />
         <Route path="/help" element={<HelpPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

@@ -32,6 +32,9 @@ import {
   Zap,
   ClipboardCheck,
   Phone,
+  Globe,
+  CalendarDays,
+  Palette,
 } from 'lucide-react'
 import { useUiStore } from '@/stores/uiStore'
 import { useAuthStore } from '@/stores/authStore'
@@ -67,10 +70,13 @@ const NAV_ITEMS: NavItem[] = [
   { path: '/workflows', label: 'Workflows', icon: Zap },
   { path: '/forms', label: 'Forms', icon: ClipboardCheck },
   { path: '/communication', label: 'Communication', icon: Phone },
+  { path: '/page-builder', label: 'Pages', icon: Globe },
+  { path: '/scheduling', label: 'Scheduling', icon: CalendarDays },
   { path: '/inbox', label: 'Inbox', icon: Inbox },
   { path: '/bank-transactions', label: 'Banking', icon: Landmark },
   { path: '/capture', label: 'Capture', icon: Camera },
   { path: '/calendar', label: 'Calendar', icon: Calendar },
+  { path: '/branding', label: 'Branding', icon: Palette },
   { path: '/settings', label: 'Settings', icon: Settings },
 ]
 

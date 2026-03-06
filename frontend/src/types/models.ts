@@ -1413,3 +1413,151 @@ export interface ChatMessage {
   message: string
   created_at: string
 }
+
+// Pages (AI Web Builder)
+export interface PageItem {
+  id: string
+  title: string
+  slug: string
+  status: string
+  is_homepage: boolean
+  custom_domain?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface PageDetail {
+  id: string
+  title: string
+  slug: string
+  description?: string
+  status: string
+  html_content?: string
+  css_content?: string
+  js_content?: string
+  sections_json?: string
+  meta_title?: string
+  meta_description?: string
+  og_image_url?: string
+  custom_domain?: string
+  is_homepage: boolean
+  favicon_url?: string
+  custom_head_html?: string
+  style_preset?: string
+  primary_color?: string
+  font_family?: string
+  created_by: string
+  created_at: string
+  updated_at: string
+}
+
+export interface PageVersion {
+  id: string
+  page_id: string
+  version_number: number
+  change_summary?: string
+  created_by: string
+  created_at: string
+}
+
+export interface PageAnalyticsSummary {
+  total_views: number
+  unique_visitors: number
+  total_submissions: number
+  conversion_rate: number
+  views_by_day: Record<string, unknown>[]
+}
+
+export interface StylePreset {
+  id: string
+  name: string
+  description: string
+  preview_colors: { primary: string; bg: string; text: string }
+}
+
+export interface SectionTemplate {
+  id: string
+  type: string
+  name: string
+  description: string
+  default_html: string
+}
+
+// Scheduling
+export interface SchedulingCalendar {
+  id: string
+  name: string
+  slug: string
+  description?: string
+  calendar_type: string
+  duration_minutes: number
+  buffer_minutes: number
+  max_advance_days: number
+  min_notice_hours: number
+  availability_json?: string
+  timezone: string
+  is_active: boolean
+  confirmation_message?: string
+  reminder_enabled: boolean
+  google_calendar_id?: string
+  google_sync_enabled: boolean
+  created_by: string
+  created_at: string
+  updated_at: string
+}
+
+export interface CalendarMember {
+  id: string
+  calendar_id: string
+  user_id: string
+  is_active: boolean
+  priority: number
+  created_at: string
+}
+
+export interface CalendarBooking {
+  id: string
+  calendar_id: string
+  contact_id?: string
+  assigned_user_id?: string
+  guest_name: string
+  guest_email: string
+  guest_phone?: string
+  guest_notes?: string
+  start_time: string
+  end_time: string
+  status: string
+  cancellation_reason?: string
+  google_event_id?: string
+  confirmation_sent: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface AvailableSlot {
+  start: string
+  end: string
+}
+
+// Branding
+export interface BrandingSettings {
+  id: string
+  logo_url?: string
+  logo_dark_url?: string
+  favicon_url?: string
+  primary_color: string
+  secondary_color: string
+  accent_color: string
+  font_heading: string
+  font_body: string
+  border_radius: string
+  custom_css?: string
+  email_header_html?: string
+  email_footer_html?: string
+  portal_welcome_message?: string
+  booking_page_header?: string
+  org_slug?: string
+  updated_by: string
+  created_at: string
+  updated_at: string
+}

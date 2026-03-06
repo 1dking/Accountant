@@ -85,6 +85,12 @@ class Settings(BaseSettings):
     livekit_api_key: str = ""
     livekit_api_secret: str = ""
 
+    # Gemini AI (page builder)
+    gemini_api_key: str = ""
+
+    # Google Calendar sync
+    google_calendar_sync_enabled: bool = False
+
     @property
     def is_sqlite(self) -> bool:
         return "sqlite" in self.database_url
