@@ -51,6 +51,7 @@ import app.workflows.models  # noqa: F401
 import app.pages.models  # noqa: F401
 import app.scheduling.models  # noqa: F401
 import app.branding.models  # noqa: F401
+import app.brain.models  # noqa: F401
 # contacts.models now includes ContactTag, ContactActivity, FileShare, etc.
 
 
@@ -178,6 +179,7 @@ def create_app() -> FastAPI:
     from app.pages.router import router as pages_router
     from app.scheduling.router import router as scheduling_router
     from app.branding.router import router as branding_router
+    from app.brain.router import router as brain_router
 
     fastapi_app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
     fastapi_app.include_router(documents_router, prefix="/api/documents", tags=["documents"])
@@ -220,6 +222,7 @@ def create_app() -> FastAPI:
     fastapi_app.include_router(pages_router, prefix="/api/pages", tags=["pages"])
     fastapi_app.include_router(scheduling_router, prefix="/api/scheduling", tags=["scheduling"])
     fastapi_app.include_router(branding_router, prefix="/api/branding", tags=["branding"])
+    fastapi_app.include_router(brain_router, prefix="/api/brain", tags=["brain"])
 
     # WebSocket endpoint
     @fastapi_app.websocket("/ws")

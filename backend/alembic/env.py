@@ -48,6 +48,7 @@ import app.workflows.models  # noqa: F401
 import app.pages.models  # noqa: F401
 import app.scheduling.models  # noqa: F401
 import app.branding.models  # noqa: F401
+import app.brain.models  # noqa: F401
 import app.core.idempotency  # noqa: F401
 
 config = context.config

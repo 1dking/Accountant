@@ -100,6 +100,7 @@ def _import_all_models():
     import app.pages.models  # noqa
     import app.scheduling.models  # noqa
     import app.branding.models  # noqa
+    import app.brain.models  # noqa
 
 
 _import_all_models()

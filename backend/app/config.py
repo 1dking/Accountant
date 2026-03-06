@@ -91,6 +91,15 @@ class Settings(BaseSettings):
     # Google Calendar sync
     google_calendar_sync_enabled: bool = False
 
+    # OpenAI (embeddings + transcription)
+    openai_api_key: str = ""
+
+    # AssemblyAI (alternative transcription)
+    assemblyai_api_key: str = ""
+
+    # O-Brain settings
+    obrain_rate_limit_per_hour: int = 120
+
     @property
     def is_sqlite(self) -> bool:
         return "sqlite" in self.database_url
