@@ -1417,3 +1417,283 @@ async def get_storage_usage(
         "file_count": int(file_row[1]),
         "folder_count": int(folder_count),
     }
+
+
+async def star_folder(
+    db: AsyncSession,
+    folder_id: uuid.UUID,
+    user_id: uuid.UUID,
+    starred: bool,
+) -> Folder:
+    """Toggle star on a folder."""
+    result = await db.execute(select(Folder).where(Folder.id == folder_id))
+    folder = result.scalar_one_or_none()
+    if folder is None:
+        raise NotFoundError("Folder", str(folder_id))
+    folder.is_starred = starred
+    await db.commit()
+    await db.refresh(folder)
+    return folder
+
+
+async def rename_document(
+    db: AsyncSession,
+    document_id: uuid.UUID,
+    new_name: str,
+    user: User,
+) -> Document:
+    """Rename a document's title and original_filename."""
+    document = await get_document(db, document_id)
+    document.title = new_name
+    document.original_filename = new_name
+    await _create_audit_log(
+        db,
+        user_id=user.id,
+        action="rename",
+        resource_type="document",
+        resource_id=str(document_id),
+        details={"new_name": new_name},
+    )
+    await db.commit()
+    await db.refresh(document)
+    return document
+
+
+async def rename_folder(
+    db: AsyncSession,
+    folder_id: uuid.UUID,
+    new_name: str,
+    user: User,
+) -> Folder:
+    """Rename a folder."""
+    result = await db.execute(select(Folder).where(Folder.id == folder_id))
+    folder = result.scalar_one_or_none()
+    if folder is None:
+        raise NotFoundError("Folder", str(folder_id))
+
+    # Check for duplicate name under same parent
+    dup_query = select(Folder).where(
+        Folder.name == new_name,
+        Folder.parent_id == folder.parent_id,
+        Folder.id != folder_id,
+    )
+    dup_result = await db.execute(dup_query)
+    if dup_result.scalar_one_or_none() is not None:
+        raise ConflictError(
+            f"A folder named '{new_name}' already exists in the specified location."
+        )
+
+    folder.name = new_name
+    await _create_audit_log(
+        db,
+        user_id=user.id,
+        action="rename",
+        resource_type="folder",
+        resource_id=str(folder_id),
+        details={"new_name": new_name},
+    )
+    await db.commit()
+    await db.refresh(folder)
+    return folder
+
+
+async def delete_folder_recursive(
+    db: AsyncSession,
+    storage: StorageBackend,
+    folder_id: uuid.UUID,
+    user: User,
+) -> int:
+    """Recursively delete a folder and all its contents (documents + subfolders).
+
+    Returns the count of documents permanently deleted.
+    """
+    result = await db.execute(select(Folder).where(Folder.id == folder_id))
+    folder = result.scalar_one_or_none()
+    if folder is None:
+        raise NotFoundError("Folder", str(folder_id))
+
+    # Collect this folder + all descendant folder IDs
+    all_folder_ids = [folder_id]
+    queue = [folder_id]
+    while queue:
+        parent = queue.pop()
+        children = (
+            await db.execute(select(Folder.id).where(Folder.parent_id == parent))
+        ).scalars().all()
+        for child_id in children:
+            all_folder_ids.append(child_id)
+            queue.append(child_id)
+
+    # Find all documents in these folders
+    doc_result = await db.execute(
+        select(Document)
+        .options(selectinload(Document.versions))
+        .where(Document.folder_id.in_(all_folder_ids))
+    )
+    docs = list(doc_result.scalars().unique().all())
+    doc_count = len(docs)
+
+    # Collect storage paths
+    storage_paths: list[str] = []
+    doc_ids = []
+    for doc in docs:
+        storage_paths.append(doc.storage_path)
+        doc_ids.append(doc.id)
+        for version in doc.versions:
+            if version.storage_path != doc.storage_path:
+                storage_paths.append(version.storage_path)
+
+    # Delete related records for all documents
+    if doc_ids:
+        from app.collaboration.models import ApprovalWorkflow, Comment
+        from app.documents.models import DocumentVersion, document_tags
+
+        for doc_id in doc_ids:
+            await db.execute(delete(Comment).where(Comment.document_id == doc_id))
+            await db.execute(
+                delete(ApprovalWorkflow).where(ApprovalWorkflow.document_id == doc_id)
+            )
+            await db.execute(
+                delete(DocumentVersion).where(DocumentVersion.document_id == doc_id)
+            )
+            await db.execute(
+                document_tags.delete().where(document_tags.c.document_id == doc_id)
+            )
+
+            # Nullify SET NULL references
+            from app.accounting.models import Expense
+            from app.cashbook.models import CashbookEntry
+            from app.calendar.models import CalendarEvent
+
+            await db.execute(
+                update(Expense).where(Expense.document_id == doc_id).values(document_id=None)
+            )
+            await db.execute(
+                update(CashbookEntry).where(CashbookEntry.document_id == doc_id).values(document_id=None)
+            )
+            await db.execute(
+                update(CalendarEvent).where(CalendarEvent.document_id == doc_id).values(document_id=None)
+            )
+
+            try:
+                from app.income.models import Income
+                await db.execute(
+                    update(Income).where(Income.document_id == doc_id).values(document_id=None)
+                )
+            except Exception:
+                pass
+
+        # Delete all documents
+        await db.execute(delete(Document).where(Document.id.in_(doc_ids)))
+
+    # Delete all folders (children first due to FK constraints)
+    for fid in reversed(all_folder_ids):
+        await db.execute(delete(Folder).where(Folder.id == fid))
+
+    await _create_audit_log(
+        db,
+        user_id=user.id,
+        action="delete_recursive",
+        resource_type="folder",
+        resource_id=str(folder_id),
+        details={"name": folder.name, "documents_deleted": doc_count, "folders_deleted": len(all_folder_ids)},
+    )
+
+    await db.commit()
+
+    # Remove storage files after successful DB commit
+    for path in storage_paths:
+        try:
+            await storage.delete(path)
+        except Exception:
+            logger.warning("Failed to delete storage file: %s", path)
+
+    return doc_count
+
+
+async def bulk_delete(
+    db: AsyncSession,
+    storage: StorageBackend,
+    document_ids: list[uuid.UUID],
+    folder_ids: list[uuid.UUID],
+    user: User,
+) -> dict:
+    """Bulk delete documents and folders. Documents are permanently deleted.
+    Folders are recursively deleted with all contents."""
+    docs_deleted = 0
+    folders_deleted = 0
+
+    # Delete documents first
+    for doc_id in document_ids:
+        try:
+            await delete_document(db, storage, doc_id, user, permanent=True)
+            docs_deleted += 1
+        except NotFoundError:
+            pass  # Already deleted
+
+    # Delete folders recursively
+    for fid in folder_ids:
+        try:
+            count = await delete_folder_recursive(db, storage, fid, user)
+            docs_deleted += count
+            folders_deleted += 1
+        except NotFoundError:
+            pass  # Already deleted
+
+    return {"documents_deleted": docs_deleted, "folders_deleted": folders_deleted}
+
+
+async def bulk_move(
+    db: AsyncSession,
+    document_ids: list[uuid.UUID],
+    folder_ids: list[uuid.UUID],
+    target_folder_id: uuid.UUID | None,
+    user_id: uuid.UUID,
+) -> dict:
+    """Bulk move documents and folders to a target folder."""
+    docs_moved = 0
+    folders_moved = 0
+
+    for doc_id in document_ids:
+        try:
+            await move_document(db, doc_id, target_folder_id, user_id)
+            docs_moved += 1
+        except NotFoundError:
+            pass
+
+    for fid in folder_ids:
+        try:
+            await move_folder(db, fid, target_folder_id, user_id)
+            folders_moved += 1
+        except (NotFoundError, ValidationError):
+            pass
+
+    return {"documents_moved": docs_moved, "folders_moved": folders_moved}
+
+
+async def bulk_star(
+    db: AsyncSession,
+    document_ids: list[uuid.UUID],
+    folder_ids: list[uuid.UUID],
+    starred: bool,
+    user_id: uuid.UUID,
+) -> dict:
+    """Bulk star/unstar documents and folders."""
+    docs_updated = 0
+    folders_updated = 0
+
+    for doc_id in document_ids:
+        try:
+            await star_document(db, doc_id, user_id, starred)
+            docs_updated += 1
+        except NotFoundError:
+            pass
+
+    for fid in folder_ids:
+        try:
+            await star_folder(db, fid, user_id, starred)
+            folders_updated += 1
+        except NotFoundError:
+            pass
+
+    return {"documents_updated": docs_updated, "folders_updated": folders_updated}

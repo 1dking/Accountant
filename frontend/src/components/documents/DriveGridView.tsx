@@ -1,6 +1,6 @@
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { Folder as FolderIcon, FileText, Image, FileSpreadsheet, File, Star } from 'lucide-react'
-import { formatFileSize, formatRelativeTime } from '@/lib/utils'
+import { formatFileSize, formatRelativeTime, cn } from '@/lib/utils'
 import type { Folder } from '@/types/models'
 import type { ContextMenuItem } from './FileContextMenu'
 
@@ -19,7 +19,9 @@ export interface DriveItem {
 interface DriveGridViewProps {
   items: DriveItem[]
   viewMode: 'grid' | 'list'
-  onItemClick: (item: DriveItem) => void
+  selectedIds: Set<string>
+  onItemClick: (item: DriveItem, e: React.MouseEvent) => void
+  onItemDoubleClick: (item: DriveItem) => void
   onContextMenu: (e: React.MouseEvent, item: ContextMenuItem) => void
 }
 
@@ -101,7 +103,7 @@ function DroppableFolder({
   return (
     <div
       ref={setNodeRef}
-      className={`transition-colors rounded-lg ${isOver ? 'ring-2 ring-blue-400 bg-blue-50' : ''}`}
+      className={`transition-colors rounded-lg ${isOver ? 'ring-2 ring-blue-400 bg-blue-50 dark:bg-blue-900/20' : ''}`}
     >
       {children}
     </div>
@@ -111,11 +113,15 @@ function DroppableFolder({
 // Grid card for a single item
 function GridCard({
   item,
+  selected,
   onItemClick,
+  onItemDoubleClick,
   onContextMenu,
 }: {
   item: DriveItem
-  onItemClick: (item: DriveItem) => void
+  selected: boolean
+  onItemClick: (item: DriveItem, e: React.MouseEvent) => void
+  onItemDoubleClick: (item: DriveItem) => void
   onContextMenu: (e: React.MouseEvent, item: ContextMenuItem) => void
 }) {
   const Icon = getFileIcon(item.type === 'folder' ? 'folder' : item.mime_type)
@@ -133,9 +139,15 @@ function GridCard({
 
   const card = (
     <div
-      onClick={() => onItemClick(item)}
+      onClick={(e) => onItemClick(item, e)}
+      onDoubleClick={() => onItemDoubleClick(item)}
       onContextMenu={handleContextMenu}
-      className="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-md hover:border-gray-300 transition-all cursor-pointer select-none"
+      className={cn(
+        'group bg-white dark:bg-gray-900 border rounded-lg p-4 hover:shadow-md transition-all cursor-pointer select-none',
+        selected
+          ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-900/20 ring-1 ring-blue-500'
+          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300',
+      )}
     >
       <div className="flex items-start justify-between mb-3">
         <div className={`p-2 rounded-lg bg-gray-50 dark:bg-gray-950 ${iconColor}`}>
@@ -176,11 +188,15 @@ function GridCard({
 // List row for a single item
 function ListRow({
   item,
+  selected,
   onItemClick,
+  onItemDoubleClick,
   onContextMenu,
 }: {
   item: DriveItem
-  onItemClick: (item: DriveItem) => void
+  selected: boolean
+  onItemClick: (item: DriveItem, e: React.MouseEvent) => void
+  onItemDoubleClick: (item: DriveItem) => void
   onContextMenu: (e: React.MouseEvent, item: ContextMenuItem) => void
 }) {
   const Icon = getFileIcon(item.type === 'folder' ? 'folder' : item.mime_type)
@@ -198,9 +214,15 @@ function ListRow({
 
   const row = (
     <div
-      onClick={() => onItemClick(item)}
+      onClick={(e) => onItemClick(item, e)}
+      onDoubleClick={() => onItemDoubleClick(item)}
       onContextMenu={handleContextMenu}
-      className="group flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-800 border-b border-gray-100 dark:border-gray-700 cursor-pointer select-none transition-colors"
+      className={cn(
+        'group flex items-center gap-3 px-4 py-2.5 border-b border-gray-100 dark:border-gray-700 cursor-pointer select-none transition-colors',
+        selected
+          ? 'bg-blue-50 dark:bg-blue-900/20'
+          : 'hover:bg-gray-50 dark:hover:bg-gray-800',
+      )}
     >
       <div className={iconColor}>
         <Icon className="h-5 w-5" />
@@ -238,7 +260,9 @@ function ListRow({
 export default function DriveGridView({
   items,
   viewMode,
+  selectedIds,
   onItemClick,
+  onItemDoubleClick,
   onContextMenu,
 }: DriveGridViewProps) {
   if (items.length === 0) {
@@ -269,7 +293,9 @@ export default function DriveGridView({
                 <GridCard
                   key={`folder-${item.id}`}
                   item={item}
+                  selected={selectedIds.has(item.id)}
                   onItemClick={onItemClick}
+                  onItemDoubleClick={onItemDoubleClick}
                   onContextMenu={onContextMenu}
                 />
               ))}
@@ -286,7 +312,9 @@ export default function DriveGridView({
                 <GridCard
                   key={`file-${item.id}`}
                   item={item}
+                  selected={selectedIds.has(item.id)}
                   onItemClick={onItemClick}
+                  onItemDoubleClick={onItemDoubleClick}
                   onContextMenu={onContextMenu}
                 />
               ))}
@@ -307,23 +335,16 @@ export default function DriveGridView({
         <span className="w-20 text-right">Size</span>
         <span className="w-28 text-right">Modified</span>
       </div>
-      {sorted.map((item) =>
-        item.type === 'folder' ? (
-          <ListRow
-            key={`folder-${item.id}`}
-            item={item}
-            onItemClick={onItemClick}
-            onContextMenu={onContextMenu}
-          />
-        ) : (
-          <ListRow
-            key={`file-${item.id}`}
-            item={item}
-            onItemClick={onItemClick}
-            onContextMenu={onContextMenu}
-          />
-        )
-      )}
+      {sorted.map((item) => (
+        <ListRow
+          key={`${item.type}-${item.id}`}
+          item={item}
+          selected={selectedIds.has(item.id)}
+          onItemClick={onItemClick}
+          onItemDoubleClick={onItemDoubleClick}
+          onContextMenu={onContextMenu}
+        />
+      ))}
     </div>
   )
 }
@@ -332,7 +353,7 @@ export default function DriveGridView({
 export function documentsToItems(
   docs: any[],
   subfolders: Folder[],
-  currentFolderId: string | null
+  currentFolderId: string | null,
 ): DriveItem[] {
   const folderItems: DriveItem[] = subfolders
     .filter((f) => f.parent_id === currentFolderId)
@@ -342,6 +363,7 @@ export function documentsToItems(
       name: f.name,
       updated_at: f.updated_at,
       folder_id: f.parent_id,
+      starred: (f as any).is_starred,
     }))
 
   const fileItems: DriveItem[] = docs

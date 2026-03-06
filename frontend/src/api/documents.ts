@@ -197,3 +197,51 @@ export function getStreamUrl(id: string) {
   const token = localStorage.getItem('access_token')
   return `/api/documents/${id}/stream${token ? `?token=${encodeURIComponent(token)}` : ''}`
 }
+
+// Bulk operations
+export async function bulkDelete(documentIds: string[], folderIds: string[]) {
+  return api.post<ApiResponse<{ documents_deleted: number; folders_deleted: number }>>(
+    '/documents/bulk/delete',
+    { document_ids: documentIds, folder_ids: folderIds },
+  )
+}
+
+export async function bulkMove(documentIds: string[], folderIds: string[], targetFolderId: string | null) {
+  return api.post<ApiResponse<{ documents_moved: number; folders_moved: number }>>(
+    '/documents/bulk/move',
+    { document_ids: documentIds, folder_ids: folderIds, target_folder_id: targetFolderId },
+  )
+}
+
+export async function bulkStar(documentIds: string[], folderIds: string[], starred: boolean) {
+  return api.post<ApiResponse<{ documents_updated: number; folders_updated: number }>>(
+    '/documents/bulk/star',
+    { document_ids: documentIds, folder_ids: folderIds, starred },
+  )
+}
+
+// Rename
+export async function renameDocument(id: string, name: string) {
+  return api.put<ApiResponse<Document>>(`/documents/${id}/rename`, { name })
+}
+
+export async function renameFolder(id: string, name: string) {
+  return api.put<ApiResponse<Folder>>(`/documents/folders/${id}/rename`, { name })
+}
+
+// Star folder
+export async function starFolder(id: string, starred: boolean) {
+  return api.post<ApiResponse<Folder>>(`/documents/folders/${id}/star`, { starred })
+}
+
+// Recursive folder delete
+export async function deleteFolderRecursive(id: string) {
+  return api.post<ApiResponse<{ message: string; documents_deleted: number }>>(
+    `/documents/folders/${id}/delete-recursive`,
+  )
+}
+
+// Permanent document delete
+export async function deleteDocumentPermanent(id: string) {
+  return api.delete<ApiResponse<{ message: string }>>(`/documents/${id}?permanent=true`)
+}

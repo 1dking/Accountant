@@ -17,6 +17,9 @@ from app.core.pagination import PaginationParams, get_pagination
 from app.dependencies import get_current_user, get_current_user_or_token, get_db, require_role
 from app.documents.models import DocumentStatus, DocumentType
 from app.documents.schemas import (
+    BulkDeleteRequest,
+    BulkMoveRequest,
+    BulkStarRequest,
     DocumentFilter,
     DocumentListItem,
     DocumentResponse,
@@ -30,6 +33,7 @@ from app.documents.schemas import (
     MoveDocumentRequest,
     MoveFolderRequest,
     QuickCaptureResponse,
+    RenameRequest,
     StarRequest,
     StorageUsageResponse,
     TagCreate,
@@ -38,10 +42,14 @@ from app.documents.schemas import (
 )
 from app.documents.service import (
     add_tags_to_document,
+    bulk_delete,
+    bulk_move,
+    bulk_star,
     create_folder,
     create_tag,
     delete_document,
     delete_folder,
+    delete_folder_recursive,
     delete_tag,
     download_document,
     empty_trash,
@@ -58,9 +66,12 @@ from app.documents.service import (
     move_folder,
     quick_capture,
     remove_tag_from_document,
+    rename_document,
+    rename_folder,
     restore_document,
     search_documents,
     star_document,
+    star_folder,
     trash_document,
     update_document,
     update_folder,
@@ -461,6 +472,95 @@ async def empty_trash_endpoint(
     """Permanently delete all trashed documents for the current user."""
     count = await empty_trash(db, storage, current_user.id)
     return {"data": {"message": f"Permanently deleted {count} documents", "count": count}}
+
+
+@router.post("/bulk/delete")
+async def bulk_delete_endpoint(
+    body: BulkDeleteRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN]))],
+    storage: Annotated[StorageBackend, Depends(get_storage)],
+) -> dict:
+    """Bulk delete documents and folders (admin only)."""
+    result = await bulk_delete(
+        db, storage, body.document_ids, body.folder_ids, current_user
+    )
+    return {"data": result}
+
+
+@router.post("/bulk/move")
+async def bulk_move_endpoint(
+    body: BulkMoveRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+) -> dict:
+    """Bulk move documents and folders."""
+    result = await bulk_move(
+        db, body.document_ids, body.folder_ids, body.target_folder_id, current_user.id
+    )
+    return {"data": result}
+
+
+@router.post("/bulk/star")
+async def bulk_star_endpoint(
+    body: BulkStarRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    """Bulk star/unstar documents and folders."""
+    result = await bulk_star(
+        db, body.document_ids, body.folder_ids, body.starred, current_user.id
+    )
+    return {"data": result}
+
+
+@router.post("/folders/{folder_id}/star")
+async def star_folder_endpoint(
+    folder_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    body: StarRequest | None = None,
+) -> dict:
+    """Toggle star on a folder."""
+    starred = body.starred if body is not None else True
+    folder = await star_folder(db, folder_id, current_user.id, starred)
+    return {"data": FolderResponse.model_validate(folder)}
+
+
+@router.post("/folders/{folder_id}/delete-recursive")
+async def delete_folder_recursive_endpoint(
+    folder_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN]))],
+    storage: Annotated[StorageBackend, Depends(get_storage)],
+) -> dict:
+    """Recursively delete a folder and all its contents (admin only)."""
+    count = await delete_folder_recursive(db, storage, folder_id, current_user)
+    return {"data": {"message": f"Folder and {count} documents deleted", "documents_deleted": count}}
+
+
+@router.put("/{document_id}/rename")
+async def rename_document_endpoint(
+    document_id: uuid.UUID,
+    body: RenameRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+) -> dict:
+    """Rename a document."""
+    document = await rename_document(db, document_id, body.name, current_user)
+    return {"data": DocumentResponse.model_validate(document)}
+
+
+@router.put("/folders/{folder_id}/rename")
+async def rename_folder_endpoint(
+    folder_id: uuid.UUID,
+    body: RenameRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+) -> dict:
+    """Rename a folder."""
+    folder = await rename_folder(db, folder_id, body.name, current_user)
+    return {"data": FolderResponse.model_validate(folder)}
 
 
 @router.get("/{document_id}")

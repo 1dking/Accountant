@@ -1,12 +1,15 @@
 import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import {
   starDocument,
+  starFolder,
   trashDocument,
   restoreDocument,
+  deleteDocumentPermanent,
+  deleteFolderRecursive,
   getDownloadUrl,
-  deleteDocument,
 } from '@/api/documents'
 import {
   ExternalLink,
@@ -16,6 +19,8 @@ import {
   Trash2,
   RotateCcw,
   XCircle,
+  Pencil,
+  Share2,
 } from 'lucide-react'
 
 export interface ContextMenuPosition {
@@ -37,6 +42,7 @@ interface FileContextMenuProps {
   onClose: () => void
   onOpen: (id: string) => void
   onMove: (id: string, type: 'file' | 'folder') => void
+  onRename?: (id: string, type: 'file' | 'folder', currentName: string) => void
 }
 
 export default function FileContextMenu({
@@ -45,6 +51,7 @@ export default function FileContextMenu({
   onClose,
   onOpen,
   onMove,
+  onRename,
 }: FileContextMenuProps) {
   const ref = useRef<HTMLDivElement>(null)
   const queryClient = useQueryClient()
@@ -59,23 +66,48 @@ export default function FileContextMenu({
   }
 
   const starMutation = useMutation({
-    mutationFn: ({ id, starred }: { id: string; starred: boolean }) => starDocument(id, starred),
-    onSuccess: invalidateAll,
+    mutationFn: async ({ id, type, starred }: { id: string; type: string; starred: boolean }) => {
+      if (type === 'folder') await starFolder(id, starred)
+      else await starDocument(id, starred)
+    },
+    onSuccess: () => {
+      invalidateAll()
+      toast.success('Updated')
+    },
   })
 
   const trashMutation = useMutation({
     mutationFn: (id: string) => trashDocument(id),
-    onSuccess: invalidateAll,
+    onSuccess: () => {
+      invalidateAll()
+      toast.success('Moved to trash')
+    },
   })
 
   const restoreMutation = useMutation({
     mutationFn: (id: string) => restoreDocument(id),
-    onSuccess: invalidateAll,
+    onSuccess: () => {
+      invalidateAll()
+      toast.success('Restored')
+    },
   })
 
-  const deletePermanentlyMutation = useMutation({
-    mutationFn: (id: string) => deleteDocument(id),
-    onSuccess: invalidateAll,
+  const deleteDocMutation = useMutation({
+    mutationFn: (id: string) => deleteDocumentPermanent(id),
+    onSuccess: () => {
+      invalidateAll()
+      toast.success('Permanently deleted')
+    },
+    onError: (err: Error) => toast.error(err.message || 'Delete failed'),
+  })
+
+  const deleteFolderMutation = useMutation({
+    mutationFn: (id: string) => deleteFolderRecursive(id),
+    onSuccess: () => {
+      invalidateAll()
+      toast.success('Folder and contents deleted')
+    },
+    onError: (err: Error) => toast.error(err.message || 'Delete failed'),
   })
 
   useEffect(() => {
@@ -99,13 +131,20 @@ export default function FileContextMenu({
 
   if (!position || !item) return null
 
-  // Adjust position to keep menu on screen
-  const menuWidth = 200
-  const menuHeight = 250
+  const menuWidth = 220
+  const menuHeight = 320
   const x = Math.min(position.x, window.innerWidth - menuWidth - 8)
   const y = Math.min(position.y, window.innerHeight - menuHeight - 8)
 
-  const menuItems = item.trashed
+  type MenuItem = {
+    label: string
+    icon: React.ComponentType<{ className?: string }>
+    onClick: () => void
+    danger?: boolean
+    divider?: boolean
+  }
+
+  const menuItems: MenuItem[] = item.trashed
     ? [
         {
           label: 'Restore',
@@ -121,57 +160,62 @@ export default function FileContextMenu({
           danger: true,
           onClick: () => {
             if (confirm(`Permanently delete "${item.name}"? This cannot be undone.`)) {
-              deletePermanentlyMutation.mutate(item.id)
+              if (item.type === 'folder') {
+                deleteFolderMutation.mutate(item.id)
+              } else {
+                deleteDocMutation.mutate(item.id)
+              }
               onClose()
             }
           },
         },
       ]
     : [
+        // Open
+        {
+          label: item.type === 'folder' ? 'Open' : 'Open',
+          icon: ExternalLink,
+          onClick: () => {
+            onOpen(item.id)
+            onClose()
+          },
+        },
+        // Download (files only)
         ...(item.type === 'file'
           ? [
-              {
-                label: 'Open',
-                icon: ExternalLink,
-                onClick: () => {
-                  onOpen(item.id)
-                  onClose()
-                },
-              },
               {
                 label: 'Download',
                 icon: Download,
                 onClick: () => {
                   const a = document.createElement('a')
                   a.href = getDownloadUrl(item.id)
-                  a.download = ''
+                  a.download = item.name
                   a.click()
                   onClose()
                 },
               },
             ]
-          : [
-              {
-                label: 'Open folder',
-                icon: ExternalLink,
-                onClick: () => {
-                  onOpen(item.id)
-                  onClose()
-                },
-              },
-            ]),
-        ...(item.type === 'file'
-          ? [
-              {
-                label: item.starred ? 'Remove star' : 'Add star',
-                icon: Star,
-                onClick: () => {
-                  starMutation.mutate({ id: item.id, starred: !item.starred })
-                  onClose()
-                },
-              },
-            ]
           : []),
+        // Rename
+        {
+          label: 'Rename',
+          icon: Pencil,
+          divider: true,
+          onClick: () => {
+            onRename?.(item.id, item.type, item.name)
+            onClose()
+          },
+        },
+        // Star
+        {
+          label: item.starred ? 'Remove star' : 'Add star',
+          icon: Star,
+          onClick: () => {
+            starMutation.mutate({ id: item.id, type: item.type, starred: !item.starred })
+            onClose()
+          },
+        },
+        // Move
         {
           label: 'Move to...',
           icon: FolderInput,
@@ -180,45 +224,63 @@ export default function FileContextMenu({
             onClose()
           },
         },
-        ...(item.type === 'file'
-          ? [
-              {
-                label: 'Move to trash',
-                icon: Trash2,
-                danger: true,
-                onClick: () => {
-                  trashMutation.mutate(item.id)
-                  onClose()
-                },
-              },
-            ]
-          : []),
+        // Share (placeholder)
+        {
+          label: 'Share',
+          icon: Share2,
+          divider: true,
+          onClick: () => {
+            toast.info('Share link copied (coming soon)')
+            onClose()
+          },
+        },
+        // Delete
+        {
+          label: item.type === 'folder' ? 'Delete folder' : 'Move to trash',
+          icon: Trash2,
+          danger: true,
+          onClick: () => {
+            if (item.type === 'folder') {
+              if (confirm(`Delete "${item.name}" and all its contents? This cannot be undone.`)) {
+                deleteFolderMutation.mutate(item.id)
+                onClose()
+              }
+            } else {
+              trashMutation.mutate(item.id)
+              onClose()
+            }
+          },
+        },
       ]
 
   return createPortal(
     <div
       ref={ref}
-      className="fixed z-50 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 w-52"
+      className="fixed z-[100] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl py-1 w-56 animate-in fade-in zoom-in-95 duration-100"
       style={{ left: x, top: y }}
     >
       {menuItems.map((menuItem, i) => {
         const Icon = menuItem.icon
         return (
-          <button
-            key={i}
-            onClick={menuItem.onClick}
-            className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${
-              (menuItem as any).danger
-                ? 'text-red-600 hover:bg-red-50'
-                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50'
-            }`}
-          >
-            <Icon className="h-4 w-4" />
-            {menuItem.label}
-          </button>
+          <div key={i}>
+            {menuItem.divider && i > 0 && (
+              <div className="h-px bg-gray-100 dark:bg-gray-800 my-1" />
+            )}
+            <button
+              onClick={menuItem.onClick}
+              className={`w-full flex items-center gap-3 px-3 py-2 text-sm transition-colors ${
+                menuItem.danger
+                  ? 'text-red-600 hover:bg-red-50 dark:hover:bg-red-950'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
+              }`}
+            >
+              <Icon className="h-4 w-4 shrink-0" />
+              {menuItem.label}
+            </button>
+          </div>
         )
       })}
     </div>,
-    document.body
+    document.body,
   )
 }

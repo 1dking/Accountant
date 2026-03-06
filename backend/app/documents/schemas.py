@@ -244,3 +244,29 @@ class StorageUsageResponse(BaseModel):
     used_bytes: int
     file_count: int
     folder_count: int
+
+
+# ---------------------------------------------------------------------------
+# Bulk operation schemas
+# ---------------------------------------------------------------------------
+
+
+class BulkDeleteRequest(BaseModel):
+    document_ids: list[uuid.UUID] = Field(default_factory=list)
+    folder_ids: list[uuid.UUID] = Field(default_factory=list)
+
+
+class BulkMoveRequest(BaseModel):
+    document_ids: list[uuid.UUID] = Field(default_factory=list)
+    folder_ids: list[uuid.UUID] = Field(default_factory=list)
+    target_folder_id: uuid.UUID | None = None
+
+
+class BulkStarRequest(BaseModel):
+    document_ids: list[uuid.UUID] = Field(default_factory=list)
+    folder_ids: list[uuid.UUID] = Field(default_factory=list)
+    starred: bool = True
+
+
+class RenameRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
