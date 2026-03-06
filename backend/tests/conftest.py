@@ -94,6 +94,9 @@ def _import_all_models():
     import app.reconciliation.models  # noqa
     import app.inbox.models  # noqa
     import app.core.idempotency  # noqa
+    import app.forms.models  # noqa
+    import app.communication.models  # noqa
+    import app.workflows.models  # noqa
 
 
 _import_all_models()

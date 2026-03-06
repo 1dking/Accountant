@@ -1264,3 +1264,152 @@ export interface DuplicateGroup {
   value: string
   contact_ids: string[]
 }
+
+// Workflows
+export interface Workflow {
+  id: string
+  name: string
+  description?: string
+  trigger_type: string
+  trigger_config_json?: string
+  is_active: boolean
+  created_by: string
+  created_at: string
+  updated_at: string
+  steps?: WorkflowStep[]
+}
+
+export interface WorkflowStep {
+  id: string
+  workflow_id: string
+  step_order: number
+  action_type: string
+  action_config_json?: string
+  condition_json?: string
+  wait_duration_seconds?: number
+}
+
+export interface WorkflowExecution {
+  id: string
+  workflow_id: string
+  contact_id?: string
+  status: string
+  started_at: string
+  completed_at?: string
+  error_message?: string
+  steps?: WorkflowExecutionStep[]
+}
+
+export interface WorkflowExecutionStep {
+  id: string
+  execution_id: string
+  step_id?: string
+  status: string
+  started_at: string
+  completed_at?: string
+  result_json?: string
+  error_message?: string
+}
+
+export interface WorkflowListItem {
+  id: string
+  name: string
+  trigger_type: string
+  is_active: boolean
+  created_at: string
+  execution_count: number
+  last_run_at?: string
+}
+
+export interface WorkflowTemplate {
+  name: string
+  description: string
+  trigger_type: string
+  trigger_config_json: string
+  steps: Omit<WorkflowStep, 'id' | 'workflow_id'>[]
+}
+
+// Forms
+export interface FormDef {
+  id: string
+  name: string
+  description?: string
+  fields_json: string
+  thank_you_type: string
+  thank_you_config_json?: string
+  style_json?: string
+  is_active: boolean
+  created_by: string
+  created_at: string
+}
+
+export interface FormListItem {
+  id: string
+  name: string
+  is_active: boolean
+  submission_count: number
+  last_submission_at?: string
+  created_at: string
+}
+
+export interface FormSubmission {
+  id: string
+  form_id: string
+  contact_id?: string
+  data_json: string
+  submitted_at: string
+}
+
+// Communication
+export interface TwilioPhoneNumber {
+  id: string
+  phone_number: string
+  assigned_user_id?: string
+  friendly_name?: string
+  capabilities_json?: string
+}
+
+export interface CallLogEntry {
+  id: string
+  user_id?: string
+  contact_id?: string
+  direction: string
+  from_number: string
+  to_number: string
+  duration_seconds: number
+  recording_url?: string
+  status: string
+  notes?: string
+  outcome?: string
+  created_at: string
+}
+
+export interface SmsMessageEntry {
+  id: string
+  user_id?: string
+  contact_id?: string
+  direction: string
+  from_number: string
+  to_number: string
+  body: string
+  status: string
+  created_at: string
+}
+
+export interface ChatSession {
+  id: string
+  contact_id?: string
+  visitor_name?: string
+  visitor_email?: string
+  status: string
+  assigned_user_id?: string
+  created_at: string
+}
+
+export interface ChatMessage {
+  id: string
+  session_id: string
+  direction: string
+  message: string
+  created_at: string
+}

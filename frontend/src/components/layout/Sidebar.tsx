@@ -29,6 +29,9 @@ import {
   Moon,
   FileSignature,
   Scale,
+  Zap,
+  ClipboardCheck,
+  Phone,
 } from 'lucide-react'
 import { useUiStore } from '@/stores/uiStore'
 import { useAuthStore } from '@/stores/authStore'
@@ -61,6 +64,9 @@ const NAV_ITEMS: NavItem[] = [
   { path: '/recurring', label: 'Recurring', icon: RefreshCw },
   { path: '/budgets', label: 'Budgets', icon: PiggyBank },
   { path: '/reports', label: 'Reports', icon: BarChart3 },
+  { path: '/workflows', label: 'Workflows', icon: Zap },
+  { path: '/forms', label: 'Forms', icon: ClipboardCheck },
+  { path: '/communication', label: 'Communication', icon: Phone },
   { path: '/inbox', label: 'Inbox', icon: Inbox },
   { path: '/bank-transactions', label: 'Banking', icon: Landmark },
   { path: '/capture', label: 'Capture', icon: Camera },

@@ -67,6 +67,9 @@ import PortalInvoicesPage from '@/pages/PortalInvoicesPage'
 import PortalProposalsPage from '@/pages/PortalProposalsPage'
 import PortalFilesPage from '@/pages/PortalFilesPage'
 import PortalMeetingsPage from '@/pages/PortalMeetingsPage'
+import WorkflowsPage from '@/pages/WorkflowsPage'
+import FormsPage from '@/pages/FormsPage'
+import CommunicationPage from '@/pages/CommunicationPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -167,6 +170,9 @@ function AuthenticatedApp() {
         <Route path="/sheets/:id" element={<SheetEditorPage />} />
         <Route path="/slides" element={<SlidesHomePage />} />
         <Route path="/slides/:id" element={<SlideEditorPage />} />
+        <Route path="/workflows" element={<WorkflowsPage />} />
+        <Route path="/forms" element={<FormsPage />} />
+        <Route path="/communication" element={<CommunicationPage />} />
         <Route path="/help" element={<HelpPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

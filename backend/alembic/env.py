@@ -42,6 +42,9 @@ import app.public.models  # noqa: F401
 import app.proposals.models  # noqa: F401
 import app.reconciliation.models  # noqa: F401
 import app.inbox.models  # noqa: F401
+import app.forms.models  # noqa: F401
+import app.communication.models  # noqa: F401
+import app.workflows.models  # noqa: F401
 import app.core.idempotency  # noqa: F401
 
 config = context.config
