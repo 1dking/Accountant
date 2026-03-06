@@ -24,8 +24,8 @@ def upgrade() -> None:
         batch_op.add_column(sa.Column('body_text', sa.Text(), nullable=True))
         batch_op.add_column(sa.Column('matched_expense_id', sa.Uuid(), nullable=True))
         batch_op.add_column(sa.Column('matched_income_id', sa.Uuid(), nullable=True))
-        batch_op.create_foreign_key(None, 'income_entries', ['matched_income_id'], ['id'], ondelete='SET NULL')
-        batch_op.create_foreign_key(None, 'expenses', ['matched_expense_id'], ['id'], ondelete='SET NULL')
+        batch_op.create_foreign_key('fk_gmail_scan_matched_income', 'income_entries', ['matched_income_id'], ['id'], ondelete='SET NULL')
+        batch_op.create_foreign_key('fk_gmail_scan_matched_expense', 'expenses', ['matched_expense_id'], ['id'], ondelete='SET NULL')
 
     # ### end Alembic commands ###
 

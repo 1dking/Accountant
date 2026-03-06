@@ -32,6 +32,10 @@ import {
   getAPaging,
   getProfitLossPdfUrl,
   getTaxSummaryPdfUrl,
+  getQuarterlyTaxReport,
+  getQuarterlyTaxPdfUrl,
+  getYearOverYear,
+  getTaxDeadlines,
 } from '@/api/reports'
 import type {
   ProfitLossReport,
@@ -41,12 +45,15 @@ import type {
   AgingReport,
   AgingBucket,
   CategoryAmount,
+  QuarterlyTaxReport,
+  YearOverYearComparison,
+  TaxDeadline,
 } from '@/types/models'
 
 const formatCurrency = (amount: number): string =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
 
-const tabs = ['Profit & Loss', 'Tax Summary', 'Cash Flow', 'Accounts', 'AR Aging', 'AP Aging'] as const
+const tabs = ['Profit & Loss', 'Tax Summary', 'Quarterly Tax', 'Cash Flow', 'Accounts', 'AR Aging', 'AP Aging'] as const
 type Tab = (typeof tabs)[number]
 
 const currentYear = new Date().getFullYear()
@@ -327,6 +334,217 @@ function BorderTopCard({
         <div className={`p-2 rounded-lg ${iconBg}`}>{icon}</div>
       </div>
       <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{value}</p>
+    </div>
+  )
+}
+
+// ─── Quarterly Tax Tab ───────────────────────────────────────────────────────
+
+function QuarterlyTaxTab() {
+  const [year, setYear] = useState(currentYear)
+  const [taxRate, setTaxRate] = useState(25.0)
+
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['quarterlyTax', year, taxRate],
+    queryFn: () => getQuarterlyTaxReport(year, taxRate),
+  })
+
+  const { data: yoyData } = useQuery({
+    queryKey: ['yearOverYear', year],
+    queryFn: () => getYearOverYear(year),
+  })
+
+  const { data: deadlinesData } = useQuery({
+    queryKey: ['taxDeadlines', year],
+    queryFn: () => getTaxDeadlines(year),
+  })
+
+  const report: QuarterlyTaxReport | undefined = data?.data
+  const yoy: YearOverYearComparison | undefined = yoyData?.data
+  const deadlines: TaxDeadline[] | undefined = deadlinesData?.data
+
+  const upcomingDeadlines = deadlines?.filter((d) => !d.is_past) ?? []
+
+  return (
+    <div className="space-y-6">
+      {/* Controls */}
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
+        <div className="flex flex-wrap items-end gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Year</label>
+            <input
+              type="number"
+              value={year}
+              onChange={(e) => setYear(Number(e.target.value))}
+              min={2000}
+              max={2099}
+              className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-28"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tax Rate (%)</label>
+            <input
+              type="number"
+              value={taxRate}
+              onChange={(e) => setTaxRate(Number(e.target.value))}
+              min={0}
+              max={100}
+              step={0.5}
+              className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-28"
+            />
+          </div>
+          {report && (
+            <a
+              href={getQuarterlyTaxPdfUrl(year, taxRate)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors"
+            >
+              <Download className="w-4 h-4" />
+              Download PDF
+            </a>
+          )}
+        </div>
+      </div>
+
+      {/* Upcoming deadline alerts */}
+      {upcomingDeadlines.length > 0 && (
+        <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-200 dark:border-amber-800 p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <AlertTriangle className="w-4 h-4 text-amber-600" />
+            <span className="text-sm font-medium text-amber-800 dark:text-amber-300">Upcoming Tax Deadlines</span>
+          </div>
+          <div className="space-y-1">
+            {upcomingDeadlines.map((d) => (
+              <p key={d.quarter} className="text-sm text-amber-700 dark:text-amber-400">
+                {d.quarter_label}: {d.deadline_date} — {d.description}
+                {d.days_until != null && (
+                  <span className="ml-1 font-medium">({d.days_until} days away)</span>
+                )}
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {isLoading && <LoadingState />}
+      {isError && <ErrorState message="Failed to load Quarterly Tax report." />}
+
+      {report && (
+        <>
+          {/* Annual summary cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <StatCard label="Annual Income" value={formatCurrency(report.annual_total_income)} icon={<TrendingUp className="w-5 h-5" />} color="green" />
+            <StatCard label="Annual Expenses" value={formatCurrency(report.annual_total_expenses)} icon={<TrendingDown className="w-5 h-5" />} color="red" />
+            <StatCard label="Net Profit" value={formatCurrency(report.annual_net)} icon={<DollarSign className="w-5 h-5" />} color={report.annual_net >= 0 ? 'blue' : 'red'} />
+            <StatCard label="Tax Collected" value={formatCurrency(report.annual_tax_collected)} icon={<Calculator className="w-5 h-5" />} color="green" />
+            <StatCard label="Estimated Tax" value={formatCurrency(report.annual_estimated_tax)} icon={<Receipt className="w-5 h-5" />} color="amber" />
+          </div>
+
+          {/* Quarterly breakdown table */}
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">Quarterly Breakdown</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-gray-50 dark:bg-gray-950 text-left text-sm text-gray-500 dark:text-gray-400">
+                    <th className="px-5 py-3 font-medium">Quarter</th>
+                    <th className="px-5 py-3 font-medium text-right">Income</th>
+                    <th className="px-5 py-3 font-medium text-right">Expenses</th>
+                    <th className="px-5 py-3 font-medium text-right">Net</th>
+                    <th className="px-5 py-3 font-medium text-right">Tax Collected</th>
+                    <th className="px-5 py-3 font-medium text-right">Est. Tax</th>
+                    <th className="px-5 py-3 font-medium">Deadline</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {report.quarters.map((q) => (
+                    <tr key={q.quarter} className="border-t border-gray-50 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                      <td className="px-5 py-3 text-sm font-medium text-gray-700 dark:text-gray-300">{q.quarter_label}</td>
+                      <td className="px-5 py-3 text-sm text-right text-green-600">{formatCurrency(q.income)}</td>
+                      <td className="px-5 py-3 text-sm text-right text-red-600">{formatCurrency(q.expenses)}</td>
+                      <td className={`px-5 py-3 text-sm text-right font-medium ${q.net >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                        {formatCurrency(q.net)}
+                      </td>
+                      <td className="px-5 py-3 text-sm text-right text-green-600">{formatCurrency(q.tax_collected)}</td>
+                      <td className="px-5 py-3 text-sm text-right text-amber-600 font-medium">{formatCurrency(q.estimated_tax)}</td>
+                      <td className="px-5 py-3 text-sm text-gray-600 dark:text-gray-400">
+                        {q.deadline}
+                        {q.is_overdue && (
+                          <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">Overdue</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Year-over-year comparison */}
+          {yoy && (
+            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">Year-over-Year Comparison</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-gray-50 dark:bg-gray-950 text-left text-sm text-gray-500 dark:text-gray-400">
+                      <th className="px-5 py-3 font-medium">Metric</th>
+                      <th className="px-5 py-3 font-medium text-right">{yoy.previous_year}</th>
+                      <th className="px-5 py-3 font-medium text-right">{yoy.current_year}</th>
+                      <th className="px-5 py-3 font-medium text-right">Change</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="border-t border-gray-50 hover:bg-gray-50 dark:hover:bg-gray-800">
+                      <td className="px-5 py-3 text-sm font-medium text-gray-700 dark:text-gray-300">Income</td>
+                      <td className="px-5 py-3 text-sm text-right text-gray-600 dark:text-gray-400">{formatCurrency(yoy.previous_income)}</td>
+                      <td className="px-5 py-3 text-sm text-right text-green-600 font-medium">{formatCurrency(yoy.current_income)}</td>
+                      <td className="px-5 py-3 text-sm text-right">
+                        {yoy.income_change_pct != null && (
+                          <span className={yoy.income_change_pct >= 0 ? 'text-green-600' : 'text-red-600'}>
+                            {yoy.income_change_pct >= 0 ? '+' : ''}{yoy.income_change_pct.toFixed(1)}%
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                    <tr className="border-t border-gray-50 hover:bg-gray-50 dark:hover:bg-gray-800">
+                      <td className="px-5 py-3 text-sm font-medium text-gray-700 dark:text-gray-300">Expenses</td>
+                      <td className="px-5 py-3 text-sm text-right text-gray-600 dark:text-gray-400">{formatCurrency(yoy.previous_expenses)}</td>
+                      <td className="px-5 py-3 text-sm text-right text-red-600 font-medium">{formatCurrency(yoy.current_expenses)}</td>
+                      <td className="px-5 py-3 text-sm text-right">
+                        {yoy.expenses_change_pct != null && (
+                          <span className={yoy.expenses_change_pct <= 0 ? 'text-green-600' : 'text-red-600'}>
+                            {yoy.expenses_change_pct >= 0 ? '+' : ''}{yoy.expenses_change_pct.toFixed(1)}%
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                    <tr className="border-t border-gray-50 hover:bg-gray-50 dark:hover:bg-gray-800">
+                      <td className="px-5 py-3 text-sm font-medium text-gray-700 dark:text-gray-300">Net Profit</td>
+                      <td className="px-5 py-3 text-sm text-right text-gray-600 dark:text-gray-400">{formatCurrency(yoy.previous_net)}</td>
+                      <td className={`px-5 py-3 text-sm text-right font-medium ${yoy.current_net >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                        {formatCurrency(yoy.current_net)}
+                      </td>
+                      <td className="px-5 py-3 text-sm text-right text-gray-500">—</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Category breakdowns */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <CategoryTable title="Income by Category" items={report.income_by_category} color="green" />
+            <CategoryTable title="Expenses by Category" items={report.expenses_by_category} color="red" />
+          </div>
+        </>
+      )}
     </div>
   )
 }
@@ -869,6 +1087,7 @@ export default function ReportsPage() {
       {/* Tab Content */}
       {activeTab === 'Profit & Loss' && <ProfitLossTab />}
       {activeTab === 'Tax Summary' && <TaxSummaryTab />}
+      {activeTab === 'Quarterly Tax' && <QuarterlyTaxTab />}
       {activeTab === 'Cash Flow' && <CashFlowTab />}
       {activeTab === 'Accounts' && <AccountsTab />}
       {activeTab === 'AR Aging' && <ARAgingTab />}

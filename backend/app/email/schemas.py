@@ -46,6 +46,7 @@ class SmtpConfigResponse(BaseModel):
     from_name: str
     use_tls: bool
     is_default: bool
+    created_by: uuid.UUID
     created_at: datetime
     updated_at: datetime
 

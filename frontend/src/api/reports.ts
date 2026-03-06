@@ -1,6 +1,15 @@
 import { api } from './client'
 import type { ApiResponse } from '@/types/api'
-import type { ProfitLossReport, TaxSummary, CashFlowReport, AccountsSummary, AgingReport } from '@/types/models'
+import type {
+  ProfitLossReport,
+  TaxSummary,
+  CashFlowReport,
+  AccountsSummary,
+  AgingReport,
+  QuarterlyTaxReport,
+  YearOverYearComparison,
+  TaxDeadline,
+} from '@/types/models'
 
 export async function getProfitLoss(dateFrom: string, dateTo: string) {
   return api.get<ApiResponse<ProfitLossReport>>(`/reports/profit-loss?date_from=${dateFrom}&date_to=${dateTo}`)
@@ -34,4 +43,22 @@ export async function getARaging(asOfDate?: string) {
 export async function getAPaging(asOfDate?: string) {
   const params = asOfDate ? `?as_of_date=${asOfDate}` : ''
   return api.get<ApiResponse<AgingReport>>(`/reports/ap-aging${params}`)
+}
+
+export async function getQuarterlyTaxReport(year: number, taxRate = 25.0) {
+  return api.get<ApiResponse<QuarterlyTaxReport>>(
+    `/reports/tax-quarterly?year=${year}&tax_rate=${taxRate}`,
+  )
+}
+
+export function getQuarterlyTaxPdfUrl(year: number, taxRate = 25.0) {
+  return `/api/reports/tax-quarterly/pdf?year=${year}&tax_rate=${taxRate}`
+}
+
+export async function getYearOverYear(year: number) {
+  return api.get<ApiResponse<YearOverYearComparison>>(`/reports/year-over-year?year=${year}`)
+}
+
+export async function getTaxDeadlines(year: number) {
+  return api.get<ApiResponse<TaxDeadline[]>>(`/reports/tax-deadlines?year=${year}`)
 }

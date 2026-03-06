@@ -1106,3 +1106,109 @@ export interface OfficeCollaborator {
   user_name: string
   permission: OfficePermission
 }
+
+// Reconciliation
+export type MatchStatus = 'pending' | 'confirmed' | 'rejected'
+
+export interface MatchResponse {
+  id: string
+  receipt_id: string
+  transaction_id: string
+  match_confidence: number
+  match_reason: string | null
+  status: MatchStatus
+  confirmed_by: string | null
+  confirmed_at: string | null
+  receipt_vendor: string | null
+  receipt_amount: number
+  receipt_date: string
+  transaction_description: string
+  transaction_amount: number
+  transaction_date: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ReconciliationSummary {
+  pending_matches: number
+  confirmed_matches: number
+  unmatched_receipts: number
+  unmatched_transactions: number
+  total_matched_amount: number
+}
+
+// Unified Inbox
+export type MessageType = 'email' | 'sms'
+export type MessageDirection = 'inbound' | 'outbound'
+
+export interface UnifiedMessage {
+  id: string
+  user_id: string
+  contact_id: string | null
+  message_type: MessageType
+  direction: MessageDirection
+  subject: string | null
+  body: string | null
+  recipient: string | null
+  sender: string | null
+  is_read: boolean
+  thread_id: string | null
+  source_type: string | null
+  source_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface UnreadCount {
+  total: number
+  email: number
+  sms: number
+}
+
+// Quarterly Tax Reports
+export interface QuarterlyBreakdown {
+  quarter: number
+  quarter_label: string
+  income: number
+  expenses: number
+  net: number
+  tax_collected: number
+  estimated_tax: number
+  deadline: string
+  is_overdue: boolean
+}
+
+export interface QuarterlyTaxReport {
+  year: number
+  tax_rate: number
+  quarters: QuarterlyBreakdown[]
+  annual_total_income: number
+  annual_total_expenses: number
+  annual_net: number
+  annual_tax_collected: number
+  annual_estimated_tax: number
+  income_by_category: CategoryAmount[]
+  expenses_by_category: CategoryAmount[]
+}
+
+export interface YearOverYearComparison {
+  current_year: number
+  previous_year: number
+  current_income: number
+  previous_income: number
+  income_change_pct: number | null
+  current_expenses: number
+  previous_expenses: number
+  expenses_change_pct: number | null
+  current_net: number
+  previous_net: number
+}
+
+export interface TaxDeadline {
+  quarter: number
+  quarter_label: string
+  deadline_date: string
+  description: string
+  is_past: boolean
+  days_until: number | null
+}

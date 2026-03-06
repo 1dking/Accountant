@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.models import User
 from app.dependencies import get_current_user, get_db
 from app.reports import service
-from app.reports.pdf import generate_profit_loss_pdf, generate_tax_summary_pdf
+from app.reports.pdf import generate_profit_loss_pdf, generate_quarterly_tax_pdf, generate_tax_summary_pdf
 
 router = APIRouter()
 
@@ -108,3 +108,49 @@ async def ap_aging(
         as_of_date = date.today()
     report = await service.get_ap_aging(db, as_of_date)
     return {"data": report.model_dump()}
+
+
+@router.get("/tax-quarterly")
+async def quarterly_tax_report(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(get_current_user)],
+    year: int = Query(...),
+    tax_rate: float = Query(25.0, ge=0, le=100),
+) -> dict:
+    report = await service.get_quarterly_tax_report(db, year, tax_rate)
+    return {"data": report.model_dump()}
+
+
+@router.get("/tax-quarterly/pdf")
+async def quarterly_tax_report_pdf(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(get_current_user)],
+    year: int = Query(...),
+    tax_rate: float = Query(25.0, ge=0, le=100),
+) -> Response:
+    report = await service.get_quarterly_tax_report(db, year, tax_rate)
+    pdf_bytes = generate_quarterly_tax_pdf(report)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="quarterly-tax-{year}.pdf"'},
+    )
+
+
+@router.get("/year-over-year")
+async def year_over_year(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(get_current_user)],
+    year: int = Query(...),
+) -> dict:
+    comparison = await service.get_year_over_year(db, year)
+    return {"data": comparison.model_dump()}
+
+
+@router.get("/tax-deadlines")
+async def tax_deadlines(
+    _: Annotated[User, Depends(get_current_user)],
+    year: int = Query(...),
+) -> dict:
+    deadlines = service.get_tax_deadlines(year)
+    return {"data": [d.model_dump() for d in deadlines]}

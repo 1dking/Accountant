@@ -17,7 +17,11 @@ from app.reports.schemas import (
     CashFlowReport,
     CategoryAmount,
     ProfitLossReport,
+    QuarterlyBreakdown,
+    QuarterlyTaxReport,
+    TaxDeadline,
     TaxSummary,
+    YearOverYearComparison,
 )
 
 
@@ -312,3 +316,199 @@ async def get_ap_aging(db: AsyncSession, as_of_date: date) -> AgingReport:
         buckets=buckets,
         grand_totals=AgingBucketTotals(total=grand_total, **grand),
     )
+
+
+# ---------------------------------------------------------------------------
+# Quarterly Tax Report helpers
+# ---------------------------------------------------------------------------
+
+QUARTER_RANGES = {1: (1, 3), 2: (4, 6), 3: (7, 9), 4: (10, 12)}
+QUARTER_LABELS = {1: "Q1 (Jan-Mar)", 2: "Q2 (Apr-Jun)", 3: "Q3 (Jul-Sep)", 4: "Q4 (Oct-Dec)"}
+TAX_DEADLINES = {1: "April 15", 2: "June 15", 3: "September 15", 4: "January 15"}
+TAX_DEADLINE_DATES = {1: (4, 15), 2: (6, 15), 3: (9, 15), 4: (1, 15)}
+
+
+async def get_quarterly_tax_report(
+    db: AsyncSession, year: int, tax_rate: float = 25.0
+) -> QuarterlyTaxReport:
+    today = date.today()
+    quarters: list[QuarterlyBreakdown] = []
+
+    for q in range(1, 5):
+        start_month, end_month = QUARTER_RANGES[q]
+
+        # Income for this quarter
+        income_q = select(func.coalesce(func.sum(Income.amount), 0)).where(
+            extract("year", Income.date) == year,
+            extract("month", Income.date) >= start_month,
+            extract("month", Income.date) <= end_month,
+        )
+        quarter_income = float((await db.execute(income_q)).scalar() or 0)
+
+        # Expenses for this quarter
+        expense_q = select(func.coalesce(func.sum(Expense.amount), 0)).where(
+            extract("year", Expense.date) == year,
+            extract("month", Expense.date) >= start_month,
+            extract("month", Expense.date) <= end_month,
+        )
+        quarter_expenses = float((await db.execute(expense_q)).scalar() or 0)
+
+        # Tax collected on paid/partially_paid invoices this quarter
+        tax_q = select(func.coalesce(func.sum(Invoice.tax_amount), 0)).where(
+            extract("year", Invoice.issue_date) == year,
+            extract("month", Invoice.issue_date) >= start_month,
+            extract("month", Invoice.issue_date) <= end_month,
+            Invoice.status.in_([InvoiceStatus.PAID, InvoiceStatus.PARTIALLY_PAID]),
+            Invoice.tax_amount.isnot(None),
+        )
+        quarter_tax = float((await db.execute(tax_q)).scalar() or 0)
+
+        net = quarter_income - quarter_expenses
+        estimated_tax = net * tax_rate / 100.0
+
+        # Determine if the deadline is overdue
+        dl_month, dl_day = TAX_DEADLINE_DATES[q]
+        dl_year = year + 1 if q == 4 else year
+        deadline_date = date(dl_year, dl_month, dl_day)
+        is_overdue = today > deadline_date
+
+        quarters.append(
+            QuarterlyBreakdown(
+                quarter=q,
+                quarter_label=QUARTER_LABELS[q],
+                income=quarter_income,
+                expenses=quarter_expenses,
+                net=net,
+                tax_collected=quarter_tax,
+                estimated_tax=estimated_tax,
+                deadline=TAX_DEADLINES[q],
+                is_overdue=is_overdue,
+            )
+        )
+
+    # Annual totals
+    annual_income = sum(qb.income for qb in quarters)
+    annual_expenses = sum(qb.expenses for qb in quarters)
+    annual_net = annual_income - annual_expenses
+    annual_tax_collected = sum(qb.tax_collected for qb in quarters)
+    annual_estimated_tax = sum(qb.estimated_tax for qb in quarters)
+
+    # Income by category (full year)
+    income_cat_q = (
+        select(Income.category, func.coalesce(func.sum(Income.amount), 0))
+        .where(extract("year", Income.date) == year)
+        .group_by(Income.category)
+    )
+    income_cat_rows = (await db.execute(income_cat_q)).all()
+    income_by_cat = [
+        CategoryAmount(category=r[0].value.replace("_", " ").title(), amount=float(r[1]))
+        for r in income_cat_rows
+    ]
+
+    # Expenses by category (full year)
+    expense_cat_q = (
+        select(
+            func.coalesce(ExpenseCategory.name, "Uncategorized"),
+            func.coalesce(func.sum(Expense.amount), 0),
+        )
+        .outerjoin(ExpenseCategory, Expense.category_id == ExpenseCategory.id)
+        .where(extract("year", Expense.date) == year)
+        .group_by(ExpenseCategory.name)
+    )
+    expense_cat_rows = (await db.execute(expense_cat_q)).all()
+    expenses_by_cat = [
+        CategoryAmount(category=r[0], amount=float(r[1]))
+        for r in expense_cat_rows
+    ]
+
+    return QuarterlyTaxReport(
+        year=year,
+        tax_rate=tax_rate,
+        quarters=quarters,
+        annual_total_income=annual_income,
+        annual_total_expenses=annual_expenses,
+        annual_net=annual_net,
+        annual_tax_collected=annual_tax_collected,
+        annual_estimated_tax=annual_estimated_tax,
+        income_by_category=income_by_cat,
+        expenses_by_category=expenses_by_cat,
+    )
+
+
+async def get_year_over_year(db: AsyncSession, year: int) -> YearOverYearComparison:
+    prev = year - 1
+
+    # Current year income
+    cur_inc_q = select(func.coalesce(func.sum(Income.amount), 0)).where(
+        extract("year", Income.date) == year
+    )
+    current_income = float((await db.execute(cur_inc_q)).scalar() or 0)
+
+    # Previous year income
+    prev_inc_q = select(func.coalesce(func.sum(Income.amount), 0)).where(
+        extract("year", Income.date) == prev
+    )
+    previous_income = float((await db.execute(prev_inc_q)).scalar() or 0)
+
+    # Current year expenses
+    cur_exp_q = select(func.coalesce(func.sum(Expense.amount), 0)).where(
+        extract("year", Expense.date) == year
+    )
+    current_expenses = float((await db.execute(cur_exp_q)).scalar() or 0)
+
+    # Previous year expenses
+    prev_exp_q = select(func.coalesce(func.sum(Expense.amount), 0)).where(
+        extract("year", Expense.date) == prev
+    )
+    previous_expenses = float((await db.execute(prev_exp_q)).scalar() or 0)
+
+    # Change percentages (None if previous is 0)
+    income_change_pct = (
+        ((current_income - previous_income) / previous_income * 100.0)
+        if previous_income != 0
+        else None
+    )
+    expenses_change_pct = (
+        ((current_expenses - previous_expenses) / previous_expenses * 100.0)
+        if previous_expenses != 0
+        else None
+    )
+
+    return YearOverYearComparison(
+        current_year=year,
+        previous_year=prev,
+        current_income=current_income,
+        previous_income=previous_income,
+        income_change_pct=income_change_pct,
+        current_expenses=current_expenses,
+        previous_expenses=previous_expenses,
+        expenses_change_pct=expenses_change_pct,
+        current_net=current_income - current_expenses,
+        previous_net=previous_income - previous_expenses,
+    )
+
+
+def get_tax_deadlines(year: int) -> list[TaxDeadline]:
+    today = date.today()
+    deadlines: list[TaxDeadline] = []
+
+    for q in range(1, 5):
+        dl_month, dl_day = TAX_DEADLINE_DATES[q]
+        dl_year = year + 1 if q == 4 else year
+        deadline_date = date(dl_year, dl_month, dl_day)
+        is_past = today > deadline_date
+        delta = (deadline_date - today).days
+        days_until = None if is_past else delta
+
+        deadlines.append(
+            TaxDeadline(
+                quarter=q,
+                quarter_label=QUARTER_LABELS[q],
+                deadline_date=deadline_date.isoformat(),
+                description=f"Estimated tax payment for {QUARTER_LABELS[q]} {year}",
+                is_past=is_past,
+                days_until=days_until,
+            )
+        )
+
+    return deadlines

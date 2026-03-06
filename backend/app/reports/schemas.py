@@ -1,5 +1,6 @@
 
 from datetime import date
+from typing import Optional
 
 from pydantic import BaseModel
 
@@ -64,3 +65,50 @@ class AgingReport(BaseModel):
     as_of_date: date
     buckets: list[AgingBucket]
     grand_totals: AgingBucketTotals
+
+
+class QuarterlyBreakdown(BaseModel):
+    quarter: int
+    quarter_label: str  # "Q1 (Jan-Mar)"
+    income: float
+    expenses: float
+    net: float
+    tax_collected: float
+    estimated_tax: float
+    deadline: str  # "April 15"
+    is_overdue: bool
+
+
+class QuarterlyTaxReport(BaseModel):
+    year: int
+    tax_rate: float
+    quarters: list[QuarterlyBreakdown]
+    annual_total_income: float
+    annual_total_expenses: float
+    annual_net: float
+    annual_tax_collected: float
+    annual_estimated_tax: float
+    income_by_category: list[CategoryAmount]
+    expenses_by_category: list[CategoryAmount]
+
+
+class YearOverYearComparison(BaseModel):
+    current_year: int
+    previous_year: int
+    current_income: float
+    previous_income: float
+    income_change_pct: Optional[float]
+    current_expenses: float
+    previous_expenses: float
+    expenses_change_pct: Optional[float]
+    current_net: float
+    previous_net: float
+
+
+class TaxDeadline(BaseModel):
+    quarter: int
+    quarter_label: str
+    deadline_date: str
+    description: str
+    is_past: bool
+    days_until: Optional[int]

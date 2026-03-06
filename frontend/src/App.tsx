@@ -60,6 +60,8 @@ import SlideEditorPage from '@/pages/SlideEditorPage'
 import ProposalsPage from '@/pages/ProposalsPage'
 import ProposalEditorPage from '@/pages/ProposalEditorPage'
 import ProposalSigningPage from '@/pages/ProposalSigningPage'
+import ReconciliationPage from '@/pages/ReconciliationPage'
+import InboxPage from '@/pages/InboxPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -121,6 +123,7 @@ function AuthenticatedApp() {
         <Route path="/cashbook" element={<CashbookPage />} />
         <Route path="/cashbook/new" element={<NewCashbookEntryPage />} />
         <Route path="/cashbook/entries/:id" element={<CashbookEntryDetailPage />} />
+        <Route path="/cashbook/reconcile" element={<ReconciliationPage />} />
         <Route path="/expenses" element={<ExpensesPage />} />
         <Route path="/expenses/new" element={<NewExpensePage />} />
         <Route path="/expenses/dashboard" element={<ExpenseDashboardPage />} />
@@ -141,6 +144,7 @@ function AuthenticatedApp() {
         <Route path="/budgets" element={<BudgetsPage />} />
         <Route path="/budgets/new" element={<NewBudgetPage />} />
         <Route path="/reports" element={<ReportsPage />} />
+        <Route path="/inbox" element={<InboxPage />} />
         <Route path="/email-scan" element={<EmailScanPage />} />
         <Route path="/bank-transactions" element={<BankTransactionsPage />} />
         <Route path="/capture" element={<CapturePage />} />

@@ -28,6 +28,7 @@ import {
   Sun,
   Moon,
   FileSignature,
+  Scale,
 } from 'lucide-react'
 import { useUiStore } from '@/stores/uiStore'
 import { useAuthStore } from '@/stores/authStore'
@@ -54,12 +55,13 @@ const NAV_ITEMS: NavItem[] = [
   { path: '/proposals', label: 'Proposals', icon: FileSignature },
   { path: '/estimates', label: 'Estimates', icon: ClipboardList },
   { path: '/cashbook', label: 'Cashbook', icon: BookOpen },
+  { path: '/cashbook/reconcile', label: 'Reconcile', icon: Scale },
   { path: '/expenses', label: 'Expenses', icon: Receipt },
   { path: '/income', label: 'Income', icon: TrendingUp },
   { path: '/recurring', label: 'Recurring', icon: RefreshCw },
   { path: '/budgets', label: 'Budgets', icon: PiggyBank },
   { path: '/reports', label: 'Reports', icon: BarChart3 },
-  { path: '/email-scan', label: 'Inbox', icon: Inbox },
+  { path: '/inbox', label: 'Inbox', icon: Inbox },
   { path: '/bank-transactions', label: 'Banking', icon: Landmark },
   { path: '/capture', label: 'Capture', icon: Camera },
   { path: '/calendar', label: 'Calendar', icon: Calendar },

@@ -48,11 +48,11 @@ async def create_smtp_config(
     encryption = get_encryption_service()
     encrypted_password = encryption.encrypt(data.password)
 
-    # If this config should be the default, unset any existing defaults first.
+    # If this config should be the default, unset user's existing defaults first.
     if data.is_default:
         await db.execute(
             update(SmtpConfig)
-            .where(SmtpConfig.is_default.is_(True))
+            .where(SmtpConfig.is_default.is_(True), SmtpConfig.created_by == user.id)
             .values(is_default=False)
         )
 
@@ -79,10 +79,11 @@ async def list_smtp_configs(
     db: AsyncSession,
     user: User,
 ) -> Sequence[SmtpConfig]:
-    result = await db.execute(
-        select(SmtpConfig)
-        .order_by(SmtpConfig.created_at.desc())
-    )
+    from app.auth.models import Role
+    query = select(SmtpConfig)
+    if user.role != Role.ADMIN:
+        query = query.where(SmtpConfig.created_by == user.id)
+    result = await db.execute(query.order_by(SmtpConfig.created_at.desc()))
     return result.scalars().all()
 
 
@@ -95,7 +96,7 @@ async def get_smtp_config(
     )
     config = result.scalar_one_or_none()
     if config is None:
-        raise NotFoundError(f"SMTP config {config_id} not found")
+        raise NotFoundError("SMTP config", str(config_id))
     return config
 
 
@@ -147,8 +148,35 @@ async def get_default_config(
     )
     config = result.scalar_one_or_none()
     if config is None:
-        raise NotFoundError("No default SMTP configuration found")
+        raise NotFoundError("SMTP config", "default")
     return config
+
+
+async def get_user_smtp_config(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+) -> Optional[SmtpConfig]:
+    """Get the user's own SMTP config (most recent default, or most recent)."""
+    result = await db.execute(
+        select(SmtpConfig)
+        .where(SmtpConfig.created_by == user_id)
+        .order_by(SmtpConfig.is_default.desc(), SmtpConfig.created_at.desc())
+    )
+    return result.scalars().first()
+
+
+async def resolve_smtp_config(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    smtp_config_id: Optional[uuid.UUID] = None,
+) -> SmtpConfig:
+    """Resolve SMTP config: explicit ID > user's own config > system default."""
+    if smtp_config_id:
+        return await get_smtp_config(db, smtp_config_id)
+    user_config = await get_user_smtp_config(db, user_id)
+    if user_config:
+        return user_config
+    return await get_default_config(db)
 
 
 # ---------------------------------------------------------------------------
@@ -223,11 +251,8 @@ async def send_invoice_email(
     from app.invoicing.models import Invoice
     from app.invoicing.pdf import generate_invoice_pdf
 
-    # Resolve SMTP config
-    if smtp_config_id:
-        smtp_config = await get_smtp_config(db, smtp_config_id)
-    else:
-        smtp_config = await get_default_config(db)
+    # Resolve SMTP config (user's config > system default)
+    smtp_config = await resolve_smtp_config(db, user.id, smtp_config_id)
 
     # Load invoice with its contact
     result = await db.execute(
@@ -235,7 +260,7 @@ async def send_invoice_email(
     )
     invoice = result.scalar_one_or_none()
     if invoice is None:
-        raise NotFoundError(f"Invoice {invoice_id} not found")
+        raise NotFoundError("Invoice", str(invoice_id))
 
     # Determine recipient
     to_email = recipient_email or getattr(invoice, "contact_email", None)
@@ -304,11 +329,8 @@ async def send_payment_reminder(
     """Load an invoice and send a payment reminder email."""
     from app.invoicing.models import Invoice
 
-    # Resolve SMTP config
-    if smtp_config_id:
-        smtp_config = await get_smtp_config(db, smtp_config_id)
-    else:
-        smtp_config = await get_default_config(db)
+    # Resolve SMTP config (user's config > system default)
+    smtp_config = await resolve_smtp_config(db, user.id, smtp_config_id)
 
     # Load invoice
     result = await db.execute(
@@ -316,7 +338,7 @@ async def send_payment_reminder(
     )
     invoice = result.scalar_one_or_none()
     if invoice is None:
-        raise NotFoundError(f"Invoice {invoice_id} not found")
+        raise NotFoundError("Invoice", str(invoice_id))
 
     # Determine recipient
     to_email: Optional[str] = getattr(invoice, "contact_email", None)
@@ -359,11 +381,8 @@ async def send_estimate_email(
     from app.public.service import create_public_token
     from sqlalchemy.orm import selectinload
 
-    # Resolve SMTP config
-    if smtp_config_id:
-        smtp_config = await get_smtp_config(db, smtp_config_id)
-    else:
-        smtp_config = await get_default_config(db)
+    # Resolve SMTP config (user's config > system default)
+    smtp_config = await resolve_smtp_config(db, user.id, smtp_config_id)
 
     # Load estimate with relationships
     result = await db.execute(
@@ -373,7 +392,7 @@ async def send_estimate_email(
     )
     estimate = result.scalar_one_or_none()
     if estimate is None:
-        raise NotFoundError(f"Estimate {estimate_id} not found")
+        raise NotFoundError("Estimate", str(estimate_id))
 
     # Determine recipient
     to_email: Optional[str] = None

@@ -8,7 +8,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
-from app.reports.schemas import ProfitLossReport, TaxSummary
+from app.reports.schemas import ProfitLossReport, QuarterlyTaxReport, TaxSummary
 
 
 def _build_doc(buffer):
@@ -120,6 +120,105 @@ def generate_tax_summary_pdf(report: TaxSummary, business_name: str = "Accountan
         ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
     ]))
     elements.append(t)
+
+    doc.build(elements)
+    return buffer.getvalue()
+
+
+def generate_quarterly_tax_pdf(report: QuarterlyTaxReport, business_name: str = "Accountant") -> bytes:
+    buffer = io.BytesIO()
+    doc = _build_doc(buffer)
+    styles = getSampleStyleSheet()
+    elements: list = []
+
+    elements.append(Paragraph(business_name, _header_style()))
+    elements.append(Paragraph(f"Quarterly Tax Report — {report.year}", styles["Normal"]))
+    elements.append(Spacer(1, 6))
+    elements.append(Paragraph(f"Tax Rate: {report.tax_rate:.1f}%", styles["Normal"]))
+    elements.append(Spacer(1, 20))
+
+    # Quarterly breakdown table
+    elements.append(Paragraph("<b>Quarterly Breakdown</b>", styles["Heading2"]))
+    q_data = [["Quarter", "Income", "Expenses", "Net", "Tax Collected", "Est. Tax", "Deadline"]]
+    for qb in report.quarters:
+        q_data.append([
+            qb.quarter_label,
+            f"${qb.income:,.2f}",
+            f"${qb.expenses:,.2f}",
+            f"${qb.net:,.2f}",
+            f"${qb.tax_collected:,.2f}",
+            f"${qb.estimated_tax:,.2f}",
+            qb.deadline,
+        ])
+    # Annual totals row
+    q_data.append([
+        "Annual Total",
+        f"${report.annual_total_income:,.2f}",
+        f"${report.annual_total_expenses:,.2f}",
+        f"${report.annual_net:,.2f}",
+        f"${report.annual_tax_collected:,.2f}",
+        f"${report.annual_estimated_tax:,.2f}",
+        "",
+    ])
+    t = Table(q_data, colWidths=[1.2 * inch, 1.0 * inch, 1.0 * inch, 1.0 * inch, 1.0 * inch, 0.9 * inch, 0.9 * inch])
+    t.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f1f5f9")),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+        ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
+        ("ALIGN", (0, 0), (0, -1), "LEFT"),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("FONTSIZE", (0, 0), (-1, 0), 9),
+    ]))
+    elements.append(t)
+    elements.append(Spacer(1, 20))
+
+    # Income by category
+    elements.append(Paragraph("<b>Income by Category</b>", styles["Heading2"]))
+    if report.income_by_category:
+        inc_data = [["Category", "Amount"]]
+        for c in report.income_by_category:
+            inc_data.append([c.category, f"${c.amount:,.2f}"])
+        inc_data.append(["Total Income", f"${report.annual_total_income:,.2f}"])
+        t = Table(inc_data, colWidths=[4 * inch, 3 * inch])
+        t.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f1f5f9")),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+            ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ]))
+        elements.append(t)
+    else:
+        elements.append(Paragraph("No income recorded.", styles["Normal"]))
+
+    elements.append(Spacer(1, 16))
+
+    # Expenses by category
+    elements.append(Paragraph("<b>Expenses by Category</b>", styles["Heading2"]))
+    if report.expenses_by_category:
+        exp_data = [["Category", "Amount"]]
+        for c in report.expenses_by_category:
+            exp_data.append([c.category, f"${c.amount:,.2f}"])
+        exp_data.append(["Total Expenses", f"${report.annual_total_expenses:,.2f}"])
+        t = Table(exp_data, colWidths=[4 * inch, 3 * inch])
+        t.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f1f5f9")),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+            ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ]))
+        elements.append(t)
+    else:
+        elements.append(Paragraph("No expenses recorded.", styles["Normal"]))
 
     doc.build(elements)
     return buffer.getvalue()

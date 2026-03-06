@@ -39,6 +39,9 @@ import app.meetings.models  # noqa: F401
 import app.office.models  # noqa: F401
 import app.settings.models  # noqa: F401
 import app.public.models  # noqa: F401
+import app.proposals.models  # noqa: F401
+import app.reconciliation.models  # noqa: F401
+import app.inbox.models  # noqa: F401
 import app.core.idempotency  # noqa: F401
 
 config = context.config
