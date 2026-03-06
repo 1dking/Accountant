@@ -56,7 +56,7 @@ async def list_categories(
 async def create_category(
     data: ExpenseCategoryCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     category = await service.create_category(
         db, name=data.name, user=current_user, color=data.color, icon=data.icon
@@ -69,7 +69,7 @@ async def update_category(
     category_id: uuid.UUID,
     data: ExpenseCategoryUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    _: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     update_data = data.model_dump(exclude_unset=True)
     category = await service.update_category(db, category_id, **update_data)
@@ -128,7 +128,7 @@ async def list_expenses(
 async def create_expense(
     data: ExpenseCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
     idempotency: Annotated[IdempotencyResult, Depends(require_idempotency_key)],
 ) -> dict:
     if idempotency.cached_response is not None:
@@ -143,7 +143,7 @@ async def create_expense(
 async def create_expense_from_document(
     document_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
     idempotency: Annotated[IdempotencyResult, Depends(require_idempotency_key)],
 ) -> dict:
     """Create an expense pre-filled from a document's AI-extracted metadata."""
@@ -180,7 +180,7 @@ async def update_expense(
     expense_id: uuid.UUID,
     data: ExpenseUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     expense = await service.update_expense(db, expense_id, data, current_user)
     return {"data": ExpenseResponse.model_validate(expense)}
@@ -306,7 +306,7 @@ async def request_approval(
     expense_id: uuid.UUID,
     data: ExpenseApprovalRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     approval = await service.request_expense_approval(
         db,
@@ -322,7 +322,7 @@ async def approve_expense(
     expense_id: uuid.UUID,
     data: ExpenseApprovalResolve,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     approval = await service.resolve_expense_approval(
         db,
@@ -340,7 +340,7 @@ async def reject_expense(
     expense_id: uuid.UUID,
     data: ExpenseApprovalResolve,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     approval = await service.resolve_expense_approval(
         db,

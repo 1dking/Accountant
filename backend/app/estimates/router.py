@@ -49,7 +49,7 @@ async def list_estimates(
 async def create_estimate(
     data: EstimateCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
     idempotency: Annotated[IdempotencyResult, Depends(require_idempotency_key)],
 ) -> dict:
     if idempotency.cached_response is not None:
@@ -75,7 +75,7 @@ async def update_estimate(
     estimate_id: uuid.UUID,
     data: EstimateUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     estimate = await service.update_estimate(db, estimate_id, data, current_user)
     return {"data": EstimateResponse.model_validate(estimate)}
@@ -95,7 +95,7 @@ async def delete_estimate(
 async def convert_to_invoice(
     estimate_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     invoice = await service.convert_to_invoice(db, estimate_id, current_user)
     return {"data": InvoiceResponse.model_validate(invoice)}
@@ -106,7 +106,7 @@ async def share_estimate(
     estimate_id: uuid.UUID,
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     """Create a shareable public link for an estimate."""
     # Verify estimate exists
@@ -122,7 +122,7 @@ async def revoke_estimate_share(
     estimate_id: uuid.UUID,
     token_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     """Revoke a shareable link for an estimate."""
     await revoke_token(db, token_id, current_user)
@@ -133,7 +133,7 @@ async def revoke_estimate_share(
 async def send_estimate_email_endpoint(
     estimate_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     """Send an estimate via email to the client."""
     from app.email.service import send_estimate_email

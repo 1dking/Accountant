@@ -62,6 +62,11 @@ import ProposalEditorPage from '@/pages/ProposalEditorPage'
 import ProposalSigningPage from '@/pages/ProposalSigningPage'
 import ReconciliationPage from '@/pages/ReconciliationPage'
 import InboxPage from '@/pages/InboxPage'
+import PortalDashboardPage from '@/pages/PortalDashboardPage'
+import PortalInvoicesPage from '@/pages/PortalInvoicesPage'
+import PortalProposalsPage from '@/pages/PortalProposalsPage'
+import PortalFilesPage from '@/pages/PortalFilesPage'
+import PortalMeetingsPage from '@/pages/PortalMeetingsPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -196,6 +201,12 @@ export default function App() {
             <Route path="/p/:token" element={<PublicDocumentPage />} />
             <Route path="/proposals/sign/:token" element={<ProposalSigningPage />} />
             <Route path="/meetings/:id/guest" element={<MeetingGuestJoinPage />} />
+            {/* Portal routes */}
+            <Route path="/portal" element={<PortalDashboardPage />} />
+            <Route path="/portal/invoices" element={<PortalInvoicesPage />} />
+            <Route path="/portal/proposals" element={<PortalProposalsPage />} />
+            <Route path="/portal/files" element={<PortalFilesPage />} />
+            <Route path="/portal/meetings" element={<PortalMeetingsPage />} />
             <Route
               path="/meetings/:id/room"
               element={

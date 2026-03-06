@@ -29,7 +29,7 @@ router = APIRouter()
 async def create_smtp_config(
     data: SmtpConfigCreate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role([Role.ACCOUNTANT, Role.ADMIN])),
+    user: User = Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT])),
 ):
     config = await service.create_smtp_config(db, data, user)
     return {"data": SmtpConfigResponse.model_validate(config)}
@@ -61,7 +61,7 @@ async def update_smtp_config(
     config_id: uuid.UUID,
     data: SmtpConfigUpdate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role([Role.ACCOUNTANT, Role.ADMIN])),
+    user: User = Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT])),
 ):
     config = await service.update_smtp_config(db, config_id, data)
     return {"data": SmtpConfigResponse.model_validate(config)}
@@ -71,7 +71,7 @@ async def update_smtp_config(
 async def delete_smtp_config(
     config_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role([Role.ACCOUNTANT, Role.ADMIN])),
+    user: User = Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT])),
 ):
     await service.delete_smtp_config(db, config_id)
     return {"data": {"detail": "SMTP config deleted"}}
@@ -86,7 +86,7 @@ async def delete_smtp_config(
 async def send_test_email(
     data: TestEmailRequest,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role([Role.ACCOUNTANT, Role.ADMIN])),
+    user: User = Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT])),
 ):
     from datetime import datetime, timezone
 
@@ -110,7 +110,7 @@ async def send_test_email(
 async def send_invoice_email(
     data: SendInvoiceEmailRequest,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role([Role.ACCOUNTANT, Role.ADMIN])),
+    user: User = Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT])),
 ):
     result = await service.send_invoice_email(
         db=db,
@@ -128,7 +128,7 @@ async def send_invoice_email(
 async def send_payment_reminder(
     data: SendReminderEmailRequest,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role([Role.ACCOUNTANT, Role.ADMIN])),
+    user: User = Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT])),
 ):
     result = await service.send_payment_reminder(
         db=db,

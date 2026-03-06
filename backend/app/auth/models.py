@@ -11,7 +11,9 @@ from app.database import Base, TimestampMixin
 
 class Role(str, enum.Enum):
     ADMIN = "admin"
+    TEAM_MEMBER = "team_member"
     ACCOUNTANT = "accountant"
+    CLIENT = "client"
     VIEWER = "viewer"
 
 

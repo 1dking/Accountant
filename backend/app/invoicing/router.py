@@ -62,7 +62,7 @@ async def invoice_stats(
 async def create_invoice(
     data: InvoiceCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
     idempotency: Annotated[IdempotencyResult, Depends(require_idempotency_key)],
 ) -> dict:
     if idempotency.cached_response is not None:
@@ -88,7 +88,7 @@ async def update_invoice(
     invoice_id: uuid.UUID,
     data: InvoiceUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     invoice = await service.update_invoice(db, invoice_id, data, current_user)
     return {"data": InvoiceResponse.model_validate(invoice)}
@@ -108,7 +108,7 @@ async def delete_invoice(
 async def send_invoice(
     invoice_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    _: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     invoice = await service.send_invoice(db, invoice_id)
     return {"data": InvoiceResponse.model_validate(invoice)}
@@ -119,7 +119,7 @@ async def record_payment(
     invoice_id: uuid.UUID,
     data: InvoicePaymentCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
     idempotency: Annotated[IdempotencyResult, Depends(require_idempotency_key)],
 ) -> dict:
     if idempotency.cached_response is not None:
@@ -193,7 +193,7 @@ async def share_invoice(
     invoice_id: uuid.UUID,
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     """Create a shareable public link for an invoice."""
     await service.get_invoice(db, invoice_id)
@@ -208,7 +208,7 @@ async def revoke_invoice_share(
     invoice_id: uuid.UUID,
     token_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     """Revoke a shareable link for an invoice."""
     await revoke_token(db, token_id, current_user)

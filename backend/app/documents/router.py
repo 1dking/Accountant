@@ -174,7 +174,7 @@ async def _run_ai_extraction(document_id: uuid.UUID, storage_path: str, settings
 async def upload(
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
     storage: Annotated[StorageBackend, Depends(get_storage)],
     file: UploadFile = File(...),
     folder_id: uuid.UUID | None = Form(None),
@@ -226,7 +226,7 @@ async def upload(
 async def quick_capture_endpoint(
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
     storage: Annotated[StorageBackend, Depends(get_storage)],
     file: UploadFile = File(...),
 ) -> dict:
@@ -329,7 +329,7 @@ async def list_folders(
 async def create_folder_endpoint(
     data: FolderCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     """Create a new folder."""
     folder = await create_folder(db, data, current_user)
@@ -341,7 +341,7 @@ async def update_folder_endpoint(
     folder_id: uuid.UUID,
     data: FolderUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     """Update a folder."""
     folder = await update_folder(db, folder_id, data, current_user)
@@ -374,7 +374,7 @@ async def list_tags_endpoint(
 async def create_tag_endpoint(
     data: TagCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    _: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     """Create a new tag."""
     tag = await create_tag(db, data)
@@ -386,7 +386,7 @@ async def update_tag_endpoint(
     tag_id: uuid.UUID,
     data: TagUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    _: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     """Update a tag."""
     tag = await update_tag(db, tag_id, data)
@@ -466,7 +466,7 @@ async def storage_usage_endpoint(
 @router.delete("/trash/empty")
 async def empty_trash_endpoint(
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
     storage: Annotated[StorageBackend, Depends(get_storage)],
 ) -> dict:
     """Permanently delete all trashed documents for the current user."""
@@ -492,7 +492,7 @@ async def bulk_delete_endpoint(
 async def bulk_move_endpoint(
     body: BulkMoveRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     """Bulk move documents and folders."""
     result = await bulk_move(
@@ -544,7 +544,7 @@ async def rename_document_endpoint(
     document_id: uuid.UUID,
     body: RenameRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     """Rename a document."""
     document = await rename_document(db, document_id, body.name, current_user)
@@ -556,7 +556,7 @@ async def rename_folder_endpoint(
     folder_id: uuid.UUID,
     body: RenameRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     """Rename a folder."""
     folder = await rename_folder(db, folder_id, body.name, current_user)
@@ -618,7 +618,7 @@ async def update_doc(
     document_id: uuid.UUID,
     updates: DocumentUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     """Update document metadata."""
     document = await update_document(db, document_id, updates, current_user)
@@ -629,7 +629,7 @@ async def update_doc(
 async def delete_doc(
     document_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
     storage: Annotated[StorageBackend, Depends(get_storage)],
     permanent: bool = Query(False, description="Permanently delete instead of trash"),
 ) -> dict:
@@ -655,7 +655,7 @@ async def star_document_endpoint(
 async def trash_document_endpoint(
     document_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     """Soft-delete a document (move to trash)."""
     document = await trash_document(db, document_id, current_user.id)
@@ -666,7 +666,7 @@ async def trash_document_endpoint(
 async def restore_document_endpoint(
     document_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     """Restore a document from trash."""
     document = await restore_document(db, document_id, current_user.id)
@@ -678,7 +678,7 @@ async def move_document_endpoint(
     document_id: uuid.UUID,
     body: MoveDocumentRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     """Move a document to a different folder."""
     document = await move_document(db, document_id, body.folder_id, current_user.id)
@@ -690,7 +690,7 @@ async def move_folder_endpoint(
     folder_id: uuid.UUID,
     body: MoveFolderRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     """Move a folder to a different parent folder."""
     folder = await move_folder(db, folder_id, body.parent_id, current_user.id)
@@ -818,7 +818,7 @@ async def upload_new_version(
     document_id: uuid.UUID,
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
     storage: Annotated[StorageBackend, Depends(get_storage)],
     file: UploadFile = File(...),
 ) -> dict:
@@ -855,7 +855,7 @@ async def add_tags(
     document_id: uuid.UUID,
     tag_ids: list[uuid.UUID],
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     """Add tags to a document."""
     document = await add_tags_to_document(db, document_id, tag_ids, current_user)
@@ -867,7 +867,7 @@ async def remove_tag(
     document_id: uuid.UUID,
     tag_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     """Remove a tag from a document."""
     document = await remove_tag_from_document(db, document_id, tag_id, current_user)

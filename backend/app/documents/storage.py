@@ -83,3 +83,85 @@ class LocalStorage:
     def get_full_path(self, storage_path: str) -> Path:
         """Return the full filesystem path for a storage path."""
         return self._full_path(storage_path)
+
+
+class R2Storage:
+    """Cloudflare R2 storage backend (S3-compatible)."""
+
+    def __init__(
+        self,
+        endpoint_url: str,
+        access_key_id: str,
+        secret_access_key: str,
+        bucket_name: str,
+    ) -> None:
+        import boto3
+
+        self.bucket_name = bucket_name
+        self._client = boto3.client(
+            "s3",
+            endpoint_url=endpoint_url,
+            aws_access_key_id=access_key_id,
+            aws_secret_access_key=secret_access_key,
+            region_name="auto",
+        )
+
+    def _generate_key(self, extension: str) -> str:
+        now = datetime.utcnow()
+        year = now.strftime("%Y")
+        month = now.strftime("%m")
+        filename = f"{uuid.uuid4().hex}.{extension.lstrip('.')}"
+        return f"{year}/{month}/{filename}"
+
+    async def save(self, data: bytes, extension: str) -> str:
+        key = self._generate_key(extension)
+        await asyncio.to_thread(
+            self._client.put_object,
+            Bucket=self.bucket_name,
+            Key=key,
+            Body=data,
+        )
+        return key
+
+    async def read(self, storage_path: str) -> bytes:
+        try:
+            resp = await asyncio.to_thread(
+                self._client.get_object,
+                Bucket=self.bucket_name,
+                Key=storage_path,
+            )
+            return await asyncio.to_thread(resp["Body"].read)
+        except Exception as exc:
+            raise FileNotFoundError(
+                f"File not found in R2 at key: {storage_path}"
+            ) from exc
+
+    async def delete(self, storage_path: str) -> None:
+        await asyncio.to_thread(
+            self._client.delete_object,
+            Bucket=self.bucket_name,
+            Key=storage_path,
+        )
+
+    async def exists(self, storage_path: str) -> bool:
+        try:
+            await asyncio.to_thread(
+                self._client.head_object,
+                Bucket=self.bucket_name,
+                Key=storage_path,
+            )
+            return True
+        except Exception:
+            return False
+
+
+def build_storage(settings) -> StorageBackend:
+    """Build the appropriate storage backend based on settings."""
+    if settings.storage_type == "r2" and settings.r2_access_key_id:
+        return R2Storage(
+            endpoint_url=settings.r2_endpoint,
+            access_key_id=settings.r2_access_key_id,
+            secret_access_key=settings.r2_secret_access_key,
+            bucket_name=settings.r2_bucket_name,
+        )
+    return LocalStorage(settings.storage_path)

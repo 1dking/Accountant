@@ -66,7 +66,7 @@ async def list_categories(
 async def create_category(
     data: TransactionCategoryCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     category = await service.create_category(
         db,
@@ -84,7 +84,7 @@ async def update_category(
     category_id: uuid.UUID,
     data: TransactionCategoryUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    _: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     update_data = data.model_dump(exclude_unset=True)
     category = await service.update_category(db, category_id, **update_data)
@@ -125,7 +125,7 @@ async def list_accounts(
 async def create_account(
     data: PaymentAccountCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     account = await service.create_account(db, data, current_user)
     resp = PaymentAccountResponse.model_validate(account)
@@ -150,7 +150,7 @@ async def update_account(
     account_id: uuid.UUID,
     data: PaymentAccountUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    _: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     account = await service.update_account(db, account_id, data)
     resp = PaymentAccountResponse.model_validate(account)
@@ -233,7 +233,7 @@ async def list_entries(
 async def create_entry(
     data: CashbookEntryCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
     idempotency: Annotated[IdempotencyResult, Depends(require_idempotency_key)],
 ) -> dict:
     if idempotency.cached_response is not None:
@@ -259,7 +259,7 @@ async def update_entry(
     entry_id: uuid.UUID,
     data: CashbookEntryUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     entry = await service.update_entry(db, entry_id, data, current_user)
     return {"data": CashbookEntryResponse.model_validate(entry)}
@@ -269,7 +269,7 @@ async def update_entry(
 async def delete_entry(
     entry_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    _: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     await service.delete_entry(db, entry_id)
     return {"data": {"message": "Entry deleted successfully"}}
@@ -284,7 +284,7 @@ async def delete_entry(
 async def capture_endpoint(
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
     storage: Annotated[StorageBackend, Depends(get_storage)],
     file: UploadFile = File(...),
     entry_type: EntryType = ...,
@@ -390,7 +390,7 @@ async def export_csv(
 @router.post("/import/excel")
 async def import_excel_preview(
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    _: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
     file: UploadFile = File(...),
 ) -> dict:
     """Upload an Excel cashbook file and return a preview of parsed rows."""
@@ -403,7 +403,7 @@ async def import_excel_preview(
 async def import_excel_confirm(
     data: ImportConfirm,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     """Confirm and save parsed Excel rows as cashbook entries."""
     # Map category names to IDs

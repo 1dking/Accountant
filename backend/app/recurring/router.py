@@ -53,7 +53,7 @@ async def upcoming_rules(
 async def create_rule(
     data: RecurringRuleCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     rule = await service.create_rule(db, data, current_user)
     resp = RecurringRuleResponse.model_validate(rule).model_dump()
@@ -78,7 +78,7 @@ async def update_rule(
     rule_id: uuid.UUID,
     data: RecurringRuleUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     rule = await service.update_rule(db, rule_id, data, current_user)
     resp = RecurringRuleResponse.model_validate(rule).model_dump()
@@ -100,7 +100,7 @@ async def delete_rule(
 async def toggle_rule(
     rule_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    _: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     rule = await service.toggle_rule(db, rule_id)
     resp = RecurringRuleResponse.model_validate(rule).model_dump()

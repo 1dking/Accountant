@@ -88,7 +88,7 @@ async def proposal_stats(
 async def create_proposal(
     data: ProposalCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
     idempotency: Annotated[IdempotencyResult, Depends(require_idempotency_key)],
 ) -> dict:
     """Create a new proposal."""
@@ -115,7 +115,7 @@ async def list_templates(
 async def create_template(
     data: TemplateCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     """Create a proposal template."""
     template = await service.create_template(db, data, current_user)
@@ -138,7 +138,7 @@ async def update_template(
     template_id: uuid.UUID,
     data: TemplateUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    _: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     """Update a template."""
     template = await service.update_template(db, template_id, data, _)
@@ -226,7 +226,7 @@ async def list_follow_ups(
 async def create_follow_up(
     data: FollowUpRuleCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     """Create a follow-up rule."""
     rule = await service.create_follow_up_rule(db, data, current_user)
@@ -237,7 +237,7 @@ async def create_follow_up(
 async def toggle_follow_up(
     rule_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    _: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
     active: bool = Query(True),
 ) -> dict:
     """Enable or disable a follow-up rule."""
@@ -331,7 +331,7 @@ async def update_proposal(
     proposal_id: uuid.UUID,
     data: ProposalUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     """Update a proposal."""
     proposal = await service.update_proposal(db, proposal_id, data, current_user)
@@ -353,7 +353,7 @@ async def delete_proposal(
 async def send_proposal(
     proposal_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     """Send a proposal to recipients."""
     proposal = await service.send_proposal(db, proposal_id, current_user)
@@ -364,7 +364,7 @@ async def send_proposal(
 async def clone_proposal(
     proposal_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     """Clone a proposal as a new draft."""
     proposal = await service.clone_proposal(db, proposal_id, current_user)
@@ -375,7 +375,7 @@ async def clone_proposal(
 async def decline_proposal(
     proposal_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     """Mark proposal as declined."""
     proposal = await service.mark_declined(db, proposal_id, current_user)
@@ -386,7 +386,7 @@ async def decline_proposal(
 async def complete_proposal(
     proposal_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     """Manually mark proposal as completed/signed."""
     proposal = await service.mark_completed(db, proposal_id, current_user)
@@ -397,7 +397,7 @@ async def complete_proposal(
 async def convert_to_template(
     proposal_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     """Convert a proposal into a reusable template."""
     template = await service.convert_to_template(db, proposal_id, current_user)
@@ -410,7 +410,7 @@ async def add_recipient(
     proposal_id: uuid.UUID,
     data: RecipientCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    _: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     """Add a recipient to a proposal."""
     recipient = await service.add_recipient(db, proposal_id, data)
@@ -422,7 +422,7 @@ async def remove_recipient(
     proposal_id: uuid.UUID,
     recipient_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    _: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     """Remove a recipient from a draft proposal."""
     await service.remove_recipient(db, proposal_id, recipient_id)

@@ -52,7 +52,7 @@ async def budget_alerts(
 async def create_budget(
     data: BudgetCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
     idempotency: Annotated[IdempotencyResult, Depends(require_idempotency_key)],
 ) -> dict:
     if idempotency.cached_response is not None:
@@ -78,7 +78,7 @@ async def update_budget(
     budget_id: uuid.UUID,
     data: BudgetUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     budget = await service.update_budget(db, budget_id, data, current_user)
     return {"data": BudgetResponse.model_validate(budget)}

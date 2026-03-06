@@ -1212,3 +1212,55 @@ export interface TaxDeadline {
   is_past: boolean
   days_until: number | null
 }
+
+// Contact Tags
+export interface ContactTag {
+  id: string
+  contact_id: string
+  tag_name: string
+  created_by: string
+  created_at: string
+}
+
+// Contact Activities
+export interface ContactActivity {
+  id: string
+  contact_id: string
+  activity_type: string
+  title: string
+  description: string | null
+  reference_type: string | null
+  reference_id: string | null
+  created_by: string | null
+  created_at: string
+}
+
+// File Share
+export interface FileShareItem {
+  id: string
+  file_id: string
+  contact_id: string
+  permission: 'view' | 'download'
+  shared_by: string
+  shared_at: string
+}
+
+// User Invitation
+export interface UserInvitation {
+  id: string
+  email: string
+  role: string
+  status: 'pending' | 'accepted' | 'expired'
+  invited_by: string
+  contact_id: string | null
+  expires_at: string
+  accepted_at: string | null
+  created_at: string
+}
+
+// Duplicate Group
+export interface DuplicateGroup {
+  field: string
+  value: string
+  contact_ids: string[]
+}

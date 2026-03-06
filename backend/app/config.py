@@ -73,6 +73,13 @@ class Settings(BaseSettings):
     # Public access
     public_base_url: str = "http://localhost:5173"
 
+    # Cloudflare R2 Storage
+    cloudflare_account_id: str = ""
+    r2_access_key_id: str = ""
+    r2_secret_access_key: str = ""
+    r2_bucket_name: str = ""
+    r2_endpoint: str = ""
+
     # LiveKit (video meetings)
     livekit_url: str = ""
     livekit_api_key: str = ""

@@ -67,3 +67,72 @@ export async function updateContact(id: string, data: ContactUpdateData) {
 export async function deleteContact(id: string) {
   return api.delete<ApiResponse<{ message: string }>>(`/contacts/${id}`)
 }
+
+// Tags
+export async function addContactTag(contactId: string, tag_name: string) {
+  return api.post(`/contacts/${contactId}/tags`, { tag_name })
+}
+
+export async function removeContactTag(contactId: string, tagName: string) {
+  return api.delete(`/contacts/${contactId}/tags/${tagName}`)
+}
+
+export async function getContactTags(contactId: string) {
+  return api.get(`/contacts/${contactId}/tags`)
+}
+
+export async function bulkTagContacts(contact_ids: string[], tag_name: string) {
+  return api.post('/contacts/bulk-tag', { contact_ids, tag_name })
+}
+
+export async function getAllTagNames() {
+  return api.get<ApiResponse<string[]>>('/contacts/tags/all')
+}
+
+// Activities
+export async function getContactActivities(contactId: string, page = 1) {
+  return api.get(`/contacts/${contactId}/activities?page=${page}`)
+}
+
+export async function addContactActivity(contactId: string, data: { activity_type: string; title: string; description?: string }) {
+  return api.post(`/contacts/${contactId}/activities`, data)
+}
+
+// File shares
+export async function shareFile(data: { file_id: string; contact_id: string; permission: string }) {
+  return api.post('/contacts/file-shares', data)
+}
+
+export async function getFileShares(contactId: string) {
+  return api.get(`/contacts/${contactId}/file-shares`)
+}
+
+export async function removeFileShare(shareId: string) {
+  return api.delete(`/contacts/file-shares/${shareId}`)
+}
+
+// Duplicates
+export async function detectDuplicates() {
+  return api.get('/contacts/duplicates/detect')
+}
+
+export async function mergeContacts(primary_contact_id: string, duplicate_contact_ids: string[]) {
+  return api.post('/contacts/merge', { primary_contact_id, duplicate_contact_ids })
+}
+
+// Invitations
+export async function createInvitation(data: { email: string; role: string; contact_id?: string }) {
+  return api.post('/contacts/invitations', data)
+}
+
+export async function listInvitations(page = 1) {
+  return api.get(`/contacts/invitations?page=${page}`)
+}
+
+export async function resendInvitation(id: string) {
+  return api.post(`/contacts/invitations/${id}/resend`, {})
+}
+
+export async function acceptInvitation(data: { token: string; password: string; full_name: string }) {
+  return api.post('/contacts/invitations/accept', data)
+}

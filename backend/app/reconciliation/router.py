@@ -29,7 +29,7 @@ router = APIRouter()
 async def find_matches(
     data: FindMatchesRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     """Trigger the matching algorithm to find receipt-transaction matches."""
     matches = await service.find_matches(
@@ -95,7 +95,7 @@ async def list_matches(
 async def confirm_match(
     match_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     """Confirm a pending match."""
     match_record = await service.confirm_match(db, match_id, current_user)
@@ -119,7 +119,7 @@ async def confirm_match(
 async def reject_match(
     match_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     """Reject a pending match."""
     match_record = await service.reject_match(db, match_id, current_user)
@@ -148,7 +148,7 @@ async def reject_match(
 async def create_manual_match(
     data: ManualMatchRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     """Create a manual match between a receipt and a transaction."""
     match_record = await service.create_manual_match(

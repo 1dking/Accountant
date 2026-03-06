@@ -257,6 +257,38 @@ async def viewer_user(db: AsyncSession) -> User:
     return user
 
 
+@pytest_asyncio.fixture()
+async def team_member_user(db: AsyncSession) -> User:
+    user = User(
+        id=uuid.uuid4(),
+        email="team@test.com",
+        hashed_password=hash_password("TestPass123!"),
+        full_name="Test Team Member",
+        role=Role.TEAM_MEMBER,
+        is_active=True,
+    )
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
+@pytest_asyncio.fixture()
+async def client_user(db: AsyncSession) -> User:
+    user = User(
+        id=uuid.uuid4(),
+        email="client@test.com",
+        hashed_password=hash_password("TestPass123!"),
+        full_name="Test Client",
+        role=Role.CLIENT,
+        is_active=True,
+    )
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
 def auth_header(user: User) -> dict[str, str]:
     token = create_access_token(user.id, user.role.value, TEST_SETTINGS)
     return {"Authorization": f"Bearer {token}"}
