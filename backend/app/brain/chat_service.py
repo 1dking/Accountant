@@ -338,6 +338,9 @@ async def chat_stream(
       data: {"type": "sources", "sources": [...]}
       data: {"type": "done", "conversation_id": "...", "message_id": "..."}
     """
+    # Send initial padding to flush proxy buffers (DreamHost, CloudFront, etc.)
+    yield ": connected\n\n"
+
     # Rate limit check
     allowed, minutes = await check_rate_limit(db, user_id)
     if not allowed:
