@@ -250,8 +250,8 @@ export default function ContactDetailPage() {
   const proposals = proposalsQuery.data?.data || []
   const estimates = estimatesQuery.data?.data || []
   const meetings = meetingsQuery.data?.data || []
-  const fileShares = filesQuery.data?.data || []
-  const activities = activityQuery.data?.data || []
+  const fileShares = (filesQuery.data as any)?.data || []
+  const activities = (activityQuery.data as any)?.data || []
 
   // Tab content renderers
   const renderOverview = () => (

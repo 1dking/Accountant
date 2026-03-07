@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import {
-  ArrowLeft, Send, Sparkles, Loader2, MessageSquare, Plus, Trash2,
+  ArrowLeft, Send, Sparkles, Loader2, Plus, Trash2,
   Database, PanelLeftClose, PanelLeft, Paperclip, X, FileIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'

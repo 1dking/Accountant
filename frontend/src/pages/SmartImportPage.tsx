@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Upload, FileImage, CheckCircle2, XCircle, AlertTriangle,
-  Loader2, ArrowRight, FileText, Sparkles, Clock,
+  Loader2, ArrowRight, FileText, Clock,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
@@ -82,7 +82,7 @@ export default function SmartImportPage() {
         .map((i) => i.id)
       return confirmImport(activeImport.id, selectedAccountId, approvedIds)
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['smart-imports'] })
       queryClient.invalidateQueries({ queryKey: ['cashbook-entries'] })
       queryClient.invalidateQueries({ queryKey: ['cashbook-summary'] })
