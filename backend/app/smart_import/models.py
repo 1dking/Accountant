@@ -36,7 +36,7 @@ class SmartImport(Base):
     storage_path: Mapped[str] = mapped_column(String(1000))
     mime_type: Mapped[str] = mapped_column(String(200))
     file_size: Mapped[int] = mapped_column()
-    status: Mapped[ImportStatus] = mapped_column(default=ImportStatus.PENDING)
+    status: Mapped[str] = mapped_column(String(30), default=ImportStatus.PENDING.value)
     document_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
     ai_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -45,7 +45,7 @@ class SmartImport(Base):
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
     items: Mapped[list["SmartImportItem"]] = relationship(
-        back_populates="smart_import", cascade="all, delete-orphan",
+        back_populates="smart_import", cascade="all, delete-orphan", lazy="selectin",
         order_by="SmartImportItem.date",
     )
 
@@ -57,7 +57,7 @@ class SmartImportItem(Base):
     import_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("smart_imports.id", ondelete="CASCADE")
     )
-    status: Mapped[ImportItemStatus] = mapped_column(default=ImportItemStatus.PENDING)
+    status: Mapped[str] = mapped_column(String(30), default=ImportItemStatus.PENDING.value)
     entry_type: Mapped[str] = mapped_column(String(20))  # income or expense
     date: Mapped[str | None] = mapped_column(String(20), nullable=True)
     description: Mapped[str] = mapped_column(String(500))

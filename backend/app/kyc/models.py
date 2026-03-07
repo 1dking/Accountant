@@ -25,7 +25,7 @@ class KycVerification(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), unique=True
     )
-    status: Mapped[KycStatus] = mapped_column(default=KycStatus.NOT_STARTED)
+    status: Mapped[str] = mapped_column(String(30), default=KycStatus.NOT_STARTED.value)
 
     # Business info
     business_name: Mapped[str | None] = mapped_column(String(300), nullable=True)

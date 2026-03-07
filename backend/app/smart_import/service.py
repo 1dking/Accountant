@@ -41,7 +41,7 @@ async def create_import(
         storage_path=storage_path,
         mime_type=mime_type,
         file_size=file_size,
-        status=ImportStatus.PENDING,
+        status=ImportStatus.PENDING.value,
     )
     db.add(imp)
     await db.commit()
@@ -65,7 +65,7 @@ async def process_import(
     if not imp:
         raise NotFoundError("SmartImport", str(import_id))
 
-    imp.status = ImportStatus.PROCESSING
+    imp.status = ImportStatus.PROCESSING.value
     await db.commit()
 
     start = time.monotonic()
@@ -159,14 +159,14 @@ Return ONLY valid JSON in this exact format:
             )
             db.add(item)
 
-        imp.status = ImportStatus.READY
+        imp.status = ImportStatus.READY.value
         imp.processing_time_ms = int((time.monotonic() - start) * 1000)
         await db.commit()
         await db.refresh(imp, attribute_names=["items"])
 
     except Exception as e:
         logger.exception("Smart import processing failed for %s", import_id)
-        imp.status = ImportStatus.FAILED
+        imp.status = ImportStatus.FAILED.value
         imp.error_message = str(e)[:500]
         imp.processing_time_ms = int((time.monotonic() - start) * 1000)
         await db.commit()
@@ -248,7 +248,7 @@ async def confirm_import(
 
     items_to_import = [
         item for item in imp.items
-        if item.status in (ImportItemStatus.APPROVED, ImportItemStatus.PENDING)
+        if item.status in (ImportItemStatus.APPROVED.value, ImportItemStatus.PENDING.value)
         and (item_ids is None or item.id in item_ids)
     ]
 
@@ -275,7 +275,7 @@ async def confirm_import(
             )
 
             entry = await create_entry(db, entry_data, user)
-            item.status = ImportItemStatus.IMPORTED
+            item.status = ImportItemStatus.IMPORTED.value
             item.cashbook_entry_id = entry.id
             imported_count += 1
 
@@ -285,10 +285,10 @@ async def confirm_import(
 
     # Update import status
     all_imported = all(
-        item.status in (ImportItemStatus.IMPORTED, ImportItemStatus.REJECTED, ImportItemStatus.DUPLICATE)
+        item.status in (ImportItemStatus.IMPORTED.value, ImportItemStatus.REJECTED.value, ImportItemStatus.DUPLICATE.value)
         for item in imp.items
     )
-    imp.status = ImportStatus.IMPORTED if all_imported else ImportStatus.PARTIALLY_IMPORTED
+    imp.status = ImportStatus.IMPORTED.value if all_imported else ImportStatus.PARTIALLY_IMPORTED.value
     await db.commit()
 
     return {

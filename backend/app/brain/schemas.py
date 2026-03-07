@@ -15,6 +15,7 @@ class ChatRequest(BaseModel):
     message: str
     conversation_id: Optional[str] = None
     page_context: Optional[str] = None
+    file_ids: Optional[list[str]] = None
 
 
 class ChatMessageResponse(BaseModel):

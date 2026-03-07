@@ -15,6 +15,7 @@ export async function* chatStream(
   message: string,
   conversationId?: string | null,
   pageContext?: string,
+  fileIds?: string[],
 ): AsyncGenerator<ChatStreamEvent> {
   const token = localStorage.getItem('access_token')
   const resp = await fetch('/api/brain/chat', {
@@ -27,6 +28,7 @@ export async function* chatStream(
       message,
       conversation_id: conversationId || undefined,
       page_context: pageContext || 'General',
+      ...(fileIds && fileIds.length > 0 ? { file_ids: fileIds } : {}),
     }),
   })
 

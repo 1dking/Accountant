@@ -56,6 +56,7 @@ async def chat(
             message=body.message,
             conversation_id=body.conversation_id,
             page_context=body.page_context or "General",
+            file_ids=body.file_ids,
         ),
         media_type="text/event-stream",
         headers={

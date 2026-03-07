@@ -21,7 +21,7 @@ def _kyc_to_response(kyc: KycVerification) -> KycResponse:
     """Convert a KycVerification ORM instance to a KycResponse."""
     return KycResponse(
         id=str(kyc.id),
-        status=kyc.status.value,
+        status=kyc.status,
         business_name=kyc.business_name,
         business_type=kyc.business_type,
         business_phone=kyc.business_phone,
@@ -60,7 +60,7 @@ async def submit_kyc(
     )
     kyc = result.scalar_one_or_none()
 
-    if kyc and kyc.status == KycStatus.APPROVED:
+    if kyc and kyc.status == KycStatus.APPROVED.value:
         raise ValidationError("KYC already approved. Cannot resubmit.")
 
     if not kyc:
@@ -70,7 +70,7 @@ async def submit_kyc(
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(kyc, field, value)
 
-    kyc.status = KycStatus.SUBMITTED
+    kyc.status = KycStatus.SUBMITTED.value
     await db.commit()
     await db.refresh(kyc)
 
@@ -108,7 +108,7 @@ async def admin_review_kyc(
     if data.status not in ("approved", "rejected"):
         raise ValidationError("Status must be 'approved' or 'rejected'.")
 
-    kyc.status = KycStatus(data.status)
+    kyc.status = data.status
     kyc.review_notes = data.review_notes
     kyc.reviewed_by = admin.id
     kyc.reviewed_at = datetime.utcnow()

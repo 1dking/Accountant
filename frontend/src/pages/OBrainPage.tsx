@@ -139,11 +139,12 @@ export default function OBrainPage() {
     requestAnimationFrame(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }))
 
     try {
-      const msgWithFiles = uploadedFileIds.length > 0
-        ? `${userText}\n\n[Attached files: ${fileNames.map((f) => f.name).join(', ')}]`
-        : userText
-
-      for await (const event of chatStream(msgWithFiles, conversationId, 'O-Brain Full Screen')) {
+      for await (const event of chatStream(
+        userText,
+        conversationId,
+        'O-Brain Full Screen',
+        uploadedFileIds.length > 0 ? uploadedFileIds : undefined,
+      )) {
         if (event.type === 'text' && event.content) {
           setMessages((prev) => {
             const updated = [...prev]

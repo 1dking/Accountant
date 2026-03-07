@@ -181,7 +181,7 @@ async def search_available_numbers(
         select(KycVerification).where(KycVerification.user_id == user.id)
     )
     kyc = result.scalar_one_or_none()
-    if not kyc or kyc.status != KycStatus.APPROVED:
+    if not kyc or kyc.status != KycStatus.APPROVED.value:
         raise ForbiddenError(
             "KYC verification must be approved before purchasing phone numbers."
         )
@@ -235,7 +235,7 @@ async def purchase_number(
         select(KycVerification).where(KycVerification.user_id == user.id)
     )
     kyc = result.scalar_one_or_none()
-    if not kyc or kyc.status != KycStatus.APPROVED:
+    if not kyc or kyc.status != KycStatus.APPROVED.value:
         raise ForbiddenError(
             "KYC verification must be approved before purchasing."
         )

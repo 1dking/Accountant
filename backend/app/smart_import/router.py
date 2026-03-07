@@ -79,7 +79,7 @@ async def upload_for_import(
             original_filename=imp.original_filename,
             mime_type=imp.mime_type,
             file_size=imp.file_size,
-            status=imp.status.value,
+            status=imp.status,
             document_type=imp.document_type,
             ai_summary=imp.ai_summary,
             error_message=imp.error_message,
@@ -89,7 +89,7 @@ async def upload_for_import(
             items=[
                 SmartImportItemResponse(
                     id=str(item.id),
-                    status=item.status.value,
+                    status=item.status,
                     entry_type=item.entry_type,
                     date=item.date,
                     description=item.description,
@@ -121,7 +121,7 @@ async def list_imports(
                 original_filename=imp.original_filename,
                 mime_type=imp.mime_type,
                 file_size=imp.file_size,
-                status=imp.status.value,
+                status=imp.status,
                 document_type=imp.document_type,
                 ai_summary=imp.ai_summary,
                 error_message=imp.error_message,
@@ -148,7 +148,7 @@ async def get_import(
             original_filename=imp.original_filename,
             mime_type=imp.mime_type,
             file_size=imp.file_size,
-            status=imp.status.value,
+            status=imp.status,
             document_type=imp.document_type,
             ai_summary=imp.ai_summary,
             error_message=imp.error_message,
@@ -158,7 +158,7 @@ async def get_import(
             items=[
                 SmartImportItemResponse(
                     id=str(item.id),
-                    status=item.status.value,
+                    status=item.status,
                     entry_type=item.entry_type,
                     date=item.date,
                     description=item.description,
@@ -189,7 +189,7 @@ async def update_import_item(
     return {
         "data": SmartImportItemResponse(
             id=str(item.id),
-            status=item.status.value,
+            status=item.status,
             entry_type=item.entry_type,
             date=item.date,
             description=item.description,

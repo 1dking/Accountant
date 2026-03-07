@@ -1,7 +1,9 @@
 """O-Brain chat service — streaming responses with tool use."""
 
+import base64
 import json
 import logging
+import os
 import uuid
 from collections.abc import AsyncGenerator
 from datetime import datetime, timedelta
@@ -12,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.brain.models import (
     BrainConversation,
+    BrainChatFile,
     BrainMessage,
     BrainAuditLog,
     AuditActionType,
@@ -133,12 +136,199 @@ async def _get_org_context(db: AsyncSession, user_id: uuid.UUID) -> tuple[str, s
     return org_name, brand_voice
 
 
+async def _build_file_content_blocks(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    file_ids: list[str],
+) -> list[dict]:
+    """Load uploaded files and build Claude API content blocks."""
+    content_blocks: list[dict] = []
+
+    for fid in file_ids:
+        try:
+            fid_uuid = uuid.UUID(fid)
+        except ValueError:
+            continue
+
+        result = await db.execute(
+            select(BrainChatFile).where(
+                and_(BrainChatFile.id == fid_uuid, BrainChatFile.user_id == user_id)
+            )
+        )
+        chat_file = result.scalar_one_or_none()
+        if not chat_file:
+            continue
+
+        full_path = os.path.join(settings.storage_path, chat_file.storage_path)
+        if not os.path.isfile(full_path):
+            content_blocks.append({
+                "type": "text",
+                "text": f"[File '{chat_file.original_filename}' could not be found on disk]",
+            })
+            continue
+
+        mime = chat_file.mime_type or ""
+        filename = chat_file.original_filename or "file"
+
+        try:
+            # --- Images: send as base64 image blocks ---
+            if mime.startswith("image/"):
+                with open(full_path, "rb") as f:
+                    img_data = f.read()
+                b64 = base64.b64encode(img_data).decode()
+                content_blocks.append({
+                    "type": "image",
+                    "source": {"type": "base64", "media_type": mime, "data": b64},
+                })
+                content_blocks.append({
+                    "type": "text",
+                    "text": f"[Uploaded image: {filename}]",
+                })
+
+            # --- PDFs: extract text, fallback to page images ---
+            elif mime == "application/pdf":
+                text = ""
+                try:
+                    import pdfplumber
+                    with pdfplumber.open(full_path) as pdf:
+                        pages_text = []
+                        for i, page in enumerate(pdf.pages):
+                            page_text = page.extract_text() or ""
+                            if page_text.strip():
+                                pages_text.append(f"--- Page {i + 1} ---\n{page_text}")
+                        text = "\n\n".join(pages_text)
+                except Exception as e:
+                    logger.warning("pdfplumber failed for %s: %s", filename, e)
+
+                if text.strip():
+                    # Text-based PDF — send extracted text
+                    content_blocks.append({
+                        "type": "text",
+                        "text": f"[Uploaded PDF: {filename}]\n\nExtracted text:\n{text[:50000]}",
+                    })
+                else:
+                    # Scanned PDF — convert pages to images
+                    try:
+                        import fitz  # PyMuPDF
+                        doc = fitz.open(full_path)
+                        for i, page in enumerate(doc):
+                            if i >= 10:  # Limit to 10 pages
+                                break
+                            pix = page.get_pixmap(dpi=150)
+                            img_bytes = pix.tobytes("png")
+                            b64 = base64.b64encode(img_bytes).decode()
+                            content_blocks.append({
+                                "type": "image",
+                                "source": {"type": "base64", "media_type": "image/png", "data": b64},
+                            })
+                        doc.close()
+                        content_blocks.append({
+                            "type": "text",
+                            "text": f"[Scanned PDF converted to images: {filename}]",
+                        })
+                    except ImportError:
+                        # No PyMuPDF — send raw PDF as document block
+                        with open(full_path, "rb") as f:
+                            pdf_data = f.read()
+                        b64 = base64.b64encode(pdf_data).decode()
+                        content_blocks.append({
+                            "type": "document",
+                            "source": {"type": "base64", "media_type": "application/pdf", "data": b64},
+                        })
+                        content_blocks.append({
+                            "type": "text",
+                            "text": f"[Uploaded PDF: {filename}]",
+                        })
+                    except Exception as e:
+                        logger.warning("PDF to image conversion failed for %s: %s", filename, e)
+                        content_blocks.append({
+                            "type": "text",
+                            "text": f"[PDF '{filename}' could not be processed — no readable text found]",
+                        })
+
+            # --- CSV files ---
+            elif mime == "text/csv" or filename.lower().endswith(".csv"):
+                with open(full_path, "r", errors="replace") as f:
+                    csv_text = f.read(100000)  # 100KB limit
+                content_blocks.append({
+                    "type": "text",
+                    "text": f"[Uploaded CSV: {filename}]\n\n{csv_text}",
+                })
+
+            # --- XLSX files ---
+            elif filename.lower().endswith((".xlsx", ".xls")):
+                try:
+                    import openpyxl
+                    wb = openpyxl.load_workbook(full_path, read_only=True)
+                    sheets_text = []
+                    for sheet_name in wb.sheetnames[:5]:
+                        ws = wb[sheet_name]
+                        rows = []
+                        for row in ws.iter_rows(max_row=500, values_only=True):
+                            rows.append("\t".join(str(c) if c is not None else "" for c in row))
+                        sheets_text.append(f"=== Sheet: {sheet_name} ===\n" + "\n".join(rows))
+                    wb.close()
+                    content_blocks.append({
+                        "type": "text",
+                        "text": f"[Uploaded spreadsheet: {filename}]\n\n" + "\n\n".join(sheets_text),
+                    })
+                except Exception as e:
+                    logger.warning("XLSX parsing failed for %s: %s", filename, e)
+                    content_blocks.append({
+                        "type": "text",
+                        "text": f"[Spreadsheet '{filename}' could not be parsed]",
+                    })
+
+            # --- DOCX files ---
+            elif filename.lower().endswith(".docx"):
+                try:
+                    import docx
+                    doc = docx.Document(full_path)
+                    text = "\n".join(p.text for p in doc.paragraphs)
+                    content_blocks.append({
+                        "type": "text",
+                        "text": f"[Uploaded document: {filename}]\n\n{text[:50000]}",
+                    })
+                except Exception as e:
+                    logger.warning("DOCX parsing failed for %s: %s", filename, e)
+                    content_blocks.append({
+                        "type": "text",
+                        "text": f"[Document '{filename}' could not be parsed]",
+                    })
+
+            # --- Plain text / other text files ---
+            elif mime.startswith("text/") or filename.lower().endswith((".txt", ".md", ".json", ".xml")):
+                with open(full_path, "r", errors="replace") as f:
+                    text = f.read(100000)
+                content_blocks.append({
+                    "type": "text",
+                    "text": f"[Uploaded file: {filename}]\n\n{text}",
+                })
+
+            # --- Unknown type ---
+            else:
+                content_blocks.append({
+                    "type": "text",
+                    "text": f"[Uploaded file: {filename} ({mime}) — unsupported format for content extraction]",
+                })
+
+        except Exception as e:
+            logger.exception("Failed to process uploaded file %s", filename)
+            content_blocks.append({
+                "type": "text",
+                "text": f"[Error processing file '{filename}': {str(e)[:200]}]",
+            })
+
+    return content_blocks
+
+
 async def chat_stream(
     db: AsyncSession,
     user_id: uuid.UUID,
     message: str,
     conversation_id: str | None = None,
     page_context: str = "General",
+    file_ids: list[str] | None = None,
 ) -> AsyncGenerator[str, None]:
     """Stream a chat response using Claude with tool use.
 
@@ -195,7 +385,17 @@ async def chat_stream(
     if history and history[-1]["content"] == message:
         history = history[:-1]
 
-    messages = history + [{"role": "user", "content": message}]
+    # Build user message content — text + optional file content
+    file_content_blocks = []
+    if file_ids:
+        file_content_blocks = await _build_file_content_blocks(db, user_id, file_ids)
+
+    if file_content_blocks:
+        user_content: str | list[dict] = file_content_blocks + [{"type": "text", "text": message}]
+    else:
+        user_content = message
+
+    messages = history + [{"role": "user", "content": user_content}]
 
     # Call Claude with tools
     client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)

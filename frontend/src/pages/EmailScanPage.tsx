@@ -80,7 +80,7 @@ function ImportModal({
         className="bg-white dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between p-4 border-b">
+        <div className="flex items-center justify-between p-4 border-b dark:border-gray-700">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             Import Email
           </h2>
@@ -137,7 +137,7 @@ function ImportModal({
               type="text"
               value={vendorName}
               onChange={e => setVendorName(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700"
+              className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
               placeholder={parsedData?.vendor_name || 'Enter vendor name...'}
             />
             {suggestedCat && (
@@ -154,7 +154,7 @@ function ImportModal({
               type="text"
               value={description}
               onChange={e => setDescription(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700"
+              className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
             />
           </div>
 
@@ -167,7 +167,7 @@ function ImportModal({
                 step="0.01"
                 value={amount}
                 onChange={e => setAmount(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700"
+                className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
                 placeholder="0.00"
               />
             </div>
@@ -176,7 +176,7 @@ function ImportModal({
               <select
                 value={currency}
                 onChange={e => setCurrency(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700"
+                className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
               >
                 <option value="USD">USD</option>
                 <option value="EUR">EUR</option>
@@ -193,7 +193,7 @@ function ImportModal({
               type="date"
               value={date}
               onChange={e => setDate(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700"
+              className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
             />
           </div>
 
@@ -204,7 +204,7 @@ function ImportModal({
               <select
                 value={categoryId}
                 onChange={e => setCategoryId(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700"
+                className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
               >
                 <option value="">Uncategorized</option>
                 {categories.map(cat => (
@@ -218,7 +218,7 @@ function ImportModal({
               <select
                 value={incomeCategory}
                 onChange={e => setIncomeCategory(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700"
+                className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
               >
                 <option value="service">Service</option>
                 <option value="product">Product</option>
@@ -237,13 +237,13 @@ function ImportModal({
               value={notes}
               onChange={e => setNotes(e.target.value)}
               rows={2}
-              className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700 resize-none"
+              className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100 resize-none"
               placeholder="Optional notes..."
             />
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 p-4 border-t">
+        <div className="flex justify-end gap-2 p-4 border-t dark:border-gray-700">
           <button
             onClick={onCancel}
             className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
@@ -303,7 +303,7 @@ function DeleteConfirmModal({
             This only removes {count === 1 ? 'it' : 'them'} from the accounting inbox, not from Gmail.
           </p>
         </div>
-        <div className="flex justify-end gap-2 p-4 border-t">
+        <div className="flex justify-end gap-2 p-4 border-t dark:border-gray-700">
           <button
             onClick={onCancel}
             className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
@@ -554,7 +554,7 @@ export default function EmailScanPage() {
           <select
             value={selectedAccount}
             onChange={(e) => { setSelectedAccount(e.target.value); setPage(1) }}
-            className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700"
+            className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
           >
             <option value="">All accounts</option>
             {accounts.map((a) => (
@@ -566,7 +566,7 @@ export default function EmailScanPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Gmail search query..."
-            className="flex-1 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700"
+            className="flex-1 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
           />
           <button
             onClick={handleStartScan}
