@@ -24,6 +24,21 @@
   scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
 }
 
+/* Global dark mode text for all form elements */
+.dark input,
+.dark textarea,
+.dark select {
+  color: #f3f4f6;
+}
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #6b7280;
+}
+.dark option {
+  background-color: #1f2937;
+  color: #f3f4f6;
+}
+
 /* Safe area for iPhone notch / bottom bar */
 .safe-area-pb {
   padding-bottom: env(safe-area-inset-bottom);

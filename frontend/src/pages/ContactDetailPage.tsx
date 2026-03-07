@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, Pencil, Trash2, X, Check,
   LayoutDashboard, FileText, FileSignature, Calculator,
   BookOpen, FolderOpen, Video, Activity,
+  Mail, MessageSquare, Phone, StickyNote, Send,
 } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { getContact, updateContact, deleteContact, getContactActivities, getFileShares } from '@/api/contacts'
@@ -96,6 +97,9 @@ export default function ContactDetailPage() {
   const [editing, setEditing] = useState(false)
   const [formData, setFormData] = useState<Record<string, any>>({})
   const [activeTab, setActiveTab] = useState<TabKey>('overview')
+  const [quickNote, setQuickNote] = useState('')
+  const [activeAction, setActiveAction] = useState<'note' | 'email' | null>(null)
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ['contact', id],
@@ -157,7 +161,25 @@ export default function ContactDetailPage() {
     },
   })
 
+  // Auto-save: debounced contact update
+  const autoSave = useCallback((updates: Record<string, any>) => {
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
+    autoSaveTimer.current = setTimeout(() => {
+      updateMutation.mutate(updates)
+    }, 1500)
+  }, [updateMutation])
+
   const contact = data?.data
+
+  // Tab counts
+  const tabCounts: Partial<Record<TabKey, number>> = {
+    invoices: invoicesQuery.data?.data?.length ?? 0,
+    proposals: proposalsQuery.data?.data?.length ?? 0,
+    estimates: estimatesQuery.data?.data?.length ?? 0,
+    files: (filesQuery.data as any)?.data?.length ?? 0,
+    meetings: meetingsQuery.data?.data?.length ?? 0,
+    activity: (activityQuery.data as any)?.data?.length ?? 0,
+  }
 
   if (isLoading) {
     return <div className="p-6"><div className="animate-pulse h-8 w-48 bg-gray-200 dark:bg-gray-700 rounded" /></div>
@@ -540,24 +562,32 @@ export default function ContactDetailPage() {
   return (
     <div className="p-6 max-w-4xl">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
+      <div className="flex items-center gap-3 mb-4">
         <button onClick={() => navigate('/contacts')} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
           <ArrowLeft className="h-5 w-5 text-gray-500 dark:text-gray-400" />
         </button>
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{contact.company_name}</h1>
-          {contact.contact_name && (
-            <p className="text-sm text-gray-500 dark:text-gray-400">{contact.contact_name}</p>
-          )}
+          <div className="flex items-center gap-3 mt-0.5">
+            {contact.contact_name && (
+              <span className="text-sm text-gray-500 dark:text-gray-400">{contact.contact_name}</span>
+            )}
+            {contact.email && (
+              <span className="text-xs text-gray-400 dark:text-gray-500">{contact.email}</span>
+            )}
+            {contact.phone && (
+              <span className="text-xs text-gray-400 dark:text-gray-500">{contact.phone}</span>
+            )}
+          </div>
         </div>
         {canEdit && !editing && (
           <div className="flex gap-2">
-            <button onClick={startEditing} className="flex items-center gap-1.5 px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800">
+            <button onClick={startEditing} className="flex items-center gap-1.5 px-3 py-1.5 text-sm border dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300">
               <Pencil className="h-3.5 w-3.5" /> Edit
             </button>
             <button
               onClick={() => { if (confirm('Delete this contact?')) deleteMutation.mutate() }}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-red-200 text-red-600 rounded-lg hover:bg-red-50"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20"
             >
               <Trash2 className="h-3.5 w-3.5" /> Delete
             </button>
@@ -565,7 +595,7 @@ export default function ContactDetailPage() {
         )}
         {editing && (
           <div className="flex gap-2">
-            <button onClick={() => setEditing(false)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800">
+            <button onClick={() => setEditing(false)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm border dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300">
               <X className="h-3.5 w-3.5" /> Cancel
             </button>
             <button
@@ -578,6 +608,101 @@ export default function ContactDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Quick action buttons */}
+      <div className="flex items-center gap-2 mb-6">
+        {contact.email && (
+          <button
+            onClick={() => setActiveAction(activeAction === 'email' ? null : 'email')}
+            className={`flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg transition-colors ${
+              activeAction === 'email'
+                ? 'bg-blue-600 text-white'
+                : 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40'
+            }`}
+          >
+            <Mail className="h-4 w-4" /> Email
+          </button>
+        )}
+        {contact.phone && (
+          <a
+            href={`tel:${contact.phone}`}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors"
+          >
+            <Phone className="h-4 w-4" /> Call
+          </a>
+        )}
+        <button
+          onClick={() => setActiveAction(activeAction === 'note' ? null : 'note')}
+          className={`flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg transition-colors ${
+            activeAction === 'note'
+              ? 'bg-yellow-600 text-white'
+              : 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400 hover:bg-yellow-100 dark:hover:bg-yellow-900/40'
+          }`}
+        >
+          <StickyNote className="h-4 w-4" /> Note
+        </button>
+        <button
+          onClick={() => navigate(`/conversations?contact=${id}`)}
+          className="flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors"
+        >
+          <MessageSquare className="h-4 w-4" /> SMS
+        </button>
+      </div>
+
+      {/* Quick note composer */}
+      {activeAction === 'note' && (
+        <div className="mb-6 bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+          <div className="flex gap-3">
+            <textarea
+              value={quickNote}
+              onChange={(e) => setQuickNote(e.target.value)}
+              placeholder="Add a quick note about this contact..."
+              rows={2}
+              className="flex-1 text-sm border border-yellow-200 dark:border-yellow-700 rounded-lg px-3 py-2 bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-yellow-500 resize-none"
+            />
+            <button
+              onClick={() => {
+                if (quickNote.trim()) {
+                  const currentNotes = contact.notes || ''
+                  const timestamp = new Date().toLocaleDateString()
+                  const updated = currentNotes
+                    ? `${currentNotes}\n\n[${timestamp}] ${quickNote.trim()}`
+                    : `[${timestamp}] ${quickNote.trim()}`
+                  updateMutation.mutate({ notes: updated })
+                  setQuickNote('')
+                  setActiveAction(null)
+                }
+              }}
+              disabled={!quickNote.trim()}
+              className="self-end px-3 py-2 text-sm font-medium text-white bg-yellow-600 rounded-lg hover:bg-yellow-700 disabled:opacity-50 transition"
+            >
+              <Send className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Quick email composer */}
+      {activeAction === 'email' && contact.email && (
+        <div className="mb-6 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+          <p className="text-xs text-blue-600 dark:text-blue-400 mb-2">Compose email to {contact.email}</p>
+          <button
+            onClick={() => {
+              window.location.href = `mailto:${contact.email}`
+              setActiveAction(null)
+            }}
+            className="px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition"
+          >
+            Open in Email Client
+          </button>
+          <button
+            onClick={() => { navigate('/communication'); setActiveAction(null) }}
+            className="ml-2 px-3 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 border border-blue-300 dark:border-blue-700 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition"
+          >
+            Send via App
+          </button>
+        </div>
+      )}
 
       {/* Details */}
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
@@ -610,20 +735,32 @@ export default function ContactDetailPage() {
         {/* Tab bar */}
         <div className="border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
           <nav className="flex gap-0 -mb-px" aria-label="Contact tabs">
-            {TABS.map(({ key, label, icon: Icon }) => (
-              <button
-                key={key}
-                onClick={() => setActiveTab(key)}
-                className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
-                  activeTab === key
-                    ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
-                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                {label}
-              </button>
-            ))}
+            {TABS.map(({ key, label, icon: Icon }) => {
+              const count = tabCounts[key]
+              return (
+                <button
+                  key={key}
+                  onClick={() => setActiveTab(key)}
+                  className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
+                    activeTab === key
+                      ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
+                      : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {label}
+                  {count != null && count > 0 && (
+                    <span className={`ml-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                      activeTab === key
+                        ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                    }`}>
+                      {count}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
           </nav>
         </div>
 

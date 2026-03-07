@@ -30,7 +30,9 @@ export default function LoginPage() {
 
     try {
       await login(email, password)
-      navigate('/')
+      // Mobile: go straight to O-Brain as home screen
+      const isMobile = window.innerWidth < 768
+      navigate(isMobile ? '/brain' : '/')
     } catch (err: any) {
       setError(err.message || 'Something went wrong')
     } finally {

@@ -37,6 +37,11 @@ def _serialize(rows: list) -> list[dict]:
     return results
 
 
+def _enum_val(v) -> str:
+    """Get string value whether v is an Enum member or plain string."""
+    return v.value if hasattr(v, 'value') else str(v)
+
+
 # ---------------------------------------------------------------------------
 # Tool definitions (for Claude function calling)
 # ---------------------------------------------------------------------------
@@ -237,19 +242,18 @@ async def execute_tool(
 async def _query_invoices(db: AsyncSession, user_id: uuid.UUID, params: dict) -> str:
     from app.invoicing.models import Invoice
 
-    conditions = []
+    conditions = [Invoice.created_by == user_id]
     if params.get("contact_id"):
         conditions.append(Invoice.contact_id == uuid.UUID(params["contact_id"]))
     if params.get("status"):
-        conditions.append(Invoice.status == params["status"].upper())
+        conditions.append(Invoice.status == params["status"])
     if params.get("date_from"):
         conditions.append(Invoice.issue_date >= params["date_from"])
     if params.get("date_to"):
         conditions.append(Invoice.issue_date <= params["date_to"])
 
     limit = min(params.get("limit", 20), 50)
-    stmt = select(Invoice).where(and_(*conditions)) if conditions else select(Invoice)
-    stmt = stmt.order_by(desc(Invoice.issue_date)).limit(limit)
+    stmt = select(Invoice).where(and_(*conditions)).order_by(desc(Invoice.issue_date)).limit(limit)
     result = await db.execute(stmt)
     invoices = list(result.scalars().all())
     return json.dumps({"invoices": _serialize(invoices), "count": len(invoices)})
@@ -260,7 +264,7 @@ async def _query_cashbook(db: AsyncSession, user_id: uuid.UUID, params: dict) ->
 
     conditions = [CashbookEntry.user_id == user_id]
     if params.get("entry_type"):
-        conditions.append(CashbookEntry.entry_type == params["entry_type"].upper())
+        conditions.append(CashbookEntry.entry_type == params["entry_type"].lower())
     if params.get("date_from"):
         conditions.append(CashbookEntry.date >= params["date_from"])
     if params.get("date_to"):
@@ -271,9 +275,9 @@ async def _query_cashbook(db: AsyncSession, user_id: uuid.UUID, params: dict) ->
     result = await db.execute(stmt)
     entries = list(result.scalars().all())
 
-    # Calculate totals
-    total_income = sum(e.total_amount for e in entries if e.entry_type.value == "INCOME")
-    total_expense = sum(e.total_amount for e in entries if e.entry_type.value == "EXPENSE")
+    # Calculate totals — handle both enum and plain string entry_type
+    total_income = sum(float(e.total_amount) for e in entries if _enum_val(e.entry_type) == "income")
+    total_expense = sum(float(e.total_amount) for e in entries if _enum_val(e.entry_type) == "expense")
 
     return json.dumps({
         "entries": _serialize(entries),
@@ -287,7 +291,7 @@ async def _query_cashbook(db: AsyncSession, user_id: uuid.UUID, params: dict) ->
 async def _query_contacts(db: AsyncSession, user_id: uuid.UUID, params: dict) -> str:
     from app.contacts.models import Contact
 
-    conditions = [Contact.is_active == True]
+    conditions = [Contact.created_by == user_id, Contact.is_active == True]
     if params.get("search"):
         q = f"%{params['search']}%"
         conditions.append(
@@ -298,7 +302,7 @@ async def _query_contacts(db: AsyncSession, user_id: uuid.UUID, params: dict) ->
             )
         )
     if params.get("type"):
-        conditions.append(Contact.type == params["type"].upper())
+        conditions.append(Contact.type == params["type"].lower())
 
     limit = min(params.get("limit", 20), 50)
     stmt = select(Contact).where(and_(*conditions)).limit(limit)
@@ -310,19 +314,18 @@ async def _query_contacts(db: AsyncSession, user_id: uuid.UUID, params: dict) ->
 async def _query_proposals(db: AsyncSession, user_id: uuid.UUID, params: dict) -> str:
     from app.proposals.models import Proposal
 
-    conditions = []
+    conditions = [Proposal.created_by == user_id]
     if params.get("status"):
-        conditions.append(Proposal.status == params["status"].upper())
+        conditions.append(Proposal.status == params["status"])
     if params.get("contact_id"):
         conditions.append(Proposal.contact_id == uuid.UUID(params["contact_id"]))
 
     limit = min(params.get("limit", 20), 50)
-    stmt = select(Proposal).where(and_(*conditions)) if conditions else select(Proposal)
-    stmt = stmt.order_by(desc(Proposal.created_at)).limit(limit)
+    stmt = select(Proposal).where(and_(*conditions)).order_by(desc(Proposal.created_at)).limit(limit)
     result = await db.execute(stmt)
     proposals = list(result.scalars().all())
 
-    total_value = sum(p.value or 0 for p in proposals)
+    total_value = sum(float(p.value or 0) for p in proposals)
     return json.dumps({
         "proposals": _serialize(proposals),
         "count": len(proposals),
@@ -377,19 +380,28 @@ async def _query_revenue_summary(db: AsyncSession, user_id: uuid.UUID, params: d
 
     # Paid invoices in period
     stmt = select(Invoice).where(
-        and_(Invoice.status == "PAID", Invoice.issue_date >= start.isoformat(), Invoice.issue_date <= end.isoformat())
+        and_(
+            Invoice.created_by == user_id,
+            Invoice.status == "paid",
+            Invoice.issue_date >= start.isoformat(),
+            Invoice.issue_date <= end.isoformat(),
+        )
     )
     result = await db.execute(stmt)
     paid_invoices = list(result.scalars().all())
-    invoice_revenue = sum(i.total for i in paid_invoices)
+    invoice_revenue = sum(float(i.total) for i in paid_invoices)
 
     # Income records in period
     stmt2 = select(Income).where(
-        and_(Income.date >= start.isoformat(), Income.date <= end.isoformat())
+        and_(
+            Income.created_by == user_id,
+            Income.date >= start.isoformat(),
+            Income.date <= end.isoformat(),
+        )
     )
     result2 = await db.execute(stmt2)
     incomes = list(result2.scalars().all())
-    income_total = sum(i.amount for i in incomes)
+    income_total = sum(float(i.amount) for i in incomes)
 
     return json.dumps({
         "period": period,
@@ -411,7 +423,7 @@ async def _query_overdue_items(db: AsyncSession, user_id: uuid.UUID, params: dic
 
     # Overdue invoices
     stmt = select(Invoice).where(
-        and_(Invoice.status == "OVERDUE")
+        and_(Invoice.created_by == user_id, Invoice.status == "overdue")
     ).order_by(Invoice.due_date)
     result = await db.execute(stmt)
     overdue_invoices = list(result.scalars().all())
@@ -419,7 +431,8 @@ async def _query_overdue_items(db: AsyncSession, user_id: uuid.UUID, params: dic
     # Unsigned proposals > 7 days
     stmt2 = select(Proposal).where(
         and_(
-            Proposal.status.in_(["SENT", "VIEWED", "WAITING_SIGNATURE"]),
+            Proposal.created_by == user_id,
+            Proposal.status.in_(["sent", "viewed", "waiting_signature"]),
             Proposal.sent_at <= datetime.combine(seven_days_ago, datetime.min.time()),
         )
     )
@@ -429,7 +442,7 @@ async def _query_overdue_items(db: AsyncSession, user_id: uuid.UUID, params: dic
     return json.dumps({
         "overdue_invoices": _serialize(overdue_invoices),
         "overdue_invoice_count": len(overdue_invoices),
-        "overdue_total": float(sum(i.total for i in overdue_invoices)),
+        "overdue_total": float(sum(float(i.total) for i in overdue_invoices)),
         "stale_proposals": _serialize(stale_proposals),
         "stale_proposal_count": len(stale_proposals),
     })

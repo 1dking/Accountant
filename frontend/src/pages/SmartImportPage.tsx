@@ -1,15 +1,14 @@
 import { useState, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  Upload, FileImage, CheckCircle2, XCircle, AlertTriangle,
-  Loader2, ArrowRight, FileText, Clock,
+  Upload, FileImage, CheckCircle2,
+  Loader2, ArrowRight, FileText,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   uploadForImport,
   listImports,
   getImport,
-  updateImportItem,
   confirmImport,
   type SmartImport,
   type SmartImportItem,
@@ -38,6 +37,7 @@ export default function SmartImportPage() {
   const [activeImport, setActiveImport] = useState<(SmartImport & { items: SmartImportItem[] }) | null>(null)
   const [selectedAccountId, setSelectedAccountId] = useState('')
   const [isDragging, setIsDragging] = useState(false)
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
 
   const { data: importsData } = useQuery({
     queryKey: ['smart-imports'],
@@ -55,38 +55,28 @@ export default function SmartImportPage() {
     mutationFn: (file: File) => uploadForImport(file),
     onSuccess: (data) => {
       setActiveImport(data.data)
+      // Auto-select all non-duplicate items
+      const ids = new Set(
+        (data.data.items || [])
+          .filter((i: SmartImportItem) => !i.is_duplicate && i.status !== 'rejected')
+          .map((i: SmartImportItem) => i.id)
+      )
+      setSelectedItems(ids)
       queryClient.invalidateQueries({ queryKey: ['smart-imports'] })
-    },
-  })
-
-  const updateItemMutation = useMutation({
-    mutationFn: ({ itemId, updates }: { itemId: string; updates: Partial<SmartImportItem> }) =>
-      updateImportItem(itemId, updates),
-    onSuccess: (data) => {
-      if (activeImport) {
-        setActiveImport({
-          ...activeImport,
-          items: activeImport.items.map((item) =>
-            item.id === data.data.id ? data.data : item
-          ),
-        })
-      }
     },
   })
 
   const confirmMutation = useMutation({
     mutationFn: () => {
       if (!activeImport || !selectedAccountId) return Promise.reject('No import or account')
-      const approvedIds = activeImport.items
-        .filter((i) => i.status === 'approved' || i.status === 'pending')
-        .map((i) => i.id)
-      return confirmImport(activeImport.id, selectedAccountId, approvedIds)
+      return confirmImport(activeImport.id, selectedAccountId, Array.from(selectedItems))
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['smart-imports'] })
       queryClient.invalidateQueries({ queryKey: ['cashbook-entries'] })
       queryClient.invalidateQueries({ queryKey: ['cashbook-summary'] })
       setActiveImport(null)
+      setSelectedItems(new Set())
     },
   })
 
@@ -105,16 +95,44 @@ export default function SmartImportPage() {
     try {
       const resp = await getImport(imp.id)
       setActiveImport(resp.data)
+      // Auto-select all importable items
+      const ids = new Set(
+        (resp.data.items || [])
+          .filter((i: SmartImportItem) => !i.is_duplicate && i.status !== 'rejected' && i.status !== 'imported')
+          .map((i: SmartImportItem) => i.id)
+      )
+      setSelectedItems(ids)
     } catch {
       // Failed to load
     }
   }
 
+  const toggleItem = (id: string) => {
+    setSelectedItems((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleAll = () => {
+    if (!activeImport) return
+    const importable = activeImport.items.filter((i) => i.status !== 'imported')
+    if (selectedItems.size === importable.length) {
+      setSelectedItems(new Set())
+    } else {
+      setSelectedItems(new Set(importable.map((i) => i.id)))
+    }
+  }
+
   // Show review table when we have an active import with items
   if (activeImport && activeImport.items && activeImport.items.length > 0) {
-    const approvedCount = activeImport.items.filter(
-      (i) => i.status === 'approved' || i.status === 'pending'
-    ).length
+    const importableItems = activeImport.items.filter((i) => i.status !== 'imported')
+    const allSelected = importableItems.length > 0 && importableItems.every((i) => selectedItems.has(i.id))
+    const selectedTotal = activeImport.items
+      .filter((i) => selectedItems.has(i.id))
+      .reduce((sum, i) => sum + i.amount, 0)
 
     return (
       <div className="p-6 space-y-4">
@@ -126,7 +144,7 @@ export default function SmartImportPage() {
             </p>
           </div>
           <button
-            onClick={() => setActiveImport(null)}
+            onClick={() => { setActiveImport(null); setSelectedItems(new Set()) }}
             className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 border dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
           >
             Back
@@ -142,7 +160,7 @@ export default function SmartImportPage() {
             <select
               value={selectedAccountId}
               onChange={(e) => setSelectedAccountId(e.target.value)}
-              className="w-full max-w-xs px-3 py-2 text-sm border dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 dark:text-gray-100"
+              className="w-full max-w-xs px-3 py-2 text-sm border dark:border-gray-600 rounded-md bg-white dark:bg-gray-800"
             >
               <option value="">Select account...</option>
               {accounts.map((a) => (
@@ -150,18 +168,23 @@ export default function SmartImportPage() {
               ))}
             </select>
           </div>
-          <button
-            onClick={() => confirmMutation.mutate()}
-            disabled={!selectedAccountId || approvedCount === 0 || confirmMutation.isPending}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
-          >
-            {confirmMutation.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <ArrowRight className="h-4 w-4" />
-            )}
-            Import {approvedCount} Item{approvedCount !== 1 ? 's' : ''}
-          </button>
+          <div className="text-right shrink-0">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+              {selectedItems.size} of {activeImport.items.length} selected · {formatCurrency(selectedTotal)}
+            </p>
+            <button
+              onClick={() => confirmMutation.mutate()}
+              disabled={!selectedAccountId || selectedItems.size === 0 || confirmMutation.isPending}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            >
+              {confirmMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ArrowRight className="h-4 w-4" />
+              )}
+              Import {selectedItems.size} Item{selectedItems.size !== 1 ? 's' : ''}
+            </button>
+          </div>
         </div>
 
         {confirmMutation.isSuccess && (
@@ -176,32 +199,45 @@ export default function SmartImportPage() {
           <table className="w-full">
             <thead className="bg-gray-50 dark:bg-gray-950 border-b dark:border-gray-700">
               <tr>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
+                <th className="px-4 py-3 w-10">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleAll}
+                    className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+                  />
+                </th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Type</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Date</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Description</th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Amount</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Category</th>
                 <th className="text-center px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Confidence</th>
-                <th className="text-center px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y dark:divide-gray-700">
               {activeImport.items.map((item) => (
-                <tr key={item.id} className={cn(
-                  'transition-colors',
-                  item.status === 'rejected' && 'opacity-50',
-                  item.status === 'imported' && 'bg-green-50/50 dark:bg-green-900/10',
-                )}>
+                <tr
+                  key={item.id}
+                  onClick={() => item.status !== 'imported' && toggleItem(item.id)}
+                  className={cn(
+                    'transition-colors cursor-pointer',
+                    item.status === 'imported' && 'bg-green-50/50 dark:bg-green-900/10 cursor-default',
+                    selectedItems.has(item.id) && item.status !== 'imported' && 'bg-blue-50/50 dark:bg-blue-900/10',
+                    item.is_duplicate && 'opacity-70',
+                  )}
+                >
                   <td className="px-4 py-3">
                     {item.status === 'imported' ? (
                       <CheckCircle2 className="h-4 w-4 text-green-600" />
-                    ) : item.status === 'rejected' ? (
-                      <XCircle className="h-4 w-4 text-red-500" />
-                    ) : item.is_duplicate ? (
-                      <AlertTriangle className="h-4 w-4 text-yellow-500" />
                     ) : (
-                      <Clock className="h-4 w-4 text-gray-400" />
+                      <input
+                        type="checkbox"
+                        checked={selectedItems.has(item.id)}
+                        onChange={() => toggleItem(item.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+                      />
                     )}
                   </td>
                   <td className="px-4 py-3">
@@ -219,6 +255,11 @@ export default function SmartImportPage() {
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 max-w-[200px] truncate">
                     {item.description}
+                    {item.is_duplicate && (
+                      <span className="ml-2 text-[10px] bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 px-1.5 py-0.5 rounded">
+                        possible duplicate
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-sm text-right font-medium text-gray-900 dark:text-gray-100">
                     {formatCurrency(item.amount)}
@@ -228,38 +269,6 @@ export default function SmartImportPage() {
                   </td>
                   <td className="px-4 py-3 text-center">
                     <ConfidenceBadge value={item.confidence} />
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center justify-center gap-1">
-                      {item.status !== 'imported' && (
-                        <>
-                          <button
-                            onClick={() => updateItemMutation.mutate({ itemId: item.id, updates: { status: 'approved' } })}
-                            className={cn(
-                              'p-1 rounded transition-colors',
-                              item.status === 'approved'
-                                ? 'text-green-600 bg-green-50 dark:bg-green-900/30'
-                                : 'text-gray-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30'
-                            )}
-                            title="Approve"
-                          >
-                            <CheckCircle2 className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => updateItemMutation.mutate({ itemId: item.id, updates: { status: 'rejected' } })}
-                            className={cn(
-                              'p-1 rounded transition-colors',
-                              item.status === 'rejected'
-                                ? 'text-red-600 bg-red-50 dark:bg-red-900/30'
-                                : 'text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30'
-                            )}
-                            title="Reject"
-                          >
-                            <XCircle className="h-4 w-4" />
-                          </button>
-                        </>
-                      )}
-                    </div>
                   </td>
                 </tr>
               ))}
