@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -160,14 +160,6 @@ export default function ContactDetailPage() {
       navigate('/contacts')
     },
   })
-
-  // Auto-save: debounced contact update
-  const autoSave = useCallback((updates: Record<string, any>) => {
-    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
-    autoSaveTimer.current = setTimeout(() => {
-      updateMutation.mutate(updates)
-    }, 1500)
-  }, [updateMutation])
 
   const contact = data?.data
 
