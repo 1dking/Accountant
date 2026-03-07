@@ -41,7 +41,7 @@ export default function DriveBreadcrumb({ currentFolderId, folders, onNavigate }
       <button
         onClick={() => onNavigate(null)}
         className={`shrink-0 px-1.5 py-0.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
-          !currentFolderId ? 'font-medium text-gray-900' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
+          !currentFolderId ? 'font-medium text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
         }`}
       >
         My Drive
@@ -52,7 +52,7 @@ export default function DriveBreadcrumb({ currentFolderId, folders, onNavigate }
           <button
             onClick={() => onNavigate(segment.id)}
             className={`truncate px-1.5 py-0.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors max-w-40 ${
-              segment.id === currentFolderId ? 'font-medium text-gray-900' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
+              segment.id === currentFolderId ? 'font-medium text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
             }`}
           >
             {segment.name}

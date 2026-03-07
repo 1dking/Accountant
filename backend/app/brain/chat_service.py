@@ -176,10 +176,16 @@ async def chat_stream(
 
     # Build system prompt
     org_name, brand_voice = await _get_org_context(db, user_id)
+
+    # Sanitize page_context to prevent prompt injection
+    safe_context = (page_context or "General")[:200]
+    # Remove any attempts to override instructions
+    safe_context = safe_context.replace("\n", " ").replace("\r", " ")
+
     system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
         org_name=org_name,
         brand_voice=brand_voice,
-        page_context=page_context,
+        page_context=safe_context,
         current_date=datetime.utcnow().strftime("%Y-%m-%d"),
     )
 
@@ -199,19 +205,29 @@ async def chat_stream(
     full_response = ""
 
     try:
-        # First call — may request tool use
-        response = await client.messages.create(
-            model=settings.anthropic_model,
-            max_tokens=2048,
-            system=system_prompt,
-            messages=messages,
-            tools=TOOL_DEFINITIONS,
-        )
-
-        # Process tool calls iteratively (max 3 rounds)
+        # Streaming loop — every call uses true streaming so text arrives
+        # token-by-token.  If Claude requests tool_use we collect the full
+        # response, execute tools, and start a new streaming round.
         rounds = 0
-        while response.stop_reason == "tool_use" and rounds < 3:
+        while rounds <= 3:
             rounds += 1
+
+            async with client.messages.stream(
+                model=settings.anthropic_model,
+                max_tokens=2048,
+                system=system_prompt,
+                messages=messages,
+                tools=TOOL_DEFINITIONS,
+            ) as stream:
+                async for text in stream.text_stream:
+                    full_response += text
+                    yield f'data: {json.dumps({"type": "text", "content": text})}\n\n'
+
+                response = await stream.get_final_message()
+
+            # If Claude didn't request tools, we're done
+            if response.stop_reason != "tool_use":
+                break
 
             # Execute each tool call
             tool_results = []
@@ -254,36 +270,13 @@ async def chat_stream(
             messages.append({"role": "assistant", "content": assistant_content})
             messages.append({"role": "user", "content": tool_results})
 
-            # Call Claude again with tool results
-            response = await client.messages.create(
-                model=settings.anthropic_model,
-                max_tokens=2048,
-                system=system_prompt,
-                messages=messages,
-                tools=TOOL_DEFINITIONS,
-            )
-
-        # Stream the final text response
-        for block in response.content:
-            if block.type == "text":
-                full_response += block.text
-                # Send in chunks for streaming effect
-                words = block.text.split(" ")
-                chunk = ""
-                for word in words:
-                    chunk += word + " "
-                    if len(chunk) > 20:
-                        yield f'data: {json.dumps({"type": "text", "content": chunk})}\n\n'
-                        chunk = ""
-                if chunk:
-                    yield f'data: {json.dumps({"type": "text", "content": chunk})}\n\n'
-
     except anthropic.APIError as e:
-        error_msg = f"I'm having trouble connecting right now. Please try again in a moment. (Error: {e.message})"
+        error_msg = "I'm having trouble connecting right now. Please try again in a moment."
         full_response = error_msg
+        logger.error("Brain API error: %s", e.message)
         yield f'data: {json.dumps({"type": "text", "content": error_msg})}\n\n'
     except Exception as e:
-        error_msg = f"Something went wrong. Please try again. ({type(e).__name__})"
+        error_msg = "Something went wrong. Please try again."
         full_response = error_msg
         logger.exception("Brain chat error")
         yield f'data: {json.dumps({"type": "text", "content": error_msg})}\n\n'

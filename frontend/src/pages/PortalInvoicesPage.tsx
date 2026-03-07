@@ -4,15 +4,15 @@ import { getPortalInvoices } from '../api/portal'
 
 function statusBadge(status: string) {
   const colors: Record<string, string> = {
-    draft: 'bg-gray-100 text-gray-700',
-    sent: 'bg-blue-100 text-blue-700',
-    viewed: 'bg-indigo-100 text-indigo-700',
-    paid: 'bg-green-100 text-green-700',
-    overdue: 'bg-red-100 text-red-700',
-    cancelled: 'bg-gray-100 text-gray-500',
-    partially_paid: 'bg-yellow-100 text-yellow-700',
+    draft: 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300',
+    sent: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400',
+    viewed: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400',
+    paid: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400',
+    overdue: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400',
+    cancelled: 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400',
+    partially_paid: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400',
   }
-  return colors[status] ?? 'bg-gray-100 text-gray-700'
+  return colors[status] ?? 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
 }
 
 export default function PortalInvoicesPage() {

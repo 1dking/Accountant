@@ -1,6 +1,8 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useLocation } from 'react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import {
   X, Send, Sparkles, Loader2, MessageSquare, Plus, Trash2,
   AlertCircle, ChevronLeft, Database,
@@ -73,6 +75,18 @@ export default function OBrainPanel() {
   const [conversationId, setConversationId] = useState<string | null>(null)
   const [view, setView] = useState<PanelView>('chat')
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+
+  const scrollToBottom = useCallback(() => {
+    const el = scrollContainerRef.current
+    if (el) {
+      // Only auto-scroll if user is near bottom (within 120px)
+      const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120
+      if (isNearBottom) {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+      }
+    }
+  }, [])
 
   const { data: conversationsData } = useQuery({
     queryKey: ['brain-conversations'],
@@ -91,8 +105,8 @@ export default function OBrainPanel() {
   const alerts: BrainAlert[] = alertsData?.data ?? []
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+    scrollToBottom()
+  }, [messages, scrollToBottom])
 
   if (panelState !== 'obrain') return null
 
@@ -117,6 +131,8 @@ export default function OBrainPanel() {
 
     setMessages((prev) => [...prev, userMsg, assistantMsg])
     setIsStreaming(true)
+    // Force scroll to bottom when sending
+    requestAnimationFrame(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }))
 
     try {
       const context = getPageContext(location.pathname)
@@ -359,7 +375,7 @@ export default function OBrainPanel() {
       {view === 'chat' && (
         <>
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin">
+          <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin">
             {messages.length === 0 && (
               <div className="flex flex-col items-center justify-center h-full text-center px-6">
                 <Sparkles className="h-12 w-12 text-purple-300 dark:text-purple-700 mb-4" />
@@ -385,11 +401,23 @@ export default function OBrainPanel() {
                       {msg.tools.map((t, i) => <ToolBadge key={i} name={t} />)}
                     </div>
                   )}
-                  {/* Content */}
-                  <div className="whitespace-pre-wrap">{msg.content}</div>
-                  {/* Streaming indicator */}
+                  {/* Content — rendered as markdown */}
+                  {msg.content ? (
+                    <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0 [&_pre]:my-1 [&_code]:text-xs [&_pre]:text-xs [&_pre]:bg-gray-200 [&_pre]:dark:bg-gray-700 [&_pre]:rounded [&_pre]:p-2">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                    </div>
+                  ) : null}
+                  {/* Streaming indicator — pulsing dots before first chunk */}
                   {msg.isStreaming && !msg.content && (
-                    <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                    <div className="flex items-center gap-1 py-1">
+                      <span className="h-1.5 w-1.5 rounded-full bg-gray-400 dark:bg-gray-500 animate-bounce [animation-delay:0ms]" />
+                      <span className="h-1.5 w-1.5 rounded-full bg-gray-400 dark:bg-gray-500 animate-bounce [animation-delay:150ms]" />
+                      <span className="h-1.5 w-1.5 rounded-full bg-gray-400 dark:bg-gray-500 animate-bounce [animation-delay:300ms]" />
+                    </div>
+                  )}
+                  {/* Blinking cursor while streaming with content */}
+                  {msg.isStreaming && msg.content && (
+                    <span className="inline-block w-1.5 h-4 bg-gray-400 dark:bg-gray-500 animate-pulse ml-0.5 align-text-bottom" />
                   )}
                   {/* Sources */}
                   {msg.sources && msg.sources.length > 0 && <SourcesBadge sources={msg.sources} />}

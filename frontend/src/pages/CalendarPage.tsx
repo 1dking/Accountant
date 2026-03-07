@@ -180,7 +180,7 @@ export default function CalendarPage() {
                   setShowCreateForm(true)
                 }}
               >
-                <div className={`text-xs font-medium mb-1 ${isToday ? 'text-blue-600' : 'text-gray-700'}`}>
+                <div className={`text-xs font-medium mb-1 ${isToday ? 'text-blue-600' : 'text-gray-700 dark:text-gray-300'}`}>
                   {day}
                 </div>
                 <div className="space-y-0.5">

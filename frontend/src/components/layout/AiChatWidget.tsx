@@ -130,7 +130,7 @@ export default function AiChatWidget() {
                     className={
                       msg.role === 'user'
                         ? 'bg-blue-600 text-white rounded-2xl px-4 py-2 max-w-[80%] ml-auto'
-                        : 'bg-gray-100 text-gray-900 rounded-2xl px-4 py-2 max-w-[80%] whitespace-pre-wrap'
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-2xl px-4 py-2 max-w-[80%] whitespace-pre-wrap'
                     }
                   >
                     <p className="text-sm leading-relaxed">{msg.content}</p>

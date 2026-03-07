@@ -4,12 +4,12 @@ import { getPortalMeetings } from '../api/portal'
 
 function statusBadge(status: string) {
   const colors: Record<string, string> = {
-    scheduled: 'bg-blue-100 text-blue-700',
-    in_progress: 'bg-green-100 text-green-700',
-    completed: 'bg-gray-100 text-gray-700',
-    cancelled: 'bg-red-100 text-red-500',
+    scheduled: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400',
+    in_progress: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400',
+    completed: 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300',
+    cancelled: 'bg-red-100 dark:bg-red-900/30 text-red-500 dark:text-red-400',
   }
-  return colors[status] ?? 'bg-gray-100 text-gray-700'
+  return colors[status] ?? 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
 }
 
 function formatDateTime(dateStr: string | null): string {

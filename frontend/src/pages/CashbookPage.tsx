@@ -441,7 +441,7 @@ export default function CashbookPage() {
                 Closing Balance
               </div>
               <p
-                className={`text-xl font-bold ${summary.closing_balance >= 0 ? 'text-gray-900' : 'text-red-700'}`}
+                className={`text-xl font-bold ${summary.closing_balance >= 0 ? 'text-gray-900 dark:text-gray-100' : 'text-red-700 dark:text-red-400'}`}
               >
                 {summary.closing_balance < 0 ? '-' : ''}
                 {formatCurrency(summary.closing_balance)}
