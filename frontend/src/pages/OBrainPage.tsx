@@ -65,6 +65,10 @@ export default function OBrainPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  // Streaming refs — accumulate tokens without triggering React renders,
+  // then flush to state at ~60fps via requestAnimationFrame.
+  const streamBufferRef = useRef('')
+  const rafIdRef = useRef<number | null>(null)
 
   const scrollToBottom = useCallback(() => {
     const el = scrollContainerRef.current
@@ -138,6 +142,22 @@ export default function OBrainPage() {
     setIsStreaming(true)
     requestAnimationFrame(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }))
 
+    // Flush buffered tokens to React state at ~60fps
+    const flushBuffer = () => {
+      const chunk = streamBufferRef.current
+      if (chunk) {
+        streamBufferRef.current = ''
+        setMessages((prev) => {
+          const updated = [...prev]
+          const last = updated[updated.length - 1]
+          if (last.role === 'assistant') last.content += chunk
+          return [...updated]
+        })
+      }
+      rafIdRef.current = requestAnimationFrame(flushBuffer)
+    }
+    rafIdRef.current = requestAnimationFrame(flushBuffer)
+
     try {
       for await (const event of chatStream(
         userText,
@@ -146,12 +166,8 @@ export default function OBrainPage() {
         uploadedFileIds.length > 0 ? uploadedFileIds : undefined,
       )) {
         if (event.type === 'text' && event.content) {
-          setMessages((prev) => {
-            const updated = [...prev]
-            const last = updated[updated.length - 1]
-            if (last.role === 'assistant') last.content += event.content!
-            return [...updated]
-          })
+          // Accumulate in ref — the RAF loop pushes to state at 60fps
+          streamBufferRef.current += event.content
         } else if (event.type === 'tool_use' && event.tool) {
           setMessages((prev) => {
             const updated = [...prev]
@@ -167,6 +183,17 @@ export default function OBrainPage() {
             return [...updated]
           })
         } else if (event.type === 'done') {
+          // Final flush of any remaining buffered text
+          if (streamBufferRef.current) {
+            const remaining = streamBufferRef.current
+            streamBufferRef.current = ''
+            setMessages((prev) => {
+              const updated = [...prev]
+              const last = updated[updated.length - 1]
+              if (last.role === 'assistant') last.content += remaining
+              return [...updated]
+            })
+          }
           if (event.conversation_id) setConversationId(event.conversation_id)
           setMessages((prev) => {
             const updated = [...prev]
@@ -188,6 +215,10 @@ export default function OBrainPage() {
         return [...updated]
       })
     } finally {
+      // Stop the RAF flush loop
+      if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current)
+      rafIdRef.current = null
+      streamBufferRef.current = ''
       setIsStreaming(false)
     }
   }

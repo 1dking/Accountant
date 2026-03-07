@@ -424,7 +424,12 @@ async def chat_stream(
             ) as stream:
                 async for text in stream.text_stream:
                     full_response += text
-                    yield f'data: {json.dumps({"type": "text", "content": text})}\n\n'
+                    # Pad each SSE event to ~256 bytes so reverse proxies
+                    # (DreamHost, CloudFront, nginx) flush immediately
+                    # instead of buffering small chunks.
+                    payload = json.dumps({"type": "text", "content": text})
+                    padding = " " * max(0, 240 - len(payload))
+                    yield f'data: {payload}{padding}\n\n'
 
                 response = await stream.get_final_message()
 

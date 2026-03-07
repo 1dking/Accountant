@@ -2,16 +2,23 @@
 
 Each tool queries existing PostgreSQL tables and returns formatted results.
 These handle structured data (invoices, contacts, cashbook, etc.).
+
+NOTE: This is a single-org system.  Tool queries intentionally have NO
+user-scoped filters so that O-Brain can see all data regardless of who
+created or imported it.
 """
 
 import json
+import logging
 import uuid
 from datetime import date, datetime, timedelta
 
-from sqlalchemy import select, func, and_, or_, desc
+from sqlalchemy import select, and_, or_, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.brain.retrieval_service import search_brain, search_by_type
+from app.brain.retrieval_service import search_brain
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -204,35 +211,30 @@ async def execute_tool(
     tool_input: dict,
 ) -> str:
     """Execute a tool and return the result as a JSON string."""
+    handlers = {
+        "query_invoices": _query_invoices,
+        "query_cashbook": _query_cashbook,
+        "query_contacts": _query_contacts,
+        "query_proposals": _query_proposals,
+        "query_expenses": _query_expenses,
+        "query_revenue_summary": _query_revenue_summary,
+        "query_overdue_items": _query_overdue_items,
+        "query_calendar_bookings": _query_calendar_bookings,
+        "search_communications": _search_communications,
+        "search_meeting_transcripts": _search_meeting_transcripts,
+        "search_documents": _search_documents,
+        "search_brain": _search_brain_tool,
+    }
+
+    handler = handlers.get(tool_name)
+    if not handler:
+        return json.dumps({"error": f"Unknown tool: {tool_name}"})
+
     try:
-        if tool_name == "query_invoices":
-            return await _query_invoices(db, user_id, tool_input)
-        elif tool_name == "query_cashbook":
-            return await _query_cashbook(db, user_id, tool_input)
-        elif tool_name == "query_contacts":
-            return await _query_contacts(db, user_id, tool_input)
-        elif tool_name == "query_proposals":
-            return await _query_proposals(db, user_id, tool_input)
-        elif tool_name == "query_expenses":
-            return await _query_expenses(db, user_id, tool_input)
-        elif tool_name == "query_revenue_summary":
-            return await _query_revenue_summary(db, user_id, tool_input)
-        elif tool_name == "query_overdue_items":
-            return await _query_overdue_items(db, user_id, tool_input)
-        elif tool_name == "query_calendar_bookings":
-            return await _query_calendar_bookings(db, user_id, tool_input)
-        elif tool_name == "search_communications":
-            return await _search_communications(db, user_id, tool_input)
-        elif tool_name == "search_meeting_transcripts":
-            return await _search_meeting_transcripts(db, user_id, tool_input)
-        elif tool_name == "search_documents":
-            return await _search_documents(db, user_id, tool_input)
-        elif tool_name == "search_brain":
-            return await _search_brain_tool(db, user_id, tool_input)
-        else:
-            return json.dumps({"error": f"Unknown tool: {tool_name}"})
+        return await handler(db, user_id, tool_input)
     except Exception as e:
-        return json.dumps({"error": str(e)})
+        logger.exception("Tool %s failed with input %s", tool_name, tool_input)
+        return json.dumps({"error": f"Tool '{tool_name}' failed: {str(e)[:300]}"})
 
 
 # ---------------------------------------------------------------------------
@@ -242,7 +244,7 @@ async def execute_tool(
 async def _query_invoices(db: AsyncSession, user_id: uuid.UUID, params: dict) -> str:
     from app.invoicing.models import Invoice
 
-    conditions = [Invoice.created_by == user_id]
+    conditions = []
     if params.get("contact_id"):
         conditions.append(Invoice.contact_id == uuid.UUID(params["contact_id"]))
     if params.get("status"):
@@ -253,7 +255,10 @@ async def _query_invoices(db: AsyncSession, user_id: uuid.UUID, params: dict) ->
         conditions.append(Invoice.issue_date <= params["date_to"])
 
     limit = min(params.get("limit", 20), 50)
-    stmt = select(Invoice).where(and_(*conditions)).order_by(desc(Invoice.issue_date)).limit(limit)
+    stmt = select(Invoice)
+    if conditions:
+        stmt = stmt.where(and_(*conditions))
+    stmt = stmt.order_by(desc(Invoice.issue_date)).limit(limit)
     result = await db.execute(stmt)
     invoices = list(result.scalars().all())
     return json.dumps({"invoices": _serialize(invoices), "count": len(invoices)})
@@ -262,7 +267,7 @@ async def _query_invoices(db: AsyncSession, user_id: uuid.UUID, params: dict) ->
 async def _query_cashbook(db: AsyncSession, user_id: uuid.UUID, params: dict) -> str:
     from app.cashbook.models import CashbookEntry
 
-    conditions = [CashbookEntry.user_id == user_id]
+    conditions = []
     if params.get("entry_type"):
         conditions.append(CashbookEntry.entry_type == params["entry_type"].lower())
     if params.get("date_from"):
@@ -271,11 +276,13 @@ async def _query_cashbook(db: AsyncSession, user_id: uuid.UUID, params: dict) ->
         conditions.append(CashbookEntry.date <= params["date_to"])
 
     limit = min(params.get("limit", 20), 50)
-    stmt = select(CashbookEntry).where(and_(*conditions)).order_by(desc(CashbookEntry.date)).limit(limit)
+    stmt = select(CashbookEntry)
+    if conditions:
+        stmt = stmt.where(and_(*conditions))
+    stmt = stmt.order_by(desc(CashbookEntry.date)).limit(limit)
     result = await db.execute(stmt)
     entries = list(result.scalars().all())
 
-    # Calculate totals — handle both enum and plain string entry_type
     total_income = sum(float(e.total_amount) for e in entries if _enum_val(e.entry_type) == "income")
     total_expense = sum(float(e.total_amount) for e in entries if _enum_val(e.entry_type) == "expense")
 
@@ -291,7 +298,7 @@ async def _query_cashbook(db: AsyncSession, user_id: uuid.UUID, params: dict) ->
 async def _query_contacts(db: AsyncSession, user_id: uuid.UUID, params: dict) -> str:
     from app.contacts.models import Contact
 
-    conditions = [Contact.created_by == user_id, Contact.is_active == True]
+    conditions = [Contact.is_active == True]  # noqa: E712
     if params.get("search"):
         q = f"%{params['search']}%"
         conditions.append(
@@ -314,14 +321,17 @@ async def _query_contacts(db: AsyncSession, user_id: uuid.UUID, params: dict) ->
 async def _query_proposals(db: AsyncSession, user_id: uuid.UUID, params: dict) -> str:
     from app.proposals.models import Proposal
 
-    conditions = [Proposal.created_by == user_id]
+    conditions = []
     if params.get("status"):
         conditions.append(Proposal.status == params["status"])
     if params.get("contact_id"):
         conditions.append(Proposal.contact_id == uuid.UUID(params["contact_id"]))
 
     limit = min(params.get("limit", 20), 50)
-    stmt = select(Proposal).where(and_(*conditions)).order_by(desc(Proposal.created_at)).limit(limit)
+    stmt = select(Proposal)
+    if conditions:
+        stmt = stmt.where(and_(*conditions))
+    stmt = stmt.order_by(desc(Proposal.created_at)).limit(limit)
     result = await db.execute(stmt)
     proposals = list(result.scalars().all())
 
@@ -336,7 +346,7 @@ async def _query_proposals(db: AsyncSession, user_id: uuid.UUID, params: dict) -
 async def _query_expenses(db: AsyncSession, user_id: uuid.UUID, params: dict) -> str:
     from app.accounting.models import Expense
 
-    conditions = [Expense.user_id == user_id]
+    conditions = []
     if params.get("vendor"):
         conditions.append(Expense.vendor_name.ilike(f"%{params['vendor']}%"))
     if params.get("date_from"):
@@ -345,7 +355,10 @@ async def _query_expenses(db: AsyncSession, user_id: uuid.UUID, params: dict) ->
         conditions.append(Expense.date <= params["date_to"])
 
     limit = min(params.get("limit", 20), 50)
-    stmt = select(Expense).where(and_(*conditions)).order_by(desc(Expense.date)).limit(limit)
+    stmt = select(Expense)
+    if conditions:
+        stmt = stmt.where(and_(*conditions))
+    stmt = stmt.order_by(desc(Expense.date)).limit(limit)
     result = await db.execute(stmt)
     expenses = list(result.scalars().all())
 
@@ -381,7 +394,6 @@ async def _query_revenue_summary(db: AsyncSession, user_id: uuid.UUID, params: d
     # Paid invoices in period
     stmt = select(Invoice).where(
         and_(
-            Invoice.created_by == user_id,
             Invoice.status == "paid",
             Invoice.issue_date >= start.isoformat(),
             Invoice.issue_date <= end.isoformat(),
@@ -394,7 +406,6 @@ async def _query_revenue_summary(db: AsyncSession, user_id: uuid.UUID, params: d
     # Income records in period
     stmt2 = select(Income).where(
         and_(
-            Income.created_by == user_id,
             Income.date >= start.isoformat(),
             Income.date <= end.isoformat(),
         )
@@ -423,7 +434,7 @@ async def _query_overdue_items(db: AsyncSession, user_id: uuid.UUID, params: dic
 
     # Overdue invoices
     stmt = select(Invoice).where(
-        and_(Invoice.created_by == user_id, Invoice.status == "overdue")
+        Invoice.status == "overdue"
     ).order_by(Invoice.due_date)
     result = await db.execute(stmt)
     overdue_invoices = list(result.scalars().all())
@@ -431,7 +442,6 @@ async def _query_overdue_items(db: AsyncSession, user_id: uuid.UUID, params: dic
     # Unsigned proposals > 7 days
     stmt2 = select(Proposal).where(
         and_(
-            Proposal.created_by == user_id,
             Proposal.status.in_(["sent", "viewed", "waiting_signature"]),
             Proposal.sent_at <= datetime.combine(seven_days_ago, datetime.min.time()),
         )
@@ -452,12 +462,13 @@ async def _query_calendar_bookings(db: AsyncSession, user_id: uuid.UUID, params:
     from app.calendar.models import CalendarEvent
 
     today = date.today()
-    conditions = [CalendarEvent.created_by == user_id]
-
     date_from = params.get("date_from", today.isoformat())
     date_to = params.get("date_to", (today + timedelta(days=30)).isoformat())
-    conditions.append(CalendarEvent.date >= date_from)
-    conditions.append(CalendarEvent.date <= date_to)
+
+    conditions = [
+        CalendarEvent.date >= date_from,
+        CalendarEvent.date <= date_to,
+    ]
 
     limit = min(params.get("limit", 10), 30)
     stmt = select(CalendarEvent).where(and_(*conditions)).order_by(CalendarEvent.date).limit(limit)
