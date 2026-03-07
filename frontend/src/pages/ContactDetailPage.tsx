@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -99,7 +99,6 @@ export default function ContactDetailPage() {
   const [activeTab, setActiveTab] = useState<TabKey>('overview')
   const [quickNote, setQuickNote] = useState('')
   const [activeAction, setActiveAction] = useState<'note' | 'email' | null>(null)
-  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ['contact', id],
