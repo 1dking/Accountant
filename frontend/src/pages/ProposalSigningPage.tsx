@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { useParams } from 'react-router'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import DOMPurify from 'dompurify'
 import { getSigningData, signProposal } from '@/api/proposals'
 import type { SigningPageData } from '@/api/proposals'
 import {
@@ -58,7 +59,7 @@ function TextBlock({ data }: { data: Record<string, any> }) {
   return (
     <div
       className="prose prose-sm sm:prose dark:prose-invert max-w-none"
-      dangerouslySetInnerHTML={{ __html: data.html || data.content || '' }}
+      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(data.html || data.content || '') }}
     />
   )
 }

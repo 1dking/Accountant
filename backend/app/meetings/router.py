@@ -64,14 +64,14 @@ async def create_meeting(
 @router.get("/")
 async def list_meetings(
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
     status: MeetingStatus | None = None,
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
 ) -> dict:
     """List meetings with optional status filter."""
     meetings, total_count = await service.list_meetings(
-        db, user_id=_.id, status_filter=status, skip=skip, limit=limit
+        db, user=current_user, status_filter=status, skip=skip, limit=limit
     )
     items = []
     for m in meetings:
@@ -100,7 +100,7 @@ async def list_meetings(
 @router.get("/recordings/all")
 async def list_all_recordings(
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
     meeting_id: uuid.UUID | None = None,
     contact_id: uuid.UUID | None = None,
     skip: int = Query(0, ge=0),
@@ -108,7 +108,8 @@ async def list_all_recordings(
 ) -> dict:
     """List all recordings with optional filters."""
     recordings = await service.list_recordings(
-        db, meeting_id=meeting_id, contact_id=contact_id, skip=skip, limit=limit
+        db, meeting_id=meeting_id, contact_id=contact_id, skip=skip, limit=limit,
+        user=current_user,
     )
     return {
         "data": [MeetingRecordingResponse.model_validate(r) for r in recordings],
@@ -121,7 +122,7 @@ async def list_recordings_by_contact(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict:
     """List recordings grouped by contact."""
-    grouped = await service.list_recordings_by_contact(db, current_user.id)
+    grouped = await service.list_recordings_by_contact(db, current_user)
     # Serialize recordings within each group
     result = []
     for group in grouped:
@@ -427,10 +428,10 @@ async def upload_recording(
 async def list_meeting_recordings(
     meeting_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict:
     """List recordings for a specific meeting."""
-    recordings = await service.list_recordings(db, meeting_id=meeting_id)
+    recordings = await service.list_recordings(db, meeting_id=meeting_id, user=current_user)
     return {"data": [MeetingRecordingResponse.model_validate(r) for r in recordings]}
 
 

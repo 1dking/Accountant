@@ -111,7 +111,7 @@ async def list_accounts(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict:
-    accounts = await service.list_accounts(db, current_user.id)
+    accounts = await service.list_accounts(db, current_user)
     balances = await service.get_account_balances_batch(db, [a.id for a in accounts])
     result = []
     for acct in accounts:
@@ -137,9 +137,9 @@ async def create_account(
 async def get_account(
     account_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict:
-    account = await service.get_account(db, account_id)
+    account = await service.get_account(db, account_id, current_user)
     resp = PaymentAccountResponse.model_validate(account)
     resp.current_balance = await service.get_account_current_balance(db, account_id)
     return {"data": resp.model_dump(mode="json")}
@@ -150,9 +150,9 @@ async def update_account(
     account_id: uuid.UUID,
     data: PaymentAccountUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
-    account = await service.update_account(db, account_id, data)
+    account = await service.update_account(db, account_id, data, current_user)
     resp = PaymentAccountResponse.model_validate(account)
     resp.current_balance = await service.get_account_current_balance(db, account_id)
     return {"data": resp.model_dump(mode="json")}
@@ -162,9 +162,9 @@ async def update_account(
 async def delete_account(
     account_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_role([Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN]))],
 ) -> dict:
-    await service.delete_account(db, account_id)
+    await service.delete_account(db, account_id, current_user)
     return {"data": {"message": "Account deactivated successfully"}}
 
 
@@ -205,7 +205,7 @@ async def get_entry_by_source(
 @router.get("/entries")
 async def list_entries(
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
     pagination: Annotated[PaginationParams, Depends(get_pagination)],
     account_id: uuid.UUID | None = None,
     entry_type: EntryType | None = None,
@@ -222,7 +222,7 @@ async def list_entries(
         date_to=date_to,
         search=search,
     )
-    entries, meta = await service.list_entries(db, filters, pagination)
+    entries, meta = await service.list_entries(db, filters, pagination, current_user)
     return {
         "data": [CashbookEntryResponse.model_validate(e) for e in entries],
         "meta": meta,
@@ -248,9 +248,9 @@ async def create_entry(
 async def get_entry(
     entry_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict:
-    entry = await service.get_entry(db, entry_id)
+    entry = await service.get_entry(db, entry_id, current_user)
     return {"data": CashbookEntryResponse.model_validate(entry)}
 
 
@@ -269,9 +269,9 @@ async def update_entry(
 async def delete_entry(
     entry_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
-    await service.delete_entry(db, entry_id)
+    await service.delete_entry(db, entry_id, current_user)
     return {"data": {"message": "Entry deleted successfully"}}
 
 

@@ -1,7 +1,9 @@
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, Query
+from typing import Annotated
+
+from fastapi import Depends, FastAPI, Request, WebSocket, WebSocketDisconnect, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -10,6 +12,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.config import Settings
 from app.core.exceptions import register_exception_handlers
+from app.dependencies import get_current_user
 from app.core.websocket import websocket_manager
 from app.database import Base, build_engine, build_session_factory
 
@@ -52,6 +55,8 @@ import app.pages.models  # noqa: F401
 import app.scheduling.models  # noqa: F401
 import app.branding.models  # noqa: F401
 import app.brain.models  # noqa: F401
+import app.smart_import.models  # noqa: F401
+import app.kyc.models  # noqa: F401
 # contacts.models now includes ContactTag, ContactActivity, FileShare, etc.
 
 
@@ -99,6 +104,7 @@ async def lifespan(application: FastAPI):
 
 def create_app() -> FastAPI:
     settings = Settings()
+    settings.validate_secrets()
 
     fastapi_app = FastAPI(
         title="Accountant",
@@ -116,6 +122,19 @@ def create_app() -> FastAPI:
         allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"],
     )
+
+    # Security headers middleware — adds standard protective headers to all responses
+    @fastapi_app.middleware("http")
+    async def add_security_headers(request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        if request.url.scheme == "https":
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        return response
 
     # Rewrite *internal* redirect Location headers to be relative so they
     # work correctly behind a dev proxy (Vite) without cross-origin issues.
@@ -180,6 +199,8 @@ def create_app() -> FastAPI:
     from app.scheduling.router import router as scheduling_router
     from app.branding.router import router as branding_router
     from app.brain.router import router as brain_router
+    from app.smart_import.router import router as smart_import_router
+    from app.kyc.router import router as kyc_router
 
     fastapi_app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
     fastapi_app.include_router(documents_router, prefix="/api/documents", tags=["documents"])
@@ -223,10 +244,19 @@ def create_app() -> FastAPI:
     fastapi_app.include_router(scheduling_router, prefix="/api/scheduling", tags=["scheduling"])
     fastapi_app.include_router(branding_router, prefix="/api/branding", tags=["branding"])
     fastapi_app.include_router(brain_router, prefix="/api/brain", tags=["brain"])
+    fastapi_app.include_router(smart_import_router, prefix="/api/smart-import", tags=["Smart Import"])
+    fastapi_app.include_router(kyc_router, prefix="/api/kyc", tags=["KYC"])
 
     # WebSocket endpoint
     @fastapi_app.websocket("/ws")
     async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
+        # Validate origin to prevent cross-site WebSocket hijacking
+        origin = websocket.headers.get("origin", "")
+        allowed_origins = settings.cors_origins
+        if origin and not any(origin.startswith(o) for o in allowed_origins):
+            await websocket.close(code=4003, reason="Origin not allowed")
+            return
+
         from app.auth.utils import decode_token
 
         token_data = decode_token(token, settings)
@@ -248,7 +278,7 @@ def create_app() -> FastAPI:
         return {"data": {"status": "healthy"}}
 
     @fastapi_app.get("/api/system/stats")
-    async def stats(request: Request):
+    async def stats(request: Request, _: Annotated["User", Depends(get_current_user)]):
         from app.auth.models import User
         from app.documents.models import Document
         from app.collaboration.models import ApprovalWorkflow, ApprovalStatus

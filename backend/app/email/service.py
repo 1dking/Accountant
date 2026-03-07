@@ -13,6 +13,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import User
+from app.core.authorization import apply_ownership_filter, authorize_owner
 from app.core.encryption import get_encryption_service
 from app.core.exceptions import NotFoundError, ValidationError
 
@@ -79,10 +80,8 @@ async def list_smtp_configs(
     db: AsyncSession,
     user: User,
 ) -> Sequence[SmtpConfig]:
-    from app.auth.models import Role
     query = select(SmtpConfig)
-    if user.role != Role.ADMIN:
-        query = query.where(SmtpConfig.created_by == user.id)
+    query = apply_ownership_filter(query, SmtpConfig.created_by, user)
     result = await db.execute(query.order_by(SmtpConfig.created_at.desc()))
     return result.scalars().all()
 
@@ -90,6 +89,7 @@ async def list_smtp_configs(
 async def get_smtp_config(
     db: AsyncSession,
     config_id: uuid.UUID,
+    user: User | None = None,
 ) -> SmtpConfig:
     result = await db.execute(
         select(SmtpConfig).where(SmtpConfig.id == config_id)
@@ -97,6 +97,8 @@ async def get_smtp_config(
     config = result.scalar_one_or_none()
     if config is None:
         raise NotFoundError("SMTP config", str(config_id))
+    if user is not None:
+        authorize_owner(config.created_by, user, "SmtpConfig")
     return config
 
 
@@ -104,8 +106,9 @@ async def update_smtp_config(
     db: AsyncSession,
     config_id: uuid.UUID,
     data: SmtpConfigUpdate,
+    user: User,
 ) -> SmtpConfig:
-    config = await get_smtp_config(db, config_id)
+    config = await get_smtp_config(db, config_id, user)
     encryption = get_encryption_service()
 
     update_data = data.model_dump(exclude_unset=True)
@@ -134,8 +137,9 @@ async def update_smtp_config(
 async def delete_smtp_config(
     db: AsyncSession,
     config_id: uuid.UUID,
+    user: User,
 ) -> None:
-    config = await get_smtp_config(db, config_id)
+    config = await get_smtp_config(db, config_id, user)
     await db.delete(config)
     await db.commit()
 
@@ -167,13 +171,13 @@ async def get_user_smtp_config(
 
 async def resolve_smtp_config(
     db: AsyncSession,
-    user_id: uuid.UUID,
+    user: User,
     smtp_config_id: Optional[uuid.UUID] = None,
 ) -> SmtpConfig:
     """Resolve SMTP config: explicit ID > user's own config > system default."""
     if smtp_config_id:
-        return await get_smtp_config(db, smtp_config_id)
-    user_config = await get_user_smtp_config(db, user_id)
+        return await get_smtp_config(db, smtp_config_id, user)
+    user_config = await get_user_smtp_config(db, user.id)
     if user_config:
         return user_config
     return await get_default_config(db)
@@ -208,10 +212,19 @@ async def send_email(
     encryption = get_encryption_service()
     password = encryption.decrypt(smtp_config.encrypted_password)
 
+    # Prevent SMTP header injection by stripping CR/LF from all header values
+    def _sanitize_header(value: str) -> str:
+        return value.replace("\r", "").replace("\n", " ") if value else value
+
+    safe_subject = _sanitize_header(subject)
+    safe_to = _sanitize_header(to)
+    safe_from_name = _sanitize_header(smtp_config.from_name)
+    safe_from_email = _sanitize_header(smtp_config.from_email)
+
     msg = MIMEMultipart("mixed")
-    msg["From"] = f"{smtp_config.from_name} <{smtp_config.from_email}>"
-    msg["To"] = to
-    msg["Subject"] = subject
+    msg["From"] = f"{safe_from_name} <{safe_from_email}>"
+    msg["To"] = safe_to
+    msg["Subject"] = safe_subject
 
     # HTML body
     msg.attach(MIMEText(html_body, "html", "utf-8"))
@@ -252,7 +265,7 @@ async def send_invoice_email(
     from app.invoicing.pdf import generate_invoice_pdf
 
     # Resolve SMTP config (user's config > system default)
-    smtp_config = await resolve_smtp_config(db, user.id, smtp_config_id)
+    smtp_config = await resolve_smtp_config(db, user, smtp_config_id)
 
     # Load invoice with its contact
     result = await db.execute(
@@ -261,6 +274,7 @@ async def send_invoice_email(
     invoice = result.scalar_one_or_none()
     if invoice is None:
         raise NotFoundError("Invoice", str(invoice_id))
+    authorize_owner(invoice.created_by, user, "Invoice")
 
     # Determine recipient
     to_email = recipient_email or getattr(invoice, "contact_email", None)
@@ -330,7 +344,7 @@ async def send_payment_reminder(
     from app.invoicing.models import Invoice
 
     # Resolve SMTP config (user's config > system default)
-    smtp_config = await resolve_smtp_config(db, user.id, smtp_config_id)
+    smtp_config = await resolve_smtp_config(db, user, smtp_config_id)
 
     # Load invoice
     result = await db.execute(
@@ -339,6 +353,7 @@ async def send_payment_reminder(
     invoice = result.scalar_one_or_none()
     if invoice is None:
         raise NotFoundError("Invoice", str(invoice_id))
+    authorize_owner(invoice.created_by, user, "Invoice")
 
     # Determine recipient
     to_email: Optional[str] = getattr(invoice, "contact_email", None)
@@ -382,7 +397,7 @@ async def send_estimate_email(
     from sqlalchemy.orm import selectinload
 
     # Resolve SMTP config (user's config > system default)
-    smtp_config = await resolve_smtp_config(db, user.id, smtp_config_id)
+    smtp_config = await resolve_smtp_config(db, user, smtp_config_id)
 
     # Load estimate with relationships
     result = await db.execute(
@@ -393,6 +408,7 @@ async def send_estimate_email(
     estimate = result.scalar_one_or_none()
     if estimate is None:
         raise NotFoundError("Estimate", str(estimate_id))
+    authorize_owner(estimate.created_by, user, "Estimate")
 
     # Determine recipient
     to_email: Optional[str] = None

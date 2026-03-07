@@ -2,7 +2,7 @@
 
 
 from decimal import Decimal
-from typing import Optional
+from typing import Literal, Optional
 
 import uuid
 from datetime import datetime
@@ -203,8 +203,8 @@ class DocumentFilter(BaseModel):
     date_to: Optional[datetime] = None
     uploaded_by: uuid.UUID | None = None
     status: DocumentStatus | None = None
-    sort_by: str = "created_at"
-    sort_order: str = "desc"
+    sort_by: Literal["created_at", "title", "file_size", "updated_at"] = "created_at"
+    sort_order: Literal["asc", "desc"] = "desc"
 
 
 # ---------------------------------------------------------------------------

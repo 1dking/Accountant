@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     database_url: str = "sqlite+aiosqlite:///./data/accountant.db"
 
     # Auth
-    secret_key: str = "dev-secret-change-in-production"
+    secret_key: str = ""
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 7
@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     # Storage
     storage_type: str = "local"
     storage_path: str = "./data/documents"
-    max_upload_size: int = 0  # 0 = unlimited (VPS disk is the limit)
+    max_upload_size: int = 104_857_600  # 100 MB default
     recordings_storage_path: str = "./data/recordings"
 
     # Server
@@ -103,3 +103,19 @@ class Settings(BaseSettings):
     @property
     def is_sqlite(self) -> bool:
         return "sqlite" in self.database_url
+
+    @property
+    def is_production(self) -> bool:
+        return not self.is_sqlite
+
+    def validate_secrets(self) -> None:
+        """Fail fast if critical secrets are missing in production."""
+        if not self.secret_key:
+            if self.is_production:
+                raise RuntimeError(
+                    "SECRET_KEY environment variable must be set in production. "
+                    "Generate one with: python -c \"import secrets; print(secrets.token_urlsafe(64))\""
+                )
+            # Auto-generate for local dev only
+            import secrets as _s
+            object.__setattr__(self, "secret_key", _s.token_urlsafe(64))

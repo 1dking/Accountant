@@ -11,6 +11,7 @@ from app.auth.models import User
 from app.budgets.models import Budget, PeriodType
 from app.budgets.schemas import BudgetCreate, BudgetUpdate, BudgetVsActual
 from app.collaboration.service import log_activity
+from app.core.authorization import apply_ownership_filter, authorize_owner
 from app.core.exceptions import ConflictError, NotFoundError
 from app.core.pagination import PaginationParams, build_pagination_meta
 
@@ -54,8 +55,10 @@ async def list_budgets(
     year: int | None,
     period_type: PeriodType | None,
     pagination: PaginationParams,
+    user: User,
 ) -> tuple[list[Budget], dict]:
     query = select(Budget)
+    query = apply_ownership_filter(query, Budget.created_by, user)
     if year is not None:
         query = query.where(Budget.year == year)
     if period_type is not None:
@@ -75,18 +78,20 @@ async def list_budgets(
     return budgets, build_pagination_meta(total, pagination)
 
 
-async def get_budget(db: AsyncSession, budget_id: uuid.UUID) -> Budget:
+async def get_budget(db: AsyncSession, budget_id: uuid.UUID, user: User | None = None) -> Budget:
     result = await db.execute(select(Budget).where(Budget.id == budget_id))
     budget = result.scalar_one_or_none()
     if budget is None:
         raise NotFoundError("Budget", str(budget_id))
+    if user is not None:
+        authorize_owner(budget.created_by, user, "Budget")
     return budget
 
 
 async def update_budget(
     db: AsyncSession, budget_id: uuid.UUID, data: BudgetUpdate, user: User
 ) -> Budget:
-    budget = await get_budget(db, budget_id)
+    budget = await get_budget(db, budget_id, user)
     update_data = data.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(budget, key, value)
@@ -105,17 +110,19 @@ async def update_budget(
     return budget
 
 
-async def delete_budget(db: AsyncSession, budget_id: uuid.UUID) -> None:
-    budget = await get_budget(db, budget_id)
+async def delete_budget(db: AsyncSession, budget_id: uuid.UUID, user: User) -> None:
+    budget = await get_budget(db, budget_id, user)
     await db.delete(budget)
     await db.commit()
 
 
 async def get_budget_vs_actual(
-    db: AsyncSession, year: int, month: int | None = None
+    db: AsyncSession, year: int, month: int | None = None, user: User | None = None,
 ) -> list[BudgetVsActual]:
     # Get all matching budgets
     budget_q = select(Budget).where(Budget.year == year)
+    if user is not None:
+        budget_q = apply_ownership_filter(budget_q, Budget.created_by, user)
     if month is not None:
         budget_q = budget_q.where(
             (Budget.month == month) | (Budget.month.is_(None))
@@ -169,7 +176,7 @@ async def get_budget_vs_actual(
     return results
 
 
-async def get_budget_alerts(db: AsyncSession) -> list[BudgetVsActual]:
+async def get_budget_alerts(db: AsyncSession, user: User | None = None) -> list[BudgetVsActual]:
     today = date.today()
-    comparisons = await get_budget_vs_actual(db, today.year, today.month)
+    comparisons = await get_budget_vs_actual(db, today.year, today.month, user=user)
     return [c for c in comparisons if c.percentage_used >= 80]

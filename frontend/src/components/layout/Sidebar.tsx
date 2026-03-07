@@ -84,12 +84,9 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { path: '/cashbook', label: 'Cashbook', icon: BookOpen },
       { path: '/cashbook/reconcile', label: 'Reconcile', icon: Scale },
+      { path: '/smart-import', label: 'Smart Import', icon: Zap },
       { path: '/email-scan', label: 'Email Scanner', icon: MailSearch },
-      { path: '/expenses', label: 'Expenses', icon: Receipt },
-      { path: '/income', label: 'Income', icon: TrendingUp },
       { path: '/recurring', label: 'Recurring', icon: RefreshCw },
-      { path: '/budgets', label: 'Budgets', icon: PiggyBank },
-      { path: '/bank-transactions', label: 'Banking', icon: Landmark },
       { path: '/reports', label: 'Reports', icon: BarChart3 },
     ],
   },

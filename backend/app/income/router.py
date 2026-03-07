@@ -26,7 +26,7 @@ router = APIRouter()
 @router.get("")
 async def list_income(
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
     pagination: Annotated[PaginationParams, Depends(get_pagination)],
     search: str | None = Query(None),
     category: IncomeCategory | None = Query(None),
@@ -38,7 +38,7 @@ async def list_income(
         search=search, category=category, contact_id=contact_id,
         date_from=date_from, date_to=date_to,
     )
-    entries, meta = await service.list_income(db, filters, pagination)
+    entries, meta = await service.list_income(db, filters, pagination, user=current_user)
     return {"data": [IncomeListItem.model_validate(e) for e in entries], "meta": meta}
 
 
@@ -88,9 +88,9 @@ async def create_income_from_document(
 async def get_income(
     income_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict:
-    income = await service.get_income(db, income_id)
+    income = await service.get_income(db, income_id, user=current_user)
     return {"data": IncomeResponse.model_validate(income)}
 
 
@@ -109,7 +109,7 @@ async def update_income(
 async def delete_income(
     income_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_role([Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
-    await service.delete_income(db, income_id)
+    await service.delete_income(db, income_id, user=current_user)
     return {"data": {"message": "Income entry deleted"}}

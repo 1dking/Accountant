@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import User
+from app.core.authorization import apply_ownership_filter, authorize_owner
 from app.core.exceptions import NotFoundError
 from app.core.pagination import PaginationParams, build_pagination_meta
 from app.recurring.models import Frequency, RecurringRule, RecurringType
@@ -47,15 +48,18 @@ async def create_rule(
 
 
 async def list_rules(
-    db: AsyncSession, pagination: PaginationParams
+    db: AsyncSession, pagination: PaginationParams, user: User,
 ) -> tuple[list[RecurringRule], dict]:
     from sqlalchemy import func
 
-    count_q = select(func.count(RecurringRule.id))
+    base = select(RecurringRule)
+    base = apply_ownership_filter(base, RecurringRule.created_by, user)
+
+    count_q = select(func.count()).select_from(base.subquery())
     total = (await db.execute(count_q)).scalar() or 0
 
     query = (
-        select(RecurringRule)
+        base
         .order_by(RecurringRule.next_run_date)
         .offset(pagination.offset)
         .limit(pagination.page_size)
@@ -66,18 +70,20 @@ async def list_rules(
     return rules, build_pagination_meta(total, pagination)
 
 
-async def get_rule(db: AsyncSession, rule_id: uuid.UUID) -> RecurringRule:
+async def get_rule(db: AsyncSession, rule_id: uuid.UUID, user: User | None = None) -> RecurringRule:
     result = await db.execute(select(RecurringRule).where(RecurringRule.id == rule_id))
     rule = result.scalar_one_or_none()
     if rule is None:
         raise NotFoundError("RecurringRule", str(rule_id))
+    if user is not None:
+        authorize_owner(rule.created_by, user, "RecurringRule")
     return rule
 
 
 async def update_rule(
     db: AsyncSession, rule_id: uuid.UUID, data: RecurringRuleUpdate, user: User
 ) -> RecurringRule:
-    rule = await get_rule(db, rule_id)
+    rule = await get_rule(db, rule_id, user)
     update_data = data.model_dump(exclude_unset=True)
     if "template_data" in update_data and update_data["template_data"] is not None:
         update_data["template_data"] = json.dumps(update_data["template_data"])
@@ -88,14 +94,14 @@ async def update_rule(
     return rule
 
 
-async def delete_rule(db: AsyncSession, rule_id: uuid.UUID) -> None:
-    rule = await get_rule(db, rule_id)
+async def delete_rule(db: AsyncSession, rule_id: uuid.UUID, user: User) -> None:
+    rule = await get_rule(db, rule_id, user)
     await db.delete(rule)
     await db.commit()
 
 
-async def toggle_rule(db: AsyncSession, rule_id: uuid.UUID) -> RecurringRule:
-    rule = await get_rule(db, rule_id)
+async def toggle_rule(db: AsyncSession, rule_id: uuid.UUID, user: User) -> RecurringRule:
+    rule = await get_rule(db, rule_id, user)
     rule.is_active = not rule.is_active
     await db.commit()
     await db.refresh(rule)
@@ -172,11 +178,11 @@ async def process_recurring_rules(db: AsyncSession) -> int:
     return count
 
 
-async def get_upcoming_rules(db: AsyncSession, days: int = 30) -> list[RecurringRule]:
+async def get_upcoming_rules(db: AsyncSession, user: User, days: int = 30) -> list[RecurringRule]:
     from datetime import timedelta
 
     cutoff = date.today() + timedelta(days=days)
-    result = await db.execute(
+    query = (
         select(RecurringRule)
         .where(
             RecurringRule.is_active == True,  # noqa: E712
@@ -184,4 +190,6 @@ async def get_upcoming_rules(db: AsyncSession, days: int = 30) -> list[Recurring
         )
         .order_by(RecurringRule.next_run_date)
     )
+    query = apply_ownership_filter(query, RecurringRule.created_by, user)
+    result = await db.execute(query)
     return list(result.scalars().all())

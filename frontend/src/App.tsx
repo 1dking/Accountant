@@ -77,6 +77,8 @@ import BrandingPage from '@/pages/BrandingPage'
 import PortalAdminPage from '@/pages/PortalAdminPage'
 import PipelinesPage from '@/pages/PipelinesPage'
 import ConversationsPage from '@/pages/ConversationsPage'
+import OBrainPage from '@/pages/OBrainPage'
+import SmartImportPage from '@/pages/SmartImportPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -169,6 +171,7 @@ function AuthenticatedApp() {
         <Route path="/conversations" element={<ConversationsPage />} />
         <Route path="/pipelines" element={<PipelinesPage />} />
         <Route path="/email-scan" element={<EmailScanPage />} />
+        <Route path="/smart-import" element={<SmartImportPage />} />
         <Route path="/bank-transactions" element={<BankTransactionsPage />} />
         <Route path="/capture" element={<CapturePage />} />
         <Route path="/calendar" element={<CalendarPage />} />
@@ -237,6 +240,14 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <MeetingRoomPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/brain"
+              element={
+                <ProtectedRoute>
+                  <OBrainPage />
                 </ProtectedRoute>
               }
             />

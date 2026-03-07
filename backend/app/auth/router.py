@@ -1,5 +1,6 @@
 
 import logging
+import secrets
 import time
 from typing import Annotated
 from urllib.parse import urlencode
@@ -42,8 +43,12 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # ---------------------------------------------------------------------------
-# In-memory rate limiter for login endpoint
+# In-memory stores
 # ---------------------------------------------------------------------------
+# OAuth CSRF state tokens: state -> expiry timestamp
+_oauth_states: dict[str, float] = {}
+_OAUTH_STATE_TTL = 600  # 10 minutes
+
 # Maps IP address -> (attempt_count, window_start_timestamp)
 _login_attempts: dict[str, tuple[int, float]] = {}
 _LOGIN_MAX_ATTEMPTS = 10
@@ -224,6 +229,15 @@ async def google_login(request: Request) -> RedirectResponse:
     if not settings.google_client_id:
         raise ValidationError("Google OAuth is not configured.")
 
+    # Generate CSRF state token
+    state = secrets.token_urlsafe(32)
+    _oauth_states[state] = time.monotonic() + _OAUTH_STATE_TTL
+    # Cleanup expired states
+    now = time.monotonic()
+    expired = [s for s, exp in _oauth_states.items() if exp < now]
+    for s in expired:
+        _oauth_states.pop(s, None)
+
     params = {
         "client_id": settings.google_client_id,
         "redirect_uri": settings.google_oauth_redirect_uri,
@@ -231,6 +245,7 @@ async def google_login(request: Request) -> RedirectResponse:
         "scope": "openid email profile",
         "access_type": "offline",
         "prompt": "select_account",
+        "state": state,
     }
     return RedirectResponse(f"{GOOGLE_AUTH_URL}?{urlencode(params)}")
 
@@ -248,7 +263,20 @@ async def google_callback(
     if not settings.google_client_id or not settings.google_client_secret:
         raise ValidationError("Google OAuth is not configured.")
 
+    # Validate CSRF state token
+    if body.state:
+        expiry = _oauth_states.pop(body.state, None)
+        if expiry is None or time.monotonic() > expiry:
+            raise ValidationError("Invalid or expired OAuth state. Please try again.")
+
+    # Whitelist allowed redirect URIs
+    allowed_uris = [
+        settings.google_oauth_redirect_uri,
+        "http://localhost:5173/auth/google/callback",
+    ]
     redirect_uri = body.redirect_uri or settings.google_oauth_redirect_uri
+    if redirect_uri not in allowed_uris:
+        raise ValidationError("Invalid redirect URI.")
 
     # Exchange auth code for Google tokens
     async with httpx.AsyncClient() as client:

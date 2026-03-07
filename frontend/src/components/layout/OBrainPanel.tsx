@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { useLocation } from 'react-router'
+import { useLocation, useNavigate } from 'react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import {
   X, Send, Sparkles, Loader2, MessageSquare, Plus, Trash2,
-  AlertCircle, ChevronLeft, Database,
+  AlertCircle, ChevronLeft, Database, Maximize2,
 } from 'lucide-react'
 import { useUiStore } from '@/stores/uiStore'
 import { cn } from '@/lib/utils'
@@ -68,6 +68,7 @@ function SourcesBadge({ sources }: { sources: Array<{ tool: string; count: numbe
 export default function OBrainPanel() {
   const { panelState, closePanel, isMobile } = useUiStore()
   const location = useLocation()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [messages, setMessages] = useState<DisplayMessage[]>([])
   const [input, setInput] = useState('')
@@ -274,6 +275,13 @@ export default function OBrainPanel() {
                 title="New conversation"
               >
                 <Plus className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => { closePanel(); navigate('/brain') }}
+                className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+                title="Full screen"
+              >
+                <Maximize2 className="h-4 w-4" />
               </button>
               <button
                 onClick={() => setView('history')}

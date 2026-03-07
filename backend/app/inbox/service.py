@@ -425,7 +425,7 @@ async def _reply_email(
     from app.email.service import resolve_smtp_config, send_email
 
     # Resolve SMTP configuration
-    smtp_config = await resolve_smtp_config(db, user.id, smtp_config_id)
+    smtp_config = await resolve_smtp_config(db, user, smtp_config_id)
 
     # Determine recipient email: the identifier may be a UUID (contact) or email
     to_email: Optional[str] = None

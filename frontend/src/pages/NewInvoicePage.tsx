@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import { createInvoice } from '@/api/invoices';
-import { listContacts } from '@/api/contacts';
 import { getCompanySettings } from '@/api/settings';
+import ContactSelector from '@/components/shared/ContactSelector';
 import type { InvoiceLineItemData, InvoiceCreateData } from '@/api/invoices';
 
 const formatCurrency = (amount: number, currency = 'USD') =>
@@ -20,7 +20,7 @@ const emptyLineItem = (): InvoiceLineItemData => ({
 export default function NewInvoicePage() {
   const navigate = useNavigate();
 
-  const [contactId, setContactId] = useState('');
+  const [contactId, setContactId] = useState<string | null>(null);
   const [issueDate, setIssueDate] = useState(
     new Date().toISOString().split('T')[0]
   );
@@ -33,11 +33,6 @@ export default function NewInvoicePage() {
   const [lineItems, setLineItems] = useState<InvoiceLineItemData[]>([
     emptyLineItem(),
   ]);
-
-  const contactsQuery = useQuery({
-    queryKey: ['contacts', 'client-list'],
-    queryFn: () => listContacts({ type: 'client', page_size: 100 }),
-  });
 
   const settingsQuery = useQuery({
     queryKey: ['company-settings'],
@@ -55,8 +50,6 @@ export default function NewInvoicePage() {
       setCurrency(settings.default_currency);
     }
   }, [settingsQuery.data]);
-
-  const contacts = contactsQuery.data?.data ?? [];
 
   const createMutation = useMutation({
     mutationFn: (data: InvoiceCreateData) => createInvoice(data),
@@ -110,6 +103,8 @@ export default function NewInvoicePage() {
 
     if (validLineItems.length === 0) return;
 
+    if (!contactId) return;
+
     const data: InvoiceCreateData = {
       contact_id: contactId,
       issue_date: issueDate,
@@ -148,19 +143,12 @@ export default function NewInvoicePage() {
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Client <span className="text-red-500">*</span>
             </label>
-            <select
-              required
+            <ContactSelector
               value={contactId}
-              onChange={(e) => setContactId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">Select a client...</option>
-              {contacts.map((contact) => (
-                <option key={contact.id} value={contact.id}>
-                  {contact.company_name}
-                </option>
-              ))}
-            </select>
+              onChange={(id) => setContactId(id)}
+              placeholder="Select a client..."
+              filterType="client"
+            />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

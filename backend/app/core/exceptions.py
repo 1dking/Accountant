@@ -77,7 +77,7 @@ def register_exception_handlers(app: FastAPI) -> None:
             content={
                 "error": {
                     "code": "INTERNAL_ERROR",
-                    "message": str(exc),
+                    "message": "An internal error occurred. Please try again or contact support.",
                     "details": None,
                 }
             },

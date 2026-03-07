@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.auth.models import User
+from app.core.authorization import apply_ownership_filter, authorize_owner
 from app.core.exceptions import NotFoundError, ValidationError, ForbiddenError
 from app.core.pagination import PaginationParams, build_pagination_meta
 from app.proposals.models import (
@@ -120,7 +121,7 @@ async def create_proposal(db: AsyncSession, data: ProposalCreate, user: User) ->
     return proposal
 
 
-async def get_proposal(db: AsyncSession, proposal_id: uuid.UUID) -> Proposal:
+async def get_proposal(db: AsyncSession, proposal_id: uuid.UUID, user: User | None = None) -> Proposal:
     """Get a single proposal with all relationships."""
     result = await db.execute(
         select(Proposal)
@@ -135,6 +136,8 @@ async def get_proposal(db: AsyncSession, proposal_id: uuid.UUID) -> Proposal:
     proposal = result.scalar_one_or_none()
     if not proposal:
         raise NotFoundError("Proposal", str(proposal_id))
+    if user is not None:
+        authorize_owner(proposal.created_by, user, "Proposal")
     return proposal
 
 
@@ -142,9 +145,14 @@ async def list_proposals(
     db: AsyncSession,
     filters: ProposalFilter,
     pagination: PaginationParams,
+    user: User | None = None,
 ) -> tuple[list[Proposal], dict]:
     """List proposals with filtering and pagination."""
     query = select(Proposal).options(selectinload(Proposal.contact))
+
+    # Ownership filter: non-admins only see their own proposals
+    if user is not None:
+        query = apply_ownership_filter(query, Proposal.created_by, user)
 
     if filters.search:
         search = f"%{filters.search}%"
@@ -192,7 +200,7 @@ async def update_proposal(
     user: User,
 ) -> Proposal:
     """Update a proposal (only drafts can be fully edited)."""
-    proposal = await get_proposal(db, proposal_id)
+    proposal = await get_proposal(db, proposal_id, user)
 
     update_data = data.model_dump(exclude_unset=True)
     for field, value in update_data.items():
@@ -205,14 +213,14 @@ async def update_proposal(
 
 async def delete_proposal(db: AsyncSession, proposal_id: uuid.UUID, user: User) -> None:
     """Delete a proposal."""
-    proposal = await get_proposal(db, proposal_id)
+    proposal = await get_proposal(db, proposal_id, user)
     await db.delete(proposal)
     await db.commit()
 
 
 async def clone_proposal(db: AsyncSession, proposal_id: uuid.UUID, user: User) -> Proposal:
     """Clone a proposal as a new draft."""
-    source = await get_proposal(db, proposal_id)
+    source = await get_proposal(db, proposal_id, user)
 
     new_data = ProposalCreate(
         contact_id=source.contact_id,
@@ -242,7 +250,7 @@ async def clone_proposal(db: AsyncSession, proposal_id: uuid.UUID, user: User) -
 
 async def send_proposal(db: AsyncSession, proposal_id: uuid.UUID, user: User) -> Proposal:
     """Mark proposal as sent and generate public token + signing tokens."""
-    proposal = await get_proposal(db, proposal_id)
+    proposal = await get_proposal(db, proposal_id, user)
     if proposal.status not in (ProposalStatus.DRAFT,):
         raise ValidationError(f"Cannot send proposal with status: {proposal.status.value}")
 
@@ -307,7 +315,7 @@ async def mark_viewed(db: AsyncSession, proposal_id: uuid.UUID, ip_address: str 
 
 async def mark_declined(db: AsyncSession, proposal_id: uuid.UUID, user: User) -> Proposal:
     """Mark proposal as declined."""
-    proposal = await get_proposal(db, proposal_id)
+    proposal = await get_proposal(db, proposal_id, user)
     proposal.status = ProposalStatus.DECLINED
 
     activity = ProposalActivity(
@@ -324,7 +332,7 @@ async def mark_declined(db: AsyncSession, proposal_id: uuid.UUID, user: User) ->
 
 async def mark_completed(db: AsyncSession, proposal_id: uuid.UUID, user: User) -> Proposal:
     """Manually mark proposal as signed/completed."""
-    proposal = await get_proposal(db, proposal_id)
+    proposal = await get_proposal(db, proposal_id, user)
     proposal.status = ProposalStatus.SIGNED
     proposal.signed_at = datetime.now(timezone.utc)
 
@@ -703,7 +711,7 @@ async def delete_template(db: AsyncSession, template_id: uuid.UUID) -> None:
 
 async def convert_to_template(db: AsyncSession, proposal_id: uuid.UUID, user: User) -> ProposalTemplate:
     """Convert an existing proposal into a reusable template."""
-    proposal = await get_proposal(db, proposal_id)
+    proposal = await get_proposal(db, proposal_id, user)
     template = ProposalTemplate(
         title=f"Template: {proposal.title}",
         description=f"Created from proposal {proposal.proposal_number}",

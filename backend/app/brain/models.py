@@ -2,6 +2,7 @@
 
 import enum
 import uuid
+from datetime import datetime
 
 from sqlalchemy import (
     BigInteger,
@@ -298,3 +299,26 @@ class BrainAuditLog(TimestampMixin, Base):
     __table_args__ = (
         Index("ix_bal_user_action", "user_id", "action_type"),
     )
+
+
+# ---------------------------------------------------------------------------
+# Brain Chat Files
+# ---------------------------------------------------------------------------
+
+class BrainChatFile(Base):
+    """File uploaded to a brain chat conversation."""
+
+    __tablename__ = "brain_chat_files"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    conversation_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("brain_conversations.id", ondelete="CASCADE")
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE")
+    )
+    original_filename: Mapped[str] = mapped_column(String(500))
+    storage_path: Mapped[str] = mapped_column(String(1000))
+    mime_type: Mapped[str] = mapped_column(String(200))
+    file_size: Mapped[int] = mapped_column()
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())

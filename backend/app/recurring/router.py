@@ -30,10 +30,10 @@ def _to_response(rule) -> dict:
 @router.get("")
 async def list_rules(
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
     pagination: Annotated[PaginationParams, Depends(get_pagination)],
 ) -> dict:
-    rules, meta = await service.list_rules(db, pagination)
+    rules, meta = await service.list_rules(db, pagination, current_user)
     return {
         "data": [_to_response(r) for r in rules],
         "meta": meta,
@@ -43,9 +43,9 @@ async def list_rules(
 @router.get("/upcoming")
 async def upcoming_rules(
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict:
-    rules = await service.get_upcoming_rules(db)
+    rules = await service.get_upcoming_rules(db, current_user)
     return {"data": [_to_response(r) for r in rules]}
 
 
@@ -65,9 +65,9 @@ async def create_rule(
 async def get_rule(
     rule_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict:
-    rule = await service.get_rule(db, rule_id)
+    rule = await service.get_rule(db, rule_id, current_user)
     resp = RecurringRuleResponse.model_validate(rule).model_dump()
     resp["template_data"] = json.loads(rule.template_data)
     return {"data": resp}
@@ -90,9 +90,9 @@ async def update_rule(
 async def delete_rule(
     rule_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_role([Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN]))],
 ) -> dict:
-    await service.delete_rule(db, rule_id)
+    await service.delete_rule(db, rule_id, current_user)
     return {"data": {"message": "Recurring rule deleted"}}
 
 
@@ -100,9 +100,9 @@ async def delete_rule(
 async def toggle_rule(
     rule_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
-    rule = await service.toggle_rule(db, rule_id)
+    rule = await service.toggle_rule(db, rule_id, current_user)
     resp = RecurringRuleResponse.model_validate(rule).model_dump()
     resp["template_data"] = json.loads(rule.template_data)
     return {"data": resp}

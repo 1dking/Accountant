@@ -1,10 +1,11 @@
 """Pydantic schemas for universal branding settings."""
 
+import re
 import uuid
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 class BrandingUpdate(BaseModel):
@@ -23,6 +24,16 @@ class BrandingUpdate(BaseModel):
     portal_welcome_message: Optional[str] = None
     booking_page_header: Optional[str] = None
     org_slug: Optional[str] = None
+
+    @field_validator("email_header_html", "email_footer_html", mode="before")
+    @classmethod
+    def sanitize_email_html(cls, v):
+        if v is None:
+            return v
+        # Remove script tags and event handlers
+        v = re.sub(r'<script[^>]*>.*?</script>', '', v, flags=re.IGNORECASE | re.DOTALL)
+        v = re.sub(r'\s+on\w+\s*=\s*["\'][^"\']*["\']', '', v, flags=re.IGNORECASE)
+        return v
 
 
 class BrandingResponse(BaseModel):

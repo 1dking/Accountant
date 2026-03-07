@@ -47,6 +47,7 @@ export default function CashbookPage() {
   const queryClient = useQueryClient()
 
   const [selectedAccountId, setSelectedAccountId] = useState<string>('')
+  const [entryTypeFilter, setEntryTypeFilter] = useState<'all' | 'income' | 'expense'>('all')
   const [dateFrom, setDateFrom] = useState(`${currentYear}-01-01`)
   const [dateTo, setDateTo] = useState(`${currentYear}-12-31`)
   const [searchInput, setSearchInput] = useState('')
@@ -78,6 +79,7 @@ export default function CashbookPage() {
   // Fetch entries
   const filters: CashbookEntryFilters = {
     account_id: activeAccountId || undefined,
+    entry_type: entryTypeFilter !== 'all' ? entryTypeFilter : undefined,
     date_from: dateFrom,
     date_to: dateTo,
     search: searchTerm || undefined,
@@ -348,6 +350,30 @@ export default function CashbookPage() {
               {ACCOUNT_TYPES.find((t) => t.value === account.account_type)
                 ?.label ?? account.account_type}
             </span>
+          </button>
+        ))}
+      </div>
+
+      {/* Entry Type Filter Tabs */}
+      <div className="flex gap-1">
+        {(['all', 'income', 'expense'] as const).map((type) => (
+          <button
+            key={type}
+            onClick={() => {
+              setEntryTypeFilter(type)
+              setPage(1)
+            }}
+            className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+              entryTypeFilter === type
+                ? type === 'income'
+                  ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                  : type === 'expense'
+                    ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                    : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
+                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+            }`}
+          >
+            {type === 'all' ? 'All' : type === 'income' ? 'Income' : 'Expenses'}
           </button>
         ))}
       </div>

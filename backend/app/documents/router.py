@@ -4,8 +4,12 @@
 import asyncio
 import io
 import logging
+import os
 import uuid
-from typing import Annotated
+from typing import Annotated, Literal
+
+# MIME types that must be served as attachment (not inline) to prevent XSS
+_UNSAFE_INLINE_TYPES = {"image/svg+xml", "text/html", "application/xhtml+xml"}
 
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
@@ -267,7 +271,7 @@ async def quick_capture_endpoint(
 @router.get("/")
 async def list_docs(
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
     pagination: Annotated[PaginationParams, Depends(get_pagination)],
     search: str | None = None,
     folder_id: uuid.UUID | None = None,
@@ -277,8 +281,8 @@ async def list_docs(
     date_to: str | None = None,
     uploaded_by: uuid.UUID | None = None,
     status: DocumentStatus | None = None,
-    sort_by: str = "created_at",
-    sort_order: str = "desc",
+    sort_by: Literal["created_at", "title", "file_size", "updated_at"] = "created_at",
+    sort_order: Literal["asc", "desc"] = "desc",
 ) -> dict:
     """List documents with filtering and pagination."""
     filters = DocumentFilter(
@@ -293,7 +297,7 @@ async def list_docs(
         sort_by=sort_by,
         sort_order=sort_order,
     )
-    documents, meta = await list_documents(db, filters, pagination)
+    documents, meta = await list_documents(db, filters, pagination, user=current_user)
     return {
         "data": [DocumentListItem.model_validate(d) for d in documents],
         "meta": meta,
@@ -303,12 +307,12 @@ async def list_docs(
 @router.get("/search")
 async def search(
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
     pagination: Annotated[PaginationParams, Depends(get_pagination)],
     q: str = Query(..., min_length=1, description="Search query"),
 ) -> dict:
     """Search documents by filename, title, or extracted text."""
-    documents, meta = await search_documents(db, q, pagination)
+    documents, meta = await search_documents(db, q, pagination, user=current_user)
     return {
         "data": [DocumentListItem.model_validate(d) for d in documents],
         "meta": meta,
@@ -318,10 +322,10 @@ async def search(
 @router.get("/folders")
 async def list_folders(
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict:
     """Return the folder tree (root folders with nested children)."""
-    folders = await get_folder_tree(db)
+    folders = await get_folder_tree(db, user=current_user)
     return {"data": [FolderTreeResponse.model_validate(f) for f in folders]}
 
 
@@ -496,7 +500,7 @@ async def bulk_move_endpoint(
 ) -> dict:
     """Bulk move documents and folders."""
     result = await bulk_move(
-        db, body.document_ids, body.folder_ids, body.target_folder_id, current_user.id
+        db, body.document_ids, body.folder_ids, body.target_folder_id, current_user.id, user=current_user
     )
     return {"data": result}
 
@@ -509,7 +513,7 @@ async def bulk_star_endpoint(
 ) -> dict:
     """Bulk star/unstar documents and folders."""
     result = await bulk_star(
-        db, body.document_ids, body.folder_ids, body.starred, current_user.id
+        db, body.document_ids, body.folder_ids, body.starred, current_user.id, user=current_user
     )
     return {"data": result}
 
@@ -523,7 +527,7 @@ async def star_folder_endpoint(
 ) -> dict:
     """Toggle star on a folder."""
     starred = body.starred if body is not None else True
-    folder = await star_folder(db, folder_id, current_user.id, starred)
+    folder = await star_folder(db, folder_id, current_user.id, starred, user=current_user)
     return {"data": FolderResponse.model_validate(folder)}
 
 
@@ -567,10 +571,10 @@ async def rename_folder_endpoint(
 async def get_doc(
     document_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict:
     """Get a single document with full details."""
-    document = await get_document(db, document_id)
+    document = await get_document(db, document_id, user=current_user)
     return {"data": DocumentResponse.model_validate(document)}
 
 
@@ -578,7 +582,7 @@ async def get_doc(
 async def download(
     document_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(get_current_user_or_token)],
+    current_user: Annotated[User, Depends(get_current_user_or_token)],
     storage: Annotated[StorageBackend, Depends(get_storage)],
 ):
     """Download a document as a streaming response.
@@ -589,7 +593,12 @@ async def download(
     Uses FileResponse for local storage to stream from disk without
     loading the entire file into memory.
     """
-    document = await get_document(db, document_id)
+    document = await get_document(db, document_id, user=current_user)
+
+    # Sanitize filename for Content-Disposition header
+    safe_filename = os.path.basename(document.original_filename).replace('"', '_')
+    # Force download for potentially dangerous MIME types
+    disposition = "attachment" if document.mime_type in _UNSAFE_INLINE_TYPES else "inline"
 
     # Stream from disk if local storage (avoids loading into memory)
     if hasattr(storage, "get_full_path"):
@@ -597,17 +606,17 @@ async def download(
         return FileResponse(
             path=str(file_path),
             media_type=document.mime_type,
-            filename=document.original_filename,
-            headers={"Content-Disposition": f'inline; filename="{document.original_filename}"'},
+            filename=safe_filename,
+            headers={"Content-Disposition": f'{disposition}; filename="{safe_filename}"'},
         )
 
     # Fallback for non-local storage backends
-    data, document = await download_document(db, storage, document_id)
+    data, document = await download_document(db, storage, document_id, user=current_user)
     return StreamingResponse(
         io.BytesIO(data),
         media_type=document.mime_type,
         headers={
-            "Content-Disposition": f'inline; filename="{document.original_filename}"',
+            "Content-Disposition": f'{disposition}; filename="{safe_filename}"',
             "Content-Length": str(document.file_size),
         },
     )
@@ -647,7 +656,7 @@ async def star_document_endpoint(
 ) -> dict:
     """Toggle star on a document."""
     starred = body.starred if body is not None else True
-    document = await star_document(db, document_id, current_user.id, starred)
+    document = await star_document(db, document_id, current_user.id, starred, user=current_user)
     return {"data": DocumentResponse.model_validate(document)}
 
 
@@ -658,7 +667,7 @@ async def trash_document_endpoint(
     current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     """Soft-delete a document (move to trash)."""
-    document = await trash_document(db, document_id, current_user.id)
+    document = await trash_document(db, document_id, current_user.id, user=current_user)
     return {"data": DocumentResponse.model_validate(document)}
 
 
@@ -669,7 +678,7 @@ async def restore_document_endpoint(
     current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     """Restore a document from trash."""
-    document = await restore_document(db, document_id, current_user.id)
+    document = await restore_document(db, document_id, current_user.id, user=current_user)
     return {"data": DocumentResponse.model_validate(document)}
 
 
@@ -681,7 +690,7 @@ async def move_document_endpoint(
     current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     """Move a document to a different folder."""
-    document = await move_document(db, document_id, body.folder_id, current_user.id)
+    document = await move_document(db, document_id, body.folder_id, current_user.id, user=current_user)
     return {"data": DocumentResponse.model_validate(document)}
 
 
@@ -693,7 +702,7 @@ async def move_folder_endpoint(
     current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     """Move a folder to a different parent folder."""
-    folder = await move_folder(db, folder_id, body.parent_id, current_user.id)
+    folder = await move_folder(db, folder_id, body.parent_id, current_user.id, user=current_user)
     return {"data": FolderResponse.model_validate(folder)}
 
 
@@ -702,7 +711,7 @@ async def stream_document(
     document_id: uuid.UUID,
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(get_current_user_or_token)],
+    current_user: Annotated[User, Depends(get_current_user_or_token)],
     storage: Annotated[StorageBackend, Depends(get_storage)],
 ) -> StreamingResponse:
     """Stream a document with HTTP Range header support for video playback.
@@ -713,7 +722,12 @@ async def stream_document(
     Uses file-based streaming for local storage to avoid loading entire
     files into memory (important for large video files).
     """
-    document = await get_document(db, document_id)
+    document = await get_document(db, document_id, user=current_user)
+
+    # Sanitize filename for Content-Disposition header
+    safe_filename = os.path.basename(document.original_filename).replace('"', '_')
+    # Force download for potentially dangerous MIME types
+    disposition = "attachment" if document.mime_type in _UNSAFE_INLINE_TYPES else "inline"
 
     # Use file-based streaming for local storage
     if hasattr(storage, "get_full_path"):
@@ -753,7 +767,7 @@ async def stream_document(
                         "Content-Range": f"bytes {start}-{end}/{file_size}",
                         "Accept-Ranges": "bytes",
                         "Content-Length": str(content_length),
-                        "Content-Disposition": f'inline; filename="{document.original_filename}"',
+                        "Content-Disposition": f'{disposition}; filename="{safe_filename}"',
                     },
                 )
 
@@ -770,12 +784,12 @@ async def stream_document(
             headers={
                 "Accept-Ranges": "bytes",
                 "Content-Length": str(file_size),
-                "Content-Disposition": f'inline; filename="{document.original_filename}"',
+                "Content-Disposition": f'{disposition}; filename="{safe_filename}"',
             },
         )
 
     # Fallback: load into memory for non-local storage backends
-    data, document = await download_document(db, storage, document_id)
+    data, document = await download_document(db, storage, document_id, user=current_user)
     file_size = len(data)
 
     range_header = request.headers.get("range")
@@ -798,7 +812,7 @@ async def stream_document(
                     "Content-Range": f"bytes {start}-{end}/{file_size}",
                     "Accept-Ranges": "bytes",
                     "Content-Length": str(content_length),
-                    "Content-Disposition": f'inline; filename="{document.original_filename}"',
+                    "Content-Disposition": f'{disposition}; filename="{safe_filename}"',
                 },
             )
 
@@ -808,7 +822,7 @@ async def stream_document(
         headers={
             "Accept-Ranges": "bytes",
             "Content-Length": str(file_size),
-            "Content-Disposition": f'inline; filename="{document.original_filename}"',
+            "Content-Disposition": f'{disposition}; filename="{safe_filename}"',
         },
     )
 
@@ -843,10 +857,10 @@ async def upload_new_version(
 async def list_versions(
     document_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict:
     """List all versions of a document."""
-    versions = await get_document_versions(db, document_id)
+    versions = await get_document_versions(db, document_id, user=current_user)
     return {"data": [DocumentVersionResponse.model_validate(v) for v in versions]}
 
 

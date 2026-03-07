@@ -47,7 +47,7 @@ router = APIRouter()
 @router.get("")
 async def list_proposals(
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
     pagination: Annotated[PaginationParams, Depends(get_pagination)],
     search: str | None = Query(None),
     status: ProposalStatus | None = Query(None),
@@ -70,7 +70,7 @@ async def list_proposals(
         value_min=Decimal(str(value_min)) if value_min is not None else None,
         value_max=Decimal(str(value_max)) if value_max is not None else None,
     )
-    proposals, meta = await service.list_proposals(db, filters, pagination)
+    proposals, meta = await service.list_proposals(db, filters, pagination, user=current_user)
     return {"data": [ProposalListItem.model_validate(p) for p in proposals], "meta": meta}
 
 
@@ -319,10 +319,10 @@ async def create_checkout(
 async def get_proposal(
     proposal_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict:
     """Get a single proposal with all details."""
-    proposal = await service.get_proposal(db, proposal_id)
+    proposal = await service.get_proposal(db, proposal_id, user=current_user)
     return {"data": ProposalResponse.model_validate(proposal)}
 
 
@@ -342,7 +342,7 @@ async def update_proposal(
 async def delete_proposal(
     proposal_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     """Delete a proposal."""
     await service.delete_proposal(db, proposal_id, current_user)

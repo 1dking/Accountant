@@ -94,7 +94,7 @@ async def delete_category(
 @router.get("/expenses")
 async def list_expenses(
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
     pagination: Annotated[PaginationParams, Depends(get_pagination)],
     search: str | None = None,
     category_id: uuid.UUID | None = None,
@@ -117,7 +117,7 @@ async def list_expenses(
         max_amount=max_amount,
         user_id=user_id,
     )
-    expenses, meta = await service.list_expenses(db, filters, pagination)
+    expenses, meta = await service.list_expenses(db, filters, pagination, user=current_user)
     return {
         "data": [ExpenseListItem.model_validate(e) for e in expenses],
         "meta": meta,
@@ -169,9 +169,9 @@ async def list_pending_approvals(
 async def get_expense(
     expense_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict:
-    expense = await service.get_expense(db, expense_id)
+    expense = await service.get_expense(db, expense_id, user=current_user)
     return {"data": ExpenseResponse.model_validate(expense)}
 
 
@@ -190,9 +190,9 @@ async def update_expense(
 async def delete_expense(
     expense_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_role([Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
-    await service.delete_expense(db, expense_id)
+    await service.delete_expense(db, expense_id, user=current_user)
     return {"data": {"message": "Expense deleted successfully"}}
 
 

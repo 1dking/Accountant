@@ -12,6 +12,7 @@ from sqlalchemy.orm import selectinload
 from app.auth.models import User
 from app.collaboration.service import log_activity
 from app.config import Settings
+from app.core.authorization import apply_ownership_filter, authorize_owner
 from app.core.exceptions import ForbiddenError, NotFoundError, ValidationError
 from app.core.pagination import PaginationParams, build_pagination_meta
 from app.meetings.models import (
@@ -185,12 +186,13 @@ async def get_meeting(
     meeting = result.scalar_one_or_none()
     if meeting is None:
         raise NotFoundError("Meeting", str(meeting_id))
+    authorize_owner(meeting.created_by, user, "Meeting")
     return meeting
 
 
 async def list_meetings(
     db: AsyncSession,
-    user_id: uuid.UUID,
+    user: User,
     status_filter: MeetingStatus | None = None,
     skip: int = 0,
     limit: int = 20,
@@ -199,6 +201,7 @@ async def list_meetings(
     query = select(Meeting).options(
         selectinload(Meeting.participants),
     )
+    query = apply_ownership_filter(query, Meeting.created_by, user)
 
     if status_filter is not None:
         query = query.where(Meeting.status == status_filter)
@@ -564,6 +567,15 @@ async def stop_recording(
     if recording is None:
         raise NotFoundError("MeetingRecording", str(recording_id))
 
+    # IDOR: verify user owns the parent meeting (admins bypass)
+    meeting_result = await db.execute(
+        select(Meeting).where(Meeting.id == recording.meeting_id)
+    )
+    meeting = meeting_result.scalar_one_or_none()
+    if meeting is None:
+        raise NotFoundError("Meeting", str(recording.meeting_id))
+    authorize_owner(meeting.created_by, user, "MeetingRecording")
+
     if recording.status != RecordingStatus.RECORDING:
         raise ValidationError("Recording is not currently active.")
 
@@ -602,6 +614,9 @@ async def upload_recording(
     if meeting is None:
         raise NotFoundError("Meeting", str(meeting_id))
 
+    # IDOR: verify user owns the meeting (admins bypass)
+    authorize_owner(meeting.created_by, user, "Meeting")
+
     recording = MeetingRecording(
         meeting_id=meeting.id,
         status=RecordingStatus.AVAILABLE,
@@ -632,18 +647,25 @@ async def list_recordings(
     contact_id: uuid.UUID | None = None,
     skip: int = 0,
     limit: int = 20,
+    user: User | None = None,
 ) -> list[MeetingRecording]:
     """List recordings with optional meeting or contact filter."""
     query = select(MeetingRecording)
 
-    if meeting_id is not None:
-        query = query.where(MeetingRecording.meeting_id == meeting_id)
-
+    # Always join Meeting so we can apply ownership filter
     if contact_id is not None:
-        # Join through Meeting to filter by contact
         query = query.join(Meeting, MeetingRecording.meeting_id == Meeting.id).where(
             Meeting.contact_id == contact_id
         )
+    else:
+        query = query.join(Meeting, MeetingRecording.meeting_id == Meeting.id)
+
+    if meeting_id is not None:
+        query = query.where(MeetingRecording.meeting_id == meeting_id)
+
+    # IDOR: only show recordings for meetings the user owns (admins bypass)
+    if user is not None:
+        query = apply_ownership_filter(query, Meeting.created_by, user)
 
     query = query.order_by(MeetingRecording.created_at.desc())
     query = query.offset(skip).limit(limit)
@@ -654,7 +676,7 @@ async def list_recordings(
 
 async def list_recordings_by_contact(
     db: AsyncSession,
-    user_id: uuid.UUID,
+    user: User,
 ) -> list[dict]:
     """List recordings grouped by contact."""
     # Get all recordings joined with meeting+contact info
@@ -665,8 +687,11 @@ async def list_recordings_by_contact(
         )
         .join(Meeting, MeetingRecording.meeting_id == Meeting.id)
         .where(Meeting.contact_id.isnot(None))
-        .group_by(Meeting.contact_id)
-        .order_by(func.count(MeetingRecording.id).desc())
+    )
+    # IDOR: only show recordings for meetings the user owns (admins bypass)
+    query = apply_ownership_filter(query, Meeting.created_by, user)
+    query = query.group_by(Meeting.contact_id).order_by(
+        func.count(MeetingRecording.id).desc()
     )
 
     result = await db.execute(query)
@@ -679,8 +704,10 @@ async def list_recordings_by_contact(
             select(MeetingRecording)
             .join(Meeting, MeetingRecording.meeting_id == Meeting.id)
             .where(Meeting.contact_id == row.contact_id)
-            .order_by(MeetingRecording.created_at.desc())
         )
+        # IDOR: apply same ownership filter to sub-query
+        rec_query = apply_ownership_filter(rec_query, Meeting.created_by, user)
+        rec_query = rec_query.order_by(MeetingRecording.created_at.desc())
         rec_result = await db.execute(rec_query)
         recordings = list(rec_result.scalars().all())
 
@@ -706,6 +733,15 @@ async def get_recording_stream_info(
     if recording is None:
         raise NotFoundError("MeetingRecording", str(recording_id))
 
+    # IDOR: verify user owns the parent meeting (admins bypass)
+    meeting_result = await db.execute(
+        select(Meeting).where(Meeting.id == recording.meeting_id)
+    )
+    meeting = meeting_result.scalar_one_or_none()
+    if meeting is None:
+        raise NotFoundError("Meeting", str(recording.meeting_id))
+    authorize_owner(meeting.created_by, user, "MeetingRecording")
+
     if recording.status != RecordingStatus.AVAILABLE:
         raise ValidationError("Recording is not yet available for download.")
 
@@ -727,6 +763,15 @@ async def delete_recording(
     recording = result.scalar_one_or_none()
     if recording is None:
         raise NotFoundError("MeetingRecording", str(recording_id))
+
+    # IDOR: verify user owns the parent meeting (admins bypass)
+    meeting_result = await db.execute(
+        select(Meeting).where(Meeting.id == recording.meeting_id)
+    )
+    meeting = meeting_result.scalar_one_or_none()
+    if meeting is None:
+        raise NotFoundError("Meeting", str(recording.meeting_id))
+    authorize_owner(meeting.created_by, user, "MeetingRecording")
 
     # Delete file from storage
     if recording.storage_path:

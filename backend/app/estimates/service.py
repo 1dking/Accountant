@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 
 from app.auth.models import User
 from app.collaboration.service import log_activity
+from app.core.authorization import apply_ownership_filter, authorize_owner
 from app.core.exceptions import NotFoundError, ValidationError
 from app.core.pagination import PaginationParams, build_pagination_meta
 from app.estimates.models import Estimate, EstimateLineItem, EstimateStatus
@@ -95,9 +96,13 @@ async def create_estimate(
 
 
 async def list_estimates(
-    db: AsyncSession, filters: EstimateFilter, pagination: PaginationParams
+    db: AsyncSession, filters: EstimateFilter, pagination: PaginationParams, user: User | None = None
 ) -> tuple[list[Estimate], dict]:
     query = select(Estimate).options(selectinload(Estimate.contact))
+
+    # Ownership filter: non-admins only see their own estimates
+    if user is not None:
+        query = apply_ownership_filter(query, Estimate.created_by, user)
 
     if filters.search:
         term = f"%{filters.search}%"
@@ -126,7 +131,7 @@ async def list_estimates(
     return estimates, build_pagination_meta(total, pagination)
 
 
-async def get_estimate(db: AsyncSession, estimate_id: uuid.UUID) -> Estimate:
+async def get_estimate(db: AsyncSession, estimate_id: uuid.UUID, user: User | None = None) -> Estimate:
     result = await db.execute(
         select(Estimate)
         .options(
@@ -138,13 +143,15 @@ async def get_estimate(db: AsyncSession, estimate_id: uuid.UUID) -> Estimate:
     estimate = result.scalar_one_or_none()
     if estimate is None:
         raise NotFoundError("Estimate", str(estimate_id))
+    if user is not None:
+        authorize_owner(estimate.created_by, user, "Estimate")
     return estimate
 
 
 async def update_estimate(
     db: AsyncSession, estimate_id: uuid.UUID, data: EstimateUpdate, user: User
 ) -> Estimate:
-    estimate = await get_estimate(db, estimate_id)
+    estimate = await get_estimate(db, estimate_id, user)
     update_data = data.model_dump(exclude_unset=True)
     line_items_data = update_data.pop("line_items", None)
 
@@ -190,8 +197,8 @@ async def update_estimate(
     return estimate
 
 
-async def delete_estimate(db: AsyncSession, estimate_id: uuid.UUID) -> None:
-    estimate = await get_estimate(db, estimate_id)
+async def delete_estimate(db: AsyncSession, estimate_id: uuid.UUID, user: User | None = None) -> None:
+    estimate = await get_estimate(db, estimate_id, user)
     await db.delete(estimate)
     await db.commit()
 
@@ -202,7 +209,7 @@ async def convert_to_invoice(
     from app.invoicing.models import Invoice, InvoiceLineItem
     from app.invoicing.service import generate_invoice_number
 
-    estimate = await get_estimate(db, estimate_id)
+    estimate = await get_estimate(db, estimate_id, user)
 
     if estimate.status == EstimateStatus.CONVERTED:
         raise ValidationError("This estimate has already been converted to an invoice.")

@@ -52,7 +52,7 @@ async def get_smtp_config(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    config = await service.get_smtp_config(db, config_id)
+    config = await service.get_smtp_config(db, config_id, user)
     return {"data": SmtpConfigResponse.model_validate(config)}
 
 
@@ -63,7 +63,7 @@ async def update_smtp_config(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT])),
 ):
-    config = await service.update_smtp_config(db, config_id, data)
+    config = await service.update_smtp_config(db, config_id, data, user)
     return {"data": SmtpConfigResponse.model_validate(config)}
 
 
@@ -73,7 +73,7 @@ async def delete_smtp_config(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT])),
 ):
-    await service.delete_smtp_config(db, config_id)
+    await service.delete_smtp_config(db, config_id, user)
     return {"data": {"detail": "SMTP config deleted"}}
 
 
@@ -90,7 +90,7 @@ async def send_test_email(
 ):
     from datetime import datetime, timezone
 
-    smtp_config = await service.get_smtp_config(db, data.smtp_config_id)
+    smtp_config = await service.get_smtp_config(db, data.smtp_config_id, user)
     html_body = service.render_template(
         "test_email.html",
         company_name=smtp_config.from_name,

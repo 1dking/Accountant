@@ -19,32 +19,32 @@ router = APIRouter()
 @router.get("")
 async def list_budgets(
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
     pagination: Annotated[PaginationParams, Depends(get_pagination)],
     year: int | None = Query(None),
     period_type: PeriodType | None = Query(None),
 ) -> dict:
-    budgets, meta = await service.list_budgets(db, year, period_type, pagination)
+    budgets, meta = await service.list_budgets(db, year, period_type, pagination, current_user)
     return {"data": [BudgetResponse.model_validate(b) for b in budgets], "meta": meta}
 
 
 @router.get("/vs-actual")
 async def budget_vs_actual(
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
     year: int = Query(...),
     month: int | None = Query(None),
 ) -> dict:
-    results = await service.get_budget_vs_actual(db, year, month)
+    results = await service.get_budget_vs_actual(db, year, month, user=current_user)
     return {"data": [r.model_dump() for r in results]}
 
 
 @router.get("/alerts")
 async def budget_alerts(
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict:
-    alerts = await service.get_budget_alerts(db)
+    alerts = await service.get_budget_alerts(db, user=current_user)
     return {"data": [a.model_dump() for a in alerts]}
 
 
@@ -67,9 +67,9 @@ async def create_budget(
 async def get_budget(
     budget_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict:
-    budget = await service.get_budget(db, budget_id)
+    budget = await service.get_budget(db, budget_id, current_user)
     return {"data": BudgetResponse.model_validate(budget)}
 
 
@@ -88,7 +88,7 @@ async def update_budget(
 async def delete_budget(
     budget_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_role([Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN]))],
 ) -> dict:
-    await service.delete_budget(db, budget_id)
+    await service.delete_budget(db, budget_id, current_user)
     return {"data": {"message": "Budget deleted"}}

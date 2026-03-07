@@ -33,7 +33,7 @@ router = APIRouter()
 @router.get("")
 async def list_invoices(
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
     pagination: Annotated[PaginationParams, Depends(get_pagination)],
     search: str | None = Query(None),
     status: InvoiceStatus | None = Query(None),
@@ -45,16 +45,16 @@ async def list_invoices(
         search=search, status=status, contact_id=contact_id,
         date_from=date_from, date_to=date_to,
     )
-    invoices, meta = await service.list_invoices(db, filters, pagination)
+    invoices, meta = await service.list_invoices(db, filters, pagination, current_user)
     return {"data": [InvoiceListItem.model_validate(inv) for inv in invoices], "meta": meta}
 
 
 @router.get("/stats")
 async def invoice_stats(
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict:
-    stats = await service.get_invoice_stats(db)
+    stats = await service.get_invoice_stats(db, current_user)
     return {"data": stats}
 
 
@@ -77,9 +77,9 @@ async def create_invoice(
 async def get_invoice(
     invoice_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict:
-    invoice = await service.get_invoice(db, invoice_id)
+    invoice = await service.get_invoice(db, invoice_id, current_user)
     return {"data": InvoiceResponse.model_validate(invoice)}
 
 
@@ -98,9 +98,9 @@ async def update_invoice(
 async def delete_invoice(
     invoice_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_role([Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN]))],
 ) -> dict:
-    await service.delete_invoice(db, invoice_id)
+    await service.delete_invoice(db, invoice_id, current_user)
     return {"data": {"message": "Invoice deleted"}}
 
 
@@ -108,9 +108,9 @@ async def delete_invoice(
 async def send_invoice(
     invoice_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
-    invoice = await service.send_invoice(db, invoice_id)
+    invoice = await service.send_invoice(db, invoice_id, current_user)
     return {"data": InvoiceResponse.model_validate(invoice)}
 
 
@@ -135,11 +135,11 @@ async def get_invoice_pdf(
     invoice_id: uuid.UUID,
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> Response:
     from app.documents.storage import LocalStorage
 
-    invoice = await service.get_invoice(db, invoice_id)
+    invoice = await service.get_invoice(db, invoice_id, current_user)
 
     # Fetch company branding
     company = await get_company_settings(db)
@@ -196,7 +196,7 @@ async def share_invoice(
     current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     """Create a shareable public link for an invoice."""
-    await service.get_invoice(db, invoice_id)
+    await service.get_invoice(db, invoice_id, current_user)
     token = await create_public_token(db, ResourceType.INVOICE, invoice_id, current_user)
     base_url = str(request.base_url).rstrip("/")
     shareable_url = f"{base_url}/p/{token.token}"

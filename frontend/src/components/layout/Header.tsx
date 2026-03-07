@@ -1,16 +1,40 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router'
-import { Menu, Bell, Search, Sparkles } from 'lucide-react'
+import { Menu, Bell, Search, Sparkles, Phone, X, Delete, PhoneCall, PhoneOff } from 'lucide-react'
 import { useNotificationStore } from '@/stores/notificationStore'
 import { useUiStore } from '@/stores/uiStore'
-import { formatRelativeTime } from '@/lib/utils'
+import { formatRelativeTime, cn } from '@/lib/utils'
+
+const DIALPAD = [
+  ['1', '2', '3'],
+  ['4', '5', '6'],
+  ['7', '8', '9'],
+  ['*', '0', '#'],
+]
 
 export default function Header() {
   const navigate = useNavigate()
   const { unreadCount, notifications, markRead, markAllRead } = useNotificationStore()
   const { panelState, openSidebar, openOBrain, closePanel } = useUiStore()
   const [showNotifications, setShowNotifications] = useState(false)
+  const [showDialer, setShowDialer] = useState(false)
+  const [dialNumber, setDialNumber] = useState('')
+  const [isCalling, setIsCalling] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const dialerRef = useRef<HTMLDivElement>(null)
+
+  // Close dialer on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dialerRef.current && !dialerRef.current.contains(e.target as Node)) {
+        setShowDialer(false)
+      }
+    }
+    if (showDialer) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showDialer])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -62,6 +86,100 @@ export default function Header() {
       </form>
 
       <div className="flex items-center gap-1">
+        {/* Phone Dialer */}
+        <div className="relative" ref={dialerRef}>
+          <button
+            onClick={() => { setShowDialer(!showDialer); setShowNotifications(false) }}
+            className={`relative p-2 rounded-lg transition-colors ${
+              showDialer
+                ? 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                : 'hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400'
+            }`}
+            aria-label="Phone dialer"
+            title="Phone Dialer"
+          >
+            <Phone className="h-5 w-5" />
+          </button>
+
+          {showDialer && (
+            <div className="absolute right-0 top-full mt-1 w-[280px] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-50 overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 dark:border-gray-700">
+                <div className="flex items-center gap-2">
+                  <Phone className="h-4 w-4 text-green-600" />
+                  <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">Dialer</span>
+                </div>
+                <button
+                  onClick={() => { setShowDialer(false); setIsCalling(false) }}
+                  className="p-1 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="px-4 pt-3 pb-2">
+                <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2">
+                  <input
+                    value={dialNumber}
+                    onChange={(e) => setDialNumber(e.target.value.replace(/[^0-9+*#() -]/g, ''))}
+                    placeholder="Enter number..."
+                    className="flex-1 bg-transparent text-lg font-mono text-gray-900 dark:text-gray-100 placeholder-gray-400 outline-none text-center tracking-wider"
+                  />
+                  {dialNumber && (
+                    <button onClick={() => setDialNumber((p) => p.slice(0, -1))} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                      <Delete className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="px-4 py-2">
+                <div className="grid grid-cols-3 gap-1.5">
+                  {DIALPAD.flat().map((digit) => (
+                    <button
+                      key={digit}
+                      onClick={() => setDialNumber((p) => p + digit)}
+                      className="h-10 rounded-lg text-lg font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors active:bg-gray-200 dark:active:bg-gray-700"
+                    >
+                      {digit}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="px-4 pb-3 pt-1">
+                {isCalling ? (
+                  <div className="space-y-2">
+                    <div className="text-center text-sm text-gray-500 dark:text-gray-400 animate-pulse">
+                      Calling {dialNumber}...
+                    </div>
+                    <button
+                      onClick={() => setIsCalling(false)}
+                      className="w-full h-10 rounded-lg bg-red-600 text-white font-medium flex items-center justify-center gap-2 hover:bg-red-700 transition"
+                    >
+                      <PhoneOff className="h-4 w-4" />
+                      Hang Up
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => { if (dialNumber.trim()) setIsCalling(true) }}
+                    disabled={!dialNumber.trim()}
+                    className={cn(
+                      'w-full h-10 rounded-lg font-medium flex items-center justify-center gap-2 transition',
+                      dialNumber.trim()
+                        ? 'bg-green-600 text-white hover:bg-green-700'
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-400 cursor-not-allowed'
+                    )}
+                  >
+                    <PhoneCall className="h-4 w-4" />
+                    Call
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* O-Brain button */}
         <button
           onClick={handleToggleOBrain}

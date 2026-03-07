@@ -66,6 +66,62 @@ async def chat(
     )
 
 
+@router.post("/chat/upload")
+async def upload_chat_file(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+    file: UploadFile = File(...),
+    conversation_id: str | None = Form(None),
+):
+    """Upload a file to attach to a brain chat message."""
+    import os
+    from app.config import Settings
+    from app.core.exceptions import ValidationError as AppValidationError
+
+    settings = Settings()
+
+    contents = await file.read()
+    if len(contents) > 10 * 1024 * 1024:
+        raise AppValidationError("File too large. Maximum size is 10MB.")
+
+    file_id = uuid.uuid4()
+    upload_dir = os.path.join(settings.storage_path, "brain_uploads")
+    os.makedirs(upload_dir, exist_ok=True)
+
+    ext = os.path.splitext(file.filename or "file")[1]
+    storage_path = f"brain_uploads/{file_id}{ext}"
+    full_path = os.path.join(settings.storage_path, storage_path)
+
+    with open(full_path, "wb") as f:
+        f.write(contents)
+
+    conv = await chat_service.get_or_create_conversation(db, user.id, conversation_id)
+
+    from app.brain.models import BrainChatFile
+    chat_file = BrainChatFile(
+        id=file_id,
+        conversation_id=conv.id,
+        user_id=user.id,
+        original_filename=file.filename or "file",
+        storage_path=storage_path,
+        mime_type=file.content_type or "application/octet-stream",
+        file_size=len(contents),
+    )
+    db.add(chat_file)
+    await db.commit()
+    await db.refresh(chat_file)
+
+    return {
+        "data": {
+            "id": str(chat_file.id),
+            "conversation_id": str(conv.id),
+            "original_filename": chat_file.original_filename,
+            "mime_type": chat_file.mime_type,
+            "file_size": chat_file.file_size,
+        }
+    }
+
+
 # ── Conversations ─────────────────────────────────────────────────────
 
 
@@ -412,3 +468,28 @@ async def list_audit_logs(
             for log in logs
         ]
     }
+
+
+# ── Discovery ─────────────────────────────────────────────────────────
+
+
+@router.get("/discovery/questions")
+async def get_discovery_questions(
+    _: Annotated[User, Depends(get_current_user)],
+):
+    """Get all 28 discovery questions organized by section."""
+    from app.brain.discovery_service import get_discovery_sections
+    return {"data": get_discovery_sections()}
+
+
+@router.post("/discovery/submit")
+async def submit_discovery(
+    body: dict,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+):
+    """Submit discovery answers. Each answer is embedded into the brain."""
+    from app.brain.discovery_service import save_discovery_answers
+    answers = body.get("answers", [])
+    result = await save_discovery_answers(db, user.id, answers)
+    return {"data": result}

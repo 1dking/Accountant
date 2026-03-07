@@ -125,11 +125,11 @@ async def cancel_subscription(
 async def stripe_webhook(
     request: Request,
     db: AsyncSession = Depends(get_db),
-    stripe_signature: str = Header(None),
+    stripe_signature: str = Header(...),
 ):
     settings = _get_settings(request)
     payload = await request.body()
     result = await service.handle_webhook_event(
-        db, payload, stripe_signature or "", settings
+        db, payload, stripe_signature, settings
     )
     return {"data": result}

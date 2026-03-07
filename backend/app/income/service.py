@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import User
 from app.collaboration.service import log_activity
+from app.core.authorization import apply_ownership_filter, authorize_owner
 from app.core.exceptions import NotFoundError, ValidationError
 from app.core.pagination import PaginationParams, build_pagination_meta
 from app.documents.models import Document
@@ -129,9 +130,13 @@ async def create_income_from_document(
 
 
 async def list_income(
-    db: AsyncSession, filters: IncomeFilter, pagination: PaginationParams
+    db: AsyncSession, filters: IncomeFilter, pagination: PaginationParams, user: User | None = None
 ) -> tuple[list[Income], dict]:
     query = select(Income)
+
+    # Ownership filter: non-admins only see their own income entries
+    if user is not None:
+        query = apply_ownership_filter(query, Income.created_by, user)
 
     if filters.search:
         term = f"%{filters.search}%"
@@ -160,18 +165,20 @@ async def list_income(
     return entries, build_pagination_meta(total, pagination)
 
 
-async def get_income(db: AsyncSession, income_id: uuid.UUID) -> Income:
+async def get_income(db: AsyncSession, income_id: uuid.UUID, user: User | None = None) -> Income:
     result = await db.execute(select(Income).where(Income.id == income_id))
     income = result.scalar_one_or_none()
     if income is None:
         raise NotFoundError("Income", str(income_id))
+    if user is not None:
+        authorize_owner(income.created_by, user, "Income")
     return income
 
 
 async def update_income(
     db: AsyncSession, income_id: uuid.UUID, data: IncomeUpdate, user: User
 ) -> Income:
-    income = await get_income(db, income_id)
+    income = await get_income(db, income_id, user)
     update_data = data.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(income, key, value)
@@ -190,8 +197,8 @@ async def update_income(
     return income
 
 
-async def delete_income(db: AsyncSession, income_id: uuid.UUID) -> None:
-    income = await get_income(db, income_id)
+async def delete_income(db: AsyncSession, income_id: uuid.UUID, user: User | None = None) -> None:
+    income = await get_income(db, income_id, user)
     await db.delete(income)
     await db.commit()
 

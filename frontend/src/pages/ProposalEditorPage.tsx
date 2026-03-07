@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import DOMPurify from 'dompurify';
 import {
   ArrowLeft,
   Save,
@@ -164,7 +165,7 @@ function TextBlockEditor({
     return (
       <div
         className="prose dark:prose-invert max-w-none text-sm"
-        dangerouslySetInnerHTML={{ __html: block.data.html || '<p class="text-gray-400">Empty text block</p>' }}
+        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(block.data.html || '<p class="text-gray-400">Empty text block</p>') }}
       />
     );
   }

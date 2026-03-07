@@ -26,6 +26,7 @@ from app.contacts.schemas import (
     FileShareCreate,
     InvitationCreate,
 )
+from app.core.authorization import apply_ownership_filter, authorize_owner
 from app.core.exceptions import ConflictError, NotFoundError
 from app.core.pagination import PaginationParams, build_pagination_meta
 
@@ -62,9 +63,12 @@ async def create_contact(
 
 
 async def list_contacts(
-    db: AsyncSession, filters: ContactFilter, pagination: PaginationParams
+    db: AsyncSession, filters: ContactFilter, pagination: PaginationParams, user: User | None = None
 ) -> tuple[list[Contact], dict]:
     query = select(Contact)
+
+    if user is not None:
+        query = apply_ownership_filter(query, Contact.created_by, user)
 
     if filters.search:
         term = f"%{filters.search}%"
@@ -101,11 +105,13 @@ async def list_contacts(
     return contacts, build_pagination_meta(total, pagination)
 
 
-async def get_contact(db: AsyncSession, contact_id: uuid.UUID) -> Contact:
+async def get_contact(db: AsyncSession, contact_id: uuid.UUID, user: User | None = None) -> Contact:
     result = await db.execute(select(Contact).where(Contact.id == contact_id))
     contact = result.scalar_one_or_none()
     if contact is None:
         raise NotFoundError("Contact", str(contact_id))
+    if user is not None:
+        authorize_owner(contact.created_by, user, "Contact")
     return contact
 
 
@@ -113,6 +119,7 @@ async def update_contact(
     db: AsyncSession, contact_id: uuid.UUID, data: ContactUpdate, user: User
 ) -> Contact:
     contact = await get_contact(db, contact_id)
+    authorize_owner(contact.created_by, user, "Contact")
     update_data = data.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(contact, key, value)
@@ -131,8 +138,10 @@ async def update_contact(
     return contact
 
 
-async def delete_contact(db: AsyncSession, contact_id: uuid.UUID) -> None:
+async def delete_contact(db: AsyncSession, contact_id: uuid.UUID, user: User | None = None) -> None:
     contact = await get_contact(db, contact_id)
+    if user is not None:
+        authorize_owner(contact.created_by, user, "Contact")
 
     from app.invoicing.models import Invoice
     from app.estimates.models import Estimate
@@ -172,7 +181,7 @@ async def delete_contact(db: AsyncSession, contact_id: uuid.UUID) -> None:
 async def add_tag(
     db: AsyncSession, contact_id: uuid.UUID, tag_name: str, user: User
 ) -> ContactTag:
-    await get_contact(db, contact_id)
+    await get_contact(db, contact_id, user=user)
     existing = await db.execute(
         select(ContactTag).where(
             ContactTag.contact_id == contact_id,
@@ -195,8 +204,10 @@ async def add_tag(
 
 
 async def remove_tag(
-    db: AsyncSession, contact_id: uuid.UUID, tag_name: str
+    db: AsyncSession, contact_id: uuid.UUID, tag_name: str, user: User | None = None
 ) -> None:
+    if user is not None:
+        await get_contact(db, contact_id, user=user)
     result = await db.execute(
         select(ContactTag).where(
             ContactTag.contact_id == contact_id,
@@ -213,6 +224,10 @@ async def remove_tag(
 async def bulk_tag(
     db: AsyncSession, contact_ids: list[uuid.UUID], tag_name: str, user: User
 ) -> int:
+    # Authorize ownership of each contact before tagging
+    for cid in contact_ids:
+        await get_contact(db, cid, user=user)
+
     count = 0
     for cid in contact_ids:
         existing = await db.execute(
@@ -231,7 +246,9 @@ async def bulk_tag(
     return count
 
 
-async def list_tags(db: AsyncSession, contact_id: uuid.UUID) -> list[ContactTag]:
+async def list_tags(db: AsyncSession, contact_id: uuid.UUID, user: User | None = None) -> list[ContactTag]:
+    if user is not None:
+        await get_contact(db, contact_id, user=user)
     result = await db.execute(
         select(ContactTag)
         .where(ContactTag.contact_id == contact_id)
@@ -240,10 +257,13 @@ async def list_tags(db: AsyncSession, contact_id: uuid.UUID) -> list[ContactTag]
     return list(result.scalars().all())
 
 
-async def list_all_tag_names(db: AsyncSession) -> list[str]:
-    result = await db.execute(
-        select(ContactTag.tag_name).distinct().order_by(ContactTag.tag_name)
-    )
+async def list_all_tag_names(db: AsyncSession, user: User | None = None) -> list[str]:
+    query = select(ContactTag.tag_name).distinct().order_by(ContactTag.tag_name)
+    if user is not None:
+        owned_contacts = select(Contact.id)
+        owned_contacts = apply_ownership_filter(owned_contacts, Contact.created_by, user)
+        query = query.where(ContactTag.contact_id.in_(owned_contacts))
+    result = await db.execute(query)
     return [r[0] for r in result.all()]
 
 
@@ -261,7 +281,10 @@ async def log_contact_activity(
     reference_type: str | None = None,
     reference_id: uuid.UUID | None = None,
     user_id: uuid.UUID | None = None,
+    user: User | None = None,
 ) -> ContactActivity:
+    if user is not None:
+        await get_contact(db, contact_id, user=user)
     activity = ContactActivity(
         id=uuid.uuid4(),
         contact_id=contact_id,
@@ -283,7 +306,10 @@ async def list_activities(
     contact_id: uuid.UUID,
     page: int = 1,
     page_size: int = 50,
+    user: User | None = None,
 ) -> tuple[list[ContactActivity], int]:
+    if user is not None:
+        await get_contact(db, contact_id, user=user)
     count_q = select(func.count()).where(ContactActivity.contact_id == contact_id)
     total = (await db.execute(count_q)).scalar() or 0
 
@@ -303,19 +329,28 @@ async def list_activities(
 # ---------------------------------------------------------------------------
 
 
-async def find_duplicates(db: AsyncSession) -> list[dict]:
+async def find_duplicates(db: AsyncSession, user: User | None = None) -> list[dict]:
     groups = []
+
+    # Base filter for ownership
+    base_filter = select(Contact.id)
+    if user is not None:
+        base_filter = apply_ownership_filter(base_filter, Contact.created_by, user)
 
     # Email duplicates
     email_q = (
         select(Contact.email, func.count().label("cnt"))
         .where(Contact.email.isnot(None), Contact.email != "")
-        .group_by(Contact.email)
-        .having(func.count() > 1)
     )
+    if user is not None:
+        email_q = email_q.where(Contact.id.in_(base_filter))
+    email_q = email_q.group_by(Contact.email).having(func.count() > 1)
+
     email_rows = (await db.execute(email_q)).all()
     for row in email_rows:
         ids_q = select(Contact.id).where(Contact.email == row[0])
+        if user is not None:
+            ids_q = apply_ownership_filter(ids_q, Contact.created_by, user)
         ids = [r[0] for r in (await db.execute(ids_q)).all()]
         groups.append({"field": "email", "value": row[0], "contact_ids": ids})
 
@@ -323,12 +358,16 @@ async def find_duplicates(db: AsyncSession) -> list[dict]:
     phone_q = (
         select(Contact.phone, func.count().label("cnt"))
         .where(Contact.phone.isnot(None), Contact.phone != "")
-        .group_by(Contact.phone)
-        .having(func.count() > 1)
     )
+    if user is not None:
+        phone_q = phone_q.where(Contact.id.in_(base_filter))
+    phone_q = phone_q.group_by(Contact.phone).having(func.count() > 1)
+
     phone_rows = (await db.execute(phone_q)).all()
     for row in phone_rows:
         ids_q = select(Contact.id).where(Contact.phone == row[0])
+        if user is not None:
+            ids_q = apply_ownership_filter(ids_q, Contact.created_by, user)
         ids = [r[0] for r in (await db.execute(ids_q)).all()]
         groups.append({"field": "phone", "value": row[0], "contact_ids": ids})
 
@@ -341,13 +380,13 @@ async def merge_contacts(
     duplicate_ids: list[uuid.UUID],
     user: User,
 ) -> Contact:
-    primary = await get_contact(db, primary_id)
+    primary = await get_contact(db, primary_id, user=user)
 
     from app.invoicing.models import Invoice
     from app.estimates.models import Estimate
 
     for dup_id in duplicate_ids:
-        dup = await get_contact(db, dup_id)
+        dup = await get_contact(db, dup_id, user=user)
 
         # Move invoices
         await db.execute(
@@ -404,6 +443,7 @@ async def merge_contacts(
 async def share_file(
     db: AsyncSession, data: FileShareCreate, user: User
 ) -> FileShare:
+    await get_contact(db, data.contact_id, user=user)
     share = FileShare(
         id=uuid.uuid4(),
         file_id=data.file_id,
@@ -425,8 +465,10 @@ async def share_file(
 
 
 async def list_file_shares(
-    db: AsyncSession, contact_id: uuid.UUID
+    db: AsyncSession, contact_id: uuid.UUID, user: User | None = None
 ) -> list[FileShare]:
+    if user is not None:
+        await get_contact(db, contact_id, user=user)
     result = await db.execute(
         select(FileShare)
         .where(FileShare.contact_id == contact_id)
@@ -462,11 +504,13 @@ async def list_shared_files_for_portal(
     ]
 
 
-async def remove_file_share(db: AsyncSession, share_id: uuid.UUID) -> None:
+async def remove_file_share(db: AsyncSession, share_id: uuid.UUID, user: User | None = None) -> None:
     result = await db.execute(select(FileShare).where(FileShare.id == share_id))
     share = result.scalar_one_or_none()
     if share is None:
         raise NotFoundError("FileShare", str(share_id))
+    if user is not None:
+        await get_contact(db, share.contact_id, user=user)
     await db.delete(share)
     await db.commit()
 

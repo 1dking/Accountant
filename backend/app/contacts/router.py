@@ -52,18 +52,18 @@ async def bulk_tag(
 @router.get("/tags/all")
 async def list_all_tags(
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict:
-    tags = await service.list_all_tag_names(db)
+    tags = await service.list_all_tag_names(db, user=current_user)
     return {"data": tags}
 
 
 @router.get("/duplicates/detect")
 async def detect_duplicates(
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_role([Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN]))],
 ) -> dict:
-    groups = await service.find_duplicates(db)
+    groups = await service.find_duplicates(db, user=current_user)
     return {"data": [DuplicateGroup(**g) for g in groups]}
 
 
@@ -93,9 +93,9 @@ async def share_file(
 async def remove_file_share(
     share_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
 ) -> dict:
-    await service.remove_file_share(db, share_id)
+    await service.remove_file_share(db, share_id, user=current_user)
     return {"data": {"message": "File share removed"}}
 
 
@@ -155,7 +155,7 @@ async def accept_invitation(
 @router.get("")
 async def list_contacts(
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
     pagination: Annotated[PaginationParams, Depends(get_pagination)],
     search: str | None = Query(None),
     type: ContactType | None = Query(None),
@@ -167,7 +167,7 @@ async def list_contacts(
         search=search, type=type, is_active=is_active,
         tag=tag, assigned_user_id=assigned_user_id,
     )
-    contacts, meta = await service.list_contacts(db, filters, pagination)
+    contacts, meta = await service.list_contacts(db, filters, pagination, user=current_user)
     return {"data": [ContactListItem.model_validate(c) for c in contacts], "meta": meta}
 
 
@@ -185,9 +185,9 @@ async def create_contact(
 async def get_contact(
     contact_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict:
-    contact = await service.get_contact(db, contact_id)
+    contact = await service.get_contact(db, contact_id, user=current_user)
     return {"data": ContactResponse.model_validate(contact)}
 
 
@@ -206,9 +206,9 @@ async def update_contact(
 async def delete_contact(
     contact_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_role([Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN]))],
 ) -> dict:
-    await service.delete_contact(db, contact_id)
+    await service.delete_contact(db, contact_id, user=current_user)
     return {"data": {"message": "Contact deleted"}}
 
 
@@ -233,9 +233,9 @@ async def remove_tag(
     contact_id: uuid.UUID,
     tag_name: str,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
-    await service.remove_tag(db, contact_id, tag_name)
+    await service.remove_tag(db, contact_id, tag_name, user=current_user)
     return {"data": {"message": "Tag removed"}}
 
 
@@ -243,9 +243,9 @@ async def remove_tag(
 async def list_tags(
     contact_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict:
-    tags = await service.list_tags(db, contact_id)
+    tags = await service.list_tags(db, contact_id, user=current_user)
     return {"data": [ContactTagResponse.model_validate(t) for t in tags]}
 
 
@@ -258,11 +258,11 @@ async def list_tags(
 async def list_activities(
     contact_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=100),
 ) -> dict:
-    activities, total = await service.list_activities(db, contact_id, page, page_size)
+    activities, total = await service.list_activities(db, contact_id, page, page_size, user=current_user)
     return {
         "data": [ContactActivityResponse.model_validate(a) for a in activities],
         "meta": {
@@ -284,7 +284,7 @@ async def add_activity(
     activity = await service.log_contact_activity(
         db, contact_id, data.activity_type, data.title,
         data.description, data.reference_type, data.reference_id,
-        current_user.id,
+        current_user.id, user=current_user,
     )
     return {"data": ContactActivityResponse.model_validate(activity)}
 
@@ -298,7 +298,7 @@ async def add_activity(
 async def list_file_shares(
     contact_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict:
-    shares = await service.list_file_shares(db, contact_id)
+    shares = await service.list_file_shares(db, contact_id, user=current_user)
     return {"data": [FileShareResponse.model_validate(s) for s in shares]}

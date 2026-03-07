@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Plus, X } from 'lucide-react'
 import { createMeeting } from '@/api/meetings'
-import { listContacts } from '@/api/contacts'
+import ContactSelector from '@/components/shared/ContactSelector'
 
 export default function NewMeetingPage() {
   const navigate = useNavigate()
@@ -13,17 +13,11 @@ export default function NewMeetingPage() {
   const [scheduledStart, setScheduledStart] = useState('')
   const [scheduledEnd, setScheduledEnd] = useState('')
   const [description, setDescription] = useState('')
-  const [contactId, setContactId] = useState('')
+  const [contactId, setContactId] = useState<string | null>(null)
   const [recordMeeting, setRecordMeeting] = useState(true)
   const [participantEmail, setParticipantEmail] = useState('')
   const [participantEmails, setParticipantEmails] = useState<string[]>([])
   const [error, setError] = useState('')
-
-  const { data: contactsData } = useQuery({
-    queryKey: ['contacts', { page_size: 200 }],
-    queryFn: () => listContacts({ page_size: 200 }),
-  })
-  const contacts = contactsData?.data ?? []
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -32,7 +26,7 @@ export default function NewMeetingPage() {
         scheduled_start: new Date(scheduledStart).toISOString(),
         scheduled_end: scheduledEnd ? new Date(scheduledEnd).toISOString() : undefined,
         description: description || undefined,
-        contact_id: contactId || undefined,
+        contact_id: contactId ?? undefined,
         record_meeting: recordMeeting,
         participant_emails: participantEmails.length > 0 ? participantEmails : undefined,
       }),
@@ -120,18 +114,11 @@ export default function NewMeetingPage() {
           {/* Contact */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contact</label>
-            <select
+            <ContactSelector
               value={contactId}
-              onChange={(e) => setContactId(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">No contact</option>
-              {contacts.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.company_name}{c.contact_name ? ` - ${c.contact_name}` : ''}
-                </option>
-              ))}
-            </select>
+              onChange={(id) => setContactId(id)}
+              placeholder="Select a contact..."
+            />
           </div>
 
           {/* Record Meeting */}

@@ -29,6 +29,7 @@ from app.accounting.schemas import (
     VendorSpend,
 )
 from app.auth.models import User
+from app.core.authorization import apply_ownership_filter, authorize_owner
 from app.core.exceptions import ConflictError, ForbiddenError, NotFoundError, ValidationError
 from app.core.pagination import PaginationParams, build_pagination_meta
 from app.documents.models import Document
@@ -315,11 +316,16 @@ async def list_expenses(
     db: AsyncSession,
     filters: ExpenseFilter,
     pagination: PaginationParams,
+    user: User | None = None,
 ) -> tuple[list[Expense], dict]:
     query = select(Expense).options(
         selectinload(Expense.category),
         selectinload(Expense.line_items),
     )
+
+    # Ownership filter: non-admins only see their own expenses
+    if user is not None:
+        query = apply_ownership_filter(query, Expense.user_id, user)
 
     if filters.search:
         search_term = f"%{filters.search}%"
@@ -360,7 +366,7 @@ async def list_expenses(
     return expenses, meta
 
 
-async def get_expense(db: AsyncSession, expense_id: uuid.UUID) -> Expense:
+async def get_expense(db: AsyncSession, expense_id: uuid.UUID, user: User | None = None) -> Expense:
     result = await db.execute(
         select(Expense)
         .options(
@@ -372,6 +378,8 @@ async def get_expense(db: AsyncSession, expense_id: uuid.UUID) -> Expense:
     expense = result.scalar_one_or_none()
     if expense is None:
         raise NotFoundError("Expense", str(expense_id))
+    if user is not None:
+        authorize_owner(expense.user_id, user, "Expense")
     return expense
 
 
@@ -381,7 +389,7 @@ async def update_expense(
     updates: ExpenseUpdate,
     user: User,
 ) -> Expense:
-    expense = await get_expense(db, expense_id)
+    expense = await get_expense(db, expense_id, user)
 
     # Check the current expense date's period and the new date's period (if changing)
     from app.accounting.period_service import assert_period_open
@@ -420,8 +428,8 @@ async def update_expense(
     return expense
 
 
-async def delete_expense(db: AsyncSession, expense_id: uuid.UUID) -> None:
-    expense = await get_expense(db, expense_id)
+async def delete_expense(db: AsyncSession, expense_id: uuid.UUID, user: User | None = None) -> None:
+    expense = await get_expense(db, expense_id, user)
 
     # Explicitly delete related records to avoid FK constraint errors
     await db.execute(

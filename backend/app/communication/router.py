@@ -1,13 +1,16 @@
 
+import json
 import math
 import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, Query, Request
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import Role, User
 from app.communication import service
+from app.communication.models import TwilioPhoneNumber
 from app.communication.schemas import (
     CallLogCreate,
     CallLogResponse,
@@ -22,6 +25,8 @@ from app.communication.schemas import (
     TwilioPhoneNumberResponse,
     TwilioPhoneNumberUpdate,
 )
+from app.config import Settings
+from app.core.exceptions import ForbiddenError, ValidationError
 from app.dependencies import get_current_user, get_db, require_role
 
 router = APIRouter()
@@ -152,6 +157,130 @@ async def delete_phone_number(
 ) -> dict:
     await service.delete_phone_number(db, phone_id)
     return {"data": {"message": "Phone number deleted"}}
+
+
+# ---------------------------------------------------------------------------
+# Twilio Number Search & Purchase (requires KYC approval)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/twilio/available-numbers")
+async def search_available_numbers(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+    area_code: str | None = None,
+    country: str = "US",
+    contains: str | None = None,
+):
+    """Search for available Twilio phone numbers to purchase."""
+    from app.kyc.models import KycStatus, KycVerification
+
+    # Check KYC status
+    result = await db.execute(
+        select(KycVerification).where(KycVerification.user_id == user.id)
+    )
+    kyc = result.scalar_one_or_none()
+    if not kyc or kyc.status != KycStatus.APPROVED:
+        raise ForbiddenError(
+            "KYC verification must be approved before purchasing phone numbers."
+        )
+
+    settings: Settings = request.app.state.settings
+    if not settings.twilio_account_sid or not settings.twilio_auth_token:
+        raise ForbiddenError("Twilio is not configured.")
+
+    from twilio.rest import Client
+
+    client = Client(settings.twilio_account_sid, settings.twilio_auth_token)
+
+    kwargs: dict = {"limit": 10}
+    if area_code:
+        kwargs["area_code"] = area_code
+    if contains:
+        kwargs["contains"] = contains
+
+    numbers = client.available_phone_numbers(country).local.list(**kwargs)
+
+    return {
+        "data": [
+            {
+                "phone_number": n.phone_number,
+                "friendly_name": n.friendly_name,
+                "locality": n.locality,
+                "region": n.region,
+                "capabilities": {
+                    "voice": n.capabilities.get("voice", False),
+                    "sms": n.capabilities.get("sms", False),
+                    "mms": n.capabilities.get("mms", False),
+                },
+            }
+            for n in numbers
+        ]
+    }
+
+
+@router.post("/twilio/purchase")
+async def purchase_number(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(require_role([Role.ADMIN]))],
+    body: dict,
+):
+    """Purchase a Twilio phone number. Requires admin role and approved KYC."""
+    from app.kyc.models import KycStatus, KycVerification
+
+    # Check KYC
+    result = await db.execute(
+        select(KycVerification).where(KycVerification.user_id == user.id)
+    )
+    kyc = result.scalar_one_or_none()
+    if not kyc or kyc.status != KycStatus.APPROVED:
+        raise ForbiddenError(
+            "KYC verification must be approved before purchasing."
+        )
+
+    phone_number = body.get("phone_number")
+    if not phone_number:
+        raise ValidationError("phone_number is required.")
+
+    settings: Settings = request.app.state.settings
+    if not settings.twilio_account_sid or not settings.twilio_auth_token:
+        raise ForbiddenError("Twilio is not configured.")
+
+    from twilio.rest import Client
+
+    client = Client(settings.twilio_account_sid, settings.twilio_auth_token)
+
+    try:
+        purchased = client.incoming_phone_numbers.create(
+            phone_number=phone_number
+        )
+    except Exception as e:
+        raise ValidationError(f"Failed to purchase number: {str(e)[:200]}")
+
+    # Save to DB using the existing TwilioPhoneNumber model.
+    # Store the Twilio SID and capabilities in the capabilities_json column.
+    capabilities_data = json.dumps({"sid": purchased.sid})
+
+    phone = TwilioPhoneNumber(
+        id=uuid.uuid4(),
+        phone_number=purchased.phone_number,
+        friendly_name=purchased.friendly_name or phone_number,
+        capabilities_json=capabilities_data,
+    )
+    db.add(phone)
+    await db.commit()
+    await db.refresh(phone)
+
+    return {
+        "data": {
+            "id": str(phone.id),
+            "phone_number": phone.phone_number,
+            "friendly_name": phone.friendly_name,
+            "sid": purchased.sid,
+        }
+    }
 
 
 # ---------------------------------------------------------------------------

@@ -10,6 +10,7 @@ from sqlalchemy.orm import selectinload
 
 from app.auth.models import User
 from app.collaboration.service import log_activity
+from app.core.authorization import apply_ownership_filter, authorize_owner
 from app.core.exceptions import NotFoundError, ValidationError
 from app.core.pagination import PaginationParams, build_pagination_meta
 from app.invoicing.models import Invoice, InvoiceLineItem, InvoicePayment, InvoiceStatus
@@ -129,9 +130,10 @@ async def create_invoice(
 
 
 async def list_invoices(
-    db: AsyncSession, filters: InvoiceFilter, pagination: PaginationParams
+    db: AsyncSession, filters: InvoiceFilter, pagination: PaginationParams, user: User
 ) -> tuple[list[Invoice], dict]:
     query = select(Invoice).options(selectinload(Invoice.contact))
+    query = apply_ownership_filter(query, Invoice.created_by, user)
 
     if filters.search:
         term = f"%{filters.search}%"
@@ -160,7 +162,7 @@ async def list_invoices(
     return invoices, build_pagination_meta(total, pagination)
 
 
-async def get_invoice(db: AsyncSession, invoice_id: uuid.UUID) -> Invoice:
+async def get_invoice(db: AsyncSession, invoice_id: uuid.UUID, user: User) -> Invoice:
     result = await db.execute(
         select(Invoice)
         .options(
@@ -173,13 +175,14 @@ async def get_invoice(db: AsyncSession, invoice_id: uuid.UUID) -> Invoice:
     invoice = result.scalar_one_or_none()
     if invoice is None:
         raise NotFoundError("Invoice", str(invoice_id))
+    authorize_owner(invoice.created_by, user, "Invoice")
     return invoice
 
 
 async def update_invoice(
     db: AsyncSession, invoice_id: uuid.UUID, data: InvoiceUpdate, user: User
 ) -> Invoice:
-    invoice = await get_invoice(db, invoice_id)
+    invoice = await get_invoice(db, invoice_id, user)
 
     # Check the current invoice date's period and the new date's period (if changing)
     from app.accounting.period_service import assert_period_open
@@ -233,14 +236,14 @@ async def update_invoice(
     return invoice
 
 
-async def delete_invoice(db: AsyncSession, invoice_id: uuid.UUID) -> None:
-    invoice = await get_invoice(db, invoice_id)
+async def delete_invoice(db: AsyncSession, invoice_id: uuid.UUID, user: User) -> None:
+    invoice = await get_invoice(db, invoice_id, user)
     await db.delete(invoice)
     await db.commit()
 
 
-async def send_invoice(db: AsyncSession, invoice_id: uuid.UUID) -> Invoice:
-    invoice = await get_invoice(db, invoice_id)
+async def send_invoice(db: AsyncSession, invoice_id: uuid.UUID, user: User) -> Invoice:
+    invoice = await get_invoice(db, invoice_id, user)
     if invoice.status not in (InvoiceStatus.DRAFT,):
         raise ValidationError("Only draft invoices can be sent.")
     invoice.status = InvoiceStatus.SENT
@@ -262,6 +265,7 @@ async def record_payment(
     invoice = result.unique().scalar_one_or_none()
     if invoice is None:
         raise NotFoundError("Invoice", str(invoice_id))
+    authorize_owner(invoice.created_by, user, "Invoice")
 
     payment = InvoicePayment(
         invoice_id=invoice.id,
@@ -309,26 +313,32 @@ async def record_payment(
     return payment
 
 
-async def get_invoice_stats(db: AsyncSession) -> dict:
+async def get_invoice_stats(db: AsyncSession, user: User) -> dict:
     now = date.today()
 
     outstanding_q = select(func.coalesce(func.sum(Invoice.total), 0)).where(
         Invoice.status.in_([InvoiceStatus.SENT, InvoiceStatus.VIEWED, InvoiceStatus.PARTIALLY_PAID])
     )
+    outstanding_q = apply_ownership_filter(outstanding_q, Invoice.created_by, user)
     total_outstanding = (await db.execute(outstanding_q)).scalar() or 0
 
     overdue_q = select(func.coalesce(func.sum(Invoice.total), 0)).where(
         Invoice.status == InvoiceStatus.OVERDUE
     )
+    overdue_q = apply_ownership_filter(overdue_q, Invoice.created_by, user)
     total_overdue = (await db.execute(overdue_q)).scalar() or 0
 
     paid_q = select(func.coalesce(func.sum(InvoicePayment.amount), 0)).where(
         func.extract("year", InvoicePayment.date) == now.year,
         func.extract("month", InvoicePayment.date) == now.month,
     )
+    # Filter payments by joining to the invoice ownership
+    paid_q = paid_q.join(Invoice, InvoicePayment.invoice_id == Invoice.id)
+    paid_q = apply_ownership_filter(paid_q, Invoice.created_by, user)
     total_paid = (await db.execute(paid_q)).scalar() or 0
 
     count_q = select(func.count(Invoice.id))
+    count_q = apply_ownership_filter(count_q, Invoice.created_by, user)
     invoice_count = (await db.execute(count_q)).scalar() or 0
 
     return {

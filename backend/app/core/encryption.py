@@ -1,5 +1,6 @@
 
 import logging
+import os
 
 from cryptography.fernet import Fernet
 
@@ -25,9 +26,11 @@ class EncryptionService:
 def init_encryption_service(key: str) -> EncryptionService:
     global _service
     if not key:
+        if os.getenv("DATABASE_URL", "").startswith("postgresql"):
+            raise RuntimeError("FERNET_KEY must be set in production")
         key = Fernet.generate_key().decode()
         logger.warning(
-            "No FERNET_KEY set in .env. Generated ephemeral key — "
+            "Using ephemeral encryption key (development only) — "
             "encrypted data will be lost on restart. Set FERNET_KEY for persistence."
         )
     _service = EncryptionService(key)

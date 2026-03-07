@@ -29,7 +29,7 @@ router = APIRouter()
 @router.get("")
 async def list_estimates(
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
     pagination: Annotated[PaginationParams, Depends(get_pagination)],
     search: str | None = Query(None),
     status: EstimateStatus | None = Query(None),
@@ -41,7 +41,7 @@ async def list_estimates(
         search=search, status=status, contact_id=contact_id,
         date_from=date_from, date_to=date_to,
     )
-    estimates, meta = await service.list_estimates(db, filters, pagination)
+    estimates, meta = await service.list_estimates(db, filters, pagination, user=current_user)
     return {"data": [EstimateListItem.model_validate(est) for est in estimates], "meta": meta}
 
 
@@ -64,9 +64,9 @@ async def create_estimate(
 async def get_estimate(
     estimate_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict:
-    estimate = await service.get_estimate(db, estimate_id)
+    estimate = await service.get_estimate(db, estimate_id, user=current_user)
     return {"data": EstimateResponse.model_validate(estimate)}
 
 
@@ -85,9 +85,9 @@ async def update_estimate(
 async def delete_estimate(
     estimate_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_role([Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
-    await service.delete_estimate(db, estimate_id)
+    await service.delete_estimate(db, estimate_id, user=current_user)
     return {"data": {"message": "Estimate deleted"}}
 
 
@@ -109,8 +109,8 @@ async def share_estimate(
     current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
 ) -> dict:
     """Create a shareable public link for an estimate."""
-    # Verify estimate exists
-    await service.get_estimate(db, estimate_id)
+    # Verify estimate exists and user owns it
+    await service.get_estimate(db, estimate_id, user=current_user)
     token = await create_public_token(db, ResourceType.ESTIMATE, estimate_id, current_user)
     base_url = str(request.base_url).rstrip("/")
     shareable_url = f"{base_url}/p/{token.token}"

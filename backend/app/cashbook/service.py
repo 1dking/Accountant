@@ -29,6 +29,7 @@ from app.cashbook.schemas import (
     PaymentAccountUpdate,
 )
 from app.collaboration.service import log_activity
+from app.core.authorization import apply_ownership_filter, authorize_owner
 from app.core.exceptions import ConflictError, ForbiddenError, NotFoundError, ValidationError
 from app.core.pagination import PaginationParams, build_pagination_meta
 
@@ -305,22 +306,22 @@ async def create_account(
     return account
 
 
-async def list_accounts(db: AsyncSession, user_id: uuid.UUID) -> list[PaymentAccount]:
-    result = await db.execute(
-        select(PaymentAccount)
-        .where(PaymentAccount.user_id == user_id, PaymentAccount.is_active.is_(True))
-        .order_by(PaymentAccount.created_at)
-    )
+async def list_accounts(db: AsyncSession, user: User) -> list[PaymentAccount]:
+    stmt = select(PaymentAccount).where(PaymentAccount.is_active.is_(True)).order_by(PaymentAccount.created_at)
+    stmt = apply_ownership_filter(stmt, PaymentAccount.user_id, user)
+    result = await db.execute(stmt)
     return list(result.scalars().all())
 
 
-async def get_account(db: AsyncSession, account_id: uuid.UUID) -> PaymentAccount:
+async def get_account(db: AsyncSession, account_id: uuid.UUID, user: User | None = None) -> PaymentAccount:
     result = await db.execute(
         select(PaymentAccount).where(PaymentAccount.id == account_id)
     )
     account = result.scalar_one_or_none()
     if account is None:
         raise NotFoundError("PaymentAccount", str(account_id))
+    if user is not None:
+        authorize_owner(account.user_id, user, "PaymentAccount")
     return account
 
 
@@ -328,8 +329,9 @@ async def update_account(
     db: AsyncSession,
     account_id: uuid.UUID,
     data: PaymentAccountUpdate,
+    user: User,
 ) -> PaymentAccount:
-    account = await get_account(db, account_id)
+    account = await get_account(db, account_id, user)
     update_data = data.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(account, field, value)
@@ -338,8 +340,8 @@ async def update_account(
     return account
 
 
-async def delete_account(db: AsyncSession, account_id: uuid.UUID) -> None:
-    account = await get_account(db, account_id)
+async def delete_account(db: AsyncSession, account_id: uuid.UUID, user: User) -> None:
+    account = await get_account(db, account_id, user)
 
     # Warn if account still has transactions
     entry_count = (
@@ -505,11 +507,13 @@ async def list_entries(
     db: AsyncSession,
     filters: CashbookEntryFilter,
     pagination: PaginationParams,
+    user: User,
 ) -> tuple[list[dict], dict]:
     """List entries with running balance computed per-account."""
     query = select(CashbookEntry).options(
         selectinload(CashbookEntry.category),
     )
+    query = apply_ownership_filter(query, CashbookEntry.user_id, user)
 
     if filters.account_id is not None:
         query = query.where(CashbookEntry.account_id == filters.account_id)
@@ -628,7 +632,7 @@ async def list_entries(
     return entries_with_balance, meta
 
 
-async def get_entry(db: AsyncSession, entry_id: uuid.UUID) -> CashbookEntry:
+async def get_entry(db: AsyncSession, entry_id: uuid.UUID, user: User | None = None) -> CashbookEntry:
     result = await db.execute(
         select(CashbookEntry)
         .options(selectinload(CashbookEntry.category))
@@ -637,6 +641,8 @@ async def get_entry(db: AsyncSession, entry_id: uuid.UUID) -> CashbookEntry:
     entry = result.scalar_one_or_none()
     if entry is None:
         raise NotFoundError("CashbookEntry", str(entry_id))
+    if user is not None:
+        authorize_owner(entry.user_id, user, "CashbookEntry")
     return entry
 
 
@@ -646,7 +652,7 @@ async def update_entry(
     data: CashbookEntryUpdate,
     user: User,
 ) -> CashbookEntry:
-    entry = await get_entry(db, entry_id)
+    entry = await get_entry(db, entry_id, user)
 
     from app.accounting.period_service import assert_period_open
 
@@ -683,8 +689,8 @@ async def update_entry(
     return entry
 
 
-async def delete_entry(db: AsyncSession, entry_id: uuid.UUID) -> None:
-    entry = await get_entry(db, entry_id)
+async def delete_entry(db: AsyncSession, entry_id: uuid.UUID, user: User) -> None:
+    entry = await get_entry(db, entry_id, user)
 
     from app.accounting.period_service import assert_period_open
 

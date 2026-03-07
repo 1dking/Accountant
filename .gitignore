@@ -21,6 +21,7 @@ data/
 .env.*
 .env.local
 .env.production
+.env.deploy
 
 # IDE
 .vscode/

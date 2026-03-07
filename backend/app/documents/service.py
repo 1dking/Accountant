@@ -6,6 +6,8 @@ import logging
 import os
 import uuid
 
+import magic
+
 from datetime import datetime, timezone
 
 from sqlalchemy import delete, func, or_, select, update
@@ -16,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 from app.auth.models import User
 from app.config import Settings
+from app.core.authorization import apply_ownership_filter, authorize_owner, is_admin
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
 from app.core.pagination import PaginationParams, build_pagination_meta
 from app.documents.models import (
@@ -58,7 +61,6 @@ ALLOWED_MIME_TYPES: set[str] = {
     "image/gif",
     "image/webp",
     "image/tiff",
-    "image/svg+xml",
     "image/bmp",
     "image/heic",
     "image/heif",
@@ -155,6 +157,44 @@ def _extension_from_filename(filename: str) -> str:
     return ext.lstrip(".") if ext else "bin"
 
 
+def _validate_file_content(file_data: bytes, claimed_mime: str) -> None:
+    """Validate file content matches claimed MIME type using magic bytes."""
+    try:
+        detected = magic.from_buffer(file_data[:8192], mime=True)
+    except Exception:
+        return  # If magic fails, fall through to existing validation
+
+    # Allow generic types that magic often returns
+    generic_ok = {"application/octet-stream", "application/zip", "text/plain"}
+    if detected in generic_ok:
+        return
+
+    # Check that detected type matches claimed type (loosely)
+    if detected != claimed_mime:
+        # Allow common mismatches (e.g. docx detected as zip)
+        compatible = {
+            "application/zip": {
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            },
+        }
+        if detected in compatible and claimed_mime in compatible[detected]:
+            return
+        if claimed_mime.startswith("text/") and detected.startswith("text/"):
+            return
+
+        logger.warning(
+            "File content mismatch: claimed=%s detected=%s",
+            claimed_mime,
+            detected,
+        )
+        raise ValidationError(
+            f"File content does not match claimed type '{claimed_mime}'. "
+            f"Detected type: '{detected}'."
+        )
+
+
 async def _create_audit_log(
     db: AsyncSession,
     *,
@@ -223,6 +263,9 @@ async def upload_document(
             f"archives, audio, and video."
         )
 
+    # Validate file content matches claimed MIME type (magic bytes)
+    _validate_file_content(file_data, content_type)
+
     # Validate folder exists if specified
     if folder_id is not None:
         result = await db.execute(select(Folder).where(Folder.id == folder_id))
@@ -288,13 +331,21 @@ async def list_documents(
     db: AsyncSession,
     filters: DocumentFilter,
     pagination: PaginationParams,
+    user: User | None = None,
 ) -> tuple[list[Document], dict]:
-    """Return a filtered, paginated list of documents with eager-loaded relationships."""
+    """Return a filtered, paginated list of documents with eager-loaded relationships.
+
+    When *user* is provided, non-admin users only see their own documents.
+    """
 
     query = select(Document).options(
         selectinload(Document.tags),
         selectinload(Document.folder),
     )
+
+    # Ownership filter (admins see all, others see own)
+    if user is not None:
+        query = apply_ownership_filter(query, Document.uploaded_by, user)
 
     # Exclude trashed documents by default
     query = query.where(Document.is_trashed == False)  # noqa: E712
@@ -350,8 +401,15 @@ async def list_documents(
     return documents, meta
 
 
-async def get_document(db: AsyncSession, document_id: uuid.UUID) -> Document:
-    """Return a single document with all relationships loaded."""
+async def get_document(
+    db: AsyncSession,
+    document_id: uuid.UUID,
+    user: User | None = None,
+) -> Document:
+    """Return a single document with all relationships loaded.
+
+    When *user* is provided, enforces ownership (admins bypass).
+    """
     result = await db.execute(
         select(Document)
         .options(
@@ -364,6 +422,8 @@ async def get_document(db: AsyncSession, document_id: uuid.UUID) -> Document:
     document = result.scalar_one_or_none()
     if document is None:
         raise NotFoundError("Document", str(document_id))
+    if user is not None:
+        authorize_owner(document.uploaded_by, user, "Document")
     return document
 
 
@@ -375,6 +435,7 @@ async def update_document(
 ) -> Document:
     """Partially update document metadata and create an audit log entry."""
     document = await get_document(db, document_id)
+    authorize_owner(document.uploaded_by, user, "Document")
 
     update_data = updates.model_dump(exclude_unset=True)
     changed_fields: dict = {}
@@ -409,6 +470,7 @@ async def delete_document(
 ) -> None:
     """Delete a document. Soft-deletes by default; permanently deletes if permanent=True."""
     document = await get_document(db, document_id)
+    authorize_owner(document.uploaded_by, user, "Document")
 
     if not permanent:
         # Soft delete: set is_trashed and trashed_at
@@ -516,9 +578,10 @@ async def download_document(
     db: AsyncSession,
     storage: StorageBackend,
     document_id: uuid.UUID,
+    user: User | None = None,
 ) -> tuple[bytes, Document]:
     """Return file bytes and the document record for streaming to the client."""
-    document = await get_document(db, document_id)
+    document = await get_document(db, document_id, user=user)
     data = await storage.read(document.storage_path)
     return data, document
 
@@ -527,8 +590,12 @@ async def search_documents(
     db: AsyncSession,
     query_text: str,
     pagination: PaginationParams,
+    user: User | None = None,
 ) -> tuple[list[Document], dict]:
-    """Full-text LIKE search across filename, title, and extracted_text."""
+    """Full-text LIKE search across filename, title, and extracted_text.
+
+    When *user* is provided, non-admin users only see their own documents.
+    """
     search_term = f"%{query_text}%"
 
     query = (
@@ -545,6 +612,10 @@ async def search_documents(
             )
         )
     )
+
+    # Ownership filter (admins see all, others see own)
+    if user is not None:
+        query = apply_ownership_filter(query, Document.uploaded_by, user)
 
     count_query = select(func.count()).select_from(query.subquery())
     total_count = await db.scalar(count_query) or 0
@@ -595,6 +666,7 @@ async def upload_version(
         )
 
     document = await get_document(db, document_id)
+    authorize_owner(document.uploaded_by, user, "Document")
 
     # Determine next version number
     result = await db.execute(
@@ -654,10 +726,11 @@ async def upload_version(
 async def get_document_versions(
     db: AsyncSession,
     document_id: uuid.UUID,
+    user: User | None = None,
 ) -> list[DocumentVersion]:
     """Return all versions for a document."""
-    # Ensure document exists
-    await get_document(db, document_id)
+    # Ensure document exists and user is authorized
+    await get_document(db, document_id, user=user)
 
     result = await db.execute(
         select(DocumentVersion)
@@ -709,14 +782,23 @@ async def create_folder(
     return folder
 
 
-async def get_folder_tree(db: AsyncSession) -> list[Folder]:
-    """Return all root-level folders with children eagerly loaded."""
-    result = await db.execute(
+async def get_folder_tree(
+    db: AsyncSession,
+    user: User | None = None,
+) -> list[Folder]:
+    """Return all root-level folders with children eagerly loaded.
+
+    When *user* is provided, non-admin users only see their own folders.
+    """
+    query = (
         select(Folder)
         .where(Folder.parent_id.is_(None))
         .options(selectinload(Folder.children))
         .order_by(Folder.name)
     )
+    if user is not None:
+        query = apply_ownership_filter(query, Folder.created_by, user)
+    result = await db.execute(query)
     return list(result.scalars().unique().all())
 
 
@@ -731,6 +813,7 @@ async def update_folder(
     folder = result.scalar_one_or_none()
     if folder is None:
         raise NotFoundError("Folder", str(folder_id))
+    authorize_owner(folder.created_by, user, "Folder")
 
     update_data = data.model_dump(exclude_unset=True)
 
@@ -767,6 +850,7 @@ async def delete_folder(
     folder = result.scalar_one_or_none()
     if folder is None:
         raise NotFoundError("Folder", str(folder_id))
+    authorize_owner(folder.created_by, user, "Folder")
 
     # Collect this folder + all descendant folder IDs
     folder_ids = [folder_id]
@@ -889,6 +973,7 @@ async def add_tags_to_document(
 ) -> Document:
     """Add one or more tags to a document."""
     document = await get_document(db, document_id)
+    authorize_owner(document.uploaded_by, user, "Document")
 
     existing_tag_ids = {t.id for t in document.tags}
     added_names: list[str] = []
@@ -926,6 +1011,7 @@ async def remove_tag_from_document(
 ) -> Document:
     """Remove a single tag from a document."""
     document = await get_document(db, document_id)
+    authorize_owner(document.uploaded_by, user, "Document")
 
     tag_to_remove = None
     for tag in document.tags:
@@ -1034,9 +1120,12 @@ async def star_document(
     document_id: uuid.UUID,
     user_id: uuid.UUID,
     starred: bool,
+    user: User | None = None,
 ) -> Document:
     """Toggle star on a document."""
     document = await get_document(db, document_id)
+    if user is not None:
+        authorize_owner(document.uploaded_by, user, "Document")
     document.is_starred = starred
     await _create_audit_log(
         db,
@@ -1054,9 +1143,12 @@ async def trash_document(
     db: AsyncSession,
     document_id: uuid.UUID,
     user_id: uuid.UUID,
+    user: User | None = None,
 ) -> Document:
     """Soft delete -- set is_trashed=True, trashed_at=now."""
     document = await get_document(db, document_id)
+    if user is not None:
+        authorize_owner(document.uploaded_by, user, "Document")
     document.is_trashed = True
     document.trashed_at = datetime.now(timezone.utc)
     await _create_audit_log(
@@ -1076,9 +1168,12 @@ async def restore_document(
     db: AsyncSession,
     document_id: uuid.UUID,
     user_id: uuid.UUID,
+    user: User | None = None,
 ) -> Document:
     """Restore from trash -- set is_trashed=False, trashed_at=None."""
     document = await get_document(db, document_id)
+    if user is not None:
+        authorize_owner(document.uploaded_by, user, "Document")
     if not document.is_trashed:
         raise ValidationError("Document is not in trash.")
     document.is_trashed = False
@@ -1216,9 +1311,12 @@ async def move_document(
     document_id: uuid.UUID,
     target_folder_id: uuid.UUID | None,
     user_id: uuid.UUID,
+    user: User | None = None,
 ) -> Document:
     """Move document to a different folder."""
     document = await get_document(db, document_id)
+    if user is not None:
+        authorize_owner(document.uploaded_by, user, "Document")
 
     # Validate target folder if specified
     if target_folder_id is not None:
@@ -1251,12 +1349,15 @@ async def move_folder(
     folder_id: uuid.UUID,
     target_parent_id: uuid.UUID | None,
     user_id: uuid.UUID,
+    user: User | None = None,
 ) -> Folder:
     """Move folder to a different parent. Prevent circular references."""
     result = await db.execute(select(Folder).where(Folder.id == folder_id))
     folder = result.scalar_one_or_none()
     if folder is None:
         raise NotFoundError("Folder", str(folder_id))
+    if user is not None:
+        authorize_owner(folder.created_by, user, "Folder")
 
     # Prevent moving a folder into itself
     if target_parent_id is not None and target_parent_id == folder_id:
@@ -1424,12 +1525,15 @@ async def star_folder(
     folder_id: uuid.UUID,
     user_id: uuid.UUID,
     starred: bool,
+    user: User | None = None,
 ) -> Folder:
     """Toggle star on a folder."""
     result = await db.execute(select(Folder).where(Folder.id == folder_id))
     folder = result.scalar_one_or_none()
     if folder is None:
         raise NotFoundError("Folder", str(folder_id))
+    if user is not None:
+        authorize_owner(folder.created_by, user, "Folder")
     folder.is_starred = starred
     await db.commit()
     await db.refresh(folder)
@@ -1444,6 +1548,7 @@ async def rename_document(
 ) -> Document:
     """Rename a document's title and original_filename."""
     document = await get_document(db, document_id)
+    authorize_owner(document.uploaded_by, user, "Document")
     document.title = new_name
     document.original_filename = new_name
     await _create_audit_log(
@@ -1470,6 +1575,7 @@ async def rename_folder(
     folder = result.scalar_one_or_none()
     if folder is None:
         raise NotFoundError("Folder", str(folder_id))
+    authorize_owner(folder.created_by, user, "Folder")
 
     # Check for duplicate name under same parent
     dup_query = select(Folder).where(
@@ -1511,6 +1617,7 @@ async def delete_folder_recursive(
     folder = result.scalar_one_or_none()
     if folder is None:
         raise NotFoundError("Folder", str(folder_id))
+    authorize_owner(folder.created_by, user, "Folder")
 
     # Collect this folder + all descendant folder IDs
     all_folder_ids = [folder_id]
@@ -1649,6 +1756,7 @@ async def bulk_move(
     folder_ids: list[uuid.UUID],
     target_folder_id: uuid.UUID | None,
     user_id: uuid.UUID,
+    user: User | None = None,
 ) -> dict:
     """Bulk move documents and folders to a target folder."""
     docs_moved = 0
@@ -1656,14 +1764,14 @@ async def bulk_move(
 
     for doc_id in document_ids:
         try:
-            await move_document(db, doc_id, target_folder_id, user_id)
+            await move_document(db, doc_id, target_folder_id, user_id, user=user)
             docs_moved += 1
         except NotFoundError:
             pass
 
     for fid in folder_ids:
         try:
-            await move_folder(db, fid, target_folder_id, user_id)
+            await move_folder(db, fid, target_folder_id, user_id, user=user)
             folders_moved += 1
         except (NotFoundError, ValidationError):
             pass
@@ -1677,6 +1785,7 @@ async def bulk_star(
     folder_ids: list[uuid.UUID],
     starred: bool,
     user_id: uuid.UUID,
+    user: User | None = None,
 ) -> dict:
     """Bulk star/unstar documents and folders."""
     docs_updated = 0
@@ -1684,14 +1793,14 @@ async def bulk_star(
 
     for doc_id in document_ids:
         try:
-            await star_document(db, doc_id, user_id, starred)
+            await star_document(db, doc_id, user_id, starred, user=user)
             docs_updated += 1
         except NotFoundError:
             pass
 
     for fid in folder_ids:
         try:
-            await star_folder(db, fid, user_id, starred)
+            await star_folder(db, fid, user_id, starred, user=user)
             folders_updated += 1
         except NotFoundError:
             pass
