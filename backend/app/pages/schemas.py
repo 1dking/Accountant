@@ -238,6 +238,67 @@ class TrackEventRequest(BaseModel):
 # ── Video upload ────────────────────────────────────────────────────────
 
 
+# ── Template schemas ────────────────────────────────────────────────────
+
+
+class TemplateCreate(BaseModel):
+    name: str = Field(max_length=255)
+    description: Optional[str] = None
+    category_industry: Optional[str] = None
+    category_type: Optional[str] = None
+    html_content: Optional[str] = None
+    css_content: Optional[str] = None
+    metadata_json: Optional[str] = None
+    scope: str = "org"  # org | platform
+    source_page_id: Optional[uuid.UUID] = None  # if saving from existing page
+
+
+class TemplateUpdate(BaseModel):
+    name: Optional[str] = Field(None, max_length=255)
+    description: Optional[str] = None
+    category_industry: Optional[str] = None
+    category_type: Optional[str] = None
+    thumbnail_url: Optional[str] = None
+    html_content: Optional[str] = None
+    css_content: Optional[str] = None
+    metadata_json: Optional[str] = None
+    scope: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class TemplateResponse(BaseModel):
+    id: uuid.UUID
+    name: str
+    description: Optional[str] = None
+    category_industry: Optional[str] = None
+    category_type: Optional[str] = None
+    thumbnail_url: Optional[str] = None
+    html_content: Optional[str] = None
+    css_content: Optional[str] = None
+    metadata_json: Optional[str] = None
+    scope: str
+    is_active: bool
+    created_by: Optional[uuid.UUID] = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class TemplateListItem(BaseModel):
+    id: uuid.UUID
+    name: str
+    description: Optional[str] = None
+    category_industry: Optional[str] = None
+    category_type: Optional[str] = None
+    thumbnail_url: Optional[str] = None
+    scope: str
+    is_active: bool
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 class VideoUploadResponse(BaseModel):
     mp4_url: str
     webm_url: str

@@ -23,6 +23,11 @@ import {
   Settings,
   X,
   MessageSquare,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Bookmark,
+  LayoutTemplate,
+  Search,
 } from 'lucide-react'
 import VisualEditor from '@/components/pages/VisualEditor'
 import AnalyticsDashboard from '@/components/pages/AnalyticsDashboard'
@@ -67,6 +72,18 @@ interface WebsiteItem {
   page_count: number
   created_at: string
   updated_at: string
+}
+
+interface TemplateItem {
+  id: string
+  name: string
+  description?: string
+  category_industry?: string
+  category_type?: string
+  thumbnail_url?: string
+  scope: string
+  is_active: boolean
+  created_at: string
 }
 
 interface ChatMessage {
@@ -128,11 +145,22 @@ export default function PageBuilderPage() {
   const [editCss, setEditCss] = useState('')
   const [activeTab, setActiveTab] = useState<EditorTab>('preview')
   const [responsiveSize, setResponsiveSize] = useState<ResponsiveSize>('desktop')
+  const [chatCollapsed, setChatCollapsed] = useState(false)
 
   // Chat state
   const [chatInput, setChatInput] = useState('')
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const chatEndRef = useRef<HTMLDivElement>(null)
+
+  // Template state
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false)
+  const [templateName, setTemplateName] = useState('')
+  const [templateDesc, setTemplateDesc] = useState('')
+  const [templateIndustry, setTemplateIndustry] = useState('')
+  const [templateType, setTemplateType] = useState('')
+  const [showTemplateBrowser, setShowTemplateBrowser] = useState(false)
+  const [templateSearch, setTemplateSearch] = useState('')
+  const [templateFilterIndustry, setTemplateFilterIndustry] = useState('')
 
   // Auto-save
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -167,10 +195,16 @@ export default function PageBuilderPage() {
     enabled: !!selectedWebsiteId && view === 'website-edit',
   })
 
+  const { data: templatesRes } = useQuery({
+    queryKey: ['page-templates'],
+    queryFn: () => pagesApi.listTemplates(),
+  })
+
   const pages: PageItem[] = Array.isArray(unwrap(pagesRes)) ? unwrap<PageItem[]>(pagesRes) : []
   const websites: WebsiteItem[] = Array.isArray(unwrap(websitesRes)) ? unwrap<WebsiteItem[]>(websitesRes) : []
   const detail: PageDetail | null = unwrap<PageDetail>(pageDetailRes) ?? null
   const websitePages: PageItem[] = Array.isArray(unwrap(websitePagesRes)) ? unwrap<PageItem[]>(websitePagesRes) : []
+  const templates: TemplateItem[] = Array.isArray(unwrap(templatesRes)) ? unwrap<TemplateItem[]>(templatesRes) : []
 
   const standalonePages = pages.filter((p) => !p.website_id)
 
@@ -297,6 +331,55 @@ export default function PageBuilderPage() {
       toast.error('AI chat failed')
       setChatMessages((prev) => prev.filter((m) => m.content !== '...'))
     },
+  })
+
+  const saveTemplateMutation = useMutation({
+    mutationFn: (data: {
+      name: string; description?: string; category_industry?: string;
+      category_type?: string; source_page_id?: string; scope?: string;
+    }) => pagesApi.createTemplate(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['page-templates'] })
+      setShowSaveTemplate(false)
+      setTemplateName('')
+      setTemplateDesc('')
+      setTemplateIndustry('')
+      setTemplateType('')
+      toast.success('Template saved!')
+    },
+    onError: () => toast.error('Failed to save template'),
+  })
+
+  const createFromTemplateMutation = useMutation({
+    mutationFn: (data: { templateId: string; title: string; websiteId?: string }) =>
+      pagesApi.createPageFromTemplate(data.templateId, data.title, data.websiteId),
+    onSuccess: (res) => {
+      const created = unwrap<PageDetail>(res)
+      queryClient.invalidateQueries({ queryKey: ['pages'] })
+      queryClient.invalidateQueries({ queryKey: ['websites'] })
+      if (created?.id) {
+        setSelectedPageId(created.id)
+        if (created.website_id) {
+          setSelectedWebsiteId(created.website_id)
+          queryClient.invalidateQueries({ queryKey: ['website-pages', created.website_id] })
+          setView('website-edit')
+        } else {
+          setView('edit')
+        }
+      }
+      setShowTemplateBrowser(false)
+      toast.success('Page created from template')
+    },
+    onError: () => toast.error('Failed to create page from template'),
+  })
+
+  const deleteTemplateMutation = useMutation({
+    mutationFn: (id: string) => pagesApi.deleteTemplate(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['page-templates'] })
+      toast.success('Template deleted')
+    },
+    onError: () => toast.error('Failed to delete template'),
   })
 
   // -------------------------------------------------------------------------
@@ -492,6 +575,205 @@ export default function PageBuilderPage() {
     )
   }
 
+  // -------------------------------------------------------------------------
+  // Render: Save as Template Modal
+  // -------------------------------------------------------------------------
+
+  const renderSaveTemplateModal = () => {
+    if (!showSaveTemplate) return null
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Save as Template</h3>
+            <button
+              onClick={() => setShowSaveTemplate(false)}
+              className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          <div className="space-y-3">
+            <input
+              value={templateName}
+              onChange={(e) => setTemplateName(e.target.value)}
+              placeholder="Template name"
+              autoFocus
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <textarea
+              value={templateDesc}
+              onChange={(e) => setTemplateDesc(e.target.value)}
+              placeholder="Description (optional)"
+              rows={2}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+            />
+            <div className="grid grid-cols-2 gap-3">
+              <select
+                value={templateIndustry}
+                onChange={(e) => setTemplateIndustry(e.target.value)}
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Industry...</option>
+                <option value="agency">Agency</option>
+                <option value="saas">SaaS</option>
+                <option value="restaurant">Restaurant</option>
+                <option value="real-estate">Real Estate</option>
+                <option value="healthcare">Healthcare</option>
+                <option value="portfolio">Portfolio</option>
+                <option value="ecommerce">E-Commerce</option>
+                <option value="events">Events</option>
+                <option value="professional">Professional Services</option>
+                <option value="other">Other</option>
+              </select>
+              <select
+                value={templateType}
+                onChange={(e) => setTemplateType(e.target.value)}
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Page type...</option>
+                <option value="landing">Landing Page</option>
+                <option value="homepage">Homepage</option>
+                <option value="about">About</option>
+                <option value="contact">Contact</option>
+                <option value="pricing">Pricing</option>
+                <option value="services">Services</option>
+                <option value="portfolio">Portfolio</option>
+              </select>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              if (!templateName.trim() || !selectedPageId) return
+              saveTemplateMutation.mutate({
+                name: templateName.trim(),
+                description: templateDesc.trim() || undefined,
+                category_industry: templateIndustry || undefined,
+                category_type: templateType || undefined,
+                source_page_id: selectedPageId,
+                scope: 'org',
+              })
+            }}
+            disabled={!templateName.trim() || saveTemplateMutation.isPending}
+            className="w-full mt-4 flex items-center justify-center gap-2 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
+          >
+            {saveTemplateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bookmark className="h-4 w-4" />}
+            {saveTemplateMutation.isPending ? 'Saving...' : 'Save Template'}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // -------------------------------------------------------------------------
+  // Render: Template Browser Modal
+  // -------------------------------------------------------------------------
+
+  const renderTemplateBrowser = () => {
+    if (!showTemplateBrowser) return null
+
+    const filtered = templates.filter((t) => {
+      if (templateSearch && !t.name.toLowerCase().includes(templateSearch.toLowerCase()) && !t.description?.toLowerCase().includes(templateSearch.toLowerCase())) return false
+      if (templateFilterIndustry && t.category_industry !== templateFilterIndustry) return false
+      return true
+    })
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-4xl max-h-[80vh] flex flex-col">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Create from Template</h3>
+            <button
+              onClick={() => { setShowTemplateBrowser(false); setTemplateSearch(''); setTemplateFilterIndustry('') }}
+              className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          <div className="flex items-center gap-3 px-6 py-3 border-b border-gray-200 dark:border-gray-700">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                value={templateSearch}
+                onChange={(e) => setTemplateSearch(e.target.value)}
+                placeholder="Search templates..."
+                className="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              />
+            </div>
+            <select
+              value={templateFilterIndustry}
+              onChange={(e) => setTemplateFilterIndustry(e.target.value)}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            >
+              <option value="">All Industries</option>
+              <option value="agency">Agency</option>
+              <option value="saas">SaaS</option>
+              <option value="restaurant">Restaurant</option>
+              <option value="real-estate">Real Estate</option>
+              <option value="healthcare">Healthcare</option>
+              <option value="portfolio">Portfolio</option>
+              <option value="ecommerce">E-Commerce</option>
+              <option value="events">Events</option>
+              <option value="professional">Professional Services</option>
+            </select>
+          </div>
+          <div className="flex-1 overflow-y-auto p-6">
+            {filtered.length === 0 ? (
+              <div className="text-center py-12 text-gray-400 dark:text-gray-500">
+                <LayoutTemplate className="h-10 w-10 mx-auto mb-3 opacity-40" />
+                <p className="text-sm">No templates found</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filtered.map((t) => (
+                  <div
+                    key={t.id}
+                    className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden hover:shadow-md transition group"
+                  >
+                    <div className="h-32 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center">
+                      <LayoutTemplate className="h-8 w-8 text-gray-300 dark:text-gray-600" />
+                    </div>
+                    <div className="p-4">
+                      <h4 className="font-semibold text-sm text-gray-900 dark:text-gray-100 truncate">{t.name}</h4>
+                      {t.description && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">{t.description}</p>
+                      )}
+                      <div className="flex items-center gap-2 mt-2">
+                        {t.category_industry && (
+                          <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full">{t.category_industry}</span>
+                        )}
+                        {t.scope === 'platform' && (
+                          <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-full">Starter</span>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => {
+                          const title = prompt('Page title:')
+                          if (title?.trim()) {
+                            createFromTemplateMutation.mutate({
+                              templateId: t.id,
+                              title: title.trim(),
+                              websiteId: selectedWebsiteId || undefined,
+                            })
+                          }
+                        }}
+                        disabled={createFromTemplateMutation.isPending}
+                        className="w-full mt-3 flex items-center justify-center gap-1.5 bg-blue-600 text-white py-1.5 rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50 transition"
+                      >
+                        {createFromTemplateMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                        Use Template
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   // =========================================================================
   // LIST VIEW
   // =========================================================================
@@ -501,6 +783,7 @@ export default function PageBuilderPage() {
       <div className="p-6 max-w-6xl mx-auto">
         {renderCreatePageModal()}
         {renderCreateWebsiteModal()}
+        {renderTemplateBrowser()}
 
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
@@ -509,6 +792,13 @@ export default function PageBuilderPage() {
             <p className="text-gray-500 dark:text-gray-400 mt-1">Build websites and landing pages with AI</p>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowTemplateBrowser(true)}
+              className="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+            >
+              <LayoutTemplate className="h-4 w-4" />
+              From Template
+            </button>
             <button
               onClick={() => setShowCreateWebsite(true)}
               className="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
@@ -588,6 +878,67 @@ export default function PageBuilderPage() {
             </div>
           )}
         </div>
+
+        {/* Templates Section */}
+        {templates.length > 0 && (
+          <div className="mb-10">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
+              <LayoutTemplate className="h-5 w-5 text-amber-500" />
+              Templates
+              <span className="text-sm font-normal text-gray-400 dark:text-gray-500">({templates.length})</span>
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {templates.slice(0, 8).map((t) => (
+                <div
+                  key={t.id}
+                  className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden hover:shadow-md transition group"
+                >
+                  <div className="h-24 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center">
+                    <LayoutTemplate className="h-6 w-6 text-gray-300 dark:text-gray-600" />
+                  </div>
+                  <div className="p-3">
+                    <div className="flex items-start justify-between">
+                      <h4 className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">{t.name}</h4>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (confirm('Delete this template?')) deleteTemplateMutation.mutate(t.id)
+                        }}
+                        className="p-0.5 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition flex-shrink-0"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    {t.description && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-1">{t.description}</p>
+                    )}
+                    <div className="flex items-center gap-1.5 mt-2">
+                      {t.category_industry && (
+                        <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-full">{t.category_industry}</span>
+                      )}
+                      {t.scope === 'platform' && (
+                        <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-full">Starter</span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => {
+                        const title = prompt('Page title:')
+                        if (title?.trim()) {
+                          createFromTemplateMutation.mutate({ templateId: t.id, title: title.trim() })
+                        }
+                      }}
+                      disabled={createFromTemplateMutation.isPending}
+                      className="w-full mt-2 flex items-center justify-center gap-1 bg-amber-500 text-white py-1 rounded-lg text-xs hover:bg-amber-600 disabled:opacity-50 transition"
+                    >
+                      <Plus className="h-3 w-3" />
+                      Use
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Standalone Pages Section */}
         <div>
@@ -712,7 +1063,7 @@ export default function PageBuilderPage() {
   // -------------------------------------------------------------------------
 
   const renderChatPanel = () => (
-    <div className="flex flex-col overflow-hidden bg-white dark:bg-gray-900">
+    <div className="flex flex-col overflow-hidden bg-white dark:bg-gray-900 h-full">
       {/* Chat header */}
       <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2">
         <MessageSquare className="h-4 w-4 text-purple-500" />
@@ -723,6 +1074,13 @@ export default function PageBuilderPage() {
             Generating...
           </span>
         )}
+        <button
+          onClick={() => setChatCollapsed(true)}
+          className="ml-auto p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition"
+          title="Collapse chat"
+        >
+          <PanelLeftClose className="h-4 w-4" />
+        </button>
       </div>
 
       {/* Messages */}
@@ -846,12 +1204,14 @@ export default function PageBuilderPage() {
       {/* Tab content */}
       <div className="flex-1 overflow-hidden">
         {activeTab === 'preview' && (
-          <div className="h-full flex items-start justify-center bg-gray-100 dark:bg-gray-950 p-4 overflow-auto">
+          <div className="h-full flex justify-center bg-gray-100 dark:bg-gray-950 p-4 overflow-auto">
             <div
-              className="bg-white shadow-lg transition-all duration-300 h-full"
+              className="bg-white shadow-lg transition-all duration-300 flex-shrink-0"
               style={{
                 width: RESPONSIVE_WIDTHS[responsiveSize],
                 maxWidth: '100%',
+                height: '100%',
+                minHeight: 0,
               }}
             >
               {pageDetailLoading ? (
@@ -864,6 +1224,7 @@ export default function PageBuilderPage() {
                   className="w-full h-full border-0"
                   title="Page preview"
                   sandbox="allow-scripts"
+                  style={{ minHeight: '100%' }}
                 />
               )}
             </div>
@@ -973,6 +1334,15 @@ export default function PageBuilderPage() {
       </div>
       <div className="flex items-center gap-2 flex-shrink-0">
         <button
+          onClick={() => setShowSaveTemplate(true)}
+          disabled={!selectedPageId}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 transition"
+          title="Save as Template"
+        >
+          <Bookmark className="h-4 w-4" />
+          Template
+        </button>
+        <button
           onClick={handleSave}
           disabled={updateMutation.isPending || !selectedPageId}
           className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-gray-800 dark:bg-gray-600 text-white rounded-lg hover:bg-gray-700 dark:hover:bg-gray-500 disabled:opacity-50 transition"
@@ -1021,6 +1391,8 @@ export default function PageBuilderPage() {
     <div className="h-full flex flex-col overflow-hidden">
       {renderCreatePageModal()}
       {renderCreateWebsiteModal()}
+      {renderSaveTemplateModal()}
+      {renderTemplateBrowser()}
 
       {/* Top bar */}
       {renderTopBar()}
@@ -1058,12 +1430,27 @@ export default function PageBuilderPage() {
           </div>
         ) : (
           <>
-            {/* Chat panel - left 40% */}
-            <div className="w-[40%] flex-shrink-0 border-r border-gray-200 dark:border-gray-700 overflow-hidden">
-              {renderChatPanel()}
-            </div>
+            {/* Chat panel - 320px fixed, collapsible */}
+            {chatCollapsed ? (
+              <div className="flex-shrink-0 border-r border-gray-200 dark:border-gray-700 flex flex-col items-center py-3 px-1 bg-white dark:bg-gray-900">
+                <button
+                  onClick={() => setChatCollapsed(false)}
+                  className="p-1.5 text-gray-400 hover:text-blue-500 transition rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+                  title="Expand chat"
+                >
+                  <PanelLeftOpen className="h-4 w-4" />
+                </button>
+                <div className="mt-2 writing-mode-vertical text-xs text-gray-400 dark:text-gray-500 font-medium" style={{ writingMode: 'vertical-rl' }}>
+                  AI Chat
+                </div>
+              </div>
+            ) : (
+              <div className="w-[320px] flex-shrink-0 border-r border-gray-200 dark:border-gray-700 overflow-hidden">
+                {renderChatPanel()}
+              </div>
+            )}
 
-            {/* Editor panel - right 60% */}
+            {/* Editor panel - fills remaining space */}
             <div className="flex-1 overflow-hidden">
               {renderEditorPanel()}
             </div>

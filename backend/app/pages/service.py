@@ -12,8 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
 from app.pages.models import (
-    Page, PageAnalytic, PageAnalyticsDaily, PageEvent, PageStatus, PageVersion,
-    PageVisit, Website,
+    Page, PageAnalytic, PageAnalyticsDaily, PageEvent, PageStatus, PageTemplate,
+    PageVersion, PageVisit, TemplateScope, Website,
 )
 
 logger = logging.getLogger(__name__)
@@ -819,6 +819,150 @@ async def aggregate_daily_analytics(db: AsyncSession) -> int:
     await db.commit()
     logger.info("Aggregated analytics for %d pages", count)
     return count
+
+
+# ---------------------------------------------------------------------------
+# Page Templates CRUD
+# ---------------------------------------------------------------------------
+
+
+async def list_templates(
+    db: AsyncSession,
+    include_platform: bool = True,
+) -> list[PageTemplate]:
+    """List all active templates (org + platform)."""
+    q = select(PageTemplate).where(PageTemplate.is_active == True)
+    if not include_platform:
+        q = q.where(PageTemplate.scope == TemplateScope.ORG)
+    q = q.order_by(PageTemplate.name)
+    result = await db.execute(q)
+    return list(result.scalars().all())
+
+
+async def get_template(db: AsyncSession, template_id: uuid.UUID) -> PageTemplate:
+    result = await db.execute(
+        select(PageTemplate).where(PageTemplate.id == template_id)
+    )
+    t = result.scalar_one_or_none()
+    if not t:
+        raise NotFoundError("Template not found")
+    return t
+
+
+async def create_template(
+    db: AsyncSession,
+    name: str,
+    description: str | None,
+    category_industry: str | None,
+    category_type: str | None,
+    html_content: str | None,
+    css_content: str | None,
+    metadata_json: str | None,
+    scope: str,
+    created_by: uuid.UUID | None,
+) -> PageTemplate:
+    t = PageTemplate(
+        id=uuid.uuid4(),
+        name=name,
+        description=description,
+        category_industry=category_industry,
+        category_type=category_type,
+        html_content=html_content,
+        css_content=css_content,
+        metadata_json=metadata_json,
+        scope=TemplateScope(scope) if scope else TemplateScope.ORG,
+        created_by=created_by,
+    )
+    db.add(t)
+    await db.commit()
+    await db.refresh(t)
+    return t
+
+
+async def create_template_from_page(
+    db: AsyncSession,
+    page_id: uuid.UUID,
+    name: str,
+    description: str | None,
+    category_industry: str | None,
+    category_type: str | None,
+    scope: str,
+    created_by: uuid.UUID,
+) -> PageTemplate:
+    """Create a template from an existing page's content."""
+    page = await get_page(db, page_id)
+    return await create_template(
+        db,
+        name=name,
+        description=description,
+        category_industry=category_industry,
+        category_type=category_type,
+        html_content=page.html_content,
+        css_content=page.css_content,
+        metadata_json=json.dumps({
+            "source_page_id": str(page_id),
+            "style_preset": page.style_preset,
+            "primary_color": page.primary_color,
+            "font_family": page.font_family,
+        }),
+        scope=scope,
+        created_by=created_by,
+    )
+
+
+async def update_template(
+    db: AsyncSession,
+    template_id: uuid.UUID,
+    data: dict,
+) -> PageTemplate:
+    t = await get_template(db, template_id)
+    for key, val in data.items():
+        if val is not None and hasattr(t, key):
+            if key == "scope":
+                setattr(t, key, TemplateScope(val))
+            else:
+                setattr(t, key, val)
+    await db.commit()
+    await db.refresh(t)
+    return t
+
+
+async def delete_template(db: AsyncSession, template_id: uuid.UUID) -> None:
+    t = await get_template(db, template_id)
+    await db.delete(t)
+    await db.commit()
+
+
+async def create_page_from_template(
+    db: AsyncSession,
+    template_id: uuid.UUID,
+    title: str,
+    user,
+    website_id: uuid.UUID | None = None,
+    org_name: str | None = None,
+) -> Page:
+    """Create a new page using a template's content, with optional brand replacement."""
+    t = await get_template(db, template_id)
+    html = t.html_content or ""
+    css = t.css_content or ""
+
+    # Auto-replace placeholder branding if org_name provided
+    if org_name:
+        for placeholder in ["{{company_name}}", "{{org_name}}", "Company Name", "Your Company", "YourBrand"]:
+            html = html.replace(placeholder, org_name)
+            css = css.replace(placeholder, org_name)
+
+    from app.pages.schemas import PageCreate
+    page_data = PageCreate(
+        title=title,
+        website_id=website_id,
+    )
+    page = await create_page(db, page_data, user)
+    page.html_content = html
+    page.css_content = css
+    await db.commit()
+    await db.refresh(page)
+    return page
 
 
 # ---------------------------------------------------------------------------

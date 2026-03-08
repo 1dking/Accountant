@@ -1,5 +1,8 @@
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 from typing import Annotated
 
@@ -96,6 +99,17 @@ async def lifespan(application: FastAPI):
     from app.integrations.settings_router import load_integration_configs
 
     await load_integration_configs(application.state.session_factory, settings)
+
+    # Seed starter page templates
+    try:
+        from app.pages.seed_templates import seed_starter_templates
+
+        async with application.state.session_factory() as session:
+            count = await seed_starter_templates(session)
+            if count:
+                logger.info("Seeded %d starter page templates", count)
+    except Exception as e:
+        logger.warning("Failed to seed templates: %s", e)
 
     yield
 

@@ -52,6 +52,24 @@ export const pagesApi = {
   deleteWebsite: (id: string) => api.delete(`/pages/websites/${id}`),
   getWebsitePages: (websiteId: string) => api.get(`/pages/websites/${websiteId}/pages`),
 
+  // Templates
+  listTemplates: () => api.get('/pages/templates'),
+  getTemplate: (id: string) => api.get(`/pages/templates/${id}`),
+  createTemplate: (data: {
+    name: string; description?: string; category_industry?: string;
+    category_type?: string; html_content?: string; css_content?: string;
+    scope?: string; source_page_id?: string;
+  }) => api.post('/pages/templates', data),
+  updateTemplate: (id: string, data: Record<string, unknown>) =>
+    api.put(`/pages/templates/${id}`, data),
+  deleteTemplate: (id: string) => api.delete(`/pages/templates/${id}`),
+  createPageFromTemplate: (templateId: string, title: string, websiteId?: string, orgName?: string) => {
+    const params = new URLSearchParams({ title })
+    if (websiteId) params.set('website_id', websiteId)
+    if (orgName) params.set('org_name', orgName)
+    return api.post(`/pages/templates/${templateId}/create-page?${params.toString()}`)
+  },
+
   // Video
   uploadVideo: (file: File) => {
     const formData = new FormData()

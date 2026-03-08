@@ -218,6 +218,34 @@ class PageEvent(Base):
     )
 
 
+class TemplateScope(str, enum.Enum):
+    ORG = "org"
+    PLATFORM = "platform"
+
+
+class PageTemplate(TimestampMixin, Base):
+    """Reusable page template (org-level or platform-wide)."""
+
+    __tablename__ = "page_templates"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    category_industry: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    category_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    thumbnail_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    html_content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    css_content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    metadata_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    scope: Mapped[TemplateScope] = mapped_column(
+        Enum(TemplateScope), default=TemplateScope.ORG, nullable=False,
+    )
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True,
+    )
+
+
 class PageAnalyticsDaily(Base):
     """Pre-aggregated daily analytics for fast dashboard queries."""
 

@@ -23,6 +23,10 @@ from app.pages.schemas import (
     PageUpdate,
     PageVersionResponse,
     PageAnalyticsSummary,
+    TemplateCreate,
+    TemplateListItem,
+    TemplateResponse,
+    TemplateUpdate,
     TrackEventRequest,
     VideoUploadResponse,
     WebsiteCreate,
@@ -51,6 +55,100 @@ async def list_section_templates(
     _: Annotated[User, Depends(get_current_user)],
 ) -> dict:
     return {"data": service.SECTION_TEMPLATES}
+
+
+# ---------------------------------------------------------------------------
+# Page Templates
+# ---------------------------------------------------------------------------
+
+
+@router.get("/templates")
+async def list_templates(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    templates = await service.list_templates(db)
+    return {"data": [TemplateListItem.model_validate(t) for t in templates]}
+
+
+@router.get("/templates/{template_id}")
+async def get_template(
+    template_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    t = await service.get_template(db, template_id)
+    return {"data": TemplateResponse.model_validate(t)}
+
+
+@router.post("/templates", status_code=201)
+async def create_template(
+    data: TemplateCreate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
+) -> dict:
+    if data.source_page_id:
+        t = await service.create_template_from_page(
+            db,
+            page_id=data.source_page_id,
+            name=data.name,
+            description=data.description,
+            category_industry=data.category_industry,
+            category_type=data.category_type,
+            scope=data.scope,
+            created_by=current_user.id,
+        )
+    else:
+        t = await service.create_template(
+            db,
+            name=data.name,
+            description=data.description,
+            category_industry=data.category_industry,
+            category_type=data.category_type,
+            html_content=data.html_content,
+            css_content=data.css_content,
+            metadata_json=data.metadata_json,
+            scope=data.scope,
+            created_by=current_user.id,
+        )
+    return {"data": TemplateResponse.model_validate(t)}
+
+
+@router.put("/templates/{template_id}")
+async def update_template(
+    template_id: uuid.UUID,
+    data: TemplateUpdate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
+) -> dict:
+    t = await service.update_template(db, template_id, data.model_dump(exclude_none=True))
+    return {"data": TemplateResponse.model_validate(t)}
+
+
+@router.delete("/templates/{template_id}")
+async def delete_template(
+    template_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(require_role([Role.ADMIN]))],
+) -> dict:
+    await service.delete_template(db, template_id)
+    return {"data": {"message": "Template deleted"}}
+
+
+@router.post("/templates/{template_id}/create-page", status_code=201)
+async def create_page_from_template(
+    template_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
+    title: str = Query(...),
+    website_id: uuid.UUID | None = Query(None),
+    org_name: str | None = Query(None),
+) -> dict:
+    page = await service.create_page_from_template(
+        db, template_id, title, current_user,
+        website_id=website_id, org_name=org_name,
+    )
+    return {"data": PageResponse.model_validate(page)}
 
 
 # ---------------------------------------------------------------------------
