@@ -19,8 +19,12 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    # Create the enum type for PostgreSQL first
+    meetingtype_enum = sa.Enum('PHONE', 'VIDEO', 'IN_PERSON', name='meetingtype')
+    meetingtype_enum.create(op.get_bind(), checkfirst=True)
+
     with op.batch_alter_table('calendar_bookings', schema=None) as batch_op:
-        batch_op.add_column(sa.Column('meeting_type', sa.Enum('PHONE', 'VIDEO', 'IN_PERSON', name='meetingtype'), nullable=True))
+        batch_op.add_column(sa.Column('meeting_type', meetingtype_enum, nullable=True))
         batch_op.add_column(sa.Column('meeting_location', sa.String(length=500), nullable=True))
         batch_op.add_column(sa.Column('reschedule_token', sa.String(length=64), nullable=True))
         batch_op.add_column(sa.Column('cancel_token', sa.String(length=64), nullable=True))
@@ -36,3 +40,6 @@ def downgrade() -> None:
         batch_op.drop_column('reschedule_token')
         batch_op.drop_column('meeting_location')
         batch_op.drop_column('meeting_type')
+
+    # Drop the enum type
+    sa.Enum(name='meetingtype').drop(op.get_bind(), checkfirst=True)
