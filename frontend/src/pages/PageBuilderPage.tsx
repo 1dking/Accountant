@@ -83,7 +83,10 @@ type ResponsiveSize = 'desktop' | 'tablet' | 'mobile'
 // ---------------------------------------------------------------------------
 
 function unwrap<T>(res: unknown): T {
-  return (res as any).data?.data ?? (res as any).data ?? res
+  if (res == null) return undefined as unknown as T
+  const outer = (res as any).data
+  if (outer == null) return res as T
+  return outer?.data ?? outer ?? res
 }
 
 function parseChatHistory(json?: string | null): ChatMessage[] {
@@ -164,10 +167,10 @@ export default function PageBuilderPage() {
     enabled: !!selectedWebsiteId && view === 'website-edit',
   })
 
-  const pages: PageItem[] = unwrap<PageItem[]>(pagesRes) || []
-  const websites: WebsiteItem[] = unwrap<WebsiteItem[]>(websitesRes) || []
-  const detail: PageDetail | null = unwrap<PageDetail>(pageDetailRes) || null
-  const websitePages: PageItem[] = unwrap<PageItem[]>(websitePagesRes) || []
+  const pages: PageItem[] = Array.isArray(unwrap(pagesRes)) ? unwrap<PageItem[]>(pagesRes) : []
+  const websites: WebsiteItem[] = Array.isArray(unwrap(websitesRes)) ? unwrap<WebsiteItem[]>(websitesRes) : []
+  const detail: PageDetail | null = unwrap<PageDetail>(pageDetailRes) ?? null
+  const websitePages: PageItem[] = Array.isArray(unwrap(websitePagesRes)) ? unwrap<PageItem[]>(websitePagesRes) : []
 
   const standalonePages = pages.filter((p) => !p.website_id)
 
