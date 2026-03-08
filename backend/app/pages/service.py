@@ -941,16 +941,58 @@ async def create_page_from_template(
     website_id: uuid.UUID | None = None,
     org_name: str | None = None,
 ) -> Page:
-    """Create a new page using a template's content, with optional brand replacement."""
+    """Create a new page using a template's content, with auto-branding replacement."""
     t = await get_template(db, template_id)
     html = t.html_content or ""
     css = t.css_content or ""
 
-    # Auto-replace placeholder branding if org_name provided
-    if org_name:
-        for placeholder in ["{{company_name}}", "{{org_name}}", "Company Name", "Your Company", "YourBrand"]:
-            html = html.replace(placeholder, org_name)
-            css = css.replace(placeholder, org_name)
+    # Load org branding for auto-replacement
+    brand_name = org_name or ""
+    brand_phone = ""
+    brand_email = ""
+    brand_color = ""
+    brand_logo = ""
+    try:
+        from app.settings.models import CompanySetting
+        result = await db.execute(select(CompanySetting).limit(1))
+        company = result.scalar_one_or_none()
+        if company:
+            brand_name = brand_name or getattr(company, "company_name", "") or ""
+            brand_phone = getattr(company, "phone", "") or ""
+            brand_email = getattr(company, "email", "") or ""
+            brand_color = getattr(company, "primary_color", "") or ""
+            brand_logo = getattr(company, "logo_url", "") or ""
+    except Exception:
+        pass
+
+    # Auto-replace placeholder branding
+    if brand_name:
+        for placeholder in [
+            "{{company_name}}", "{{org_name}}", "Company Name",
+            "Your Company", "YourBrand", "[Business Name]",
+        ]:
+            html = html.replace(placeholder, brand_name)
+            css = css.replace(placeholder, brand_name)
+
+    if brand_phone:
+        for placeholder in [
+            "{{phone}}", "(555) 123-4567", "+1 (555) 123-4567",
+            "555-123-4567",
+        ]:
+            html = html.replace(placeholder, brand_phone)
+
+    if brand_email:
+        for placeholder in [
+            "{{email}}", "hello@example.com", "info@example.com",
+            "contact@example.com",
+        ]:
+            html = html.replace(placeholder, brand_email)
+
+    if brand_color:
+        html = html.replace("{{brand_color}}", brand_color)
+
+    if brand_logo:
+        html = html.replace("{{logo_url}}", brand_logo)
 
     from app.pages.schemas import PageCreate
     page_data = PageCreate(

@@ -680,6 +680,71 @@ export default function PageBuilderPage() {
   // Render: Template Browser Modal
   // -------------------------------------------------------------------------
 
+  const renderTemplateCard = (t: TemplateItem) => (
+    <div
+      key={t.id}
+      className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden hover:shadow-md transition group"
+    >
+      <div className="h-32 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center">
+        <LayoutTemplate className="h-8 w-8 text-gray-300 dark:text-gray-600" />
+      </div>
+      <div className="p-4">
+        <h4 className="font-semibold text-sm text-gray-900 dark:text-gray-100 truncate">{t.name}</h4>
+        {t.description && (
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">{t.description}</p>
+        )}
+        <div className="flex items-center gap-2 mt-2">
+          {t.category_industry && (
+            <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full">{t.category_industry}</span>
+          )}
+          {t.scope === 'platform' && (
+            <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-full">Premium</span>
+          )}
+        </div>
+        <button
+          onClick={() => {
+            const title = prompt('Page title:')
+            if (title?.trim()) {
+              createFromTemplateMutation.mutate({
+                templateId: t.id,
+                title: title.trim(),
+                websiteId: selectedWebsiteId || undefined,
+              })
+            }
+          }}
+          disabled={createFromTemplateMutation.isPending}
+          className="w-full mt-3 flex items-center justify-center gap-1.5 bg-blue-600 text-white py-1.5 rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50 transition"
+        >
+          {createFromTemplateMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+          Use Template
+        </button>
+      </div>
+    </div>
+  )
+
+  const INDUSTRY_LABELS: Record<string, string> = {
+    healthcare: 'Health & Medical',
+    restaurant: 'Food & Hospitality',
+    professional: 'Professional Services',
+    'real-estate': 'Real Estate & Home',
+    fitness: 'Fitness & Lifestyle',
+    education: 'Education',
+    creative: 'Creative',
+    saas: 'Tech & SaaS',
+    ecommerce: 'Retail & E-Commerce',
+    beauty: 'Beauty',
+    'local-services': 'Local Services',
+    agency: 'Agency',
+    events: 'Events',
+    portfolio: 'Portfolio',
+  }
+
+  const INDUSTRY_ORDER = [
+    'healthcare', 'restaurant', 'professional', 'real-estate', 'fitness',
+    'education', 'creative', 'saas', 'ecommerce', 'beauty', 'local-services',
+    'agency', 'events', 'portfolio',
+  ]
+
   const renderTemplateBrowser = () => {
     if (!showTemplateBrowser) return null
 
@@ -689,11 +754,30 @@ export default function PageBuilderPage() {
       return true
     })
 
+    // Group by industry
+    const grouped: Record<string, typeof filtered> = {}
+    for (const t of filtered) {
+      const key = t.category_industry || 'other'
+      if (!grouped[key]) grouped[key] = []
+      grouped[key].push(t)
+    }
+    const sortedGroups = INDUSTRY_ORDER.filter((k) => grouped[k]?.length).map((k) => [k, grouped[k]] as const)
+    // Add any remaining groups not in the order
+    for (const k of Object.keys(grouped)) {
+      if (!INDUSTRY_ORDER.includes(k)) sortedGroups.push([k, grouped[k]] as const)
+    }
+
+    // Unique industries for filter
+    const availableIndustries = [...new Set(templates.map((t) => t.category_industry).filter(Boolean))]
+
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-4xl max-h-[80vh] flex flex-col">
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-5xl max-h-[85vh] flex flex-col">
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Create from Template</h3>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Template Library</h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{templates.length} premium templates</p>
+            </div>
             <button
               onClick={() => { setShowTemplateBrowser(false); setTemplateSearch(''); setTemplateFilterIndustry('') }}
               className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
@@ -711,73 +795,50 @@ export default function PageBuilderPage() {
                 className="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               />
             </div>
-            <select
-              value={templateFilterIndustry}
-              onChange={(e) => setTemplateFilterIndustry(e.target.value)}
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-            >
-              <option value="">All Industries</option>
-              <option value="agency">Agency</option>
-              <option value="saas">SaaS</option>
-              <option value="restaurant">Restaurant</option>
-              <option value="real-estate">Real Estate</option>
-              <option value="healthcare">Healthcare</option>
-              <option value="portfolio">Portfolio</option>
-              <option value="ecommerce">E-Commerce</option>
-              <option value="events">Events</option>
-              <option value="professional">Professional Services</option>
-            </select>
+            <div className="flex gap-1 flex-wrap">
+              <button
+                onClick={() => setTemplateFilterIndustry('')}
+                className={`px-2.5 py-1 rounded-full text-xs font-medium transition ${
+                  !templateFilterIndustry ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                }`}
+              >
+                All
+              </button>
+              {availableIndustries.sort().map((ind) => (
+                <button
+                  key={ind}
+                  onClick={() => setTemplateFilterIndustry(ind === templateFilterIndustry ? '' : ind!)}
+                  className={`px-2.5 py-1 rounded-full text-xs font-medium transition ${
+                    templateFilterIndustry === ind ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  {INDUSTRY_LABELS[ind!] || ind}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="flex-1 overflow-y-auto p-6 space-y-8">
             {filtered.length === 0 ? (
               <div className="text-center py-12 text-gray-400 dark:text-gray-500">
                 <LayoutTemplate className="h-10 w-10 mx-auto mb-3 opacity-40" />
                 <p className="text-sm">No templates found</p>
               </div>
-            ) : (
+            ) : templateFilterIndustry ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filtered.map((t) => (
-                  <div
-                    key={t.id}
-                    className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden hover:shadow-md transition group"
-                  >
-                    <div className="h-32 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center">
-                      <LayoutTemplate className="h-8 w-8 text-gray-300 dark:text-gray-600" />
-                    </div>
-                    <div className="p-4">
-                      <h4 className="font-semibold text-sm text-gray-900 dark:text-gray-100 truncate">{t.name}</h4>
-                      {t.description && (
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">{t.description}</p>
-                      )}
-                      <div className="flex items-center gap-2 mt-2">
-                        {t.category_industry && (
-                          <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full">{t.category_industry}</span>
-                        )}
-                        {t.scope === 'platform' && (
-                          <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-full">Starter</span>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => {
-                          const title = prompt('Page title:')
-                          if (title?.trim()) {
-                            createFromTemplateMutation.mutate({
-                              templateId: t.id,
-                              title: title.trim(),
-                              websiteId: selectedWebsiteId || undefined,
-                            })
-                          }
-                        }}
-                        disabled={createFromTemplateMutation.isPending}
-                        className="w-full mt-3 flex items-center justify-center gap-1.5 bg-blue-600 text-white py-1.5 rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50 transition"
-                      >
-                        {createFromTemplateMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-                        Use Template
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                {filtered.map((t) => renderTemplateCard(t))}
               </div>
+            ) : (
+              sortedGroups.map(([industry, items]) => (
+                <div key={industry}>
+                  <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
+                    {INDUSTRY_LABELS[industry] || industry}
+                    <span className="text-xs font-normal text-gray-400">({items.length})</span>
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {items.map((t) => renderTemplateCard(t))}
+                  </div>
+                </div>
+              ))
             )}
           </div>
         </div>

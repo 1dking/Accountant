@@ -151,6 +151,28 @@ async def create_page_from_template(
     return {"data": PageResponse.model_validate(page)}
 
 
+@router.post("/templates/generate-library", status_code=200)
+async def generate_template_library(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(require_role([Role.ADMIN]))],
+    request: Request,
+    replace: bool = Query(False, description="Replace existing templates"),
+) -> dict:
+    """Admin endpoint: generate 30 premium templates using Gemini + reference designs.
+
+    This is a long-running operation (~2-3 minutes). Each template takes ~3-5 seconds.
+    """
+    from app.pages.generate_templates import generate_all_templates
+
+    settings = request.app.state.settings
+    gemini_key = getattr(settings, "gemini_api_key", "") if settings else ""
+    if not gemini_key:
+        return {"data": {"error": "Gemini API key not configured in settings"}}
+
+    stats = await generate_all_templates(db, gemini_key, replace_existing=replace)
+    return {"data": stats}
+
+
 # ---------------------------------------------------------------------------
 # AI endpoints
 # ---------------------------------------------------------------------------
