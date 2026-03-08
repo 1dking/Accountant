@@ -49,6 +49,8 @@ interface SheetToolbarProps {
   onSort: (direction: 'asc' | 'desc') => void
   onExportCsv: () => void
   onImportCsv: () => void
+  onExportXlsx?: () => void
+  onImportXlsx?: () => void
   onToggleFindReplace: () => void
   onFreezeRow: (count: number) => void
   onFreezeCol: (count: number) => void
@@ -175,6 +177,8 @@ export default function SheetToolbar({
   onSort,
   onExportCsv,
   onImportCsv,
+  onExportXlsx,
+  onImportXlsx,
   onToggleFindReplace,
   onFreezeRow,
   onFreezeCol,
@@ -502,6 +506,16 @@ export default function SheetToolbar({
       <ToolbarButton onClick={onExportCsv} title="Export CSV">
         <Download className="h-4 w-4" />
       </ToolbarButton>
+      {onExportXlsx && (
+        <ToolbarButton onClick={onExportXlsx} title="Download as XLSX">
+          <span className="text-[9px] font-bold leading-none">XLS</span>
+        </ToolbarButton>
+      )}
+      {onImportXlsx && (
+        <ToolbarButton onClick={onImportXlsx} title="Import XLSX">
+          <span className="text-[9px] font-bold leading-none">XLS↑</span>
+        </ToolbarButton>
+      )}
 
       <ToolbarSeparator />
 

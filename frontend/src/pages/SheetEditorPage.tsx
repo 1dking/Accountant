@@ -1048,6 +1048,58 @@ export default function SheetEditorPage() {
   }, [mutateActiveSheet])
 
   // ---------------------------------------------------------------------------
+  // XLSX export / import (server-side via backend)
+  // ---------------------------------------------------------------------------
+  const handleExportXlsx = useCallback(async () => {
+    if (!id) return
+    const token = localStorage.getItem('token')
+    const API_BASE = import.meta.env.VITE_API_URL || ''
+    try {
+      const res = await fetch(`${API_BASE}/api/office/${id}/export/xlsx`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${doc?.title || 'spreadsheet'}.xlsx`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      console.error('XLSX export failed', e)
+    }
+  }, [id, doc?.title])
+
+  const handleImportXlsx = useCallback(() => {
+    if (!id) return
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.xlsx,.xls'
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (!file) return
+      const token = localStorage.getItem('token')
+      const API_BASE = import.meta.env.VITE_API_URL || ''
+      const formData = new FormData()
+      formData.append('file', file)
+      try {
+        const res = await fetch(`${API_BASE}/api/office/${id}/import`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData,
+        })
+        if (res.ok) {
+          queryClient.invalidateQueries({ queryKey: ['office-doc', id] })
+          initialLoadRef.current = false
+        }
+      } catch (e) {
+        console.error('XLSX import failed', e)
+      }
+    }
+    input.click()
+  }, [id, queryClient])
+
+  // ---------------------------------------------------------------------------
   // Insert chart (placeholder)
   // ---------------------------------------------------------------------------
   const handleInsertChart = useCallback(() => {
@@ -1725,6 +1777,8 @@ export default function SheetEditorPage() {
         onSort={handleSort}
         onExportCsv={handleExportCsv}
         onImportCsv={handleImportCsv}
+        onExportXlsx={handleExportXlsx}
+        onImportXlsx={handleImportXlsx}
         onToggleFindReplace={() => setShowFindReplace((p) => !p)}
         onFreezeRow={handleFreezeRow}
         onFreezeCol={handleFreezeCol}

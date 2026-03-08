@@ -47,7 +47,11 @@ import {
   X,
   FolderInput,
   Download,
+  FileText,
+  Table2,
+  Presentation,
 } from 'lucide-react'
+import { createOfficeDoc } from '@/api/office'
 
 type ViewType = 'all' | 'starred' | 'recent' | 'trash'
 
@@ -599,6 +603,40 @@ export default function DrivePage() {
                 >
                   <FolderPlus className="h-4 w-4" />
                   New Folder
+                </button>
+                <div className="h-px bg-gray-200 dark:bg-gray-700 my-1" />
+                <button
+                  onClick={async () => {
+                    setShowPlusMenu(false)
+                    const res = await createOfficeDoc({ title: 'Untitled document', doc_type: 'document', folder_id: currentFolderId ?? undefined })
+                    navigate(`/docs/${res.data.id}`)
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+                >
+                  <FileText className="h-4 w-4 text-blue-600" />
+                  New Document
+                </button>
+                <button
+                  onClick={async () => {
+                    setShowPlusMenu(false)
+                    const res = await createOfficeDoc({ title: 'Untitled spreadsheet', doc_type: 'spreadsheet', folder_id: currentFolderId ?? undefined })
+                    navigate(`/sheets/${res.data.id}`)
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+                >
+                  <Table2 className="h-4 w-4 text-green-600" />
+                  New Spreadsheet
+                </button>
+                <button
+                  onClick={async () => {
+                    setShowPlusMenu(false)
+                    const res = await createOfficeDoc({ title: 'Untitled presentation', doc_type: 'presentation', folder_id: currentFolderId ?? undefined })
+                    navigate(`/slides/${res.data.id}`)
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+                >
+                  <Presentation className="h-4 w-4 text-orange-600" />
+                  New Presentation
                 </button>
               </div>
             )}

@@ -1,9 +1,10 @@
 """FastAPI router for the office module."""
 
+import logging
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, File, Request, Response, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import Role, User
@@ -18,6 +19,8 @@ from app.office.schemas import (
     ShareRequest,
     StarRequest,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -255,4 +258,132 @@ async def restore_document(
 ) -> dict:
     """Restore a trashed document."""
     doc = await service.restore_document(db, doc_id, current_user.id)
+    return {"data": OfficeDocResponse.model_validate(doc)}
+
+
+# ---------------------------------------------------------------------------
+# Import / Export
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{doc_id}/export/pptx")
+async def export_pptx(
+    doc_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> Response:
+    """Export a presentation to PPTX."""
+    from app.office.export_service import export_pptx as do_export
+
+    doc = await service.get_document(db, doc_id, current_user)
+    data = do_export(doc.title, doc.content_json)
+    filename = f"{doc.title or 'presentation'}.pptx"
+    return Response(
+        content=data,
+        media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/{doc_id}/export/xlsx")
+async def export_xlsx(
+    doc_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> Response:
+    """Export a spreadsheet to XLSX."""
+    from app.office.export_service import export_xlsx as do_export
+
+    doc = await service.get_document(db, doc_id, current_user)
+    data = do_export(doc.title, doc.content_json)
+    filename = f"{doc.title or 'spreadsheet'}.xlsx"
+    return Response(
+        content=data,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/{doc_id}/export/docx")
+async def export_docx(
+    doc_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> Response:
+    """Export a document to DOCX."""
+    from app.office.export_service import export_docx as do_export
+
+    doc = await service.get_document(db, doc_id, current_user)
+    data = do_export(doc.title, doc.content_json)
+    filename = f"{doc.title or 'document'}.docx"
+    return Response(
+        content=data,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/{doc_id}/export/pdf")
+async def export_pdf(
+    doc_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> Response:
+    """Export any document type to printable HTML (for browser PDF)."""
+    from app.office.export_service import export_pdf_html
+
+    doc = await service.get_document(db, doc_id, current_user)
+    html = export_pdf_html(doc.title, doc.content_json, doc.doc_type.value)
+    return Response(content=html, media_type="text/html; charset=utf-8")
+
+
+@router.get("/{doc_id}/export/csv")
+async def export_csv(
+    doc_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    sheet: int = 0,
+) -> Response:
+    """Export a spreadsheet sheet to CSV."""
+    from app.office.export_service import export_csv as do_export
+
+    doc = await service.get_document(db, doc_id, current_user)
+    csv_str = do_export(doc.content_json, sheet)
+    filename = f"{doc.title or 'spreadsheet'}.csv"
+    return Response(
+        content=csv_str,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post("/{doc_id}/import")
+async def import_file(
+    doc_id: uuid.UUID,
+    file: Annotated[UploadFile, File(...)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.ACCOUNTANT]))],
+) -> dict:
+    """Import a file (PPTX, XLSX, DOCX) into an existing document.
+
+    The file type is detected from the filename extension.
+    The document's content_json is replaced with the imported content.
+    """
+    from app.office.export_service import import_docx, import_pptx, import_xlsx
+    from app.office.schemas import OfficeDocUpdate
+
+    file_bytes = await file.read()
+    filename = (file.filename or "").lower()
+
+    if filename.endswith(".pptx"):
+        content_json = import_pptx(file_bytes)
+    elif filename.endswith(".xlsx") or filename.endswith(".xls"):
+        content_json = import_xlsx(file_bytes)
+    elif filename.endswith(".docx"):
+        content_json = import_docx(file_bytes)
+    else:
+        return {"error": {"code": "UNSUPPORTED_FORMAT", "message": "Supported formats: .pptx, .xlsx, .docx"}}
+
+    update = OfficeDocUpdate(content_json=content_json)
+    doc = await service.update_document(db, doc_id, current_user, update)
     return {"data": OfficeDocResponse.model_validate(doc)}
