@@ -34,6 +34,7 @@ import {
   MessageCircle,
   Kanban,
   Settings,
+  Lightbulb,
 } from 'lucide-react'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useUiStore } from '@/stores/uiStore'
@@ -123,6 +124,12 @@ const NAV_SECTIONS: NavSection[] = [
       { path: '/meetings', label: 'Meetings', icon: Video },
       { path: '/recordings', label: 'Recordings', icon: Film },
       { path: '/scheduling', label: 'Scheduling', icon: CalendarDays },
+    ],
+  },
+  {
+    title: 'INTELLIGENCE',
+    items: [
+      { path: '/intelligence', label: 'Coach Reports', icon: Lightbulb },
     ],
   },
   {

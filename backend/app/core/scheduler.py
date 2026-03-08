@@ -126,6 +126,30 @@ async def _aggregate_page_analytics() -> None:
         logger.exception("Error aggregating page analytics")
 
 
+async def _check_coaching_nudges() -> None:
+    """Job: check for coaching nudge triggers (stale proposals, overdue invoices)."""
+    try:
+        from app.coach.service import check_coaching_nudges
+
+        count = await check_coaching_nudges(_session_factory)
+        if count > 0:
+            logger.info("Created %d coaching nudges", count)
+    except Exception:
+        logger.exception("Error checking coaching nudges")
+
+
+async def _run_monthly_reports() -> None:
+    """Job: generate monthly intelligence reports for all users."""
+    try:
+        from app.coach.service import run_monthly_reports
+
+        count = await run_monthly_reports(_session_factory)
+        if count > 0:
+            logger.info("Generated %d monthly intelligence reports", count)
+    except Exception:
+        logger.exception("Error running monthly reports")
+
+
 async def _sync_google_calendars() -> None:
     """Job: sync events with connected Google Calendar accounts."""
     try:
@@ -200,6 +224,20 @@ def setup_scheduler(session_factory: Any, settings: Any = None) -> None:
         _aggregate_page_analytics,
         CronTrigger(hour=3, minute=0),
         id="aggregate_page_analytics",
+        replace_existing=True,
+    )
+
+    scheduler.add_job(
+        _check_coaching_nudges,
+        IntervalTrigger(hours=1),
+        id="check_coaching_nudges",
+        replace_existing=True,
+    )
+
+    scheduler.add_job(
+        _run_monthly_reports,
+        CronTrigger(day=1, hour=4, minute=0),
+        id="run_monthly_reports",
         replace_existing=True,
     )
 

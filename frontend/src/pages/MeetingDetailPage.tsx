@@ -4,12 +4,15 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, Video, Phone, PhoneOff, Users, Calendar, Clock,
   Copy, Play, Download, Circle, Square, Loader2, Plus, X, Trash2,
+  Lightbulb, CheckCircle2, AlertTriangle, TrendingUp, MessageSquare,
+  Target, ChevronDown, ChevronRight,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   getMeeting, cancelMeeting, endMeeting, addParticipant,
   removeParticipant, getRecordingStreamUrl, deleteRecording,
 } from '@/api/meetings'
+import { coachApi } from '@/api/coach'
 import type { MeetingStatus, MeetingParticipant } from '@/types/models'
 
 function StatusBadge({ status }: { status: MeetingStatus }) {
@@ -65,6 +68,276 @@ function RecordingStatusBadge({ status }: { status: string }) {
     </span>
   )
 }
+
+/* ── Meeting Intelligence Section ──────────────────────────────────────── */
+
+function MeetingIntelligenceSection({ meetingId }: { meetingId: string }) {
+  const queryClient = useQueryClient()
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    summary: true, action_items: true, topics: false, decisions: false,
+    sentiment: false, talk_ratio: false, deal_signals: false,
+    risk_flags: false, follow_ups: false, suggestions: false,
+  })
+
+  const { data: intelData, isLoading: intelLoading } = useQuery<any>({
+    queryKey: ['meeting-intelligence', meetingId],
+    queryFn: () => coachApi.getMeetingIntelligence(meetingId),
+    enabled: !!meetingId,
+  })
+
+  const analyzeMut = useMutation({
+    mutationFn: () => coachApi.analyzeMeeting(meetingId),
+    onSuccess: () => {
+      toast.success('Meeting analyzed successfully')
+      queryClient.invalidateQueries({ queryKey: ['meeting-intelligence', meetingId] })
+    },
+    onError: (err: any) => toast.error(err?.message || 'Analysis failed'),
+  })
+
+  const toggleActionMut = useMutation({
+    mutationFn: ({ intelId, index, completed }: { intelId: string; index: number; completed: boolean }) =>
+      coachApi.toggleActionItem(intelId, index, completed),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['meeting-intelligence', meetingId] }),
+  })
+
+  const intel = intelData?.data
+  const toggle = (key: string) => setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }))
+
+  if (intelLoading) {
+    return (
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-amber-200 dark:border-amber-800 p-5 mt-6">
+        <div className="flex items-center gap-2 mb-3">
+          <Lightbulb className="h-5 w-5 text-amber-500" />
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Meeting Intelligence</h2>
+        </div>
+        <div className="flex items-center justify-center py-6">
+          <Loader2 className="h-5 w-5 animate-spin text-amber-500" />
+        </div>
+      </div>
+    )
+  }
+
+  if (!intel) {
+    return (
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-amber-200 dark:border-amber-800 p-5 mt-6">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Lightbulb className="h-5 w-5 text-amber-500" />
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Meeting Intelligence</h2>
+          </div>
+          <button
+            onClick={() => analyzeMut.mutate()}
+            disabled={analyzeMut.isPending}
+            className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-white bg-amber-500 rounded-lg hover:bg-amber-600 disabled:opacity-50 transition-colors"
+          >
+            {analyzeMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Lightbulb className="h-3.5 w-3.5" />}
+            {analyzeMut.isPending ? 'Analyzing...' : 'Analyze with O-Brain'}
+          </button>
+        </div>
+        <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+          No intelligence available yet. Click "Analyze" to extract insights from the meeting transcript.
+        </p>
+      </div>
+    )
+  }
+
+  const SectionHeader = ({ label, sectionKey, icon: Icon, count }: { label: string; sectionKey: string; icon: any; count?: number }) => (
+    <button
+      onClick={() => toggle(sectionKey)}
+      className="w-full flex items-center justify-between py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100"
+    >
+      <span className="flex items-center gap-2">
+        <Icon className="h-4 w-4 text-amber-500" />
+        {label}
+        {count !== undefined && <span className="text-xs text-gray-400">({count})</span>}
+      </span>
+      {expandedSections[sectionKey] ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+    </button>
+  )
+
+  const completedItems: number[] = intel.action_items_completed || []
+
+  return (
+    <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-amber-200 dark:border-amber-800 p-5 mt-6">
+      <div className="flex items-center gap-2 mb-4">
+        <Lightbulb className="h-5 w-5 text-amber-500" />
+        <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Meeting Intelligence</h2>
+        <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 rounded font-medium">O-Brain Coach</span>
+      </div>
+
+      {/* Summary */}
+      {intel.summary_text && (
+        <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-100 dark:border-amber-800">
+          <p className="text-sm text-gray-800 dark:text-gray-200">{intel.summary_text}</p>
+        </div>
+      )}
+
+      {/* Action Items */}
+      {intel.action_items?.length > 0 && (
+        <div className="border-t border-gray-100 dark:border-gray-800">
+          <SectionHeader label="Action Items" sectionKey="action_items" icon={CheckCircle2} count={intel.action_items.length} />
+          {expandedSections.action_items && (
+            <div className="space-y-1.5 pb-3">
+              {intel.action_items.map((item: any, idx: number) => (
+                <div key={idx} className="flex items-start gap-2 py-1 px-2 rounded hover:bg-gray-50 dark:hover:bg-gray-800">
+                  <button
+                    onClick={() => toggleActionMut.mutate({ intelId: intel.id, index: idx, completed: !completedItems.includes(idx) })}
+                    className={`mt-0.5 h-4 w-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${
+                      completedItems.includes(idx)
+                        ? 'bg-green-500 border-green-500 text-white'
+                        : 'border-gray-300 dark:border-gray-600'
+                    }`}
+                  >
+                    {completedItems.includes(idx) && <CheckCircle2 className="h-3 w-3" />}
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm ${completedItems.includes(idx) ? 'line-through text-gray-400' : 'text-gray-800 dark:text-gray-200'}`}>
+                      {item.task}
+                    </p>
+                    <div className="flex gap-2 text-xs text-gray-500 dark:text-gray-400">
+                      {item.owner && <span>Owner: {item.owner}</span>}
+                      {item.deadline && <span>Due: {item.deadline}</span>}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Topics */}
+      {intel.topics?.length > 0 && (
+        <div className="border-t border-gray-100 dark:border-gray-800">
+          <SectionHeader label="Topics Discussed" sectionKey="topics" icon={MessageSquare} count={intel.topics.length} />
+          {expandedSections.topics && (
+            <div className="flex flex-wrap gap-1.5 pb-3">
+              {intel.topics.map((topic: string, idx: number) => (
+                <span key={idx} className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-full">{topic}</span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Decisions */}
+      {intel.decisions?.length > 0 && (
+        <div className="border-t border-gray-100 dark:border-gray-800">
+          <SectionHeader label="Decisions Made" sectionKey="decisions" icon={Target} count={intel.decisions.length} />
+          {expandedSections.decisions && (
+            <ul className="space-y-1 pb-3 pl-4">
+              {intel.decisions.map((d: string, idx: number) => (
+                <li key={idx} className="text-sm text-gray-700 dark:text-gray-300 list-disc">{d}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {/* Talk Ratio */}
+      {intel.talk_ratio?.length > 0 && (
+        <div className="border-t border-gray-100 dark:border-gray-800">
+          <SectionHeader label="Talk Ratio" sectionKey="talk_ratio" icon={Users} />
+          {expandedSections.talk_ratio && (
+            <div className="space-y-2 pb-3">
+              {intel.talk_ratio.map((p: any, idx: number) => (
+                <div key={idx} className="flex items-center gap-3">
+                  <span className="text-xs text-gray-600 dark:text-gray-400 w-24 truncate">{p.name}</span>
+                  <div className="flex-1 bg-gray-100 dark:bg-gray-800 rounded-full h-2.5">
+                    <div className="bg-amber-500 rounded-full h-2.5" style={{ width: `${p.percentage}%` }} />
+                  </div>
+                  <span className="text-xs font-medium text-gray-600 dark:text-gray-400 w-10 text-right">{p.percentage}%</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Deal Signals */}
+      {intel.deal_signals?.length > 0 && (
+        <div className="border-t border-gray-100 dark:border-gray-800">
+          <SectionHeader label="Deal Signals" sectionKey="deal_signals" icon={TrendingUp} count={intel.deal_signals.length} />
+          {expandedSections.deal_signals && (
+            <div className="space-y-2 pb-3">
+              {intel.deal_signals.map((sig: any, idx: number) => (
+                <div key={idx} className={`p-2 rounded-lg text-sm ${sig.positive ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-300' : 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-300'}`}>
+                  <span className="font-medium capitalize">{sig.type?.replace(/_/g, ' ')}: </span>
+                  <span className="italic">"{sig.text}"</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Risk Flags */}
+      {intel.risk_flags?.length > 0 && (
+        <div className="border-t border-gray-100 dark:border-gray-800">
+          <SectionHeader label="Risk Flags" sectionKey="risk_flags" icon={AlertTriangle} count={intel.risk_flags.length} />
+          {expandedSections.risk_flags && (
+            <div className="space-y-1.5 pb-3">
+              {intel.risk_flags.map((flag: any, idx: number) => (
+                <div key={idx} className="flex items-start gap-2 p-2 rounded-lg bg-red-50 dark:bg-red-900/20">
+                  <AlertTriangle className={`h-4 w-4 mt-0.5 flex-shrink-0 ${
+                    flag.severity === 'high' ? 'text-red-600' : flag.severity === 'medium' ? 'text-yellow-600' : 'text-gray-500'
+                  }`} />
+                  <div>
+                    <p className="text-sm text-gray-800 dark:text-gray-200">{flag.flag}</p>
+                    <span className={`text-xs px-1.5 py-0.5 rounded capitalize ${
+                      flag.severity === 'high' ? 'bg-red-100 text-red-700' : flag.severity === 'medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'
+                    }`}>{flag.severity}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Follow-ups */}
+      {intel.follow_ups?.length > 0 && (
+        <div className="border-t border-gray-100 dark:border-gray-800">
+          <SectionHeader label="Suggested Follow-ups" sectionKey="follow_ups" icon={Calendar} count={intel.follow_ups.length} />
+          {expandedSections.follow_ups && (
+            <div className="space-y-1.5 pb-3">
+              {intel.follow_ups.map((f: any, idx: number) => (
+                <div key={idx} className="flex items-start gap-2 p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+                  <span className={`text-xs px-1.5 py-0.5 rounded font-medium mt-0.5 ${
+                    f.priority === 'high' ? 'bg-red-100 text-red-700' : f.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'
+                  }`}>{f.priority}</span>
+                  <div>
+                    <p className="text-sm text-gray-800 dark:text-gray-200">{f.action}</p>
+                    {f.suggested_date && <p className="text-xs text-gray-500">Suggested: {f.suggested_date}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Coach Suggestions */}
+      {intel.suggestions?.length > 0 && (
+        <div className="border-t border-gray-100 dark:border-gray-800">
+          <SectionHeader label="Coach Suggestions" sectionKey="suggestions" icon={Lightbulb} count={intel.suggestions.length} />
+          {expandedSections.suggestions && (
+            <div className="space-y-1.5 pb-3">
+              {intel.suggestions.map((s: string, idx: number) => (
+                <div key={idx} className="flex items-start gap-2 p-2 rounded-lg bg-amber-50 dark:bg-amber-900/20">
+                  <Lightbulb className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                  <p className="text-sm text-gray-800 dark:text-gray-200">{s}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ── Main Page ─────────────────────────────────────────────────────────── */
 
 export default function MeetingDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -430,6 +703,11 @@ export default function MeetingDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Meeting Intelligence (O-Brain Coach) */}
+      {(meeting.status === 'completed' || meeting.status === 'in_progress') && (
+        <MeetingIntelligenceSection meetingId={meeting.id} />
+      )}
     </div>
   )
 }
