@@ -600,21 +600,33 @@ async def send_booking_confirmation(
             mt = booking.meeting_type.value if hasattr(booking.meeting_type, "value") else str(booking.meeting_type)
             meeting_type_label = mt.replace("_", " ").title()
 
+        # Build reschedule / cancel URLs using public base URL
+        from app.config import Settings as _Settings
+
+        try:
+            _settings = _Settings()
+            base_url = _settings.public_base_url.rstrip("/")
+        except Exception:
+            base_url = "http://localhost:5173"
+
+        reschedule_url = f"{base_url}/booking/reschedule/{booking.reschedule_token}" if booking.reschedule_token else ""
+        cancel_url = f"{base_url}/booking/cancel/{booking.cancel_token}" if booking.cancel_token else ""
+
         html_body = f"""
         <html><body style="font-family: Arial, sans-serif; color: #333;">
         <h2>Booking Confirmed</h2>
         <p>Hi {booking.guest_name},</p>
         <p>Your appointment with <strong>{org_name}</strong> has been confirmed:</p>
         <table style="border-collapse: collapse; margin: 16px 0;">
-          <tr><td style="padding: 8px 16px; font-weight: bold;">Date & Time</td><td style="padding: 8px 16px;">{start_fmt}</td></tr>
+          <tr><td style="padding: 8px 16px; font-weight: bold;">Date &amp; Time</td><td style="padding: 8px 16px;">{start_fmt}</td></tr>
           <tr><td style="padding: 8px 16px; font-weight: bold;">Duration</td><td style="padding: 8px 16px;">{cal.duration_minutes} minutes</td></tr>
           {f'<tr><td style="padding: 8px 16px; font-weight: bold;">Type</td><td style="padding: 8px 16px;">{meeting_type_label}</td></tr>' if meeting_type_label else ''}
           {f'<tr><td style="padding: 8px 16px; font-weight: bold;">Location</td><td style="padding: 8px 16px;">{booking.meeting_location}</td></tr>' if booking.meeting_location else ''}
         </table>
         <p>You can manage your booking using the links below:</p>
         <p>
-          <a href="{{{{reschedule_url}}}}" style="color: #2563eb;">Reschedule</a> |
-          <a href="{{{{cancel_url}}}}" style="color: #dc2626;">Cancel</a>
+          <a href="{reschedule_url}" style="color: #2563eb;">Reschedule</a> |
+          <a href="{cancel_url}" style="color: #dc2626;">Cancel</a>
         </p>
         <p>See you then!</p>
         <p style="color: #666; font-size: 12px;">{org_name}</p>

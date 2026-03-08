@@ -113,6 +113,21 @@ async def _send_booking_reminders() -> None:
         logger.exception("Error sending booking reminders")
 
 
+async def _sync_google_calendars() -> None:
+    """Job: sync events with connected Google Calendar accounts."""
+    try:
+        async with _session_factory() as db:
+            from app.integrations.google_calendar.service import sync_all_accounts
+
+            count = await sync_all_accounts(db, _settings)
+            if count > 0:
+                logger.info("Google Calendar sync pulled %d events", count)
+    except ImportError:
+        pass
+    except Exception:
+        logger.exception("Error syncing Google Calendar")
+
+
 def setup_scheduler(session_factory: Any, settings: Any = None) -> None:
     """Register all periodic jobs and start the scheduler."""
     global _session_factory, _settings
@@ -158,6 +173,13 @@ def setup_scheduler(session_factory: Any, settings: Any = None) -> None:
         _send_booking_reminders,
         IntervalTrigger(minutes=15),
         id="send_booking_reminders",
+        replace_existing=True,
+    )
+
+    scheduler.add_job(
+        _sync_google_calendars,
+        IntervalTrigger(minutes=15),
+        id="sync_google_calendars",
         replace_existing=True,
     )
 

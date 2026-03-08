@@ -1,13 +1,17 @@
 
+import json
+import logging
 import uuid
 
-from sqlalchemy import func, select, update
+from sqlalchemy import delete as sa_delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
 from app.core.pagination import PaginationParams, build_pagination_meta
 from app.core.websocket import websocket_manager
-from app.notifications.models import Notification
+from app.notifications.models import Notification, PushSubscription
+
+logger = logging.getLogger(__name__)
 
 
 async def create_notification(
@@ -142,3 +146,132 @@ async def delete_notification(
 
     await db.delete(notification)
     await db.commit()
+
+
+# ---------------------------------------------------------------------------
+# Push Subscriptions
+# ---------------------------------------------------------------------------
+
+
+async def save_push_subscription(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    endpoint: str,
+    p256dh_key: str,
+    auth_key: str,
+) -> PushSubscription:
+    """Save or update a push subscription for a user."""
+    # Check if this endpoint already exists
+    result = await db.execute(
+        select(PushSubscription).where(PushSubscription.endpoint == endpoint)
+    )
+    existing = result.scalar_one_or_none()
+
+    if existing:
+        existing.user_id = user_id
+        existing.p256dh_key = p256dh_key
+        existing.auth_key = auth_key
+        await db.commit()
+        await db.refresh(existing)
+        return existing
+
+    sub = PushSubscription(
+        user_id=user_id,
+        endpoint=endpoint,
+        p256dh_key=p256dh_key,
+        auth_key=auth_key,
+    )
+    db.add(sub)
+    await db.commit()
+    await db.refresh(sub)
+    return sub
+
+
+async def remove_push_subscription(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    endpoint: str,
+) -> None:
+    """Remove a push subscription."""
+    await db.execute(
+        sa_delete(PushSubscription).where(
+            PushSubscription.user_id == user_id,
+            PushSubscription.endpoint == endpoint,
+        )
+    )
+    await db.commit()
+
+
+async def send_push_to_user(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    title: str,
+    body: str,
+    url: str | None = None,
+    settings=None,
+) -> int:
+    """Send web push notification to all subscriptions for a user.
+
+    Returns the number of successfully sent notifications.
+    """
+    if not settings or not settings.vapid_private_key:
+        return 0
+
+    result = await db.execute(
+        select(PushSubscription).where(PushSubscription.user_id == user_id)
+    )
+    subscriptions = result.scalars().all()
+
+    if not subscriptions:
+        return 0
+
+    try:
+        from pywebpush import webpush, WebPushException
+    except ImportError:
+        logger.debug("pywebpush not installed, skipping push notifications")
+        return 0
+
+    payload = json.dumps({
+        "title": title,
+        "body": body,
+        "url": url or "/",
+        "icon": "/icons/icon-192x192.png",
+    })
+
+    sent = 0
+    stale_endpoints = []
+
+    for sub in subscriptions:
+        subscription_info = {
+            "endpoint": sub.endpoint,
+            "keys": {
+                "p256dh": sub.p256dh_key,
+                "auth": sub.auth_key,
+            },
+        }
+        try:
+            webpush(
+                subscription_info=subscription_info,
+                data=payload,
+                vapid_private_key=settings.vapid_private_key,
+                vapid_claims={"sub": settings.vapid_claims_email},
+            )
+            sent += 1
+        except WebPushException as e:
+            if e.response and e.response.status_code in (404, 410):
+                stale_endpoints.append(sub.endpoint)
+            else:
+                logger.warning("Push notification failed: %s", e)
+        except Exception as e:
+            logger.warning("Push notification error: %s", e)
+
+    # Clean up stale subscriptions
+    for endpoint in stale_endpoints:
+        await db.execute(
+            sa_delete(PushSubscription).where(PushSubscription.endpoint == endpoint)
+        )
+
+    if stale_endpoints:
+        await db.commit()
+
+    return sent

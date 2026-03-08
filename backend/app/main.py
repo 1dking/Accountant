@@ -57,6 +57,7 @@ import app.branding.models  # noqa: F401
 import app.brain.models  # noqa: F401
 import app.smart_import.models  # noqa: F401
 import app.kyc.models  # noqa: F401
+import app.integrations.google_calendar.models  # noqa: F401
 # contacts.models now includes ContactTag, ContactActivity, FileShare, etc.
 
 
@@ -131,7 +132,7 @@ def create_app() -> FastAPI:
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        response.headers["Permissions-Policy"] = "camera=(self), microphone=(self), geolocation=()"
         if request.url.scheme == "https":
             response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
         return response
@@ -201,6 +202,7 @@ def create_app() -> FastAPI:
     from app.brain.router import router as brain_router
     from app.smart_import.router import router as smart_import_router
     from app.kyc.router import router as kyc_router
+    from app.integrations.google_calendar.router import router as google_calendar_router
 
     fastapi_app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
     fastapi_app.include_router(documents_router, prefix="/api/documents", tags=["documents"])
@@ -246,6 +248,7 @@ def create_app() -> FastAPI:
     fastapi_app.include_router(brain_router, prefix="/api/brain", tags=["brain"])
     fastapi_app.include_router(smart_import_router, prefix="/api/smart-import", tags=["Smart Import"])
     fastapi_app.include_router(kyc_router, prefix="/api/kyc", tags=["KYC"])
+    fastapi_app.include_router(google_calendar_router, prefix="/api/integrations/google-calendar", tags=["google-calendar"])
 
     # WebSocket endpoint
     @fastapi_app.websocket("/ws")

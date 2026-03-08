@@ -44,3 +44,4 @@ class CalendarEvent(TimestampMixin, Base):
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     is_completed: Mapped[bool] = mapped_column(Boolean, default=False)
+    google_event_id: Mapped[str | None] = mapped_column(String(255), nullable=True)

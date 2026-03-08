@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router'
-import { User, Mail, Inbox, Landmark, CreditCard, MessageSquare, Bell, Lock, Receipt, Building2 } from 'lucide-react'
+import { User, Mail, Inbox, Landmark, CreditCard, MessageSquare, Bell, Lock, Receipt, Building2, CalendarDays, BellRing } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/authStore'
 import ProfileSettings from '@/components/settings/ProfileSettings'
@@ -15,6 +15,8 @@ import ReminderSettings from '@/components/settings/ReminderSettings'
 import PeriodSettings from '@/components/settings/PeriodSettings'
 import TaxSettings from '@/components/settings/TaxSettings'
 import BrandingSettings from '@/components/settings/BrandingSettings'
+import GoogleCalendarSettings from '@/components/settings/GoogleCalendarSettings'
+import PushNotificationSettings from '@/components/settings/PushNotificationSettings'
 
 const TABS: { id: string; label: string; icon: typeof User; adminOnly?: boolean }[] = [
   { id: 'branding', label: 'Branding', icon: Building2 },
@@ -22,6 +24,8 @@ const TABS: { id: string; label: string; icon: typeof User; adminOnly?: boolean 
   { id: 'users', label: 'Users', icon: User, adminOnly: true },
   { id: 'email', label: 'Email (SMTP)', icon: Mail },
   { id: 'gmail', label: 'Gmail', icon: Inbox },
+  { id: 'google-calendar', label: 'Google Cal', icon: CalendarDays },
+  { id: 'notifications', label: 'Push Notifs', icon: BellRing },
   { id: 'banking', label: 'Banking', icon: Landmark },
   { id: 'payments', label: 'Payments', icon: CreditCard },
   { id: 'tax', label: 'Sales Tax', icon: Receipt },
@@ -83,6 +87,8 @@ export default function SettingsPage() {
           {activeTab === 'users' && user?.role === 'admin' && <UserManagement />}
           {activeTab === 'email' && <SmtpSettings />}
           {activeTab === 'gmail' && <GmailSettings />}
+          {activeTab === 'google-calendar' && <GoogleCalendarSettings />}
+          {activeTab === 'notifications' && <PushNotificationSettings />}
           {activeTab === 'banking' && (
             <>
               <PlaidSettings />

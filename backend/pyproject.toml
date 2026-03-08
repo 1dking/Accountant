@@ -39,6 +39,7 @@ dependencies = [
     "pdfplumber>=0.10.0",
     "PyMuPDF>=1.24.0",
     "eval-type-backport>=0.2.0; python_version < '3.12'",
+    "pywebpush>=2.0.0",
 ]
 
 [project.optional-dependencies]

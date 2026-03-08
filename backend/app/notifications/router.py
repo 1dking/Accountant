@@ -2,7 +2,8 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import User
@@ -14,9 +15,21 @@ from app.notifications.service import (
     list_notifications,
     mark_all_read,
     mark_read,
+    remove_push_subscription,
+    save_push_subscription,
 )
 
 router = APIRouter()
+
+
+class PushSubscribeRequest(BaseModel):
+    endpoint: str
+    p256dh: str
+    auth: str
+
+
+class PushUnsubscribeRequest(BaseModel):
+    endpoint: str
 
 
 @router.get("")
@@ -63,3 +76,37 @@ async def remove_notification(
 ) -> dict:
     await delete_notification(db, notification_id, current_user.id)
     return {"data": {"message": "Notification deleted"}}
+
+
+# ---------------------------------------------------------------------------
+# Push Subscriptions
+# ---------------------------------------------------------------------------
+
+
+@router.get("/push/vapid-key")
+async def get_vapid_public_key(request: Request) -> dict:
+    """Return the VAPID public key for the frontend to subscribe."""
+    settings = request.app.state.settings
+    return {"data": {"public_key": settings.vapid_public_key}}
+
+
+@router.post("/push/subscribe")
+async def subscribe_push(
+    data: PushSubscribeRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    sub = await save_push_subscription(
+        db, current_user.id, data.endpoint, data.p256dh, data.auth
+    )
+    return {"data": {"id": str(sub.id), "message": "Subscribed to push notifications"}}
+
+
+@router.post("/push/unsubscribe")
+async def unsubscribe_push(
+    data: PushUnsubscribeRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    await remove_push_subscription(db, current_user.id, data.endpoint)
+    return {"data": {"message": "Unsubscribed from push notifications"}}

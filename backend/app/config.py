@@ -90,6 +90,12 @@ class Settings(BaseSettings):
 
     # Google Calendar sync
     google_calendar_sync_enabled: bool = False
+    google_calendar_redirect_uri: str = "http://localhost:8000/api/integrations/google-calendar/callback"
+
+    # VAPID keys for Web Push notifications
+    vapid_private_key: str = ""
+    vapid_public_key: str = ""
+    vapid_claims_email: str = "mailto:admin@example.com"
 
     # OpenAI (embeddings + transcription)
     openai_api_key: str = ""

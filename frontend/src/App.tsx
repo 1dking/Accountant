@@ -79,6 +79,8 @@ import PipelinesPage from '@/pages/PipelinesPage'
 import ConversationsPage from '@/pages/ConversationsPage'
 import OBrainPage from '@/pages/OBrainPage'
 import SmartImportPage from '@/pages/SmartImportPage'
+import ReschedulePage from '@/pages/ReschedulePage'
+import CancelBookingPage from '@/pages/CancelBookingPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -229,6 +231,9 @@ export default function App() {
             <Route path="/p/:token" element={<PublicDocumentPage />} />
             <Route path="/proposals/sign/:token" element={<ProposalSigningPage />} />
             <Route path="/meetings/:id/guest" element={<MeetingGuestJoinPage />} />
+            {/* Public booking management */}
+            <Route path="/booking/reschedule/:token" element={<ReschedulePage />} />
+            <Route path="/booking/cancel/:token" element={<CancelBookingPage />} />
             {/* Portal routes */}
             <Route path="/portal" element={<PortalDashboardPage />} />
             <Route path="/portal/invoices" element={<PortalInvoicesPage />} />
