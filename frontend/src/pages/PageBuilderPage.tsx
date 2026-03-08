@@ -161,6 +161,11 @@ export default function PageBuilderPage() {
   const [showTemplateBrowser, setShowTemplateBrowser] = useState(false)
   const [templateSearch, setTemplateSearch] = useState('')
   const [templateFilterIndustry, setTemplateFilterIndustry] = useState('')
+  const [previewTemplateId, setPreviewTemplateId] = useState<string | null>(null)
+  const [previewTemplateHtml, setPreviewTemplateHtml] = useState<string>('')
+  const [previewTemplateName, setPreviewTemplateName] = useState<string>('')
+  const [previewDevice, setPreviewDevice] = useState<'desktop' | 'tablet' | 'mobile'>('desktop')
+  const [loadingPreview, setLoadingPreview] = useState(false)
 
   // Auto-save
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -677,6 +682,134 @@ export default function PageBuilderPage() {
   }
 
   // -------------------------------------------------------------------------
+  // Template preview handler
+  // -------------------------------------------------------------------------
+
+  const openTemplatePreview = async (templateId: string, templateName: string) => {
+    setPreviewTemplateId(templateId)
+    setPreviewTemplateName(templateName)
+    setPreviewTemplateHtml('')
+    setLoadingPreview(true)
+    setPreviewDevice('desktop')
+    try {
+      const res = await pagesApi.getTemplate(templateId)
+      const html = (res as any)?.data?.html_content || ''
+      setPreviewTemplateHtml(html)
+    } catch {
+      toast.error('Failed to load template preview')
+      setPreviewTemplateId(null)
+    } finally {
+      setLoadingPreview(false)
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Render: Template Preview Modal
+  // -------------------------------------------------------------------------
+
+  const renderTemplatePreview = () => {
+    if (!previewTemplateId) return null
+
+    const deviceWidths = { desktop: '100%', tablet: '768px', mobile: '375px' }
+    const previewWidth = deviceWidths[previewDevice]
+
+    const previewSrc = (() => {
+      if (!previewTemplateHtml) return ''
+      const trimmed = previewTemplateHtml.trim().toLowerCase()
+      if (trimmed.startsWith('<!doctype') || trimmed.startsWith('<html')) {
+        return previewTemplateHtml
+      }
+      return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><script src="https://cdn.tailwindcss.com"><\/script><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"><script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"><\/script></head><body>${previewTemplateHtml}</body></html>`
+    })()
+
+    return (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4">
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-[95vw] h-[92vh] flex flex-col">
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 py-3 border-b border-gray-200 dark:border-gray-700 shrink-0">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setPreviewTemplateId(null)}
+                className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </button>
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{previewTemplateName}</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Template Preview</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {/* Responsive toggles */}
+              <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5">
+                {([['desktop', Monitor], ['tablet', Tablet], ['mobile', Smartphone]] as const).map(([device, Icon]) => (
+                  <button
+                    key={device}
+                    onClick={() => setPreviewDevice(device)}
+                    className={`p-1.5 rounded-md transition ${
+                      previewDevice === device
+                        ? 'bg-white dark:bg-gray-700 text-blue-600 shadow-sm'
+                        : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+                    }`}
+                    title={device.charAt(0).toUpperCase() + device.slice(1)}
+                  >
+                    <Icon className="h-4 w-4" />
+                  </button>
+                ))}
+              </div>
+              {/* Use This Template */}
+              <button
+                onClick={() => {
+                  setPreviewTemplateId(null)
+                  const title = prompt('Page title:')
+                  if (title?.trim()) {
+                    createFromTemplateMutation.mutate({
+                      templateId: previewTemplateId,
+                      title: title.trim(),
+                      websiteId: selectedWebsiteId || undefined,
+                    })
+                  }
+                }}
+                disabled={createFromTemplateMutation.isPending}
+                className="flex items-center gap-1.5 bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Use This Template
+              </button>
+              <button
+                onClick={() => setPreviewTemplateId(null)}
+                className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+          {/* Preview iframe */}
+          <div className="flex-1 overflow-auto bg-gray-200 dark:bg-gray-950 flex justify-center p-4">
+            {loadingPreview ? (
+              <div className="flex items-center justify-center h-full">
+                <Loader2 className="h-8 w-8 text-blue-500 animate-spin" />
+              </div>
+            ) : (
+              <div
+                style={{ width: previewWidth, maxWidth: '100%', transition: 'width 0.3s ease' }}
+                className="h-full bg-white rounded-lg shadow-lg overflow-hidden"
+              >
+                <iframe
+                  srcDoc={previewSrc}
+                  className="w-full h-full border-0"
+                  sandbox="allow-scripts allow-same-origin allow-popups"
+                  title="Template preview"
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // -------------------------------------------------------------------------
   // Render: Template Browser Modal
   // -------------------------------------------------------------------------
 
@@ -685,8 +818,14 @@ export default function PageBuilderPage() {
       key={t.id}
       className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden hover:shadow-md transition group"
     >
-      <div className="h-32 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center">
+      <div
+        className="h-32 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center relative cursor-pointer"
+        onClick={() => openTemplatePreview(t.id, t.name)}
+      >
         <LayoutTemplate className="h-8 w-8 text-gray-300 dark:text-gray-600" />
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition flex items-center justify-center opacity-0 group-hover:opacity-100">
+          <Eye className="h-6 w-6 text-white drop-shadow-lg" />
+        </div>
       </div>
       <div className="p-4">
         <h4 className="font-semibold text-sm text-gray-900 dark:text-gray-100 truncate">{t.name}</h4>
@@ -856,6 +995,7 @@ export default function PageBuilderPage() {
         {renderCreatePageModal()}
         {renderCreateWebsiteModal()}
         {renderTemplateBrowser()}
+        {renderTemplatePreview()}
 
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
@@ -1466,6 +1606,7 @@ export default function PageBuilderPage() {
       {renderCreateWebsiteModal()}
       {renderSaveTemplateModal()}
       {renderTemplateBrowser()}
+      {renderTemplatePreview()}
 
       {/* Top bar */}
       {renderTopBar()}
