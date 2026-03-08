@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Family Dental - Dr. J Bensimon</title>
+<meta name="description" content="Advanced family dentistry and cosmetic care with Dr. J Bensimon. New patients are welcome in our comfortable Ancaster office."/>
+<!-- Optimized Google Fonts with display=swap and added preload hints for critical fonts -->
+<link rel="preload" href="https://fonts.gstatic.com/s/inter/v13/U6H-U6c_T5-U6c_T5-U6H-U6c_T5.woff2" as="font" type="font/woff2" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+
+<!-- FIX: Removed 'defer' attribute so Tailwind executes synchronously before the inline config script. -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+<!-- 3. Load Lucide Icons (essential for icons like the user profiles) -->
+<script src="https://unpkg.com/lucide@latest"></script>
+
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#007AFF", // Apple Blue
+                        "primary-dark": "#0A84FF",
+                        "background-light": "#F5F5F7", // Apple light gray background
+                        "background-dark": "#000000", // Apple black
+                        "surface-light": "#FFFFFF",
+                        "surface-dark": "#1C1C1E", // Apple dark gray surface
+                        "text-primary-light": "#1D1D1F",
+                        "text-primary-dark": "#F5F5F7",
+                        "text-secondary-light": "#86868B",
+                        "text-secondary-dark": "#86868B",
+                        "accent": "#2997FF",
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'SF Pro Display', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+                        display: ['SF Pro Display', 'Inter', 'sans-serif'],
+                    },
+                    borderRadius: {
+                        DEFAULT: "12px",
+                        'xl': "20px",
+                        '2xl': "28px",
+                    },
+                    boxShadow: {
+                        'apple': '0 4px 24px rgba(0, 0, 0, 0.04)',
+                        'apple-hover': '0 8px 32px rgba(0, 0, 0, 0.08)',
+                        'glow': '0 0 20px rgba(0, 122, 255, 0.3)',
+                    }
+                },
+            },
+        };
+    </script>
+<style>
+        /* --- CORE STYLES --- */
+        :root {
+            --charcoal: #1a1a1a;
+            --vibrant-green: #007AFF; /* Using primary color */
+            --border-gray: #e5e5e5;
+            --text-gray: #4a4a4a;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        .apple-blur {
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        /* Custom border radius for the 'squircle' look */
+        .squircle {
+            border-radius: 30px; 
+        }
+        
+        /* SCROLL REVEAL STYLES (for the fade-in effect) */
+        .scroll-reveal-item {
+            opacity: 0;
+            transform: translateY(16px);
+            transition: opacity 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            transition-delay: 0.1s;
+        }
+        .scroll-reveal-item.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* ADA Widget Styles */
+        #ada-widget {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            z-index: 200; 
+        }
+        .ada-panel {
+            min-width: 250px;
+            max-width: 300px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease-out;
+            transform-origin: bottom left;
+        }
+        .high-contrast body {
+            filter: grayscale(100%) contrast(150%);
+        }
+        
+        /* Video Background Sizing (Ensuring it covers 100% of the viewport parent) */
+        .video-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: 0;
+            opacity: 1.0; 
+        }
+        .dark .video-background {
+            opacity: 0.1; 
+        }
+
+        /* --- TESTIMONIAL ANIMATION STYLES (Pure CSS Infinite Loop) --- */
+        .testimonial-column {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem; /* gap-6 */
+            padding-bottom: 1.5rem; /* pb-6 */
+            will-change: transform;
+            animation-iteration-count: infinite; /* Always repeat */
+            animation-timing-function: linear; /* Constant speed */
+        }
+        
+        /* Animation Keyframes */
+        /* Must scroll -50% to align the duplicated content block */
+        @keyframes scroll-15s { from { transform: translateY(0%); } to { transform: translateY(-50%); } }
+        @keyframes scroll-17s { from { transform: translateY(0%); } to { transform: translateY(-50%); } }
+        @keyframes scroll-19s { from { transform: translateY(0%); } to { transform: translateY(-50%); } }
+
+        /* Column specific timing and animation assignment */
+        #col1 > .testimonial-column { animation-name: scroll-15s; animation-duration: 40s; }
+        #col2 > .testimonial-column { animation-name: scroll-17s; animation-duration: 45s; }
+        #col3 > .testimonial-column { animation-name: scroll-19s; animation-duration: 38s; }
+
+        /* Mask to fade the top and bottom cards */
+        .fade-mask {
+            /* Adjusted opacity stops for better fade effect */
+            mask-image: linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%);
+        }
+
+        /* Star Animation Styles */
+        @keyframes star-pop {
+            0% { transform: scale(1); opacity: 0.7; }
+            50% { transform: scale(1.3); opacity: 1; }
+            100% { transform: scale(1); opacity: 0.7; }
+        }
+        .star-animated {
+            fill: #FF0000; 
+            color: #FF0000; 
+            animation: star-pop 1.5s ease-in-out infinite alternate;
+        }
+        .star-animated:nth-child(1) { animation-delay: 0.1s; }
+        .star-animated:nth-child(2) { animation-delay: 0.2s; }
+        .star-animated:nth-child(3) { animation-delay: 0.3s; }
+        .star-animated:nth-child(4) { animation-delay: 0.4s; }
+        .star-animated:nth-child(5) { animation-delay: 0.5s; }
+        
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-text-primary-light dark:text-text-primary-dark transition-colors duration-300">
+
+<!-- SVG Filter Definition for Multi-colored Glow -->
+<svg width="0" height="0" style="position: absolute; overflow: hidden;">
+    <filter id="glow-4">
+        <!-- Blur the source graphic -->
+        <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur" />
+
+        <!-- Blue/Cyan component of the glow -->
+        <feFlood flood-color="#00FFFF" flood-opacity="0.8" result="color1" />
+        <feComposite in="color1" in2="blur" operator="in" result="shadow1" />
+        <feOffset in="shadow1" dx="0" dy="0" result="offsetShadow1" />
+
+        <!-- Magenta/Pink component of the glow -->
+        <feFlood flood-color="#FF00FF" flood-opacity="0.6" result="color2" />
+        <feComposite in="color2" in2="blur" operator="in" result="shadow2" />
+        <feOffset in="shadow2" dx="0" dy="0" result="offsetShadow2" />
+
+        <!-- Merge the glow components and the source graphic (text) -->
+        <feMerge>
+            <feMergeNode in="offsetShadow1" />
+            <feMergeNode in="offsetShadow2" />
+            <feMergeNode in="SourceGraphic" />
+        </feMerge>
+    </filter>
+</svg>
+
+<nav id="main-nav" class="fixed w-full z-50 top-0 transition-all duration-300 border-gray-200/50 dark:border-gray-800/50">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+<div class="flex justify-between items-center h-20"> <!-- Nav height: 80px -->
+<div class="flex-shrink-0 flex items-center">
+<!-- LOGO CONTAINER -->
+<!-- Default (Black) Logo - Initially hidden, shown on scroll -->
+<img id="default-logo" src="https://prophy.agency/video/Untitled%20design%20(29).png" alt="Dr. J Bensimon Family Dental Logo" style="height: 65px; width: auto;" class="hidden"/>
+<!-- White Logo - Initially visible, hidden on scroll -->
+<img id="white-logo" src="https://prophy.agency/video/Untitled%20design%20(30).png" alt="Dr. J Bensimon Family Dental Logo White" style="height: 65px; width: auto;"/>
+</div>
+<div class="hidden md:flex space-x-8 items-center">
+<a class="text-sm font-medium text-white dark:text-text-primary-dark hover:text-primary transition-colors text-shadow-lg" href="#">Services</a>
+<a class="text-sm font-medium text-white dark:text-text-primary-dark hover:text-primary transition-colors text-shadow-lg" href="#">About</a>
+<a class="text-sm font-medium text-white dark:text-text-primary-dark hover:text-primary transition-colors text-shadow-lg" href="#">New Patients</a>
+<a class="text-sm font-medium text-white dark:text-text-primary-dark hover:text-primary transition-colors text-shadow-lg" href="#">Reviews</a>
+<a class="px-4 py-2 rounded-full bg-primary text-white text-sm font-medium hover:opacity-90 transition-opacity shadow-sm" href="#">Book Appointment</a>
+</div>
+<div class="md:hidden flex items-center">
+<button class="text-white dark:text-text-primary-dark focus:outline-none text-shadow-lg">
+<span class="material-symbols-outlined">menu</span>
+</button>
+</div>
+</div>
+</div>
+</nav>
+
+<!-- Hero Section - Video background re-enabled -->
+<section class="relative min-h-screen pt-20 pb-20 overflow-hidden flex items-center" id="hero-section">
+<div class="absolute inset-0 z-0">
+<!-- Video Background Implementation -->
+<video autoplay loop muted class="video-background">
+<source src="https://prophy.agency/video/Untitled%20design%20(2).mp4" type="video/mp4"/>
+Your browser does not support the video tag.
+</video>
+<!-- Re-implemented 10% black gradient overlay in light mode, smoothly fading to solid black at the bottom -->
+<div class="absolute inset-0 bg-gradient-to-b from-black/10 via-black/10 to-background-dark dark:from-background-dark/5 dark:via-background-dark/5 dark:to-background-dark"></div>
+</div>
+<div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center w-full">
+<span class="inline-block py-1 px-3 rounded-full bg-blue-100/20 text-white text-xs font-semibold tracking-wide uppercase mb-6 text-shadow-lg fade-in-delayed">New Patients Welcome</span>
+<h1 class="text-5xl md:text-7xl font-display font-bold tracking-tight mb-6 text-white dark:text-text-primary-dark text-shadow-lg fade-in-delayed">
+                Dentistry for the <br class="hidden md:block"/>
+<span class="text-white text-shadow-lg" style="filter:url(#glow-4);">Whole Family.</span>
+</h1>
+<p class="mt-4 max-w-2xl mx-auto text-xl text-gray-200 dark:text-text-secondary-dark font-light leading-relaxed text-shadow-lg fade-in-delayed">
+                Take the first step towards an absolutely breathtaking smile. <br/>Advanced care in a comfortable, modern environment.
+            </p>
+<div class="mt-10 flex justify-center gap-4 fade-in-delayed">
+<a class="px-8 py-4 rounded-full bg-primary text-white text-lg font-medium hover:scale-105 transition-transform shadow-glow" href="#">
+                    Schedule Your Visit
+                </a>
+<a class="px-8 py-4 rounded-full bg-surface-light dark:bg-surface-dark text-primary border border-gray-200 dark:border-gray-700 text-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors" href="#services">
+                    Learn More
+                </a>
+</div>
+</div>
+</section>
+
+<!-- Section 2: Our Services - Fix Heading Order from h2 to h3 -->
+<section class="py-24 min-h-screen flex items-center bg-surface-light dark:bg-surface-dark" id="services">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+<div class="text-center mb-16">
+<h2 class="text-3xl md:text-5xl font-display font-bold text-text-primary-light dark:text-text-primary-dark mb-4">Our Services</h2>
+<p class="text-text-secondary-light dark:text-text-secondary-dark text-lg">Comprehensive care tailored to your needs.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="group relative overflow-hidden rounded-2xl bg-background-light dark:bg-zinc-900 aspect-[4/5] md:aspect-auto md:h-[500px] shadow-apple hover:shadow-apple-hover transition-all duration-300 transform hover:-translate-y-1">
+<div class="absolute inset-0">
+<!-- UPDATED IMAGE URL for Preventive Care -->
+<img alt="Preventive Care" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-90" src="https://prophy.agency/sites/drb/11.png" loading="lazy" width="500" height="625"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
+</div>
+<div class="absolute bottom-0 left-0 right-0 p-8">
+<span class="material-symbols-outlined text-white text-4xl mb-4">health_and_safety</span>
+<h3 class="2xl font-bold text-white mb-2">Preventive Care</h3>
+<p class="text-gray-200 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform translate-y-4 group-hover:translate-y-0">Proactive checkups and routine cleaning to maintain optimal oral health.</p>
+</div>
+</div>
+<div class="group relative overflow-hidden rounded-2xl bg-background-light dark:bg-zinc-900 aspect-[4/5] md:aspect-auto md:h-[500px] shadow-apple hover:shadow-apple-hover transition-all duration-300 transform hover:-translate-y-1">
+<div class="absolute inset-0">
+<!-- UPDATED IMAGE URL for Restorative Options -->
+<img alt="Restorative Options" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-90" src="https://prophy.agency/sites/drb/10.png" loading="lazy" width="500" height="625"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
+</div>
+<div class="absolute bottom-0 left-0 right-0 p-8">
+<span class="material-symbols-outlined text-white text-4xl mb-4">healing</span>
+<h3 class="2xl font-bold text-white mb-2">Restorative Options</h3>
+<p class="text-gray-200 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform translate-y-4 group-hover:translate-y-0">Repairing functional issues with advanced restorative techniques.</p>
+</div>
+</div>
+<div class="group relative overflow-hidden rounded-2xl bg-background-light dark:bg-zinc-900 aspect-[4/5] md:aspect-auto md:h-[500px] shadow-apple hover:shadow-apple-hover transition-all duration-300 transform hover:-translate-y-1">
+<div class="absolute inset-0">
+<!-- Added width/height and loading=lazy to image to fix performance issues -->
+<img alt="Cosmetic Services" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-90" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAmaMfHAyCH-FSflX2NYNlSA5RA8645DGNY39wWFvPu6w4DugPi73AsjMfah5qtlEz4WquIS6NJUo2SKmNLdEln2OYaFGoMB-M6RXBFyWbxx6Oh69BK2LvT_1xcMbD9Bx76ktq45kfodMvI0Gwpj3e66SJKNw-E1p1RhvR-peGOaKZtrWjLipdKnfYUBcCVnbPcPp-uSdctpDHq32Oxa6Ikl1HojGLkow55B41j4DZ03qKIEnTKIVfoZuQo6Zt7yQlYZ89oaX3vicIf" loading="lazy" width="500" height="625"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
+</div>
+<div class="absolute bottom-0 left-0 right-0 p-8">
+<span class="material-symbols-outlined text-white text-4xl mb-4">dentistry</span>
+<h3 class="2xl font-bold text-white mb-2">Cosmetic Services</h3>
+<p class="text-gray-200 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform translate-y-4 group-hover:translate-y-0">Enhancing your smile with aesthetic treatments and whitening.</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+
+<!-- Section 3: About Us - Fix Heading Order from h2 to h3 -->
+<section class="py-24 bg-background-light dark:bg-background-dark">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+<div class="flex flex-col lg:flex-row items-center gap-16">
+<div class="lg:w-1/2">
+<div class="relative rounded-2xl overflow-hidden shadow-2xl rotate-2 hover:rotate-0 transition-transform duration-500">
+<!-- Added width/height and loading=lazy to image to fix performance issues -->
+<img alt="Friendly welcome note" class="w-full h-auto object-cover" src="https://kajabi-storefronts-production.kajabi-cdn.com/kajabi-storefronts-production/file-uploads/themes/2157090999/settings_images/6d1abef-a6bc-a0b3-8d47-b5a24caeb0a_welcome_afd.png" loading="lazy" width="800" height="500"/>
+</div>
+</div>
+<div class="lg:w-1/2 space-y-6">
+<p class="text-primary font-bold uppercase tracking-wide text-sm">About Us</p>
+<h2 class="text-4xl md:text-5xl font-display font-bold text-text-primary-light dark:text-text-primary-dark">
+                        Welcome to <br/>
+<span class="text-primary">Family Dental</span>
+</h2>
+<p class="text-lg text-text-secondary-light dark:text-text-secondary-dark leading-relaxed">
+                        We are dedicated to providing you individualized patient experience of superior quality. Each visit is a promise of the finest service sealed with optimal comfort as we help you maintain and improve your oral health.
+                    </p>
+<p class="text-lg text-text-secondary-light dark:text-text-secondary-dark leading-relaxed">
+                        Our team of highly experienced professionals upholds the most competent qualifications matched with the best level of continuing education.
+                    </p>
+<button class="mt-4 px-6 py-3 rounded-full border border-gray-300 dark:border-gray-600 text-text-primary-light dark:text-text-primary-dark font-medium hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                        Read More About Dr. Bensimon
+                    </button>
+</div>
+</div>
+</div>
+</section>
+
+<section class="py-20 bg-primary text-white overflow-hidden relative">
+<div class="absolute inset-0 bg-gradient-to-r from-primary-dark to-primary opacity-50"></div>
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
+<!-- Heading changed from h2 to h3 for SEO/Accessibility compliance -->
+<h3 class="text-3xl md:text-4xl font-display font-bold mb-4">Healthy Smiles Begin Here</h3>
+<p class="text-xl opacity-90 max-w-3xl mx-auto">Committed to delivering a personalized patient experience with exceptional quality.</p>
+</div>
+</section>
+
+<!-- Section 4: Your First Visit - Fix Heading Order from h2 to h3 -->
+<section class="py-24 bg-surface-light dark:bg-surface-dark">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+<div class="flex flex-col lg:flex-row-reverse items-center gap-16">
+<div class="lg:w-1/2 relative"> <!-- Added relative to the image container -->
+    <!-- Decorative Oval Background Element 1 (Top Left) -->
+    <div class="absolute -top-10 -left-10 w-3/5 h-3/5 bg-primary/20 dark:bg-primary/10 rounded-full blur-3xl z-0 transform rotate-12 hidden lg:block"></div>
+    <!-- Decorative Oval Background Element 2 (Bottom Right) -->
+    <div class="absolute -bottom-10 -right-10 w-2/5 h-2/5 bg-accent/30 dark:bg-accent/20 rounded-full blur-3xl z-0 transform -rotate-24 hidden lg:block"></div>
+
+    <!-- Image (with relative z-10 to ensure it sits on top of the ovals) -->
+    <!-- Added width/height and loading=lazy to image to fix performance issues -->
+    <img alt="Portrait of senior hispanic parents with adult son" class="relative z-10 rounded-3xl shadow-apple w-full object-cover h-[500px]" src="https://prophy.agency/video/portrait-of-senior-hispanic-parents-with-adult-son-2024-10-19-04-40-31-utc.jpg" loading="lazy" width="800" height="500"/>
+</div>
+<div class="lg:w-1/2 space-y-8">
+<div>
+<span class="text-primary font-bold uppercase tracking-wide text-xs mb-2 block">Smile With Confidence</span>
+<!-- Heading changed from h2 to h3 for SEO/Accessibility compliance -->
+<h3 class="text-4xl md:text-5xl font-display font-bold text-text-primary-light dark:text-text-primary-dark">
+                            Your <span class="text-primary">First</span> Visit
+                        </h3>
+</div>
+<div class="space-y-4 text-text-secondary-light dark:text-text-secondary-dark leading-relaxed">
+<p>We encourage everyone to seek regular dental care. Dr. Bensimon will develop a specific plan for your oral health needs.</p>
+<p>Your first appointment will generally last about an hour and a half. This covers a full dental examination with digital x-rays if necessary.</p>
+<p>Each person has unique needs. Our team will go over all treatment plans and options with you to help you decide the best treatment possible.</p>
+</div>
+<a class="inline-flex items-center gap-2 text-primary font-semibold hover:gap-3 transition-all" href="#">
+                        Learn what to expect <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</a>
+</div>
+</div>
+</div>
+</section>
+
+<!-- Section 5: Verified Patient Reviews - NEW DYNAMIC LISTING WITH ANIMATED STARS -->
+<section id="reviews" class="py-24 bg-background-light dark:bg-background-dark">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+<div class="text-center mb-16">
+    <!-- Header Block from provided structure -->
+    <div class="flex flex-col items-center justify-center max-w-[540px] mx-auto text-center scroll-reveal-item">
+        <div class="flex justify-center">
+            <div class="border border-[var(--border-gray)] bg-white py-1 px-4 rounded-lg text-sm font-semibold text-[var(--vibrant-green)]">Patient Reviews</div>
+        </div>
+        <h2 class="text-4xl lg:text-5xl font-extrabold tracking-tighter mt-5 text-[var(--charcoal)]">
+            Kind Words From Our Community
+        </h2>
+        <p class="text-lg text-[var(--text-gray)] mt-3 opacity-90">
+            Our patients value our professional, gentle staff, clear communication, and commitment to long-term care.
+        </p>
+    </div>
+</div>
+
+<!-- Testimonials Grid with Scrolling Columns -->
+<div class="flex justify-center mx-auto max-w-5xl">
+    <!-- Outer wrapper to define the carousel viewport and apply clean card styling -->
+    <div class="fade-mask max-h-[780px] overflow-hidden rounded-2xl bg-surface-light dark:bg-zinc-900 shadow-2xl">
+        <!-- Inner container to hold the columns -->
+        <div id="reviews-viewport" class="p-10 flex gap-10"> <!-- Applied 40px padding (p-10) and 40px gap (gap-10) here -->
+            
+            <!-- Column 1 -->
+            <div id="col1" class="w-full max-w-xs md:max-w-none md:w-1/3 lg:w-1/4">
+                <!-- Content injected here -->
+            </div>
+
+            <!-- Column 2 -->
+            <div id="col2" class="hidden md:block w-1/3 lg:w-1/4">
+                <!-- Content injected here -->
+            </div>
+
+            <!-- Column 3 -->
+            <div id="col3" class="hidden lg:block w-1/4">
+                <!-- Content injected here -->
+            </div>
+
+        </div>
+    </div>
+</div>
+
+</div>
+</section>
+
+<!-- Section 6: CTA / Contact - Fix Heading Order from h2 to h3 -->
+<section class="relative py-24 bg-surface-dark text-white overflow-hidden">
+<div class="absolute inset-0">
+<!-- Added width/height and loading=lazy to image to fix performance issues -->
+<img alt="Clinic Office Dark" class="w-full h-full object-cover opacity-30" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB688FTiJXbLcv1Tf1AhIL2TaftWwa3BWuRutiTfbwWrGehbaowItVMrBLiob2AcWmJiEfEoHb2-fNNZ0zRDxutuOjWODGbZ5QHfiGfpxMXs62wiSppUY-kMrdasPNGlWuQBSUVOMtZbRrFOuHRhWWfmvIQgYPoadpBiidNxQNGKypstzRLEkz1Gy4D_DRp0yQcmgTDSYDu4u0ZvicEfDTaDpnJHfUmDkBhLGKffVPJ7bQo45AlxhMOPAR5YZkho6tgR_Lyq9m_SdOP" loading="lazy" width="1000" height="500"/>
+<div class="absolute inset-0 bg-gradient-to-r from-black/90 to-transparent"></div>
+</div>
+<div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+<div class="grid md:grid-cols-2 gap-12">
+<div class="flex flex-col justify-center">
+<p class="text-sm font-semibold tracking-wider uppercase mb-2 text-blue-400">Quality Care For You</p>
+<!-- Heading corrected to h3 for SEO/Accessibility compliance -->
+<h3 class="text-4xl md:text-5xl font-display font-bold mb-6">Request an Appointment Today</h3>
+<p class="text-gray-300 text-lg mb-8 max-w-md">Our dedicated team is here to provide the assistance you need. Feel free to reach out – we're ready to help!</p>
+<div>
+<button class="bg-primary hover:bg-primary-dark text-white font-bold py-4 px-8 rounded-full shadow-lg transition duration-300">
+                            Request Appointment
+                        </button>
+</div>
+</div>
+<div class="bg-white dark:bg-zinc-900 rounded-3xl p-8 shadow-2xl text-text-primary-light dark:text-text-primary-dark transform md:translate-y-12">
+<h3 class="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Dr. J Bensimon, Family Dental</h3>
+<h4 class="text-2xl font-bold mb-4">Find Us in Ancaster</h4>
+<p class="text-sm text-text-secondary-light dark:text-text-secondary-dark mb-6 leading-relaxed">
+                        Proudly serving Hamilton, Dundas, Ancaster and the surrounding areas. Dr. Bensimon's dental office offers complete dental care in one convenient location.
+                    </p>
+<div class="flex items-start gap-4 mb-4">
+<span class="material-symbols-outlined text-primary">location_on</span>
+<div class="text-sm">
+<p class="font-semibold">Address</p>
+<p class="text-gray-500">1090 Wilson Street West, Suite 5E<br/>Ancaster, Ontario, L9G 3K9</p>
+</div>
+</div>
+<div class="flex items-start gap-4">
+<span class="material-symbols-outlined text-primary">call</span>
+<div class="text-sm">
+<p class="font-semibold">Phone</p>
+<p class="text-gray-500">(905) 304-1997</p>
+</div>
+</div>
+<a class="mt-6 block w-full text-center py-3 rounded-xl bg-gray-100 dark:bg-gray-800 text-primary font-semibold hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" href="#">
+                        Contact &amp; Hours
+                    </a>
+</div>
+</div>
+</div>
+</section>
+<footer class="bg-background-light dark:bg-background-dark pt-32 pb-12 border-t border-gray-200 dark:border-gray-800">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+<div class="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
+<div class="space-y-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-3xl">dentistry</span>
+<span class="font-display font-bold text-lg text-text-primary-light dark:text-text-primary-dark">Dr. J Bensimon</span>
+</div>
+<p class="text-sm text-text-secondary-light dark:text-text-secondary-dark">The wisest and most convenient choice for all your dental needs.</p>
+</div>
+<div>
+<h4 class="font-bold mb-4 text-text-primary-light dark:text-text-primary-dark">Quick Links</h4>
+<ul class="space-y-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+<li><a class="hover:text-primary transition-colors" href="#">Home</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">About</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Our Services</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Contact Us</a></li>
+</ul>
+</div>
+<div>
+<h4 class="font-bold mb-4 text-text-primary-light dark:text-text-primary-dark">Hours</h4>
+<ul class="space-y-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+<li class="flex justify-between"><span>Mon:</span> <span>9:00am - 6:00pm</span></li>
+<li class="flex justify-between"><span>Tue:</span> <span>9:00am - 7:00pm</span></li>
+<li class="flex justify-between"><span>Wed:</span> <span>9:00am - 6:00pm</span></li>
+<li class="flex justify-between"><span>Thu:</span> <span>9:00am - 5:00pm</span></li>
+<li class="flex justify-between"><span>Fri:</span> <span>By appointment only</span></li>
+</ul>
+</div>
+<div>
+<h4 class="font-bold mb-4 text-text-primary-light dark:text-text-primary-dark">New Patients</h4>
+<p class="text-sm text-text-secondary-light dark:text-text-secondary-dark mb-4">
+                        Schedule an appointment today and take the first step towards an absolutely stunning smile.
+                    </p>
+<button class="w-full py-2 px-4 border border-primary text-primary rounded-lg text-sm font-semibold hover:bg-primary hover:text-white transition-colors">
+                        Book Now
+                    </button>
+</div>
+</div>
+<div class="border-t border-gray-200 dark:border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
+<p class="text-xs text-text-secondary-light dark:text-text-secondary-dark">© 2025 Dr. J Bensimon | Family Dental. All rights reserved.</p>
+<div class="flex gap-4">
+<a class="text-text-secondary-light dark:text-text-secondary-dark hover:text-primary" href="#"><i class="fab fa-facebook"></i> Facebook</a>
+<a class="text-text-secondary-light dark:text-text-secondary-dark hover:text-primary" href="#"><i class="fab fa-instagram"></i> Instagram</a>
+</div>
+</div>
+</div>
+</footer>
+<script>
+        // Define all review data globally or within the scope where it is used
+        const REVIEWS = [
+            { name: "Groom n tails", quote: "Hes a awesome dentist i went yesterday and he is fixing my whole mouth due to years on prescription medication that has dryed out my mouth in the beginning i thought i would have had to get dentures but dr Bensimon did his magic and has saved my teeth allways great fully appreciated", starColor: 'red' },
+            { name: "Kirk Nelson", quote: "The Best I've ever been too amazing staff really make you feel comfortable and relaxed and Dr B really knows his stuff been going there for years I would very highly recommend them the Best 👌 👍", starColor: 'red' },
+            { name: "Nina M", quote: "Great dentist office. Staff is professional and very welcoming. Service is excellent, would recommend to anyone.", starColor: 'red' },
+            { name: "Annette", quote: "First time at this office and it was a fabulous experience from Jillian the hygienist to Deb, front desk, dental assistant “P” and Dr Simon all were kind and super good at their jobs!", starColor: 'red' },
+            { name: "Damien Fletcher", quote: "Always a lovely visit! Very clean and inviting atmosphere. Can’t recommend visiting Dr. B and his excellent team enough. 5/5", starColor: 'red' },
+            { name: "Erika Molata", quote: "We absolutely love being patients of Dr. Bensimon Family Dentistry! All aspects from booking appointments, payment, follow-up, the level of care from all hygienists and Dr. B are top notch! Our family and everyone we've referred have the ... More", starColor: 'red' },
+            { name: "Erin Elchesyn", quote: "Always a great experience! Everyone in this clinic is so friendly and kind!", starColor: 'red' },
+            { name: "Lise Bernard", quote: "Staff is always very friendly and fun to chat with. I called Debbie with an emergency and was very pleased with the efficient response to take care of me.", starColor: 'yellow' },
+            { name: "Cheryl Navarrete", quote: "Always a great experience. Friendly staff as is my wonderful dentist and hygienist.", starColor: 'yellow' },
+            { name: "Sophie DeBoer", quote: "The staff is very friendly and the process of getting a cavity filled was faster than expected!", starColor: 'yellow' },
+            { name: "anita dinning", quote: "Friendly and competent staff. Offers payment plan which helps wt expense. Clean and lovely office", starColor: 'yellow' },
+            { name: "Liz Scarcelli", quote: "I have been a patient at Dr. Bensimon's Dental Office for over a decade, and I must say it has been an absolute pleasure. Dr. Bensimon is an incredibly personable and gentle dentist who always makes me feel at ease during my visits. His ... More", starColor: 'yellow' },
+            { name: "Piano Girl", quote: "I've been coming to Dr. Bensimon for a few years now, and I can't recommend them highly enough. From the moment you walk in, you're greeted with a warm and friendly atmosphere. The entire staff is incredibly professional, attentive, and ... More", starColor: 'yellow' },
+            { name: "Shernie Grecia", quote: "The staff here at the clinic are very friendly. I feel they are genuinely concerned about your health and well being. Everyone is professional. No one tries to upsell a service or treatment you don't need. DR. B and his team can be trusted! ... More", starColor: 'yellow' },
+            { name: "stuart", quote: "Very friendly staff. Informative and thorough. Highly recommend!", starColor: 'yellow' },
+            { name: "Mike Pieters", quote: "Staff and Dr B are always so friendly and courteous. Efficient and professional :-)", starColor: 'yellow' },
+            { name: "M T", quote: "Great experiences my first couple visits. Cleaning was fantastic (Hygienist was great and Dr. Bensimon is fantastic.) Front desk was super polite and helpful as well! Having been a former patient at a corporate owned dental office the honesty in what treatment I needed was a breath of fresh air.", starColor: 'yellow' },
+            { name: "DEBBIE ZIMMERMAN", quote: "If you are looking for a no nonsense Dentist who is exceptional and has excellent hygienists along with very helpful and friendly office support then please inquire with this practise. I have been a patient for years and have never been disappointed with the dental work I have received.", starColor: 'yellow' },
+            { name: "shlomi linoy", quote: "The entire experience was professional, efficient, and handled with care. The administrative assistants were kind and attentive, helping make everything smooth and welcoming.", starColor: 'yellow' },
+            { name: "Kirsten Patterson", quote: "Great place, same experienced dentist, hygenists and admin staff.", starColor: 'yellow' },
+            { name: "Marilyn Dickson", quote: "Definitely would recommend - professional but atmosphere is 'light hearted' so very relaxed. Had xrays, cleaning and exam - top notch, equipment current, and clean. Schedules are most accommodating... and there was a child who had ... More", starColor: 'yellow' },
+            { name: "Paul", quote: "Dr. B and his staff are the best. So organized and considerate. He’s not just a great dentist, he’s one of the most intelligent and knowledgeable people I’ve ever met. Great conversationalist and worldly.", starColor: 'yellow' },
+            { name: "Jeremy Shine (Jel)", quote: "I would recommend this dental practice to everyone who is looking for excellent workmanship and extremely accommodating staff. All in all, it is a first-class practice. ... More", starColor: 'yellow' },
+            { name: "Maria Marino", quote: "I’m glad to find Dr. Bensimon and his whole crew being a new patient in the area. I’m glad to found this practice his crew are very nice & friendly atmosphere. My husbund is their next patient i would highly recommend this practice to anyone's.", starColor: 'yellow' },
+            { name: "Tommy G", quote: "Fantastic experience for a person who doesn't like dental visits. From start to finish, the staff were great to deal with. I will definitely be returning soon for my next follow-up app't. With my whole family going here and not having one bad experience I'm not sure where some of the negative reviews have come from.", starColor: 'yellow' },
+            { name: "Tavia Johnson", quote: "I usually feel nervous when going to the dentist but the Dr. and staff made it very easy. Everyone was friendly and made me feel comfortable the entire time. Thank you for very much for the warm welcome.", starColor: 'yellow' },
+            { name: "Chantal Provost", quote: "Florence is amazing and Dr B. Is great", starColor: 'yellow' },
+            { name: "John Brown", quote: "Dr Bensimon is a pro and is very honest with his patience. He does good thorough work and takes pride in his work. The hygienists are great and I can always have a good laugh with the girls at the front in reception. A warm friendly bunch.", starColor: 'yellow' },
+            { name: "Angela Daigneault", quote: "By far the best dental office i have ever been to! The staff are so welcoming and kind! They do everything they can do make you feel comfortable and support you in getting your teeth to a healthy state :) i would highly recommend!!", starColor: 'yellow' },
+            { name: "Sean Morrison", quote: "Great dentist office, they are friendly and very professional", starColor: 'yellow' },
+            { name: "Chantel Nightingale", quote: "I have been going to Dr. B since 2007 and I have nothing but good experiences. (well as good as one can have going to dentist lol) They are accommodating, efficient and friendly. I would highly recommend this dental office.", starColor: 'yellow' },
+            { name: "William Sinden", quote: "As always the staff were courteous, professional and cheerful. My appointment was for 2pm and I was greeted and taken in right at 2pm👍🏻 I had an extraction which wasn’t painful at all😬😬", starColor: 'yellow' },
+            { name: "CMCEC M. De Antuñano", quote: "Dr. Bensimon and his team are truly amazing. Knowledgeable, talented, kind and honest. I highly recommend their clinic.", starColor: 'yellow' },
+            { name: "Judy Baillie", quote: "Dr B and staff are so welcoming and knowledgeable. Aim is to receive the very best care with no discomfort. Such a talented team.", starColor: 'yellow' },
+            { name: "Stuart Murray", quote: "Friendly, Professional, On time, and CDPA knowledgeable .. The Best", starColor: 'yellow' },
+            { name: "Matthew, Hannah Elgersma", quote: "Every visit to Dr. Bensimons office is like the first visit. They treat you so great every time! I love the fact that I can book appointments outside of my work hours. Totally recommend.", starColor: 'yellow' },
+        ];
+
+        // --- GLOBAL CAROUSEL STATE (NO LONGER NEEDED FOR PURE CSS) ---
+        // Removing previous JS scroll variables as the animation is now pure CSS
+        
+        
+        // Function to render the star SVG
+        function renderStar(color) {
+            const starClass = color === 'red' ? 'star-animated' : 'text-yellow-400';
+            return `
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-current ${starClass}" viewBox="0 0 24 24">
+                    <path d="M12 17.27l4.15 2.53c.46.28 1.05-.11.93-.64l-.99-4.73l3.52-3.17c.4-.35.18-1.02-.34-1.09l-4.66-.4L12.48 2.3c-.26-.51-1.03-.51-1.29 0L7.58 6.74l-4.66.4c-.52.07-.74.74-.34 1.09l3.52 3.17l-.99 4.73c-.12.53.47.92.93.64l4.15-2.53z"/>
+                </svg>
+            `;
+        }
+        
+        // Function to create HTML for a single review card
+        function createReviewCard(review) {
+            const initials = review.name.split(' ').map(n => n[0]).join('');
+            // Placeholder image link (used because we removed the Lucide dependency for this section)
+            const imagePlaceholder = `https://placehold.co/40x40/${review.starColor === 'red' ? '007AFF' : '5c5c5c'}/ffffff?text=${initials.substring(0,2)}`;
+
+            // Use the new squircle class and styling variables
+            const cardBgClass = review.starColor === 'red' ? 'bg-primary text-white border-primary dark:border-primary shadow-2xl' : 'bg-surface-light dark:bg-zinc-800 border-gray-200 dark:border-gray-700 shadow-xl';
+            const textColorClass = review.starColor === 'red' ? 'text-white' : 'text-text-primary-light dark:text-gray-100';
+            const detailTextColorClass = review.starColor === 'red' ? 'text-gray-200' : 'text-text-secondary-light dark:text-text-secondary-dark';
+            
+            let starsHtml = '';
+            for (let i = 0; i < 5; i++) {
+                starsHtml += renderStar(review.starColor);
+            }
+            
+            return `
+                <div class="testimonial-card-inner ${cardBgClass} border review-card-item squircle">
+                    <article class="h-full flex flex-col">
+                        <div class="flex mb-4 text-sm">
+                            ${starsHtml}
+                        </div>
+                        <p class="${textColorClass} text-base italic mb-auto">
+                            "${review.quote}"
+                        </p>
+                        <div class="flex items-center justify-between pt-5 mt-4">
+                            <div class="flex flex-col">
+                                <h3 class="font-semibold text-lg lg:text-xl ${textColorClass}">${review.name}</h3>
+                                <p class="text-sm opacity-80 ${detailTextColorClass}">${review.name.includes(' ') ? 'Verified Patient' : 'Local Guide'}</p>
+                            </div>
+                            <img src="${imagePlaceholder}" alt="${review.name} initial" class="w-10 h-10 rounded-full object-cover"/>
+                        </div>
+                    </article>
+                </div>
+            `;
+        }
+        
+        /**
+         * Renders testimonial column content and applies pure CSS infinite scrolling animation.
+         */
+        function renderTestimonialColumn(colId, data, animationName, animationDuration) {
+            const columnEl = document.getElementById(colId);
+            if (!columnEl) return;
+
+            // Duplicate content to allow scrolling -50% without a visual jump
+            const contentHTML = [...data, ...data].map(createReviewCard).join('');
+            
+            const innerDiv = document.createElement('div');
+            innerDiv.className = 'testimonial-column';
+            innerDiv.innerHTML = contentHTML;
+            // Apply animation dynamically
+            innerDiv.style.animation = `${animationName} ${animationDuration} linear infinite`;
+            columnEl.appendChild(innerDiv);
+        }
+
+
+        // --- INITIALIZATION ---
+        
+        // Split reviews into three columns (roughly 12 reviews each for even height)
+        const totalReviews = REVIEWS.length;
+        const reviewsPerCol = Math.ceil(totalReviews / 3);
+        
+        const col1Unique = REVIEWS.slice(0, reviewsPerCol);
+        const col2Unique = REVIEWS.slice(reviewsPerCol, reviewsPerCol * 2);
+        const col3Unique = REVIEWS.slice(reviewsPerCol * 2, totalReviews);
+
+        // Duplicates the data within each column array to enable seamless infinite scrolling 
+        const col1Data = [...col1Unique, ...col1Unique];
+        const col2Data = [...col2Unique, ...col2Unique];
+        const col3Data = [...col3Unique, ...col3Unique];
+
+        // 1. Scroll Reveal setup
+        const observer = new IntersectionObserver((entries, observer) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, {
+            rootMargin: '0px',
+            threshold: 0.1
+        });
+        
+        // Set up all site logic inside DOMContentLoaded to prevent premature element access
+        document.addEventListener('DOMContentLoaded', () => {
+            // 1. Element retrieval (safe now)
+            const stars = document.querySelectorAll('.material-symbols-outlined.filled');
+            const nav = document.getElementById('main-nav');
+            const defaultLogo = document.getElementById('default-logo');
+            const whiteLogo = document.getElementById('white-logo');
+            const adaPanel = document.getElementById('ada-panel');
+            const adaButton = document.getElementById('ada-button');
+            const video = document.querySelector('.video-background');
+
+            // --- REVIEW SECTION INJECTION ---
+            // Use different durations for staggered effect
+            renderTestimonialColumn('col1', col1Data, 'scroll-15s', '40s');
+            renderTestimonialColumn('col2', col2Data, 'scroll-17s', '45s');
+            renderTestimonialColumn('col3', col3Data, 'scroll-19s', '38s');
+
+            // Apply scroll reveal to the main content elements
+            document.querySelectorAll('#reviews .scroll-reveal-item').forEach(el => {
+                observer.observe(el);
+            });
+            // ---------------------------------
+
+
+            // 2. Class definitions
+            const transparentClasses = ['bg-transparent'];
+            const solidClasses = ['apple-blur', 'bg-surface-light/80', 'dark:bg-surface-dark/80', 'border-b', 'border-gray-200/50', 'dark:border-gray-800/50'];
+            const linkColorClasses = ['text-white', 'text-shadow-lg']; 
+            const linkSolidClasses = ['text-text-primary-light', 'dark:text-text-primary-dark'];
+
+            // 3. Functions that use elements
+            
+            // Function to display a custom notification message
+            function displayMessage(text) {
+                const message = document.createElement('div');
+                message.textContent = text;
+                message.className = 'fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 p-4 rounded-lg bg-primary text-white shadow-2xl z-[9999] transition-opacity duration-300';
+                document.body.appendChild(message);
+                setTimeout(() => {
+                    message.classList.add('opacity-0');
+                    setTimeout(() => message.remove(), 300);
+                }, 2000);
+            }
+
+            // Nav Scroll Function
+            function handleScroll() {
+                const scrollThreshold = 80; 
+                const navLinks = document.querySelectorAll('#main-nav a');
+                const navButton = document.querySelector('#main-nav a.bg-primary'); 
+                
+                if (window.scrollY > scrollThreshold) {
+                    // --- SCROLLED DOWN STATE (Solid Nav, Black Text for links) ---
+                    nav.classList.add(...solidClasses);
+                    nav.classList.remove(...transparentClasses);
+
+                    // LOGO SWAP: Show default logo, hide white logo
+                    if (defaultLogo) defaultLogo.classList.remove('hidden');
+                    if (whiteLogo) whiteLogo.classList.add('hidden');
+
+                    // Change *standard* link colors to primary text color (and remove text shadow)
+                    navLinks.forEach(link => {
+                        // Skip the primary button (which has bg-primary)
+                        if (link !== navButton) {
+                            link.classList.remove(...linkColorClasses);
+                            link.classList.remove('text-shadow-lg');
+                            link.classList.add(...linkSolidClasses);
+                        }
+                    });
+                    
+                    // Keep the primary button text white (it has bg-primary)
+                    if (navButton) {
+                        navButton.classList.remove('text-shadow-lg');
+                    }
+
+                    // Mobile Menu Icon color change
+                    const mobileMenuButton = document.querySelector('#main-nav button');
+                    if (mobileMenuButton) {
+                        mobileMenuButton.classList.remove('text-shadow-lg');
+                        mobileMenuButton.classList.remove(...linkColorClasses);
+                        mobileMenuButton.classList.add(...linkSolidClasses);
+                    }
+
+
+                } else {
+                    // --- TOP STATE (Transparent Nav, White Text for links) ---
+                    nav.classList.remove(...solidClasses);
+                    nav.classList.add(...transparentClasses);
+                    
+                    // LOGO SWAP: Show white logo, hide default logo
+                    if (defaultLogo) defaultLogo.classList.add('hidden');
+                    if (whiteLogo) whiteLogo.classList.remove('hidden');
+
+                    // Change *standard* link color back to white (and add text shadow)
+                    navLinks.forEach(link => {
+                         // Skip the primary button (which has bg-primary)
+                        if (link !== navButton) {
+                            link.classList.remove(...linkSolidClasses);
+                            link.classList.add(...linkColorClasses);
+                            link.classList.add('text-shadow-lg');
+                        }
+                    });
+
+                    // Keep the primary button text white (it already has text-white)
+                    if (navButton) {
+                        navButton.classList.remove(...linkSolidClasses);
+                        navButton.classList.add('text-shadow-lg');
+                    }
+
+                    // Mobile Menu Icon color change
+                    const mobileMenuButton = document.querySelector('#main-nav button');
+                    if (mobileMenuButton) {
+                        mobileMenuButton.classList.remove(...linkSolidClasses);
+                        mobileMenuButton.classList.add(...linkColorClasses);
+                        mobileMenuButton.classList.add('text-shadow-lg');
+                    }
+                }
+            }
+
+            // ADA Widget Toggle Functionality
+            function toggleAdaPanel() {
+                if (!adaPanel || !adaButton) {
+                    console.error("ADA panel or button element is null.");
+                    return;
+                }
+
+                const isHidden = adaPanel.classList.contains('hidden');
+                if (isHidden) {
+                    adaPanel.classList.remove('hidden');
+                    adaPanel.classList.add('scale-100', 'opacity-100');
+                    adaButton.setAttribute('aria-expanded', 'true');
+                } else {
+                    adaPanel.classList.remove('scale-100', 'opacity-100');
+                    adaPanel.classList.add('scale-0', 'opacity-0');
+                    setTimeout(() => {
+                        adaPanel.classList.add('hidden');
+                    }, 300);
+                    adaButton.setAttribute('aria-expanded', 'false');
+                }
+            }
+
+            // Accessibility Functions (Exposed globally)
+            window.toggleContrast = function() {
+                document.body.classList.toggle('high-contrast');
+                displayMessage(document.body.classList.contains('high-contrast') ? 'High Contrast Mode Activated.' : 'High Contrast Mode Deactivated.');
+            };
+
+            window.increaseText = function() {
+                displayMessage('Text size increased! (Placeholder functionality)');
+            };
+            
+            window.pauseAnimations = function() {
+                document.body.classList.toggle('animations-paused');
+                
+                if (video) { 
+                    if (document.body.classList.contains('animations-paused')) {
+                        video.pause();
+                        displayMessage('Animations and video paused.');
+                        // Pause CSS animations globally by dynamically inserting a style sheet rule
+                        document.body.insertAdjacentHTML('beforeend', '<style id="pause-styles">.testimonial-column { animation-play-state: paused !important; }</style>');
+                    } else {
+                        video.play();
+                        displayMessage('Animations and video resumed.');
+                        // Resume CSS animations
+                        const styleEl = document.getElementById('pause-styles');
+                        if (styleEl) styleEl.remove();
+                    }
+                } else {
+                    displayMessage('Animations toggled.');
+                }
+            };
+
+
+            // 4. Attach listeners and run initial state
+            window.onscroll = handleScroll;
+            if (adaButton) {
+                 adaButton.addEventListener('click', toggleAdaPanel);
+            }
+            
+            handleScroll(); // Run once on load to set initial state
+        });
+    </script>
+</body></html>

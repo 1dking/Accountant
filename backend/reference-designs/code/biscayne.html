@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Radiant Dental Clinic - Healthy &amp; Beautiful Smiles</title>
+<meta content="Experience top-tier dental care in Miami. We offer general, cosmetic, and orthodontic treatments in a modern, comfortable environment. Schedule your consultation today." name="description"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet"/>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#C8952E", // Extracted gold tone from original
+                        secondary: "#0095D9", // Extracted blue tone from original logo
+                        "background-light": "#F5F5F7", // Apple-style light gray background
+                        "background-dark": "#1D1D1F", // Apple-style dark gray background
+                        "surface-light": "#FFFFFF",
+                        "surface-dark": "#2D2D2F",
+                        "text-light": "#1D1D1F",
+                        "text-dark": "#F5F5F7",
+                        "text-muted": "#86868B",
+                    },
+                    fontFamily: {
+                        display: ["Inter", "sans-serif"],
+                        body: ["Inter", "sans-serif"],
+                    },
+                    borderRadius: {
+                        DEFAULT: "0.75rem", // 12px
+                        "xl": "1.5rem", // 24px
+                        "2xl": "2rem", // 32px
+                    },
+                    boxShadow: {
+                        'soft': '0 4px 24px rgba(0, 0, 0, 0.04)',
+                        'glow': '0 0 20px rgba(200, 149, 46, 0.3)',
+                    }
+                },
+            },
+        };
+    </script>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        .backdrop-blur-md {
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+        .apple-gradient-text {
+            background: linear-gradient(135deg, #1D1D1F 0%, #424245 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .dark .apple-gradient-text {
+            background: linear-gradient(135deg, #F5F5F7 0%, #D2D2D7 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-text-light dark:text-text-dark transition-colors duration-300">
+<nav class="sticky top-0 z-50 bg-surface-light/80 dark:bg-surface-dark/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 transition-all duration-300">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+<div class="flex justify-between items-center h-16">
+<div class="flex-shrink-0 flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-3xl">dentistry</span>
+<div class="flex flex-col">
+<span class="font-bold text-lg leading-tight">Biscayne Dental</span>
+<span class="text-xs text-text-muted font-medium tracking-wide">&amp; Facial Aesthetics</span>
+</div>
+</div>
+<div class="hidden md:flex space-x-8 items-center">
+<a class="text-sm font-medium hover:text-primary transition-colors" href="#">Home</a>
+<a class="text-sm font-medium hover:text-primary transition-colors" href="#">About Us</a>
+<a class="text-sm font-medium hover:text-primary transition-colors" href="#">Procedures</a>
+<a class="text-sm font-medium hover:text-primary transition-colors" href="#">Testimonials</a>
+</div>
+<div class="hidden md:flex items-center space-x-4">
+<div class="text-right hidden lg:block">
+<p class="text-[10px] text-text-muted uppercase tracking-wider">Call Us Today</p>
+<p class="text-sm font-bold">305.290.1877</p>
+</div>
+<a class="bg-primary hover:bg-yellow-600 text-white px-5 py-2 rounded-full text-sm font-medium transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5" href="#schedule">
+                        Book Appointment
+                    </a>
+</div>
+<div class="md:hidden flex items-center">
+<button class="text-text-light dark:text-text-dark p-2">
+<span class="material-symbols-outlined">menu</span>
+</button>
+</div>
+</div>
+</div>
+</nav>
+<header class="relative overflow-hidden pt-16 pb-32 lg:pt-32 lg:pb-48">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+<div class="lg:w-1/2">
+<span class="inline-block py-1 px-3 rounded-full bg-primary/10 text-primary text-xs font-bold tracking-wide mb-6">WELCOME TO RADIANT</span>
+<h1 class="text-5xl lg:text-7xl font-bold tracking-tight mb-6 apple-gradient-text leading-[1.1]">
+                    Get the Smile <br/>of Your Dreams.
+                </h1>
+<p class="text-lg text-text-muted mb-8 max-w-lg leading-relaxed">
+                    Experience the best dental care in a modern, relaxing environment. We combine advanced technology with a gentle touch to help you achieve optimal oral health.
+                </p>
+<div class="flex gap-4 flex-col sm:flex-row">
+<a class="bg-text-light dark:bg-white text-white dark:text-black px-8 py-3.5 rounded-full font-medium transition-transform hover:scale-105 flex items-center justify-center gap-2" href="#consultation">
+                        Schedule Consultation <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</a>
+<a class="bg-gray-200 dark:bg-gray-800 text-text-light dark:text-text-dark px-8 py-3.5 rounded-full font-medium hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors flex items-center justify-center" href="#services">
+                        View Procedures
+                    </a>
+</div>
+</div>
+</div>
+<div class="absolute top-0 right-0 w-full lg:w-3/5 h-full z-0 lg:translate-x-12">
+<div class="relative w-full h-full">
+<div class="absolute inset-0 bg-gradient-to-r from-background-light dark:from-background-dark via-transparent to-transparent z-10 lg:w-1/2"></div>
+<img alt="Smiling woman with perfect teeth" class="w-full h-full object-cover object-center opacity-90 dark:opacity-60" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCrfbXwmSRSFlCYkWxc_1L1Z-wvrTwk-_EAfV77_fMUnjFfjVUzcCOWV3iG-Q4bMYXTYLz0V-f1HbEu88sWmM4ZcAhExxLI1ZqIuy-PtOqrhYZWsR5Vd0F1IaOAIl5zQvdjnT2mpdhx1Wzk_xTg5PuGB-UcnRhCq1R0XJYgQkykhwxlo0IFJCWvKjjj8tFjOV_W5W7UN9tU4xIX1Uqokf_m_ZixAaDuw9NAJDq7l3ZvYeHJu8VwTR6VckkZv5E1KUi0jaCPpVCOP8M"/>
+</div>
+</div>
+</header>
+<section class="relative z-20 -mt-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="bg-surface-light dark:bg-surface-dark p-8 rounded-2xl shadow-soft border border-gray-100 dark:border-gray-800 hover:shadow-xl transition-shadow duration-300">
+<div class="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-xl flex items-center justify-center mb-6 text-blue-600 dark:text-blue-300">
+<span class="material-symbols-outlined">calendar_month</span>
+</div>
+<h3 class="text-xl font-bold mb-2">Easy Scheduling</h3>
+<p class="text-text-muted text-sm leading-relaxed mb-4">Book your appointment online instantly or call our friendly staff for assistance.</p>
+<div class="text-sm font-semibold text-blue-600 dark:text-blue-400">
+                    Mon - Fri: 8:00am - 6:00pm
+                </div>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark p-8 rounded-2xl shadow-soft border border-gray-100 dark:border-gray-800 hover:shadow-xl transition-shadow duration-300">
+<div class="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-xl flex items-center justify-center mb-6 text-green-600 dark:text-green-300">
+<span class="material-symbols-outlined">medical_services</span>
+</div>
+<h3 class="text-xl font-bold mb-2">Modern Technology</h3>
+<p class="text-text-muted text-sm leading-relaxed mb-4">We use state-of-the-art equipment for precise diagnostics and comfortable treatments.</p>
+<a class="text-sm font-medium text-green-600 dark:text-green-400 hover:underline" href="#">Learn about our tech</a>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark p-8 rounded-2xl shadow-soft border border-gray-100 dark:border-gray-800 hover:shadow-xl transition-shadow duration-300 relative overflow-hidden group">
+<div class="absolute inset-0 bg-primary opacity-5 group-hover:opacity-10 transition-opacity"></div>
+<div class="w-12 h-12 bg-yellow-100 dark:bg-yellow-900 rounded-xl flex items-center justify-center mb-6 text-yellow-600 dark:text-yellow-300 relative z-10">
+<span class="material-symbols-outlined">sentiment_very_satisfied</span>
+</div>
+<h3 class="text-xl font-bold mb-2 relative z-10">New Patients</h3>
+<p class="text-text-muted text-sm leading-relaxed mb-4 relative z-10">Welcoming new smiles every day. Special consultation offers available.</p>
+<a class="text-sm font-medium text-primary hover:underline relative z-10" href="#">New Patient Info</a>
+</div>
+</div>
+</section>
+<section class="py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+<div class="relative">
+<div class="aspect-w-4 aspect-h-3 rounded-2xl overflow-hidden shadow-2xl">
+<img alt="Modern dental equipment" class="object-cover w-full h-full transform transition duration-700 hover:scale-105" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDywzIFKyalU034FKqHh_zGVHL4vY5S5uSr1nOEscbGWu322J94cwKlJFI0mFNPaOuALe5BO1zj1MNyUFa3eQLQDStoqVAckejWWw1IvETYZu6BMbDxmAWgEnnCh_q6De6NnFcovPbPH1BnCU7tsa8ZnHQWAitUrnCDpq0LbZO-gGmW0ZPwp8_HIrPMwaR0_E16HnEXyjj7otICG2L0Bz4srYmnkJbGuzx-XM2J-SGJzTtFlFsbMXJF0vinalkf5to55Ds59EKkwtY"/>
+</div>
+<div class="hidden md:block absolute -bottom-8 -right-8 bg-surface-light dark:bg-surface-dark p-6 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 max-w-xs">
+<div class="flex items-center gap-4 mb-3">
+<div class="bg-green-100 text-green-600 p-2 rounded-full">
+<span class="material-symbols-outlined">check</span>
+</div>
+<span class="font-bold">Patient Satisfaction</span>
+</div>
+<p class="text-xs text-text-muted">Rated 5 stars by over 500 local patients for comfort and care.</p>
+</div>
+</div>
+<div class="space-y-8">
+<div>
+<h2 class="text-sm font-bold text-primary tracking-widest uppercase mb-2">Why Choose Us</h2>
+<h3 class="text-3xl md:text-4xl font-bold mb-4">We Make Your Life Easier.</h3>
+<p class="text-text-muted leading-relaxed">
+                        At Biscayne Dental &amp; Facial Aesthetics, we know a smile can be a mirror for your personality. A bright, radiant, and confident smile can help give off a great first impression.
+                    </p>
+</div>
+<div class="space-y-4">
+<div class="flex items-start gap-4">
+<div class="mt-1 bg-gray-100 dark:bg-gray-800 p-2 rounded-lg text-primary">
+<span class="material-symbols-outlined">chair</span>
+</div>
+<div>
+<h4 class="font-semibold text-lg">Comfortable Waiting Rooms</h4>
+<p class="text-sm text-text-muted mt-1">Relax in our lounge with complimentary beverages and Wi-Fi.</p>
+</div>
+</div>
+<div class="flex items-start gap-4">
+<div class="mt-1 bg-gray-100 dark:bg-gray-800 p-2 rounded-lg text-primary">
+<span class="material-symbols-outlined">location_on</span>
+</div>
+<div>
+<h4 class="font-semibold text-lg">Convenient Location</h4>
+<p class="text-sm text-text-muted mt-1">Located at 350 Northeast 24th St. Suite 105, Miami, FL 33137.</p>
+</div>
+</div>
+<div class="flex items-start gap-4">
+<div class="mt-1 bg-gray-100 dark:bg-gray-800 p-2 rounded-lg text-primary">
+<span class="material-symbols-outlined">groups</span>
+</div>
+<div>
+<h4 class="font-semibold text-lg">Friendly Staff</h4>
+<p class="text-sm text-text-muted mt-1">Our team is dedicated to making you feel at home.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section class="py-20 bg-primary relative overflow-hidden" id="schedule">
+<div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+<div class="text-white">
+<h2 class="text-3xl md:text-5xl font-bold mb-6">Finding Great Dental Care Shouldn't Be Like Pulling Teeth.</h2>
+<p class="text-white/80 text-lg mb-8">We've streamlined the process to get you the care you need, when you need it.</p>
+<ul class="space-y-3 mb-8">
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-white">check_circle</span>
+<span>Online booking available 24/7</span>
+</li>
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-white">check_circle</span>
+<span>Emergency appointments</span>
+</li>
+</ul>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark p-8 rounded-2xl shadow-2xl">
+<h3 class="text-xl font-bold mb-6 dark:text-white">Request an Appointment</h3>
+<form class="space-y-4">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<input class="w-full px-4 py-3 rounded-lg bg-gray-50 dark:bg-gray-800 border-none focus:ring-2 focus:ring-primary dark:text-white placeholder-gray-400" placeholder="Full Name" type="text"/>
+<input class="w-full px-4 py-3 rounded-lg bg-gray-50 dark:bg-gray-800 border-none focus:ring-2 focus:ring-primary dark:text-white placeholder-gray-400" placeholder="Phone Number" type="tel"/>
+</div>
+<input class="w-full px-4 py-3 rounded-lg bg-gray-50 dark:bg-gray-800 border-none focus:ring-2 focus:ring-primary dark:text-white placeholder-gray-400" placeholder="Email Address" type="email"/>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<select class="w-full px-4 py-3 rounded-lg bg-gray-50 dark:bg-gray-800 border-none focus:ring-2 focus:ring-primary dark:text-white text-gray-500">
+<option>Preferred Date</option>
+<option>This Week</option>
+<option>Next Week</option>
+</select>
+<select class="w-full px-4 py-3 rounded-lg bg-gray-50 dark:bg-gray-800 border-none focus:ring-2 focus:ring-primary dark:text-white text-gray-500">
+<option>Preferred Time</option>
+<option>Morning</option>
+<option>Afternoon</option>
+</select>
+</div>
+<button class="w-full bg-black text-white py-4 rounded-lg font-bold hover:bg-gray-800 transition-colors mt-2" type="button">
+                            Send Request
+                        </button>
+</form>
+</div>
+</div>
+</div>
+</section>
+<section class="py-24 bg-surface-light dark:bg-surface-dark" id="services">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+<div class="text-center max-w-3xl mx-auto mb-16">
+<h2 class="text-3xl md:text-4xl font-bold mb-4">Comprehensive Dental Services</h2>
+<p class="text-text-muted">From routine cleanings to complete smile makeovers, we offer a full range of dental procedures tailored to your unique needs.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+<div class="group bg-background-light dark:bg-background-dark p-6 rounded-2xl hover:bg-primary hover:text-white transition-all duration-300 cursor-pointer">
+<span class="material-symbols-outlined text-4xl mb-4 text-primary group-hover:text-white">dentistry</span>
+<h3 class="text-xl font-bold mb-2">General Care</h3>
+<p class="text-sm text-text-muted group-hover:text-white/80">Routine checkups, cleanings, and preventative care for long-term health.</p>
+</div>
+<div class="group bg-background-light dark:bg-background-dark p-6 rounded-2xl hover:bg-primary hover:text-white transition-all duration-300 cursor-pointer">
+<span class="material-symbols-outlined text-4xl mb-4 text-primary group-hover:text-white">auto_awesome</span>
+<h3 class="text-xl font-bold mb-2">Cosmetic Dentistry</h3>
+<p class="text-sm text-text-muted group-hover:text-white/80">Veneers, whitening, and bonding to give you the perfect smile.</p>
+</div>
+<div class="group bg-background-light dark:bg-background-dark p-6 rounded-2xl hover:bg-primary hover:text-white transition-all duration-300 cursor-pointer">
+<span class="material-symbols-outlined text-4xl mb-4 text-primary group-hover:text-white">child_care</span>
+<h3 class="text-xl font-bold mb-2">Orthodontics</h3>
+<p class="text-sm text-text-muted group-hover:text-white/80">Invisalign and braces to straighten teeth for kids and adults.</p>
+</div>
+<div class="group bg-background-light dark:bg-background-dark p-6 rounded-2xl hover:bg-primary hover:text-white transition-all duration-300 cursor-pointer">
+<span class="material-symbols-outlined text-4xl mb-4 text-primary group-hover:text-white">medication</span>
+<h3 class="text-xl font-bold mb-2">Oral Surgery</h3>
+<p class="text-sm text-text-muted group-hover:text-white/80">Complex extractions and implants handled with expert care.</p>
+</div>
+</div>
+<div class="mt-12 text-center">
+<a class="inline-flex items-center gap-2 text-primary font-semibold hover:text-yellow-600 transition-colors" href="#">
+                    View all procedures <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</a>
+</div>
+</div>
+</section>
+<section class="py-24 overflow-hidden">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+<h2 class="text-center text-3xl md:text-4xl font-bold mb-16">Real Stories from Real Patients</h2>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+<div class="bg-surface-light dark:bg-surface-dark p-8 rounded-2xl shadow-soft border border-gray-100 dark:border-gray-800">
+<div class="flex text-primary mb-4">
+<span class="material-symbols-outlined text-sm">star</span>
+<span class="material-symbols-outlined text-sm">star</span>
+<span class="material-symbols-outlined text-sm">star</span>
+<span class="material-symbols-outlined text-sm">star</span>
+<span class="material-symbols-outlined text-sm">star</span>
+</div>
+<p class="text-text-muted italic mb-6">"I used to be terrified of the dentist. The team here completely changed my perspective. So gentle and kind!"</p>
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-gray-200 overflow-hidden">
+<img alt="Sarah J" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB8Dmz2urzxOA_Ah9CB9mKO8rQfPcuIy2hYNPE4HPybpAC20BLKeCOD6s1Jcs3y8-pXf7yrbW7Oz87MWucFtNkCZ6G4yf5eukk6IkBH8PbKEdv9DIRQsDA2q0GcH3krXu6bKtsY-Xf-D0CPDUslqP4xjee3NaqwluzeSvzy_74Ih3Ajxdgx7IIbEAjmi4fOz9dFU4xNtc60OlRPnOJKHD8B_S_8kMh2fwfbiNajoXxxnFhQ1L6WKD5i6oqfnYNw4oVWDNlQvGG4Sxw"/>
+</div>
+<div>
+<p class="font-bold text-sm">Sarah Jenkins</p>
+<p class="text-xs text-text-muted">Cosmetic Patient</p>
+</div>
+</div>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark p-8 rounded-2xl shadow-soft border border-gray-100 dark:border-gray-800 scale-105 z-10">
+<div class="flex text-primary mb-4">
+<span class="material-symbols-outlined text-sm">star</span>
+<span class="material-symbols-outlined text-sm">star</span>
+<span class="material-symbols-outlined text-sm">star</span>
+<span class="material-symbols-outlined text-sm">star</span>
+<span class="material-symbols-outlined text-sm">star</span>
+</div>
+<p class="text-text-muted italic mb-6">"My Invisalign treatment was seamless. The staff explained everything clearly and the results are amazing."</p>
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-gray-200 overflow-hidden">
+<img alt="Michael R" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD8bPDvI8cTj5eew91o_TM39kmaPmJtUEHq2huD_Hz0xZxULdBw43AJaGQAQNN1RklS4pHgQ748Tr5MUxdY9iuENTdCDkb1YL4IfCuFcLNxoAmxXyZ6O1aTTQcVF0q1pPQWXRxUge6r2OOBqH8x7MdrzmCSxdAYViczK_jCL0OYG3mrE6e7tsEcRGPldg433CW09L7pHUW1QoZ7En2FyITotNSUAYCnYKjNwaDJ05Qy3_HIyBwa2oQ8_-inSFJKCSOYlGIEOJHBrxU"/>
+</div>
+<div>
+<p class="font-bold text-sm">Michael Ross</p>
+<p class="text-xs text-text-muted">Orthodontic Patient</p>
+</div>
+</div>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark p-8 rounded-2xl shadow-soft border border-gray-100 dark:border-gray-800">
+<div class="flex text-primary mb-4">
+<span class="material-symbols-outlined text-sm">star</span>
+<span class="material-symbols-outlined text-sm">star</span>
+<span class="material-symbols-outlined text-sm">star</span>
+<span class="material-symbols-outlined text-sm">star</span>
+<span class="material-symbols-outlined text-sm">star</span>
+</div>
+<p class="text-text-muted italic mb-6">"Professional, clean, and incredibly high-tech. I recommend Biscayne Dental to all my friends."</p>
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-gray-200 overflow-hidden">
+<img alt="Elena G" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAvdKNZrky3YRMDx3G8Q66T2gEAksGs-MuwO8Hfog-MYS61O3gb5yKK1P6PY41HPpQckdDA_l-JJK2rYLJ0-Xr0MTgHm8H9fQSOpDdeheaAL6amPLJn_2VnvJ2vNDFbDPBFlvDqwAqJ6hA6Rce5F9AnvPpzmwsYBUjA70VD4COBIe4PZlJ1tNVX6Yo99hAqKlc9RdxKX1ifjCE-qokp0wUZMe1J9D_8te7XbmC4OtQJzDY9tUnTQU3b72MfJYLAIgGOWtzc-8k7wxo"/>
+</div>
+<div>
+<p class="font-bold text-sm">Elena Garcia</p>
+<p class="text-xs text-text-muted">General Dentistry</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section class="py-24 bg-gray-50 dark:bg-gray-900/50">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+<div class="order-2 lg:order-1">
+<h2 class="text-sm font-bold text-primary tracking-widest uppercase mb-2">Expertise</h2>
+<h3 class="text-3xl md:text-4xl font-bold mb-6">We're Leaders in Our Industry &amp; Continue to Exceed Expectations</h3>
+<ul class="space-y-6">
+<li class="flex items-start gap-4">
+<div class="bg-white dark:bg-gray-800 p-1 rounded-full shadow-sm text-primary">
+<span class="material-symbols-outlined text-sm">check</span>
+</div>
+<span class="text-text-muted">We provide comprehensive dental care for the whole family.</span>
+</li>
+<li class="flex items-start gap-4">
+<div class="bg-white dark:bg-gray-800 p-1 rounded-full shadow-sm text-primary">
+<span class="material-symbols-outlined text-sm">check</span>
+</div>
+<span class="text-text-muted">Our team consists of esteemed professionals with years of specialized training.</span>
+</li>
+<li class="flex items-start gap-4">
+<div class="bg-white dark:bg-gray-800 p-1 rounded-full shadow-sm text-primary">
+<span class="material-symbols-outlined text-sm">check</span>
+</div>
+<span class="text-text-muted">Our founding dentist is a leader in Cosmetic Dentistry in Florida.</span>
+</li>
+<li class="flex items-start gap-4">
+<div class="bg-white dark:bg-gray-800 p-1 rounded-full shadow-sm text-primary">
+<span class="material-symbols-outlined text-sm">check</span>
+</div>
+<span class="text-text-muted">Going above &amp; beyond for our patients for over 20 years.</span>
+</li>
+</ul>
+</div>
+<div class="order-1 lg:order-2 relative">
+<img alt="Dentist examining patient" class="rounded-2xl shadow-2xl object-cover h-96 w-full lg:h-auto" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCPZyHc6NTyK7Ia7BqfGbrqiql_IbhZUXWPUeWVveRw8TT59r1R9DSEC9LMdq3l7ws9RDMXZYjKekOxnsauw64JFYp4_R6U16dtJZz_kh0HlI2IEuqIo022mIwakR6yXhB_v6hzfXid96gBxKG8-2wUzav85OPn72iIf05Eo-4ZO8ZoGCl1k_X_oD4kn-VWMK8K86phLVXqbaU5OeX81UalMa8_8tRiyCSYTbtr35raphAXV6hBuTe6L5OgZfMYOhdzba-BT4-CN2k"/>
+<div class="absolute -bottom-12 -left-12 w-48 hidden lg:block">
+<img alt="Dental Tool" class="opacity-10 dark:invert" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBgdv6aGGI_sVbuONgUAkT83BSI1wCR3V-fg_0SHzr7BfQS146uCWf5UkLJV1uKHvUxdF7HIemFuBqLgi87M1p9NGjpDRqCreK84BQWIXxhNCPC32mYC1HcWG3t9o61pxBAHEP-BV0n12ssbrcoS4o6All-OTJ5fR_rgdYEdBz1wrh-vhj_GM9DBSQgNL8xcqN2dCvsctoXHqBTKZZykdjvi8YsTaSxFVtIFlSirkrJ1r3x88pwnUqlzHV7ri0rMXx-hBwCnD14q9A"/>
+</div>
+</div>
+</div>
+</div>
+</section>
+<footer class="bg-surface-light dark:bg-surface-dark border-t border-gray-200 dark:border-gray-800 pt-16 pb-8">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-12">
+<div class="space-y-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-3xl">dentistry</span>
+<div class="flex flex-col">
+<span class="font-bold text-lg leading-tight">Biscayne Dental</span>
+<span class="text-[10px] text-text-muted font-medium tracking-wide uppercase"> &amp; Facial Aesthetics</span>
+</div>
+</div>
+<p class="text-sm text-text-muted">Biscayne Dental &amp; Facial Aesthetics guarantees top-tier service. The information contained here is for educational purposes.</p>
+</div>
+<div>
+<h4 class="font-bold mb-4 text-sm uppercase tracking-wider text-text-light dark:text-text-dark">Quick Links</h4>
+<ul class="space-y-2 text-sm text-text-muted">
+<li><a class="hover:text-primary transition-colors" href="#">Home</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">About Us</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Our Procedures</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Contact Us</a></li>
+</ul>
+</div>
+<div>
+<h4 class="font-bold mb-4 text-sm uppercase tracking-wider text-text-light dark:text-text-dark">Location</h4>
+<address class="text-sm text-text-muted not-italic space-y-2">
+<p>350 Northeast 24th St. Suite 105</p>
+<p>Miami, FL 33137</p>
+<a class="text-primary hover:underline flex items-center gap-1 mt-2" href="#">Get Directions <span class="material-symbols-outlined text-xs">open_in_new</span></a>
+</address>
+</div>
+<div>
+<h4 class="font-bold mb-4 text-sm uppercase tracking-wider text-text-light dark:text-text-dark">Follow Us</h4>
+<div class="flex gap-4 mb-8">
+<a class="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center hover:bg-primary hover:text-white transition-colors" href="#">
+<i class="fa fa-facebook"></i> 
+<span class="text-xs font-bold">f</span>
+</a>
+<a class="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center hover:bg-primary hover:text-white transition-colors" href="#">
+<span class="text-xs font-bold">in</span>
+</a>
+<a class="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center hover:bg-primary hover:text-white transition-colors" href="#">
+<span class="text-xs font-bold">ig</span>
+</a>
+</div>
+<h4 class="font-bold mb-2 text-sm uppercase tracking-wider text-text-light dark:text-text-dark">We Accept</h4>
+<div class="flex gap-2 opacity-60 grayscale hover:grayscale-0 transition-all">
+<div class="w-8 h-5 bg-blue-600 rounded"></div>
+<div class="w-8 h-5 bg-red-500 rounded"></div>
+<div class="w-8 h-5 bg-orange-500 rounded"></div>
+<div class="w-8 h-5 bg-gray-400 rounded"></div>
+</div>
+</div>
+</div>
+<div class="border-t border-gray-200 dark:border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center text-xs text-text-muted">
+<p>© 2023 Biscayne Dental. All rights reserved.</p>
+<div class="flex gap-4 mt-4 md:mt-0">
+<a class="hover:text-text-light dark:hover:text-text-dark" href="#">Privacy Policy</a>
+<a class="hover:text-text-light dark:hover:text-text-dark" href="#">Terms of Service</a>
+</div>
+</div>
+<div class="mt-8 text-[10px] text-gray-400 dark:text-gray-600 leading-tight max-w-4xl mx-auto text-center">
+                This website is provided for information and education purposes only. No diagnosis or treatment can be provided so no doctor/patient relationship is established by your use of this site. Results from surgical or non-surgical procedures will vary from patient to patient and are not guaranteed.
+            </div>
+</div>
+</footer>
+
+</body></html>

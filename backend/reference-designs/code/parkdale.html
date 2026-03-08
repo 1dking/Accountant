@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DENTISTRY ON PARKDALE | Precision Dentistry for Long-Term Care</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
+    <!-- Load Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Global Typography and Custom Squircle Radius */
+        :root {
+            --charcoal: #1a1a1a;
+            --vibrant-green: #00bf63;
+            --darker-green: #00a656;
+            --light-gray: #f8f8f8;
+            --border-gray: #e5e5e5;
+            --text-gray: #4a4a4a;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            color: var(--charcoal);
+            background-color: #FFFFFF;
+        }
+        .squircle {
+            border-radius: 30px; /* Custom 30px radius for "Squircle" */
+        }
+        .subtle-shadow {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+        .accent-shadow-hover:hover {
+            box-shadow: 0 8px 24px rgba(0,191,99,0.12); /* Green hover shadow */
+            transform: translateY(-4px); /* Subtle lift */
+        }
+        /* Massive and Tight Headline Style (60px+) */
+        .h1-mass-text {
+            font-size: clamp(3rem, 10vw, 5rem);
+            line-height: 0.9;
+            letter-spacing: -0.05em;
+        }
+        /* Fluid Physics: Bloom/Fade-in upwards on scroll */
+        .scroll-reveal {
+            opacity: 0;
+            transform: translateY(16px);
+            transition: opacity 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            transition-delay: 0.1s; /* Subtle delay for staggered effect */
+        }
+        .scroll-reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Video Background Styles */
+        #hero-video {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            min-width: 100%;
+            min-height: 100%;
+            width: auto;
+            height: auto;
+            z-index: 0;
+            transform: translate(-50%, -50%);
+            object-fit: cover;
+        }
+        #video-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            /* REMOVED GRADIENT: Solid dark overlay for sharp transition */
+            background: rgba(0, 0, 0, 0.4); 
+            z-index: 1;
+        }
+        #hero-content {
+            position: relative;
+            z-index: 2;
+        }
+        
+        /* Testimonials Animation Styles */
+        .testimonial-column {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem; /* gap-6 */
+            padding-bottom: 1.5rem; /* pb-6 */
+            will-change: transform;
+        }
+
+        /* Animation Keyframes (Pure CSS for smooth looping) */
+        @keyframes scroll-15s {
+            from { transform: translateY(0%); }
+            to { transform: translateY(-50%); }
+        }
+        @keyframes scroll-17s {
+            from { transform: translateY(0%); }
+            to { transform: translateY(-50%); }
+        }
+        @keyframes scroll-19s {
+            from { transform: translateY(0%); }
+            to { transform: translateY(-50%); }
+        }
+
+        /* --- Custom Glassmorphism Effect for Scrolled Header --- */
+        .glass-scrolled {
+            /* Semi-transparent white background */
+            background-color: rgba(255, 255, 255, 0.5); 
+            /* Blur the content behind the element */
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px); /* Safari support */
+            /* Subtle white border for definition */
+            border: 1px solid rgba(255, 255, 255, 0.3); 
+        }
+        /* --------------------------------------------------- */
+    </style>
+</head>
+<body class="antialiased selection:bg-green-100 selection:text-charcoal" id="top">
+
+    <!-- 1. HEADER (Navigation) - Dynamic Transparent/Glass Header -->
+    <!-- Initial state is transparent (no bg, no border, no shadow) -->
+    <header id="main-header" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 p-3 w-[95%] lg:max-w-7xl rounded-full transition duration-300">
+        <div class="flex items-center justify-between lg:px-6">
+            <!-- Logo Container -->
+            <a href="#top" class="flex items-center">
+                <!-- Logo for transparent state (New White Logo) -->
+                <img id="logo-transparent" 
+                     src="https://www.ocidm.io/Untitled%20design%20(28).png" 
+                     alt="Dentistry on Parkdale Logo" 
+                     class="h-[65px] w-auto transition duration-300" 
+                     onerror="this.onerror=null;this.src='https://placehold.co/150x65/000000/ffffff?text=PARKDALE+W';">
+
+                <!-- Logo for scrolled white state (Old Green Logo), initially hidden -->
+                <img id="logo-scrolled" 
+                     src="https://www.dentistryonparkdale.com/wp-content/uploads/2022/03/logo1.png" 
+                     alt="Dentistry on Parkdale Logo" 
+                     class="h-[65px] w-auto transition duration-300 hidden" 
+                     onerror="this.onerror=null;this.src='https://placehold.co/150x65/00bf63/ffffff?text=PARKDALE+G';">
+            </a>
+
+            <!-- Desktop Nav Links -->
+            <nav id="desktop-nav" class="hidden lg:flex items-center space-x-8">
+                <!-- Nav Links - color controlled by JS for transparent/glass background -->
+                <a href="#philosophy" class="text-sm font-medium transition duration-300 hover:text-vibrant-green">Philosophy</a>
+                <a href="#services" class="text-sm font-medium transition duration-300 hover:text-vibrant-green">Services</a>
+                <a href="#book" class="text-sm font-medium transition duration-300 hover:text-vibrant-green">Book Consult</a>
+                
+                <!-- Contact (Desktop only) -->
+                <span id="contact-span" class="text-sm font-bold ml-4 pl-4 border-l transition duration-300">289-768-8773</span>
+            </nav>
+
+            <!-- Mobile Hamburger -->
+            <button id="mobile-menu-button" class="lg:hidden p-2 rounded-full hover:bg-light-gray transition">
+                <!-- Icon color controlled by JS -->
+                <i data-lucide="menu" class="w-6 h-6"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Mobile Menu Modal (Hidden by default) -->
+    <div id="mobile-menu" class="fixed inset-0 bg-white z-40 hidden flex-col p-8 pt-24 space-y-6">
+        <a href="#philosophy" class="text-3xl font-bold tracking-tight text-charcoal hover:text-vibrant-green transition" onclick="toggleMobileMenu()">Philosophy</a>
+        <a href="#services" class="text-3xl font-bold tracking-tight text-charcoal hover:text-vibrant-green transition" onclick="toggleMobileMenu()">Services</a>
+        <a href="#book" class="text-3xl font-bold tracking-tight text-charcoal hover:text-vibrant-green transition" onclick="toggleMobileMenu()">Book Consult</a>
+        <div class="pt-8">
+            <p class="text-sm text-text-gray">Contact</p>
+            <p class="text-lg font-semibold text-vibrant-green">289-768-8773</p>
+        </div>
+    </div>
+
+
+    <main>
+        <!-- 2. HERO SECTION - Full Width Text over Video Background -->
+        <section id="hero" class="relative overflow-hidden pt-36 pb-8 lg:pt-48 lg:pb-16 bg-black min-h-screen flex items-center">
+            
+            <!-- Video Background -->
+            <video autoplay loop muted playsinline id="hero-video">
+                <source src="https://www.ocidm.io/Untitled%20design.mp4" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+
+            <!-- Video Overlay for Readability and Fade Effect -->
+            <div id="video-overlay"></div>
+
+            <div class="max-w-7xl mx-auto px-4 lg:px-8 w-full z-10" id="hero-content">
+                <!-- Changed to a single column grid layout -->
+                <div class="grid lg:grid-cols-12 gap-12 items-center">
+                    
+                    <!-- Text Content (Now spans all 12 columns on large screens) -->
+                    <div class="lg:col-span-12 xl:col-span-12 relative z-10 text-white">
+                        <!-- Headline: Ensure color contrast against the dark overlay -->
+                        <h1 class="h1-mass-text font-extrabold mb-6 scroll-reveal">
+                            Precision Dentistry<br>
+                            For Patients Who<br>
+                            Value <span class="text-vibrant-green">Education</span>.
+                        </h1>
+                        <!-- Subtitle - UPDATED TEXT -->
+                        <p id="hero-subtitle" class="text-xl lg:text-2xl font-normal max-w-3xl mb-10 opacity-0 scroll-reveal text-gray-200" style="transition-delay: 0.3s;">
+                            We don't rush. We don't pressure.
+                            <br>
+                            We plan for 20 years, not 2 years.
+                        </p>
+                        <!-- Primary CTA -->
+                        <a href="#book" class="scroll-reveal inline-block py-4 px-8 text-lg font-semibold text-charcoal bg-vibrant-green squircle transition duration-300 hover:bg-darker-green subtle-shadow" style="transition-delay: 0.5s;">
+                            Book Your Consult
+                        </a>
+                    </div>
+                    
+                </div>
+            </div>
+        </section>
+
+
+        <!-- 3. ABOUT SECTION - Bento Grid Layout -->
+        <!-- Updated to use py-24 lg:py-32 for consistent spacing with other sections -->
+        <section id="about" class="py-24 lg:py-32 bg-white scroll-reveal">
+            <div class="max-w-7xl mx-auto px-4 lg:px-8 w-full">
+                <h2 class="text-4xl lg:text-5xl font-extrabold mb-12 lg:mb-16 text-center">How We're Different</h2>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 lg:grid-rows-2 gap-6">
+
+                    <!-- Column 1: Stats Cards (3x Small Square) -->
+                    <!-- *** MODIFIED: Changed lg:row-span-1 to lg:row-span-2 to ensure its height matches the large card. *** -->
+                    <!-- *** Added h-full, flex, and justify-between to stretch the inner cards to fit the taller grid cell. *** -->
+                    <div class="lg:col-span-1 lg:row-span-2 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-1 gap-6 h-full flex flex-col justify-between">
+                        <div class="p-6 squircle bg-light-gray border border-border-gray subtle-shadow scroll-reveal" style="transition-delay: 0.1s;">
+                            <span class="text-4xl font-extrabold text-vibrant-green block mb-2">01</span>
+                            <h3 class="text-lg font-semibold">Zero Rush Appointments</h3>
+                            <p class="text-sm text-text-gray">Quality over quantity, always.</p>
+                        </div>
+                        <div class="p-6 squircle bg-light-gray border border-border-gray subtle-shadow scroll-reveal" style="transition-delay: 0.2s;">
+                            <span class="text-4xl font-extrabold text-vibrant-green block mb-2">02</span>
+                            <h3 class="text-lg font-semibold">Education Over Sales</h3>
+                            <p class="text-sm text-text-gray">Understand every option.</p>
+                        </div>
+                        <div class="p-6 squircle bg-light-gray border border-border-gray subtle-shadow scroll-reveal" style="transition-delay: 0.3s;">
+                            <span class="text-4xl font-extrabold text-vibrant-green block mb-2">03</span>
+                            <h3 class="text-lg font-semibold">Long-Term Planning</h3>
+                            <p class="text-sm text-text-gray">Engineered for 20 years.</p>
+                        </div>
+                    </div>
+
+                    <!-- Column 2: Portrait & Bio Card (Tall) -->
+                    <div class="lg:col-span-2 lg:row-span-2 p-8 squircle bg-light-gray border border-border-gray subtle-shadow flex flex-col lg:flex-row gap-8 scroll-reveal" style="transition-delay: 0.4s;">
+                        <!-- Profile Image (Updated SRC) -->
+                        <div class="w-full lg:w-2/5 flex-shrink-0">
+                            <img src="https://www.dentistryonparkdale.com/wp-content/uploads/2022/04/dr-ho1.jpg" 
+                                 alt="Professional portrait of Dr. Karen Ho" 
+                                 class="w-full h-auto squircle object-cover subtle-shadow" 
+                                 onerror="this.onerror=null; this.src='https://placehold.co/400x550/f8f8f8/1a1a1a?text=Dr.+Karen+Ho+Photo+Failed+to+Load';" />
+                        </div>
+                        <!-- Bio Text -->
+                        <div class="lg:w-3/5">
+                            <h3 class="text-2xl font-bold mb-4">Meet Dr. Karen Ho</h3>
+                            <p class="text-lg leading-relaxed text-charcoal mb-4">Dr. Karen Ho believes great dentistry starts with great communication. She doesn't rush through appointments. She doesn't pressure you into treatment. She takes the time to educate every patient so you understand your options and feel confident in your decisions.</p>
+                            <p class="text-lg leading-relaxed text-charcoal font-semibold border-l-4 border-vibrant-green pl-4 italic">This is dentistry built on trust, not transactions.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- 4. SERVICES SECTION -->
+        <!-- Retaining min-h-screen for visual separation, but removing flex centering as the content might not span the whole height -->
+        <section id="services" class="py-24 lg:py-32 bg-[#fafafa] min-h-screen">
+            <div class="max-w-7xl mx-auto px-4 lg:px-8 w-full">
+                <h2 class="text-4xl lg:text-5xl font-extrabold mb-12 lg:mb-16 text-center scroll-reveal">What We Offer</h2>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-16">
+                    <!-- Service 1: Comprehensive Care -->
+                    <div class="p-8 squircle bg-white border border-border-gray subtle-shadow accent-shadow-hover transition duration-300 scroll-reveal" style="transition-delay: 0.1s;">
+                        <i data-lucide="microscope" class="w-8 h-8 text-vibrant-green mb-4"></i>
+                        <h3 class="text-xl font-bold mb-3 text-charcoal">Comprehensive Care</h3>
+                        <p class="text-base text-text-gray">Thorough exams and treatment planning. Every case is reviewed in detail—no rushing, no surprises. You'll leave understanding exactly what's happening and why.</p>
+                    </div>
+
+                    <!-- Service 2: Preventive Dentistry -->
+                    <div class="p-8 squircle bg-white border border-border-gray subtle-shadow accent-shadow-hover transition duration-300 scroll-reveal" style="transition-delay: 0.2s;">
+                        <i data-lucide="smile" class="w-8 h-8 text-vibrant-green mb-4"></i>
+                        <h3 class="text-xl font-bold mb-3 text-charcoal">Preventive Dentistry</h3>
+                        <p class="text-base text-text-gray">Education-driven hygiene and maintenance. We help you understand the why behind every recommendation, so you're empowered to make informed decisions.</p>
+                    </div>
+
+                    <!-- Service 3: Restorative Solutions -->
+                    <div class="p-8 squircle bg-white border border-border-gray subtle-shadow accent-shadow-hover transition duration-300 scroll-reveal" style="transition-delay: 0.3s;">
+                        <i data-lucide="crown" class="w-8 h-8 text-vibrant-green mb-4"></i>
+                        <h3 class="text-xl font-bold mb-3 text-charcoal">Restorative Solutions</h3>
+                        <p class="text-base text-text-gray">Crowns, bridges, fillings, and implants planned for longevity. We don't do quick fixes—we engineer solutions designed to last decades, not years.</p>
+                    </p>
+                    </div>
+                </div>
+
+                <!-- Available Services List -->
+                <div class="scroll-reveal pt-8 text-center" style="transition-delay: 0.4s;">
+                    <h3 class="text-2xl font-bold mb-6">Available Treatments</h3>
+                    <div class="flex flex-wrap justify-center gap-x-8 gap-y-4 text-lg text-charcoal font-medium">
+                        <span class="flex items-center"><i data-lucide="arrow-right" class="w-4 h-4 text-vibrant-green mr-2"></i> Composite Fillings</span>
+                        <span class="flex items-center"><i data-lucide="arrow-right" class="w-4 h-4 text-vibrant-green mr-2"></i> Dental Crowns & Bridges</span>
+                        <span class="flex items-center"><i data-lucide="arrow-right" class="w-4 h-4 text-vibrant-green mr-2"></i> Implant Restorations</span>
+                        <span class="flex items-center"><i data-lucide="arrow-right" class="w-4 h-4 text-vibrant-green mr-2"></i> Children's Dentistry</span>
+                        <span class="flex items-center"><i data-lucide="arrow-right" class="w-4 h-4 text-vibrant-green mr-2"></i> Tongue & Lip Tie Release</span>
+                        <span class="flex items-center"><i data-lucide="arrow-right" class="w-4 h-4 text-vibrant-green mr-2"></i> Custom Mouthguards</span>
+                        <span class="flex items-center"><i data-lucide="arrow-right" class="w-4 h-4 text-vibrant-green mr-2"></i> Zoom! Whitening</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- 5. PHILOSOPHY SECTION -->
+        <!-- Retaining min-h-screen for visual separation -->
+        <section id="philosophy" class="py-24 lg:py-32 bg-white min-h-screen flex items-center">
+            <div class="max-w-7xl mx-auto px-4 lg:px-8 w-full">
+                <h2 class="text-4xl lg:text-5xl font-extrabold mb-12 lg:mb-16 text-center scroll-reveal">Our Three Pillars</h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+
+                    <!-- Pillar 1 -->
+                    <div class="text-center scroll-reveal" style="transition-delay: 0.1s;">
+                        <span class="inline-block mb-4 text-5xl font-extrabold text-vibrant-green">01</span>
+                        <h3 class="text-2xl font-bold mb-3 text-charcoal">Precision Over Speed</h3>
+                        <p class="text-base text-text-gray">Every case is planned meticulously. Shortcuts don't exist here. We take the time required to do it right—not fast.</p>
+                    </div>
+
+                    <!-- Pillar 2 -->
+                    <div class="text-center scroll-reveal" style="transition-delay: 0.2s;">
+                        <span class="inline-block mb-4 text-5xl font-extrabold text-vibrant-green">02</span>
+                        <h3 class="text-2xl font-bold mb-3 text-charcoal">Education Over Sales</h3>
+                        <p class="text-base text-text-gray">You'll never feel pressured. You'll feel informed. We explain every option, every cost, every consequence—so you can make confident decisions.</p>
+                    </div>
+
+                    <!-- Pillar 3 -->
+                    <div class="text-center scroll-reveal" style="transition-delay: 0.3s;">
+                        <span class="inline-block mb-4 text-5xl font-extrabold text-vibrant-green">03</span>
+                        <h3 class="text-2xl font-bold mb-3 text-charcoal">Longevity Over Quick Fixes</h3>
+                        <p class="text-base text-text-gray">We plan for 20 years, not 2 years. Our work is engineered to last, protecting your long-term oral health and your investment.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- NEW SECTION 6: TESTIMONIALS (INFINITE SCROLL) -->
+        <section id="testimonials" class="py-24 lg:py-32 bg-[#fafafa] scroll-reveal min-h-screen">
+            <div class="max-w-7xl mx-auto px-4 lg:px-8 w-full">
+                <!-- Heading Block -->
+                <div class="flex flex-col items-center justify-center max-w-[540px] mx-auto text-center mb-16">
+                    <div class="flex justify-center">
+                        <div class="border border-border-gray bg-white py-1 px-4 rounded-lg text-sm font-semibold text-vibrant-green">Patient Reviews</div>
+                    </div>
+                    <h2 class="text-4xl lg:text-5xl font-extrabold tracking-tighter mt-5">
+                        Kind Words From Our Community
+                    </h2>
+                    <p class="text-lg text-text-gray mt-3 opacity-90">
+                        Our patients value our professional, gentle staff, clear communication, and commitment to long-term care.
+                    </p>
+                </div>
+
+                <!-- Testimonials Grid with Scrolling Columns -->
+                <div class="flex justify-center gap-6 mt-10 [mask-image:linear-gradient(to_bottom,transparent,black_25%,black_75%,transparent)] max-h-[740px] overflow-hidden">
+                    
+                    <div id="col1" class="w-full max-w-xs md:max-w-none md:w-1/3 lg:w-1/4">
+                        <!-- Column 1 Content (Will be dynamically inserted/animated by JS) -->
+                    </div>
+
+                    <div id="col2" class="hidden md:block w-1/3 lg:w-1/4">
+                        <!-- Column 2 Content -->
+                    </div>
+
+                    <div id="col3" class="hidden lg:block w-1/4">
+                        <!-- Column 3 Content -->
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+
+        <!-- OLD SECTION 6 (NOW SECTION 7): CTA SECTION -->
+        <section id="book" class="py-24 lg:py-32 bg-white scroll-reveal min-h-screen flex items-center">
+            <div class="max-w-5xl mx-auto px-4 lg:px-8 text-center bg-white p-8 squircle border-4 border-vibrant-green/10">
+                <h2 class="text-4xl lg:text-5xl font-extrabold mb-6 text-charcoal">Ready for Dentistry That Doesn't Rush?</h2>
+                <p class="text-lg lg:text-xl text-text-gray max-w-3xl mx-auto mb-10">Book a consult with Dr. Ho. No pressure. No sales pitch. Just an honest conversation about your dental health and long-term care options.</p>
+
+                <!-- Button container uses flex and justify-center to center the button group -->
+                <!-- Added items-center to ensure horizontal centering in flex-col (mobile) view -->
+                <div class="flex flex-col sm:flex-row justify-center items-center space-y-4 sm:space-y-0 sm:space-x-4">
+                    <!-- Primary CTA Button -->
+                    <a href="#" class="inline-block py-4 px-8 text-lg font-semibold text-white bg-vibrant-green squircle transition duration-300 hover:bg-darker-green subtle-shadow">
+                        Book Consult
+                    </a>
+                    <!-- Secondary CTA Button -->
+                    <a href="#" class="inline-block py-4 px-8 text-lg font-semibold text-vibrant-green border-2 border-vibrant-green bg-white squircle transition duration-300 hover:bg-vibrant-green/10">
+                        New Patient Info
+                    </a>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- 7. FOOTER (NOW SECTION 8) -->
+    <footer class="bg-[#f8f8f8] border-t border-border-gray pt-16 pb-8">
+        <div class="max-w-7xl mx-auto px-4 lg:px-8">
+            <div class="grid grid-cols-2 lg:grid-cols-5 gap-10">
+                
+                <!-- Col 1: Logo & Address -->
+                <div class="col-span-2 lg:col-span-2">
+                    <!-- Logo (Using Image URL) -->
+                    <img src="https://www.dentistryonparkdale.com/wp-content/uploads/2022/03/logo1.png" 
+                         alt="Dentistry on Parkdale Logo" 
+                         class="h-10 w-auto mb-4" 
+                         onerror="this.onerror=null;this.src='https://placehold.co/200x50/00bf63/ffffff?text=PARKDALE+LOGO';">
+                    <p class="text-sm text-text-gray opacity-70 mb-4">
+                        21 Parkdale Avenue South<br>
+                        Hamilton, ON L8H 1B1
+                    </p>
+                </div>
+
+                <!-- Col 2: Contact Info -->
+                <div class="col-span-1">
+                    <h4 class="text-base font-semibold mb-3 text-charcoal">Contact Us</h4>
+                    <p class="text-sm text-text-gray opacity-70 mb-2">
+                        New Patients: <span class="font-medium">289-768-8773</span><br>
+                        Existing Patients: <span class="font-medium">905-547-4940</span>
+                    </p>
+                    <a href="mailto:info@dentistryonparkdale.com" class="text-sm text-vibrant-green hover:underline">info@dentistryonparkdale.com</a>
+                </div>
+
+                <!-- Col 3: Navigation -->
+                <div class="col-span-1">
+                    <h4 class="text-base font-semibold mb-3 text-charcoal">Site Links</h4>
+                    <ul class="space-y-2">
+                        <li><a href="#philosophy" class="text-sm text-text-gray opacity-70 hover:text-vibrant-green transition">Philosophy</a></li>
+                        <li><a href="#services" class="text-sm text-text-gray opacity-70 hover:text-vibrant-green transition">Services</a></li>
+                        <li><a href="#" class="text-sm text-text-gray opacity-70 hover:text-vibrant-green transition">Patient Resources</a></li>
+                        <li><a href="#book" class="text-sm text-text-gray opacity-70 hover:text-vibrant-green transition">Contact</a></li>
+                    </ul>
+                </div>
+
+                <!-- Col 4: Affiliations -->
+                <div class="col-span-1">
+                    <h4 class="text-base font-semibold mb-3 text-charcoal">Affiliations</h4>
+                    <ul class="space-y-2">
+                        <li class="text-sm text-text-gray opacity-70">Ontario Dental Association</li>
+                        <li class="text-sm text-text-gray opacity-70">Canadian Dental Association</li>
+                        <li class="text-sm text-text-gray opacity-70">Academy of General Dentistry</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Bottom Row: Social & Copyright -->
+            <div class="mt-12 pt-8 border-t border-border-gray flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+                
+                <!-- Copyright -->
+                <p class="text-xs text-text-gray opacity-70">
+                    © 2025 Dentistry on Parkdale. All Rights Reserved.
+                </p>
+
+                <!-- Social Icons -->
+                <div class="flex space-x-4">
+                    <a href="#" class="text-[#666666] hover:text-vibrant-green transition duration-300">
+                        <i data-lucide="instagram" class="w-5 h-5"></i>
+                    </a>
+                    <a href="#" class="text-[#666666] hover:text-vibrant-green transition duration-300">
+                        <i data-lucide="facebook" class="w-5 h-5"></i>
+                    </a>
+                    <a href="#" class="text-[#666666] hover:text-vibrant-green transition duration-300">
+                        <i data-lucide="map-pin" class="w-5 h-5"></i> <!-- Using map-pin for Google/location -->
+                    </a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Unique reviews (excluding owner responses)
+        const uniqueReviews = [
+            // 1. MJ Mendoza
+            { text: "My whole family has been coming here for dental care, and we’ve had nothing but great experiences. The staff is friendly, patient, and professional, and they always make us feel comfortable.", image: "https://placehold.co/40x40/00bf63/ffffff?text=MJ", name: "MJ Mendoza", role: "Family Patient" },
+            // 2. Himani Parikh
+            { text: "I went for my first visit with Dr. Ho and i had an amazing experience. All the staff was very professional and welcoming. I was guided at each step and was provided with information on reason behind each dental procedure.", image: "https://placehold.co/40x40/00bf63/ffffff?text=HP", name: "Himani Parikh", role: "Local Guide" },
+            // 3. Eirille Ortega
+            { text: "I’ve always had a great experience at this dental office! My hygienist, Sara, was fantastic—super gentle, thorough, and made me feel completely comfortable throughout the cleaning.", image: "https://placehold.co/40x40/00bf63/ffffff?text=EO", name: "Eirille Ortega", role: "Local Guide" },
+            // 4. Scott Vodon
+            { text: "My experience with Dentistry on Parkdale has been exceptional. I felt that every step of my dental care was being well communicated and the atmosphere was kept light and social.", image: "https://placehold.co/40x40/00bf63/ffffff?text=SV", name: "Scott Vodon", role: "Patient" },
+            // 5. Rebecca Langsford
+            { text: "I was extremely nervous due to a strong dental phobia, but the team was so patient and gentle. They made going to the dentist a good experience, ensuring I felt safe and cared for.", image: "https://placehold.co/40x40/00bf63/ffffff?text=RL", name: "Rebecca Langsford", role: "Patient" },
+            // 6. Isabella Nunez
+            { text: "I am truly stunned by the incredible level of service and care the staff here provides. They break things down in ways you understand and are always friendly and lovely to chat with.", image: "https://placehold.co/40x40/00bf63/ffffff?text=IN", name: "Isabella Nunez", role: "Patient" },
+            // 7. Dianne Pickvance
+            { text: "After not visiting a dentist in 10+ years, Dr. Ho and her team made it a positive experience. Dr. Ho is a very thorough and knowledgeable professional.", image: "https://placehold.co/40x40/00bf63/ffffff?text=DP", name: "Dianne Pickvance", role: "New Patient" },
+            // 8. Mat Ferguson
+            { text: "The best dentist experience I think I have ever had, from reception all the way to Doctor Ho. The entire team is amazing. Thank you for helping me get back on track!", image: "https://placehold.co/40x40/00bf63/ffffff?text=MF", name: "Mat Ferguson", role: "Local Guide" },
+            // 9. Kerri F
+            { text: "Every time I come to Dentistry on Parkdale I am treated with the best care! Everyone is so nice and caring I highly recommend Dr. Ho and her amazing team.", image: "https://placehold.co/40x40/00bf63/ffffff?text=KF", name: "Kerri F", role: "Patient" },
+        ];
+
+        // Split reviews into three columns, duplicating the set within each column's array
+        // This ensures the seamless -50% translation animation loop works.
+        const col1Unique = uniqueReviews.slice(0, 3);
+        const col2Unique = uniqueReviews.slice(3, 6);
+        const col3Unique = uniqueReviews.slice(6, 9);
+
+        const col1Data = [...col1Unique, ...col1Unique]; // 6 cards total
+        const col2Data = [...col2Unique, ...col2Unique]; // 6 cards total
+        const col3Data = [...col3Unique, ...col3Unique]; // 6 cards total
+
+        /**
+         * Creates the HTML structure for a single testimonial card.
+         * @param {Object} t Testimonial data object.
+         * @returns {string} HTML string for the testimonial card.
+         */
+        function createTestimonialCard(t) {
+            return `
+                <div class="p-6 squircle bg-white border border-border-gray shadow-md max-w-xs w-full scroll-reveal">
+                    <p class="text-base text-text-gray italic mb-4">"${t.text}"</p>
+                    <div class="flex items-center gap-3 mt-4">
+                        <img
+                            width="40"
+                            height="40"
+                            src="${t.image}"
+                            alt="${t.name}"
+                            class="h-10 w-10 rounded-full object-cover"
+                        />
+                        <div class="flex flex-col">
+                            <div class="font-semibold tracking-tight leading-5 text-charcoal">${t.name}</div>
+                            <div class="text-sm leading-5 text-text-gray opacity-80">${t.role}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        /**
+         * Renders testimonial column content and applies animation.
+         * @param {string} colId HTML ID of the column container.
+         * @param {Array<Object>} data Testimonial data for the column.
+         * @param {string} animationName CSS keyframe animation name.
+         */
+        function renderTestimonialColumn(colId, data, animationName) {
+            const columnEl = document.getElementById(colId);
+            if (!columnEl) return;
+
+            const contentHTML = data.map(createTestimonialCard).join('');
+            
+            // Create the inner scrolling container
+            const innerDiv = document.createElement('div');
+            innerDiv.className = 'testimonial-column';
+            innerDiv.innerHTML = contentHTML;
+            innerDiv.style.animation = `${animationName} linear infinite`;
+            columnEl.appendChild(innerDiv);
+        }
+
+        // --- DYNAMIC HEADER LOGIC ---
+        const header = document.getElementById('main-header');
+        const navLinks = document.querySelectorAll('#desktop-nav a');
+        const contactSpan = document.getElementById('contact-span');
+        const mobileMenuIcon = document.querySelector('#mobile-menu-button i');
+        
+        const logoTransparent = document.getElementById('logo-transparent');
+        const logoScrolled = document.getElementById('logo-scrolled');
+
+        function updateHeader() {
+            // Threshold for transition is 50px of scroll
+            const isScrolled = window.scrollY > 50; 
+
+            if (isScrolled) {
+                // SCROLLED STATE (Glass Background, Dark Text, Green Logo)
+                
+                // Add glass effect, border, and shadow
+                header.classList.add('glass-scrolled', 'border-border-gray', 'shadow-md');
+                // Remove transparent state classes
+                header.classList.remove('bg-transparent', 'border-transparent', 'shadow-none');
+
+                // Toggle logos
+                logoTransparent.classList.add('hidden');
+                logoScrolled.classList.remove('hidden');
+
+                // Nav and Contact text/border color (Dark/Green)
+                navLinks.forEach(a => a.style.color = 'var(--charcoal)');
+                contactSpan.style.color = 'var(--vibrant-green)';
+                contactSpan.style.borderColor = 'var(--border-gray)';
+                mobileMenuIcon.style.color = 'var(--charcoal)';
+
+
+            } else {
+                // INITIAL STATE (Transparent Background, White Text, White Logo)
+                
+                // Remove scrolled state classes
+                header.classList.remove('glass-scrolled', 'border-border-gray', 'shadow-md');
+                // Add transparent state classes
+                header.classList.add('bg-transparent', 'border-transparent', 'shadow-none');
+                
+                // Toggle logos
+                logoTransparent.classList.remove('hidden');
+                logoScrolled.classList.add('hidden');
+
+                // Nav and Contact text/border color (White)
+                navLinks.forEach(a => a.style.color = 'white');
+                contactSpan.style.color = 'white';
+                contactSpan.style.borderColor = 'white';
+                mobileMenuIcon.style.color = 'white';
+            }
+        }
+        
+        // --- End Dynamic Header Logic ---
+
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // 1. Mobile Menu Toggle Functionality
+        const mobileMenuButton = document.getElementById('mobile-menu-button');
+        const mobileMenu = document.getElementById('mobile-menu');
+
+        function toggleMobileMenu() {
+            const isMenuOpen = mobileMenu.classList.toggle('hidden');
+            const icon = mobileMenuButton.querySelector('i');
+            
+            // Change icon to close (X) when open
+            icon.outerHTML = lucide.createIcons()[isMenuOpen ? 'menu' : 'x'].toSvg({ class: 'w-6 h-6' });
+            lucide.createIcons(); // Re-initialize after changing icon HTML
+            
+            // Toggle body scroll lock for a native app feel
+            document.body.classList.toggle('overflow-hidden', !isMenuOpen);
+        }
+        mobileMenuButton.addEventListener('click', toggleMobileMenu);
+
+
+        // Add Header Logic Listeners
+        window.addEventListener('load', updateHeader);
+        window.addEventListener('scroll', updateHeader);
+
+
+        // 3. Fluid Physics (Bloom/Fade-in upwards Scroll Reveal)
+        const observer = new IntersectionObserver((entries, observer) => {
+            entries.forEach(entry => {
+                // Check if the target element is in the viewport
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                    // Stop observing once visible
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, {
+            rootMargin: '0px',
+            threshold: 0.1 // Trigger when 10% of the element is visible
+        });
+
+        // 5. Testimonials Animation Initialization
+        window.addEventListener('load', () => {
+            // Render columns and start CSS animations
+            renderTestimonialColumn('col1', col1Data, 'scroll-15s 15s');
+            renderTestimonialColumn('col2', col2Data, 'scroll-19s 19s');
+            renderTestimonialColumn('col3', col3Data, 'scroll-17s 17s');
+            
+            // After columns are rendered, observe scroll reveals
+            document.querySelectorAll('.scroll-reveal').forEach(el => {
+                // Check if the element is part of the initial view (like the hero text)
+                if (el.closest('#hero')) {
+                    // Hero elements are handled separately via CSS transition-delay
+                    setTimeout(() => {
+                        el.classList.add('visible');
+                    }, 100); 
+                } else {
+                    // All other elements use the Intersection Observer
+                    observer.observe(el);
+                }
+            });
+        });
+
+        // 4. Parallax Effect for HERO (Text slides over image) - REMOVED
+
+        
+    </script>
+</body>
+</html>

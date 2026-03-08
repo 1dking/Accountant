@@ -1183,11 +1183,27 @@ async def ai_chat_generate(
         "- Primary accent color: " + primary_color
     )
 
+    # Load reference designs for new page generation or major changes
+    image_parts: list[dict] = []
+    reference_text = ""
+    if is_new_page or any(w in message.lower() for w in [
+        "create", "build", "make", "design", "generate", "new", "redesign", "rebuild",
+    ]):
+        try:
+            from app.pages.references import build_reference_parts
+            image_parts, reference_text = build_reference_parts(message)
+            logger.info("Loaded %d reference images for prompt", len(image_parts))
+        except Exception as e:
+            logger.warning("Failed to load reference designs: %s", e)
+
     result = None
 
     if gemini_key:
         try:
-            result = await _chat_with_gemini(gemini_key, system_prompt, chat_history)
+            result = await _chat_with_gemini(
+                gemini_key, system_prompt, chat_history,
+                image_parts=image_parts, reference_text=reference_text,
+            )
         except Exception as e:
             logger.warning("Gemini chat failed: %s", e)
 
@@ -1228,18 +1244,37 @@ async def ai_chat_generate(
     }
 
 
-async def _chat_with_gemini(api_key: str, system_prompt: str, chat_history: list) -> dict:
+async def _chat_with_gemini(
+    api_key: str,
+    system_prompt: str,
+    chat_history: list,
+    image_parts: list[dict] | None = None,
+    reference_text: str = "",
+) -> dict:
     import httpx
 
-    messages = [{"text": system_prompt}]
+    # Build multimodal parts: system prompt + optional reference images + reference text + chat
+    parts: list[dict] = [{"text": system_prompt}]
+
+    # Add reference images (screenshots of premium designs)
+    if image_parts:
+        for img_part in image_parts:
+            parts.append(img_part)
+
+    # Add reference text (code + instructions to match quality)
+    if reference_text:
+        parts.append({"text": reference_text})
+
+    # Add chat history
     for msg in chat_history[-10:]:  # Last 10 messages for context
-        messages.append({"text": f"{msg['role'].upper()}: {msg['content']}"})
+        parts.append({"text": msg["role"].upper() + ": " + msg["content"]})
 
     async with httpx.AsyncClient(timeout=120) as client:
         resp = await client.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}",
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+            + "?key=" + api_key,
             json={
-                "contents": [{"parts": messages}],
+                "contents": [{"parts": parts}],
                 "generationConfig": {
                     "temperature": 0.8,
                     "maxOutputTokens": 65536,
