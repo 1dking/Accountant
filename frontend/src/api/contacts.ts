@@ -24,6 +24,11 @@ export interface ContactCreateData {
   country?: string
   tax_id?: string
   notes?: string
+  dnd_enabled?: boolean
+  lead_source?: string
+  job_title?: string
+  custom_fields_data?: Record<string, unknown>
+  assigned_user_id?: string
 }
 
 export interface ContactUpdateData {
@@ -41,6 +46,11 @@ export interface ContactUpdateData {
   tax_id?: string
   notes?: string
   is_active?: boolean
+  dnd_enabled?: boolean
+  lead_source?: string
+  job_title?: string
+  custom_fields_data?: Record<string, unknown>
+  assigned_user_id?: string
 }
 
 export async function listContacts(filters: ContactFilters = {}) {

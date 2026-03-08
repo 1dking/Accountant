@@ -176,6 +176,11 @@ export interface Contact {
   notes: string | null
   is_active: boolean
   created_by: string
+  assigned_user_id: string | null
+  dnd_enabled: boolean
+  lead_source: string | null
+  job_title: string | null
+  custom_fields_data: Record<string, unknown> | null
   created_at: string
   updated_at: string
 }
@@ -190,6 +195,7 @@ export interface ContactListItem {
   city: string | null
   state: string | null
   is_active: boolean
+  assigned_user_id: string | null
   created_at: string
 }
 
@@ -870,7 +876,7 @@ export interface ContactCreditBalance {
 }
 
 // Cashbook
-export type AccountType = 'bank' | 'credit_card'
+export type AccountType = 'bank' | 'credit_card' | 'cash' | 'savings' | 'loan' | 'paypal' | 'other'
 export type EntryType = 'income' | 'expense'
 export type CategoryTypeEnum = 'income' | 'expense' | 'both'
 

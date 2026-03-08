@@ -13,6 +13,7 @@ import {
   listConversations,
   getConversation,
   deleteConversation,
+  listKnowledge,
   type Conversation,
 } from '@/api/brain'
 
@@ -61,6 +62,7 @@ export default function OBrainPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [attachedFiles, setAttachedFiles] = useState<File[]>([])
   const [isDragging, setIsDragging] = useState(false)
+  const [discoveryDismissed, setDiscoveryDismissed] = useState(false)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
@@ -86,14 +88,33 @@ export default function OBrainPage() {
   })
   const conversations: Conversation[] = conversationsData?.data ?? []
 
+  // Check discovery progress via knowledge base
+  const { data: knowledgeData } = useQuery({
+    queryKey: ['brain-knowledge-discovery'],
+    queryFn: () => listKnowledge(1, 100, 'discovery'),
+  })
+  const discoveryProgress = Math.min(100, Math.round(((knowledgeData?.data?.items?.length ?? 0) / 28) * 100))
+
   useEffect(() => {
     scrollToBottom()
   }, [messages, scrollToBottom])
 
-  const handleSend = async () => {
-    if (!input.trim() || isStreaming) return
-    const userText = input.trim()
-    setInput('')
+  // Show welcome message on first load if discovery is incomplete
+  useEffect(() => {
+    if (messages.length === 0 && discoveryProgress === 0 && !conversationId) {
+      setMessages([{
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: "Welcome to O-Brain! I'm your AI business assistant. Let me learn about your business so I can help you from day one.\n\nFirst — do you have any files you'd like me to learn from? You can drag brand guides, rate cards, financial documents, or anything else right into this chat.\n\nOr let's start with the basics — what does your business do?"
+      }])
+    }
+  }, [discoveryProgress, conversationId])
+
+  const handleSend = async (directMessage?: string) => {
+    const text = directMessage || input.trim()
+    if (!text || isStreaming) return
+    const userText = text
+    if (!directMessage) setInput('')
 
     const fileNames = attachedFiles.map((f) => ({ name: f.name, size: f.size }))
 
@@ -373,6 +394,37 @@ export default function OBrainPage() {
           </div>
         )}
 
+        {/* Discovery progress banner */}
+        {discoveryProgress < 100 && !discoveryDismissed && (
+          <div className="mx-4 mt-2 p-3 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border border-blue-200 dark:border-blue-800 rounded-lg flex items-center justify-between">
+            <div className="flex items-center gap-3 flex-1">
+              <div className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                Company Brain: {discoveryProgress}%
+              </div>
+              <div className="flex-1 max-w-xs h-2 bg-blue-100 dark:bg-blue-900/40 rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{
+                    width: `${discoveryProgress}%`,
+                    backgroundColor: discoveryProgress < 25 ? '#ef4444' : discoveryProgress < 50 ? '#f97316' : discoveryProgress < 75 ? '#eab308' : '#22c55e'
+                  }}
+                />
+              </div>
+              <button
+                onClick={() => {
+                  handleSend('Let\'s continue the business discovery. Ask me the next question.')
+                }}
+                className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline whitespace-nowrap"
+              >
+                Continue Discovery
+              </button>
+            </div>
+            <button onClick={() => setDiscoveryDismissed(true)} className="ml-2 text-gray-400 hover:text-gray-600">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
         {/* Messages */}
         <div ref={scrollContainerRef} className="flex-1 overflow-y-auto scrollbar-thin">
           <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
@@ -478,7 +530,7 @@ export default function OBrainPage() {
               className="flex-1 bg-transparent text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none disabled:opacity-50"
             />
             <button
-              onClick={handleSend}
+              onClick={() => handleSend()}
               disabled={!input.trim() || isStreaming}
               className="p-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-30 transition"
             >

@@ -16,6 +16,7 @@ import {
   deleteConversation,
   listAlerts,
   markAlertRead,
+  listKnowledge,
   type Conversation,
   type BrainAlert,
 } from '@/api/brain'
@@ -109,16 +110,26 @@ export default function OBrainPanel() {
   const conversations: Conversation[] = conversationsData?.data ?? []
   const alerts: BrainAlert[] = alertsData?.data ?? []
 
+  // Check discovery progress via knowledge base
+  const { data: knowledgeData } = useQuery({
+    queryKey: ['brain-knowledge-discovery'],
+    queryFn: () => listKnowledge(1, 100, 'discovery'),
+    enabled: panelState === 'obrain',
+  })
+  const discoveryProgress = Math.min(100, Math.round(((knowledgeData?.data?.items?.length ?? 0) / 28) * 100))
+  const [discoveryDismissed, setDiscoveryDismissed] = useState(false)
+
   useEffect(() => {
     scrollToBottom()
   }, [messages, scrollToBottom])
 
   if (panelState !== 'obrain') return null
 
-  const handleSend = async () => {
-    if (!input.trim() || isStreaming) return
-    const userText = input.trim()
-    setInput('')
+  const handleSend = async (directMessage?: string) => {
+    const text = directMessage || input.trim()
+    if (!text || isStreaming) return
+    const userText = text
+    if (!directMessage) setInput('')
 
     const userMsg: DisplayMessage = {
       id: crypto.randomUUID(),
@@ -408,6 +419,37 @@ export default function OBrainPanel() {
       {/* Chat View */}
       {view === 'chat' && (
         <>
+          {/* Compact discovery banner */}
+          {discoveryProgress < 50 && !discoveryDismissed && (
+            <div className="mx-3 mt-2 p-2 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border border-blue-200 dark:border-blue-800 rounded-lg flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <div className="text-xs font-medium text-blue-700 dark:text-blue-300 whitespace-nowrap">
+                  Brain: {discoveryProgress}%
+                </div>
+                <div className="flex-1 h-1.5 bg-blue-100 dark:bg-blue-900/40 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{
+                      width: `${discoveryProgress}%`,
+                      backgroundColor: discoveryProgress < 25 ? '#ef4444' : '#f97316'
+                    }}
+                  />
+                </div>
+                <button
+                  onClick={() => {
+                    handleSend('Let\'s continue the business discovery. Ask me the next question.')
+                  }}
+                  className="text-[10px] font-medium text-blue-600 dark:text-blue-400 hover:underline whitespace-nowrap"
+                >
+                  Continue
+                </button>
+              </div>
+              <button onClick={() => setDiscoveryDismissed(true)} className="text-gray-400 hover:text-gray-600 shrink-0">
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          )}
+
           {/* Messages */}
           <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin">
             {messages.length === 0 && (
@@ -480,7 +522,7 @@ export default function OBrainPanel() {
                 className="flex-1 bg-transparent text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none disabled:opacity-50"
               />
               <button
-                onClick={handleSend}
+                onClick={() => handleSend()}
                 disabled={!input.trim() || isStreaming}
                 className="p-1.5 text-blue-600 dark:text-blue-400 hover:text-blue-700 disabled:opacity-30 transition"
               >

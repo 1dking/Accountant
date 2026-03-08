@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   listAccounts,
   createAccount,
+  deleteAccount,
   listEntries,
   getSummary,
   listCategories,
@@ -22,6 +23,7 @@ import {
   TrendingDown,
   Wallet,
   Receipt,
+  Trash2,
 } from 'lucide-react'
 import type {
   CashbookEntryFilters,
@@ -46,7 +48,7 @@ export default function CashbookPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
-  const [selectedAccountId, setSelectedAccountId] = useState<string>('')
+  const [selectedAccountId, setSelectedAccountId] = useState<string>('all')
   const [entryTypeFilter, setEntryTypeFilter] = useState<'all' | 'income' | 'expense'>('all')
   const [dateFrom, setDateFrom] = useState(`${currentYear}-01-01`)
   const [dateTo, setDateTo] = useState(`${currentYear}-12-31`)
@@ -72,13 +74,12 @@ export default function CashbookPage() {
   })
   const accounts: PaymentAccount[] = accountsData?.data ?? []
 
-  // Auto-select first account
-  const activeAccountId =
-    selectedAccountId || (accounts.length > 0 ? accounts[0].id : '')
+  // Active account: 'all' for combined view, or specific account id
+  const activeAccountId = selectedAccountId
 
   // Fetch entries
   const filters: CashbookEntryFilters = {
-    account_id: activeAccountId || undefined,
+    account_id: activeAccountId !== 'all' ? activeAccountId : undefined,
     entry_type: entryTypeFilter !== 'all' ? entryTypeFilter : undefined,
     date_from: dateFrom,
     date_to: dateTo,
@@ -95,13 +96,24 @@ export default function CashbookPage() {
   const entries = entriesData?.data ?? []
   const meta = entriesData?.meta
 
-  // Fetch summary
+  // Fetch summary (only for specific account, not 'all')
   const { data: summaryData } = useQuery({
     queryKey: ['cashbook-summary', activeAccountId, dateFrom, dateTo],
     queryFn: () => getSummary(activeAccountId, dateFrom, dateTo),
-    enabled: !!activeAccountId,
+    enabled: !!activeAccountId && activeAccountId !== 'all',
   })
   const summary = summaryData?.data
+
+  // Computed summary for All Accounts view
+  const allAccountsSummary = activeAccountId === 'all' && entries.length > 0 ? {
+    total_income: entries.filter(e => e.entry_type === 'income').reduce((s, e) => s + e.total_amount, 0),
+    total_expenses: entries.filter(e => e.entry_type === 'expense').reduce((s, e) => s + e.total_amount, 0),
+    opening_balance: 0,
+    closing_balance: 0,
+  } : null
+
+  // Helper to get account name for All Accounts view
+  const accountMap = new Map(accounts.map(a => [a.id, a]))
 
   // Fetch categories
   const { data: _categoriesData } = useQuery({
@@ -128,6 +140,23 @@ export default function CashbookPage() {
       setNewAccountDate(new Date().toISOString().split('T')[0])
     },
   })
+
+  // Delete account mutation
+  const deleteAccountMutation = useMutation({
+    mutationFn: (accountId: string) => deleteAccount(accountId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cashbook-accounts'] })
+      queryClient.invalidateQueries({ queryKey: ['cashbook-entries'] })
+      queryClient.invalidateQueries({ queryKey: ['cashbook-summary'] })
+      setSelectedAccountId('all')
+    },
+  })
+
+  const handleDeleteAccount = (account: PaymentAccount) => {
+    if (confirm(`Delete "${account.name}"? This will remove the account and all its entries. This cannot be undone.`)) {
+      deleteAccountMutation.mutate(account.id)
+    }
+  }
 
   const handleSearch = () => {
     setSearchTerm(searchInput)
@@ -206,7 +235,7 @@ export default function CashbookPage() {
             <Upload className="h-4 w-4" />
             Import Excel
           </button>
-          {activeAccountId && (
+          {activeAccountId && activeAccountId !== 'all' && (
             <a
               href={`/api/cashbook/export/csv?account_id=${activeAccountId}&date_from=${dateFrom}&date_to=${dateTo}`}
               download
@@ -331,7 +360,21 @@ export default function CashbookPage() {
       )}
 
       {/* Account Tabs */}
-      <div className="flex gap-1 border-b dark:border-gray-700">
+      <div className="flex items-center gap-1 border-b dark:border-gray-700">
+        {/* All Accounts tab */}
+        <button
+          onClick={() => {
+            setSelectedAccountId('all')
+            setPage(1)
+          }}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeAccountId === 'all'
+              ? 'border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400'
+              : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300'
+          }`}
+        >
+          All Accounts
+        </button>
         {accounts.map((account) => (
           <button
             key={account.id}
@@ -352,6 +395,18 @@ export default function CashbookPage() {
             </span>
           </button>
         ))}
+        {/* Delete account button (only when specific account is selected) */}
+        {activeAccountId !== 'all' && accounts.find(a => a.id === activeAccountId) && (
+          <button
+            onClick={() => handleDeleteAccount(accounts.find(a => a.id === activeAccountId)!)}
+            disabled={deleteAccountMutation.isPending}
+            className="ml-auto px-3 py-1.5 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-50"
+            title="Delete this account"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            {deleteAccountMutation.isPending ? 'Deleting...' : 'Delete Account'}
+          </button>
+        )}
       </div>
 
       {/* Entry Type Filter Tabs */}
@@ -430,101 +485,122 @@ export default function CashbookPage() {
       </div>
 
       {/* Stats Cards */}
-      {summary && (
-        <>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-4">
-              <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-1">
-                <Wallet className="h-4 w-4" />
-                Opening Balance
-              </div>
-              <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                {summary.opening_balance < 0 ? '-' : ''}
-                {formatCurrency(summary.opening_balance)}
-              </p>
-            </div>
-            <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-4">
-              <div className="flex items-center gap-2 text-sm text-green-600 mb-1">
-                <TrendingUp className="h-4 w-4" />
-                Total Income
-              </div>
-              <p className="text-xl font-bold text-green-700">
-                {formatCurrency(summary.total_income)}
-              </p>
-            </div>
-            <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-4">
-              <div className="flex items-center gap-2 text-sm text-red-600 mb-1">
-                <TrendingDown className="h-4 w-4" />
-                Total Expenses
-              </div>
-              <p className="text-xl font-bold text-red-700">
-                {formatCurrency(summary.total_expenses)}
-              </p>
-            </div>
-            <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-4">
-              <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-1">
-                <DollarSign className="h-4 w-4" />
-                Closing Balance
-              </div>
-              <p
-                className={`text-xl font-bold ${summary.closing_balance >= 0 ? 'text-gray-900 dark:text-gray-100' : 'text-red-700 dark:text-red-400'}`}
-              >
-                {summary.closing_balance < 0 ? '-' : ''}
-                {formatCurrency(summary.closing_balance)}
-              </p>
-            </div>
-          </div>
-
-          {/* Tax Summary */}
-          {(summary.total_tax_collected > 0 || summary.total_tax_paid > 0) && (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+      {(summary || allAccountsSummary) && (() => {
+        const s = summary ?? allAccountsSummary!
+        return (
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {activeAccountId !== 'all' && (
+                <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-4">
+                  <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-1">
+                    <Wallet className="h-4 w-4" />
+                    Opening Balance
+                  </div>
+                  <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                    {s.opening_balance < 0 ? '-' : ''}
+                    {formatCurrency(s.opening_balance)}
+                  </p>
+                </div>
+              )}
               <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-4">
                 <div className="flex items-center gap-2 text-sm text-green-600 mb-1">
-                  <Receipt className="h-4 w-4" />
-                  Tax Collected (HST)
+                  <TrendingUp className="h-4 w-4" />
+                  Total Income
                 </div>
-                <p className="text-lg font-bold text-green-700">
-                  {formatCurrency(summary.total_tax_collected)}
+                <p className="text-xl font-bold text-green-700">
+                  {formatCurrency(s.total_income)}
                 </p>
               </div>
               <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-4">
                 <div className="flex items-center gap-2 text-sm text-red-600 mb-1">
-                  <Receipt className="h-4 w-4" />
-                  Tax Paid (HST)
+                  <TrendingDown className="h-4 w-4" />
+                  Total Expenses
                 </div>
-                <p className="text-lg font-bold text-red-700">
-                  {formatCurrency(summary.total_tax_paid)}
+                <p className="text-xl font-bold text-red-700">
+                  {formatCurrency(s.total_expenses)}
                 </p>
               </div>
-              <div className="bg-white dark:bg-gray-900 rounded-lg border p-4 col-span-2 md:col-span-1">
-                <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-1">
-                  <Receipt className="h-4 w-4" />
-                  Net Tax (Owed/Refund)
+              {activeAccountId !== 'all' && (
+                <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-4">
+                  <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-1">
+                    <DollarSign className="h-4 w-4" />
+                    Closing Balance
+                  </div>
+                  <p
+                    className={`text-xl font-bold ${s.closing_balance >= 0 ? 'text-gray-900 dark:text-gray-100' : 'text-red-700 dark:text-red-400'}`}
+                  >
+                    {s.closing_balance < 0 ? '-' : ''}
+                    {formatCurrency(s.closing_balance)}
+                  </p>
                 </div>
-                <p
-                  className={`text-lg font-bold ${
-                    summary.total_tax_collected - summary.total_tax_paid >= 0
-                      ? 'text-orange-600'
-                      : 'text-blue-600'
-                  }`}
-                >
-                  {summary.total_tax_collected - summary.total_tax_paid < 0
-                    ? '-'
-                    : ''}
-                  {formatCurrency(
-                    summary.total_tax_collected - summary.total_tax_paid
-                  )}
-                  <span className="text-xs font-normal text-gray-400 dark:text-gray-500 ml-2">
-                    {summary.total_tax_collected - summary.total_tax_paid >= 0
-                      ? '(owed)'
-                      : '(refund)'}
-                  </span>
-                </p>
-              </div>
+              )}
+              {activeAccountId === 'all' && (
+                <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-4">
+                  <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-1">
+                    <DollarSign className="h-4 w-4" />
+                    Net
+                  </div>
+                  <p
+                    className={`text-xl font-bold ${s.total_income - s.total_expenses >= 0 ? 'text-gray-900 dark:text-gray-100' : 'text-red-700 dark:text-red-400'}`}
+                  >
+                    {s.total_income - s.total_expenses < 0 ? '-' : ''}
+                    {formatCurrency(s.total_income - s.total_expenses)}
+                  </p>
+                </div>
+              )}
             </div>
-          )}
-        </>
-      )}
+
+            {/* Tax Summary (only for specific account) */}
+            {summary && (summary.total_tax_collected > 0 || summary.total_tax_paid > 0) && (
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-4">
+                  <div className="flex items-center gap-2 text-sm text-green-600 mb-1">
+                    <Receipt className="h-4 w-4" />
+                    Tax Collected (HST)
+                  </div>
+                  <p className="text-lg font-bold text-green-700">
+                    {formatCurrency(summary.total_tax_collected)}
+                  </p>
+                </div>
+                <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-4">
+                  <div className="flex items-center gap-2 text-sm text-red-600 mb-1">
+                    <Receipt className="h-4 w-4" />
+                    Tax Paid (HST)
+                  </div>
+                  <p className="text-lg font-bold text-red-700">
+                    {formatCurrency(summary.total_tax_paid)}
+                  </p>
+                </div>
+                <div className="bg-white dark:bg-gray-900 rounded-lg border p-4 col-span-2 md:col-span-1">
+                  <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-1">
+                    <Receipt className="h-4 w-4" />
+                    Net Tax (Owed/Refund)
+                  </div>
+                  <p
+                    className={`text-lg font-bold ${
+                      summary.total_tax_collected - summary.total_tax_paid >= 0
+                        ? 'text-orange-600'
+                        : 'text-blue-600'
+                    }`}
+                  >
+                    {summary.total_tax_collected - summary.total_tax_paid < 0
+                      ? '-'
+                      : ''}
+                    {formatCurrency(
+                      summary.total_tax_collected - summary.total_tax_paid
+                    )}
+                    <span className="text-xs font-normal text-gray-400 dark:text-gray-500 ml-2">
+                      {summary.total_tax_collected - summary.total_tax_paid >= 0
+                        ? '(owed)'
+                        : '(refund)'}
+                    </span>
+                  </p>
+                </div>
+              </div>
+            )}
+          </>
+        )
+      })()}
 
       {/* Entries Table */}
       <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 overflow-hidden">
@@ -534,6 +610,11 @@ export default function CashbookPage() {
               <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                 Date
               </th>
+              {activeAccountId === 'all' && (
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                  Account
+                </th>
+              )}
               <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                 Description
               </th>
@@ -558,14 +639,14 @@ export default function CashbookPage() {
             {entriesLoading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i}>
-                  <td colSpan={7} className="px-4 py-3">
+                  <td colSpan={activeAccountId === 'all' ? 8 : 7} className="px-4 py-3">
                     <div className="animate-pulse h-4 bg-gray-200 dark:bg-gray-700 rounded w-full" />
                   </td>
                 </tr>
               ))
             ) : entries.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-12 text-center">
+                <td colSpan={activeAccountId === 'all' ? 8 : 7} className="px-4 py-12 text-center">
                   <BookOpen className="h-12 w-12 text-gray-300 mx-auto mb-3" />
                   <p className="text-gray-500 dark:text-gray-400 font-medium">No entries found</p>
                   <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
@@ -583,6 +664,13 @@ export default function CashbookPage() {
                   <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
                     {formatDate(entry.date)}
                   </td>
+                  {activeAccountId === 'all' && (
+                    <td className="px-4 py-3">
+                      <span className="inline-block px-2 py-0.5 text-xs font-medium rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                        {accountMap.get(entry.account_id)?.name ?? 'Unknown'}
+                      </span>
+                    </td>
+                  )}
                   <td className="px-4 py-3">
                     <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                       {entry.description}

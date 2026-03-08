@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { useNavigate } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Upload, FileImage, CheckCircle2,
@@ -10,10 +11,11 @@ import {
   listImports,
   getImport,
   confirmImport,
+  updateImportItem,
   type SmartImport,
   type SmartImportItem,
 } from '@/api/smartImport'
-import { listAccounts } from '@/api/cashbook'
+import { listAccounts, listCategories } from '@/api/cashbook'
 import type { PaymentAccount } from '@/types/models'
 
 function formatCurrency(amount: number): string {
@@ -34,10 +36,12 @@ function ConfidenceBadge({ value }: { value: number }) {
 
 export default function SmartImportPage() {
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const [activeImport, setActiveImport] = useState<(SmartImport & { items: SmartImportItem[] }) | null>(null)
   const [selectedAccountId, setSelectedAccountId] = useState('')
   const [isDragging, setIsDragging] = useState(false)
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
+  const [itemOverrides, setItemOverrides] = useState<Record<string, Partial<SmartImportItem>>>({})
 
   const { data: importsData } = useQuery({
     queryKey: ['smart-imports'],
@@ -51,24 +55,35 @@ export default function SmartImportPage() {
   })
   const accounts: PaymentAccount[] = accountsData?.data ?? []
 
+  const { data: categoriesData } = useQuery({
+    queryKey: ['cashbook-categories'],
+    queryFn: () => listCategories(),
+  })
+  const categories = categoriesData?.data ?? []
+
   const uploadMutation = useMutation({
     mutationFn: (file: File) => uploadForImport(file),
     onSuccess: (data) => {
       setActiveImport(data.data)
-      // Auto-select all non-duplicate items
-      const ids = new Set(
-        (data.data.items || [])
-          .filter((i: SmartImportItem) => !i.is_duplicate && i.status !== 'rejected')
-          .map((i: SmartImportItem) => i.id)
-      )
-      setSelectedItems(ids)
+      // All rows unchecked by default — user manually selects what to import
+      setSelectedItems(new Set())
+      setItemOverrides({})
       queryClient.invalidateQueries({ queryKey: ['smart-imports'] })
     },
   })
 
   const confirmMutation = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       if (!activeImport || !selectedAccountId) return Promise.reject('No import or account')
+      // Push any overrides to the backend before confirming
+      const overrideEntries = Object.entries(itemOverrides).filter(
+        ([id]) => selectedItems.has(id)
+      )
+      if (overrideEntries.length > 0) {
+        await Promise.all(
+          overrideEntries.map(([id, overrides]) => updateImportItem(id, overrides))
+        )
+      }
       return confirmImport(activeImport.id, selectedAccountId, Array.from(selectedItems))
     },
     onSuccess: () => {
@@ -77,6 +92,7 @@ export default function SmartImportPage() {
       queryClient.invalidateQueries({ queryKey: ['cashbook-summary'] })
       setActiveImport(null)
       setSelectedItems(new Set())
+      setItemOverrides({})
     },
   })
 
@@ -95,13 +111,9 @@ export default function SmartImportPage() {
     try {
       const resp = await getImport(imp.id)
       setActiveImport(resp.data)
-      // Auto-select all importable items
-      const ids = new Set(
-        (resp.data.items || [])
-          .filter((i: SmartImportItem) => !i.is_duplicate && i.status !== 'rejected' && i.status !== 'imported')
-          .map((i: SmartImportItem) => i.id)
-      )
-      setSelectedItems(ids)
+      // All rows unchecked by default — user manually selects what to import
+      setSelectedItems(new Set())
+      setItemOverrides({})
     } catch {
       // Failed to load
     }
@@ -132,7 +144,10 @@ export default function SmartImportPage() {
     const allSelected = importableItems.length > 0 && importableItems.every((i) => selectedItems.has(i.id))
     const selectedTotal = activeImport.items
       .filter((i) => selectedItems.has(i.id))
-      .reduce((sum, i) => sum + i.amount, 0)
+      .reduce((sum, i) => {
+        const overriddenAmount = itemOverrides[i.id]?.amount ?? i.amount
+        return sum + overriddenAmount
+      }, 0)
 
     return (
       <div className="p-6 space-y-4">
@@ -188,9 +203,21 @@ export default function SmartImportPage() {
         </div>
 
         {confirmMutation.isSuccess && (
-          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 text-sm text-green-700 dark:text-green-400">
-            <CheckCircle2 className="h-4 w-4 inline mr-2" />
-            Successfully imported {(confirmMutation.data as any)?.data?.imported_count} entries to your cashbook.
+          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-400">
+                <CheckCircle2 className="h-5 w-5" />
+                <span className="font-medium">
+                  Imported {(confirmMutation.data as any)?.data?.imported_count} entries into {accounts.find(a => a.id === selectedAccountId)?.name || 'your cashbook'}.
+                </span>
+              </div>
+              <button
+                onClick={() => navigate('/cashbook')}
+                className="px-3 py-1.5 text-sm font-medium text-green-700 dark:text-green-400 border border-green-300 dark:border-green-700 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/40"
+              >
+                View in Cashbook
+              </button>
+            </div>
           </div>
         )}
 
@@ -241,14 +268,26 @@ export default function SmartImportPage() {
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <span className={cn(
-                      'text-xs font-medium px-2 py-0.5 rounded-full',
-                      item.entry_type === 'income'
-                        ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
-                        : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
-                    )}>
-                      {item.entry_type}
-                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        const currentType = itemOverrides[item.id]?.entry_type ?? item.entry_type
+                        const newType = currentType === 'income' ? 'expense' : 'income'
+                        setItemOverrides((prev) => ({
+                          ...prev,
+                          [item.id]: { ...prev[item.id], entry_type: newType },
+                        }))
+                      }}
+                      className={cn(
+                        'text-xs font-medium px-2 py-0.5 rounded-full cursor-pointer transition-colors',
+                        (itemOverrides[item.id]?.entry_type ?? item.entry_type) === 'income'
+                          ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50'
+                          : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50'
+                      )}
+                    >
+                      {itemOverrides[item.id]?.entry_type ?? item.entry_type}
+                    </button>
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
                     {item.date || '—'}
@@ -264,8 +303,24 @@ export default function SmartImportPage() {
                   <td className="px-4 py-3 text-sm text-right font-medium text-gray-900 dark:text-gray-100">
                     {formatCurrency(item.amount)}
                   </td>
-                  <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
-                    {item.category_suggestion || '—'}
+                  <td className="px-4 py-3">
+                    <select
+                      value={itemOverrides[item.id]?.category_suggestion ?? item.category_suggestion ?? ''}
+                      onChange={(e) => {
+                        e.stopPropagation()
+                        setItemOverrides((prev) => ({
+                          ...prev,
+                          [item.id]: { ...prev[item.id], category_suggestion: e.target.value || null },
+                        }))
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-xs bg-transparent border border-gray-200 dark:border-gray-600 rounded px-1.5 py-0.5 text-gray-700 dark:text-gray-300 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 max-w-[140px]"
+                    >
+                      <option value="">No category</option>
+                      {categories.map((cat) => (
+                        <option key={cat.id} value={cat.name}>{cat.name}</option>
+                      ))}
+                    </select>
                   </td>
                   <td className="px-4 py-3 text-center">
                     <ConfidenceBadge value={item.confidence} />

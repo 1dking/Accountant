@@ -147,6 +147,11 @@ export const PERIOD_TYPES = [
 export const ACCOUNT_TYPES = [
   { value: 'bank', label: 'Bank Account' },
   { value: 'credit_card', label: 'Credit Card' },
+  { value: 'cash', label: 'Cash' },
+  { value: 'savings', label: 'Savings Account' },
+  { value: 'loan', label: 'Loan' },
+  { value: 'paypal', label: 'PayPal' },
+  { value: 'other', label: 'Other' },
 ] as const
 
 export const ENTRY_TYPES = [

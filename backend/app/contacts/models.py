@@ -3,7 +3,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, Text, func
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, JSON, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base, TimestampMixin
@@ -39,6 +39,10 @@ class Contact(TimestampMixin, Base):
     assigned_user_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("users.id"), nullable=True, index=True
     )
+    dnd_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="false")
+    lead_source: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    job_title: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    custom_fields_data: Mapped[dict | None] = mapped_column(JSON, nullable=True, server_default="{}")
 
 
 class ContactTag(TimestampMixin, Base):

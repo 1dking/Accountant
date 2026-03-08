@@ -29,6 +29,11 @@ from app.database import Base, TimestampMixin
 class AccountType(str, enum.Enum):
     BANK = "bank"
     CREDIT_CARD = "credit_card"
+    CASH = "cash"
+    SAVINGS = "savings"
+    LOAN = "loan"
+    PAYPAL = "paypal"
+    OTHER = "other"
 
 
 class EntryType(str, enum.Enum):

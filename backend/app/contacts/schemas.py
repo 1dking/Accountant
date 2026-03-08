@@ -23,6 +23,9 @@ class ContactCreate(BaseModel):
     tax_id: Optional[str] = Field(None, max_length=50)
     notes: Optional[str] = None
     assigned_user_id: Optional[uuid.UUID] = None
+    dnd_enabled: bool = False
+    lead_source: Optional[str] = Field(None, max_length=100)
+    job_title: Optional[str] = Field(None, max_length=255)
 
 
 class ContactUpdate(BaseModel):
@@ -41,6 +44,10 @@ class ContactUpdate(BaseModel):
     notes: Optional[str] = None
     is_active: Optional[bool] = None
     assigned_user_id: Optional[uuid.UUID] = None
+    dnd_enabled: Optional[bool] = None
+    lead_source: Optional[str] = Field(None, max_length=100)
+    job_title: Optional[str] = Field(None, max_length=255)
+    custom_fields_data: Optional[dict] = None
 
 
 class ContactResponse(BaseModel):
@@ -61,6 +68,10 @@ class ContactResponse(BaseModel):
     is_active: bool
     created_by: uuid.UUID
     assigned_user_id: Optional[uuid.UUID]
+    dnd_enabled: bool
+    lead_source: Optional[str]
+    job_title: Optional[str]
+    custom_fields_data: Optional[dict]
     created_at: datetime
     updated_at: datetime
 

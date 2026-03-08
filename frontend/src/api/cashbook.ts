@@ -22,7 +22,7 @@ export function listAccounts() {
 
 export function createAccount(data: {
   name: string
-  account_type: 'bank' | 'credit_card'
+  account_type: string
   opening_balance: number
   opening_balance_date: string
   default_tax_rate_id?: string

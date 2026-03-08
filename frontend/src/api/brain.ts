@@ -187,6 +187,16 @@ export const transcribeCall = (callSid: string, file: File, contactId?: string, 
 export const importTranscript = (text: string, sourceType = 'meeting', meetingId?: string, callSid?: string, contactId?: string) =>
   api.post('/brain/transcribe/import', { text, source_type: sourceType, meeting_id: meetingId, call_sid: callSid, contact_id: contactId })
 
+// ── Discovery ────────────────────────────────────────────────────────
+
+export const getDiscoveryQuestions = () =>
+  api.get<{ data: Array<{ section: string; questions: Array<{ id: string; question: string; placeholder: string; order: number }> }> }>(
+    '/brain/discovery/questions'
+  )
+
+export const submitDiscoveryAnswers = (answers: Array<{ id: string; question: string; answer: string }>) =>
+  api.post<{ data: { saved_count: number; total: number } }>('/brain/discovery/submit', { answers })
+
 // ── Audit ─────────────────────────────────────────────────────────────
 
 export const listAuditLogs = (limit = 50) =>
