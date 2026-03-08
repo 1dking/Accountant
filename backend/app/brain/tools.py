@@ -257,6 +257,75 @@ READ_TOOL_DEFINITIONS = [
 # WRITE Tool definitions
 # ---------------------------------------------------------------------------
 
+PAGE_TOOL_DEFINITIONS = [
+    {
+        "name": "create_page",
+        "description": "Create a new landing page using AI. O-Brain should confirm details with the user first (services, goal, brand colors, headline), then call this tool.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "title": {"type": "string", "description": "Page title"},
+                "prompt": {"type": "string", "description": "Detailed prompt describing the page to generate (include target audience, goal, services, etc.)"},
+                "style_preset": {"type": "string", "description": "Style: modern, corporate, creative, startup, elegant, dark"},
+                "primary_color": {"type": "string", "description": "Primary brand color hex (e.g. #2563eb)"},
+                "font_family": {"type": "string", "description": "Font family (e.g. Inter, Montserrat)"},
+            },
+            "required": ["title", "prompt"],
+        },
+    },
+    {
+        "name": "create_website",
+        "description": "Create a multi-page website. O-Brain should suggest page structure first, then call this after user confirmation.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Website name"},
+                "pages": {
+                    "type": "array",
+                    "description": "List of pages to create",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "title": {"type": "string"},
+                            "slug": {"type": "string"},
+                            "prompt": {"type": "string", "description": "What this page should contain"},
+                            "is_homepage": {"type": "boolean"},
+                        },
+                        "required": ["title", "prompt"],
+                    },
+                },
+                "style_preset": {"type": "string"},
+                "primary_color": {"type": "string"},
+            },
+            "required": ["name", "pages"],
+        },
+    },
+    {
+        "name": "query_page_analytics",
+        "description": "Get analytics for a specific page (visitors, sources, conversions, scroll depth, etc.).",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "page_name": {"type": "string", "description": "Page title or slug to look up"},
+                "days": {"type": "integer", "description": "Number of days to analyze (default 30)"},
+            },
+            "required": ["page_name"],
+        },
+    },
+    {
+        "name": "query_website_analytics",
+        "description": "Get aggregate analytics for a multi-page website.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "website_name": {"type": "string", "description": "Website name or slug"},
+                "days": {"type": "integer", "description": "Number of days (default 30)"},
+            },
+            "required": ["website_name"],
+        },
+    },
+]
+
 WRITE_TOOL_DEFINITIONS = [
     {
         "name": "create_expense",
@@ -418,7 +487,7 @@ WRITE_TOOL_DEFINITIONS = [
 ]
 
 # Combined definitions
-TOOL_DEFINITIONS = READ_TOOL_DEFINITIONS + WRITE_TOOL_DEFINITIONS
+TOOL_DEFINITIONS = READ_TOOL_DEFINITIONS + WRITE_TOOL_DEFINITIONS + PAGE_TOOL_DEFINITIONS
 
 
 # ---------------------------------------------------------------------------
@@ -457,6 +526,11 @@ async def execute_tool(
         "create_proposal": _create_proposal,
         "update_invoice_status": _update_invoice_status,
         "create_booking": _create_booking,
+        # Page/website tools
+        "create_page": _create_page,
+        "create_website": _create_website,
+        "query_page_analytics": _query_page_analytics,
+        "query_website_analytics": _query_website_analytics,
     }
 
     handler = handlers.get(tool_name)
@@ -1187,3 +1261,211 @@ async def _create_booking(db: AsyncSession, user_id: uuid.UUID, params: dict) ->
         "message": f"Booking created for {params['guest_name']} ({params['guest_email']}) on {start_fmt}. View at /scheduling",
         "id": str(booking.id),
     })
+
+
+# ---------------------------------------------------------------------------
+# Page / Website tools
+# ---------------------------------------------------------------------------
+
+
+async def _create_page(db: AsyncSession, user_id: uuid.UUID, params: dict) -> str:
+    """Create a new landing page with AI-generated content."""
+    from app.pages.service import create_page, ai_generate_page
+    from app.pages.schemas import PageCreate
+    from app.config import Settings
+
+    settings = Settings()
+    user = await _get_user(db, user_id)
+    if not user:
+        return json.dumps({"error": "User not found"})
+
+    # Generate content
+    result = await ai_generate_page(
+        db,
+        prompt=params["prompt"],
+        style_preset=params.get("style_preset", "modern"),
+        primary_color=params.get("primary_color"),
+        font_family=params.get("font_family"),
+        settings=settings,
+    )
+
+    # Create the page
+    data = PageCreate(
+        title=params["title"],
+        style_preset=params.get("style_preset", "modern"),
+        primary_color=params.get("primary_color"),
+        font_family=params.get("font_family"),
+    )
+    page = await create_page(db, data, user)
+
+    # Update with generated content
+    from app.pages.models import Page as PageModel
+    stmt = select(PageModel).where(PageModel.id == page.id)
+    page_obj = (await db.execute(stmt)).scalar_one()
+    page_obj.html_content = result.get("html_content", "")
+    page_obj.css_content = result.get("css_content", "")
+    page_obj.js_content = result.get("js_content", "")
+    page_obj.sections_json = result.get("sections_json", "")
+    await db.commit()
+
+    logger.info("Created page '%s' via O-Brain", params["title"])
+    return json.dumps({
+        "success": True,
+        "message": f"Landing page '{params['title']}' created! Open it at /pages/{page.id}/edit to preview and refine.",
+        "page_id": str(page.id),
+        "navigate_to": f"/pages/{page.id}/edit",
+    })
+
+
+async def _create_website(db: AsyncSession, user_id: uuid.UUID, params: dict) -> str:
+    """Create a multi-page website with AI content."""
+    from app.pages.service import create_website as ws_create, ai_generate_page
+    from app.pages.models import Page as PageModel
+    from app.config import Settings
+
+    settings = Settings()
+    user = await _get_user(db, user_id)
+    if not user:
+        return json.dumps({"error": "User not found"})
+
+    ws = await ws_create(db, params["name"], None, user)
+
+    # Update the default Home page and add others
+    pages_data = params.get("pages", [{"title": "Home", "prompt": "A professional homepage", "is_homepage": True}])
+
+    created_pages = []
+    for i, p_data in enumerate(pages_data):
+        if i == 0:
+            # Update the auto-created home page
+            stmt = select(PageModel).where(PageModel.website_id == ws.id).limit(1)
+            page = (await db.execute(stmt)).scalar_one_or_none()
+            if page:
+                page.title = p_data["title"]
+                page.slug = p_data.get("slug", p_data["title"].lower().replace(" ", "-"))
+                page.is_homepage = p_data.get("is_homepage", True)
+                page.page_order = i
+        else:
+            page = PageModel(
+                id=uuid.uuid4(),
+                title=p_data["title"],
+                slug=p_data.get("slug", p_data["title"].lower().replace(" ", "-")),
+                website_id=ws.id,
+                page_order=i,
+                is_homepage=p_data.get("is_homepage", False),
+                created_by=user.id,
+                style_preset=params.get("style_preset", "modern"),
+                primary_color=params.get("primary_color"),
+            )
+            db.add(page)
+            await db.flush()
+
+        # Generate content
+        try:
+            result = await ai_generate_page(
+                db,
+                prompt=p_data["prompt"],
+                style_preset=params.get("style_preset", "modern"),
+                primary_color=params.get("primary_color"),
+                settings=settings,
+            )
+            if page:
+                page.html_content = result.get("html_content", "")
+                page.css_content = result.get("css_content", "")
+        except Exception as e:
+            logger.warning("Failed to generate page '%s': %s", p_data["title"], e)
+
+        created_pages.append(p_data["title"])
+
+    await db.commit()
+
+    logger.info("Created website '%s' with %d pages via O-Brain", params["name"], len(created_pages))
+    return json.dumps({
+        "success": True,
+        "message": f"Website '{params['name']}' created with {len(created_pages)} pages: {', '.join(created_pages)}. Open it at /pages/website/{ws.id}/edit",
+        "website_id": str(ws.id),
+        "navigate_to": f"/pages/website/{ws.id}/edit",
+    })
+
+
+async def _query_page_analytics(db: AsyncSession, user_id: uuid.UUID, params: dict) -> str:
+    """Query analytics for a specific page."""
+    from app.pages.models import Page as PageModel
+    from app.pages.service import get_page_analytics
+
+    name = params.get("page_name", "")
+    days = params.get("days", 30)
+
+    # Find page by title or slug
+    stmt = select(PageModel).where(
+        __import__("sqlalchemy").or_(
+            PageModel.title.ilike(f"%{name}%"),
+            PageModel.slug.ilike(f"%{name}%"),
+        )
+    ).limit(1)
+    result = await db.execute(stmt)
+    page = result.scalar_one_or_none()
+
+    if not page:
+        return json.dumps({"error": f"No page found matching '{name}'"})
+
+    analytics = await get_page_analytics(db, page.id, days)
+    analytics["page_title"] = page.title
+    analytics["page_slug"] = page.slug
+    analytics["page_status"] = page.status.value if hasattr(page.status, 'value') else str(page.status)
+
+    return json.dumps(analytics, default=str)
+
+
+async def _query_website_analytics(db: AsyncSession, user_id: uuid.UUID, params: dict) -> str:
+    """Query aggregate analytics for a website."""
+    from app.pages.models import Page as PageModel, Website
+    from app.pages.service import get_page_analytics
+
+    name = params.get("website_name", "")
+    days = params.get("days", 30)
+
+    stmt = select(Website).where(
+        __import__("sqlalchemy").or_(
+            Website.name.ilike(f"%{name}%"),
+            Website.slug.ilike(f"%{name}%"),
+        )
+    ).limit(1)
+    result = await db.execute(stmt)
+    ws = result.scalar_one_or_none()
+
+    if not ws:
+        return json.dumps({"error": f"No website found matching '{name}'"})
+
+    # Get all pages
+    pages_stmt = select(PageModel).where(PageModel.website_id == ws.id)
+    pages_result = await db.execute(pages_stmt)
+    pages = pages_result.scalars().all()
+
+    total_views = 0
+    total_unique = 0
+    total_submissions = 0
+    page_breakdown = []
+
+    for page in pages:
+        analytics = await get_page_analytics(db, page.id, days)
+        total_views += analytics["total_views"]
+        total_unique += analytics["unique_visitors"]
+        total_submissions += analytics["total_submissions"]
+        page_breakdown.append({
+            "title": page.title,
+            "slug": page.slug,
+            "views": analytics["total_views"],
+            "unique_visitors": analytics["unique_visitors"],
+            "conversion_rate": analytics["conversion_rate"],
+        })
+
+    page_breakdown.sort(key=lambda x: x["views"], reverse=True)
+
+    return json.dumps({
+        "website_name": ws.name,
+        "total_views": total_views,
+        "total_unique_visitors": total_unique,
+        "total_submissions": total_submissions,
+        "overall_conversion_rate": round(total_submissions / total_views * 100, 2) if total_views else 0,
+        "pages": page_breakdown,
+    }, default=str)

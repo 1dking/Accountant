@@ -1,17 +1,22 @@
 """Business logic for the AI page builder module."""
 
+import hashlib
 import json
-import math
+import logging
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
-from app.pages.models import Page, PageAnalytic, PageStatus, PageVersion
+from app.pages.models import (
+    Page, PageAnalytic, PageAnalyticsDaily, PageEvent, PageStatus, PageVersion,
+    PageVisit, Website,
+)
 
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Style presets
@@ -173,6 +178,89 @@ def _slugify(text: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Website CRUD
+# ---------------------------------------------------------------------------
+
+
+async def create_website(db: AsyncSession, name: str, slug: str | None, user) -> Website:
+    ws = Website(
+        id=uuid.uuid4(),
+        name=name,
+        slug=slug or _slugify(name),
+        created_by=user.id,
+    )
+    db.add(ws)
+    await db.flush()
+
+    # Create a default Home page
+    home = Page(
+        id=uuid.uuid4(),
+        title="Home",
+        slug="home",
+        website_id=ws.id,
+        page_order=0,
+        is_homepage=True,
+        created_by=user.id,
+    )
+    db.add(home)
+    await db.commit()
+    await db.refresh(ws)
+    return ws
+
+
+async def list_websites(db: AsyncSession):
+    q = select(Website).order_by(Website.updated_at.desc())
+    result = await db.execute(q)
+    websites = result.scalars().all()
+
+    # Attach page counts
+    items = []
+    for ws in websites:
+        count_q = select(func.count(Page.id)).where(Page.website_id == ws.id)
+        count = (await db.execute(count_q)).scalar() or 0
+        items.append({
+            "id": ws.id,
+            "name": ws.name,
+            "slug": ws.slug,
+            "domain": ws.domain,
+            "is_published": ws.is_published,
+            "page_count": count,
+            "created_at": ws.created_at,
+            "updated_at": ws.updated_at,
+        })
+    return items
+
+
+async def get_website(db: AsyncSession, website_id: uuid.UUID) -> Website:
+    result = await db.execute(select(Website).where(Website.id == website_id))
+    ws = result.scalar_one_or_none()
+    if ws is None:
+        raise NotFoundError("Website", str(website_id))
+    return ws
+
+
+async def update_website(db: AsyncSession, website_id: uuid.UUID, data) -> Website:
+    ws = await get_website(db, website_id)
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(ws, field, value)
+    await db.commit()
+    await db.refresh(ws)
+    return ws
+
+
+async def delete_website(db: AsyncSession, website_id: uuid.UUID) -> None:
+    ws = await get_website(db, website_id)
+    await db.delete(ws)
+    await db.commit()
+
+
+async def get_website_pages(db: AsyncSession, website_id: uuid.UUID):
+    q = select(Page).where(Page.website_id == website_id).order_by(Page.page_order)
+    result = await db.execute(q)
+    return result.scalars().all()
+
+
+# ---------------------------------------------------------------------------
 # Page CRUD
 # ---------------------------------------------------------------------------
 
@@ -183,10 +271,12 @@ async def create_page(db: AsyncSession, data, user) -> Page:
         id=uuid.uuid4(),
         title=data.title,
         slug=slug,
-        description=data.description,
-        style_preset=data.style_preset,
-        primary_color=data.primary_color,
-        font_family=data.font_family,
+        description=getattr(data, "description", None),
+        style_preset=getattr(data, "style_preset", None),
+        primary_color=getattr(data, "primary_color", None),
+        font_family=getattr(data, "font_family", None),
+        website_id=getattr(data, "website_id", None),
+        page_order=getattr(data, "page_order", 0) or 0,
         created_by=user.id,
     )
     db.add(page)
@@ -195,11 +285,22 @@ async def create_page(db: AsyncSession, data, user) -> Page:
     return page
 
 
-async def list_pages(db: AsyncSession, page: int, page_size: int):
+async def list_pages(db: AsyncSession, page: int, page_size: int, website_id: uuid.UUID | None = None):
+    conditions = []
+    if website_id:
+        conditions.append(Page.website_id == website_id)
+    else:
+        conditions.append(Page.website_id.is_(None))
+
     count_q = select(func.count(Page.id))
+    if conditions:
+        count_q = count_q.where(and_(*conditions))
     total = (await db.execute(count_q)).scalar() or 0
 
-    q = select(Page).order_by(Page.updated_at.desc())
+    q = select(Page)
+    if conditions:
+        q = q.where(and_(*conditions))
+    q = q.order_by(Page.updated_at.desc())
     q = q.offset((page - 1) * page_size).limit(page_size)
     result = await db.execute(q)
     pages = result.scalars().all()
@@ -228,7 +329,6 @@ async def update_page(db: AsyncSession, page_id: uuid.UUID, data, user) -> Page:
     page = await get_page(db, page_id)
     update_data = data.model_dump(exclude_unset=True)
 
-    # Create version before update if content changed
     content_fields = {"html_content", "css_content", "js_content", "sections_json"}
     if content_fields & set(update_data.keys()):
         await _create_version(db, page, user.id, "Content updated")
@@ -266,7 +366,6 @@ async def publish_page(db: AsyncSession, page_id: uuid.UUID, user) -> Page:
 async def _create_version(
     db: AsyncSession, page: Page, user_id: uuid.UUID, summary: str
 ) -> PageVersion:
-    # Get next version number
     q = select(func.max(PageVersion.version_number)).where(
         PageVersion.page_id == page.id
     )
@@ -309,7 +408,6 @@ async def restore_version(
     if version is None:
         raise NotFoundError("PageVersion", str(version_id))
 
-    # Save current as a version before restoring
     await _create_version(db, page, user.id, f"Before restore to v{version.version_number}")
 
     page.html_content = version.html_content
@@ -322,7 +420,7 @@ async def restore_version(
 
 
 # ---------------------------------------------------------------------------
-# Analytics
+# Analytics — legacy (simple counts)
 # ---------------------------------------------------------------------------
 
 
@@ -366,14 +464,9 @@ async def record_page_event(
 async def get_page_analytics(
     db: AsyncSession, page_id: uuid.UUID, days: int = 30
 ) -> dict:
-    cutoff = datetime.now(timezone.utc).replace(
-        hour=0, minute=0, second=0, microsecond=0
-    )
-    from datetime import timedelta
-
+    cutoff = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     cutoff = cutoff - timedelta(days=days)
 
-    # Total views
     total_views = (
         await db.execute(
             select(func.count(PageAnalytic.id)).where(
@@ -384,7 +477,6 @@ async def get_page_analytics(
         )
     ).scalar() or 0
 
-    # Unique visitors (by IP)
     unique_visitors = (
         await db.execute(
             select(func.count(func.distinct(PageAnalytic.visitor_ip))).where(
@@ -395,7 +487,6 @@ async def get_page_analytics(
         )
     ).scalar() or 0
 
-    # Submissions
     total_submissions = (
         await db.execute(
             select(func.count(PageAnalytic.id)).where(
@@ -410,17 +501,328 @@ async def get_page_analytics(
         (total_submissions / total_views * 100) if total_views > 0 else 0.0
     )
 
+    # Views by day from daily table
+    daily_q = (
+        select(PageAnalyticsDaily)
+        .where(PageAnalyticsDaily.page_id == page_id, PageAnalyticsDaily.date >= cutoff.date())
+        .order_by(PageAnalyticsDaily.date)
+    )
+    daily_result = await db.execute(daily_q)
+    daily_rows = daily_result.scalars().all()
+    views_by_day = [
+        {"date": str(r.date), "views": r.page_views, "unique": r.unique_visitors}
+        for r in daily_rows
+    ]
+
+    # Scroll depth from daily aggregates
+    scroll_depth = {}
+    if daily_rows:
+        s25 = sum(r.scroll_25_count for r in daily_rows)
+        s50 = sum(r.scroll_50_count for r in daily_rows)
+        s75 = sum(r.scroll_75_count for r in daily_rows)
+        s100 = sum(r.scroll_100_count for r in daily_rows)
+        total_v = sum(r.page_views for r in daily_rows) or 1
+        scroll_depth = {
+            "25%": round(s25 / total_v * 100, 1),
+            "50%": round(s50 / total_v * 100, 1),
+            "75%": round(s75 / total_v * 100, 1),
+            "100%": round(s100 / total_v * 100, 1),
+        }
+
+    # Top traffic sources from visits
+    source_q = (
+        select(PageVisit.referrer, func.count(PageVisit.id).label("count"))
+        .where(PageVisit.page_id == page_id, PageVisit.created_at >= cutoff)
+        .group_by(PageVisit.referrer)
+        .order_by(func.count(PageVisit.id).desc())
+        .limit(10)
+    )
+    source_result = await db.execute(source_q)
+    top_sources = [
+        {"source": r[0] or "Direct", "count": r[1]}
+        for r in source_result.all()
+    ]
+
+    # Devices
+    device_q = (
+        select(PageVisit.device_type, func.count(PageVisit.id).label("count"))
+        .where(PageVisit.page_id == page_id, PageVisit.created_at >= cutoff)
+        .group_by(PageVisit.device_type)
+    )
+    device_result = await db.execute(device_q)
+    devices = {r[0] or "Unknown": r[1] for r in device_result.all()}
+
+    # Top clicks
+    click_q = (
+        select(PageEvent.event_data_json, func.count(PageEvent.id).label("count"))
+        .where(
+            PageEvent.page_id == page_id,
+            PageEvent.event_type == "click",
+            PageEvent.created_at >= cutoff,
+        )
+        .group_by(PageEvent.event_data_json)
+        .order_by(func.count(PageEvent.id).desc())
+        .limit(20)
+    )
+    click_result = await db.execute(click_q)
+    top_clicks = []
+    for r in click_result.all():
+        try:
+            data = json.loads(r[0]) if r[0] else {}
+        except (json.JSONDecodeError, TypeError):
+            data = {}
+        top_clicks.append({"element": data.get("text", data.get("selector", "Unknown")), "count": r[1]})
+
+    # UTM campaigns
+    utm_q = (
+        select(
+            PageVisit.utm_campaign,
+            func.count(PageVisit.id).label("visitors"),
+        )
+        .where(
+            PageVisit.page_id == page_id,
+            PageVisit.created_at >= cutoff,
+            PageVisit.utm_campaign.isnot(None),
+        )
+        .group_by(PageVisit.utm_campaign)
+        .order_by(func.count(PageVisit.id).desc())
+        .limit(10)
+    )
+    utm_result = await db.execute(utm_q)
+    utm_campaigns = [{"campaign": r[0], "visitors": r[1]} for r in utm_result.all()]
+
+    avg_time = 0
+    bounce_rate = 0.0
+    if daily_rows:
+        total_time = sum(r.avg_time_seconds * r.page_views for r in daily_rows)
+        total_pv = sum(r.page_views for r in daily_rows) or 1
+        avg_time = round(total_time / total_pv)
+        total_bounce = sum(r.bounce_count for r in daily_rows)
+        bounce_rate = round(total_bounce / total_pv * 100, 1)
+
     return {
         "total_views": total_views,
         "unique_visitors": unique_visitors,
         "total_submissions": total_submissions,
         "conversion_rate": round(conversion_rate, 2),
-        "views_by_day": [],
+        "views_by_day": views_by_day,
+        "avg_time_seconds": avg_time,
+        "bounce_rate": bounce_rate,
+        "top_sources": top_sources,
+        "devices": devices,
+        "scroll_depth": scroll_depth,
+        "top_clicks": top_clicks,
+        "utm_campaigns": utm_campaigns,
     }
 
 
 # ---------------------------------------------------------------------------
-# AI generation (stub — uses Gemini API when key available)
+# Analytics — detailed tracking (new visitor-level system)
+# ---------------------------------------------------------------------------
+
+
+def _parse_user_agent(ua_string: str | None) -> dict:
+    """Basic UA parsing."""
+    if not ua_string:
+        return {"device_type": "unknown", "browser": "unknown", "os": "unknown"}
+
+    ua = ua_string.lower()
+    device = "desktop"
+    if "mobile" in ua or "android" in ua and "tablet" not in ua:
+        device = "mobile"
+    elif "tablet" in ua or "ipad" in ua:
+        device = "tablet"
+
+    browser = "other"
+    for b in ["chrome", "firefox", "safari", "edge", "opera"]:
+        if b in ua:
+            browser = b.title()
+            break
+
+    os_name = "other"
+    for o, n in [("windows", "Windows"), ("mac", "macOS"), ("linux", "Linux"),
+                  ("android", "Android"), ("iphone", "iOS"), ("ipad", "iOS")]:
+        if o in ua:
+            os_name = n
+            break
+
+    return {"device_type": device, "browser": browser, "os": os_name}
+
+
+async def track_event(
+    db: AsyncSession,
+    page_id: uuid.UUID,
+    visitor_id: str,
+    session_id: str,
+    event_type: str,
+    event_data: dict | None = None,
+    referrer: str | None = None,
+    utm_source: str | None = None,
+    utm_medium: str | None = None,
+    utm_campaign: str | None = None,
+    user_agent: str | None = None,
+    client_ip: str | None = None,
+) -> None:
+    """Track a visitor event (page_view, scroll, click, etc.)."""
+    # Get or create visit
+    ip_hash = hashlib.sha256(client_ip.encode()).hexdigest()[:16] if client_ip else None
+
+    # Check for existing visit in this session
+    visit_q = select(PageVisit).where(
+        PageVisit.page_id == page_id,
+        PageVisit.session_id == session_id,
+        PageVisit.visitor_id == visitor_id,
+    )
+    visit_result = await db.execute(visit_q)
+    visit = visit_result.scalar_one_or_none()
+
+    if not visit:
+        ua_info = _parse_user_agent(user_agent)
+        # Get website_id from page
+        page = await db.execute(select(Page.website_id).where(Page.id == page_id))
+        ws_id = page.scalar_one_or_none()
+
+        visit = PageVisit(
+            id=uuid.uuid4(),
+            page_id=page_id,
+            website_id=ws_id,
+            visitor_id=visitor_id,
+            session_id=session_id,
+            referrer=referrer,
+            utm_source=utm_source,
+            utm_medium=utm_medium,
+            utm_campaign=utm_campaign,
+            device_type=ua_info["device_type"],
+            browser=ua_info["browser"],
+            os=ua_info["os"],
+            ip_hash=ip_hash,
+        )
+        db.add(visit)
+        await db.flush()
+
+    # Record the event
+    evt = PageEvent(
+        id=uuid.uuid4(),
+        visit_id=visit.id,
+        page_id=page_id,
+        event_type=event_type,
+        event_data_json=json.dumps(event_data) if event_data else None,
+    )
+    db.add(evt)
+    await db.commit()
+
+
+async def aggregate_daily_analytics(db: AsyncSession) -> int:
+    """Aggregate yesterday's page_visits/events into page_analytics_daily."""
+    yesterday = date.today() - timedelta(days=1)
+    logger.info("Aggregating analytics for %s", yesterday)
+
+    # Get all pages that had visits yesterday
+    page_ids_q = (
+        select(func.distinct(PageVisit.page_id))
+        .where(func.date(PageVisit.created_at) == yesterday)
+    )
+    page_ids_result = await db.execute(page_ids_q)
+    page_ids = [r[0] for r in page_ids_result.all()]
+
+    count = 0
+    for pid in page_ids:
+        # Delete existing row for this date
+        await db.execute(
+            delete(PageAnalyticsDaily).where(
+                PageAnalyticsDaily.page_id == pid,
+                PageAnalyticsDaily.date == yesterday,
+            )
+        )
+
+        # Count visits
+        visitors = (await db.execute(
+            select(func.count(PageVisit.id)).where(
+                PageVisit.page_id == pid,
+                func.date(PageVisit.created_at) == yesterday,
+            )
+        )).scalar() or 0
+
+        unique = (await db.execute(
+            select(func.count(func.distinct(PageVisit.visitor_id))).where(
+                PageVisit.page_id == pid,
+                func.date(PageVisit.created_at) == yesterday,
+            )
+        )).scalar() or 0
+
+        # Count events
+        def _count_event(event_type):
+            return select(func.count(PageEvent.id)).where(
+                PageEvent.page_id == pid,
+                PageEvent.event_type == event_type,
+                func.date(PageEvent.created_at) == yesterday,
+            )
+
+        page_views = (await db.execute(_count_event("page_view"))).scalar() or visitors
+        s25 = (await db.execute(_count_event("scroll_25"))).scalar() or 0
+        s50 = (await db.execute(_count_event("scroll_50"))).scalar() or 0
+        s75 = (await db.execute(_count_event("scroll_75"))).scalar() or 0
+        s100 = (await db.execute(_count_event("scroll_100"))).scalar() or 0
+        clicks = (await db.execute(_count_event("click"))).scalar() or 0
+        forms = (await db.execute(_count_event("form_submit"))).scalar() or 0
+
+        # Time on page (from time_on_page events)
+        time_q = select(PageEvent.event_data_json).where(
+            PageEvent.page_id == pid,
+            PageEvent.event_type == "time_on_page",
+            func.date(PageEvent.created_at) == yesterday,
+        )
+        time_result = await db.execute(time_q)
+        total_time = 0
+        time_count = 0
+        for r in time_result.scalars().all():
+            try:
+                d = json.loads(r) if r else {}
+                total_time += d.get("seconds", 0)
+                time_count += 1
+            except (json.JSONDecodeError, TypeError):
+                pass
+        avg_time = round(total_time / time_count) if time_count else 0
+
+        # Bounce = visits with only 1 event (page_view only)
+        bounce_q = select(func.count()).select_from(
+            select(PageEvent.visit_id)
+            .where(
+                PageEvent.page_id == pid,
+                func.date(PageEvent.created_at) == yesterday,
+            )
+            .group_by(PageEvent.visit_id)
+            .having(func.count(PageEvent.id) == 1)
+            .subquery()
+        )
+        bounces = (await db.execute(bounce_q)).scalar() or 0
+
+        daily = PageAnalyticsDaily(
+            id=uuid.uuid4(),
+            page_id=pid,
+            date=yesterday,
+            visitors=visitors,
+            unique_visitors=unique,
+            page_views=page_views,
+            avg_time_seconds=avg_time,
+            bounce_count=bounces,
+            scroll_25_count=s25,
+            scroll_50_count=s50,
+            scroll_75_count=s75,
+            scroll_100_count=s100,
+            click_count=clicks,
+            form_submit_count=forms,
+        )
+        db.add(daily)
+        count += 1
+
+    await db.commit()
+    logger.info("Aggregated analytics for %d pages", count)
+    return count
+
+
+# ---------------------------------------------------------------------------
+# AI generation
 # ---------------------------------------------------------------------------
 
 
@@ -450,7 +852,17 @@ async def ai_generate_page(
                 gemini_key, prompt, color, font, requested_sections
             )
         except Exception:
-            pass  # Fallback to template
+            pass
+
+    # Try Claude API
+    anthropic_key = getattr(settings, "anthropic_api_key", "") if settings else ""
+    if anthropic_key:
+        try:
+            return await _generate_with_claude(
+                anthropic_key, prompt, color, font, requested_sections
+            )
+        except Exception:
+            pass
 
     # Fallback: assemble from section templates
     html_parts = []
@@ -492,23 +904,214 @@ async def ai_refine_page(
         except Exception:
             pass
 
-    # If no API key or call fails, return current content unchanged
+    anthropic_key = getattr(settings, "anthropic_api_key", "") if settings else ""
+    if anthropic_key:
+        try:
+            return await _refine_with_claude(
+                anthropic_key, page.html_content or "", page.css_content or "",
+                instruction, section_index,
+            )
+        except Exception:
+            pass
+
     return {
         "html_content": page.html_content,
         "css_content": page.css_content,
         "js_content": page.js_content,
-        "message": "AI refinement requires a Gemini API key. Content unchanged.",
+        "message": "AI refinement requires a Gemini or Anthropic API key. Content unchanged.",
+    }
+
+
+async def ai_chat_generate(
+    db: AsyncSession,
+    page_id: uuid.UUID,
+    message: str,
+    settings=None,
+) -> dict:
+    """Chat-style page generation/refinement. Returns updated HTML/CSS and AI response."""
+    page = await get_page(db, page_id)
+
+    # Load chat history
+    chat_history = []
+    if page.chat_history_json:
+        try:
+            chat_history = json.loads(page.chat_history_json)
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    # Add user message
+    chat_history.append({"role": "user", "content": message})
+
+    gemini_key = getattr(settings, "gemini_api_key", "") if settings else ""
+    anthropic_key = getattr(settings, "anthropic_api_key", "") if settings else ""
+
+    # Build context with branding info
+    branding_context = ""
+    try:
+        from app.settings.models import CompanySetting
+        result = await db.execute(select(CompanySetting).limit(1))
+        company = result.scalar_one_or_none()
+        if company:
+            branding_context = f"\nCompany: {company.company_name or ''}"
+    except Exception:
+        pass
+
+    system_prompt = (
+        f"You are a professional web designer AI. You build and modify landing pages.\n"
+        f"The user is chatting with you to create or refine their page.\n"
+        f"{branding_context}\n\n"
+        f"Current page HTML:\n{page.html_content or '(empty - generate a new page)'}\n\n"
+        f"Current page CSS:\n{page.css_content or '(empty)'}\n\n"
+        f"IMPORTANT: Return your response in this exact JSON format:\n"
+        f'{{"response": "your conversational reply to the user", '
+        f'"html_content": "the complete updated HTML", '
+        f'"css_content": "the complete updated CSS"}}\n\n'
+        f"Always return the FULL HTML and CSS, not just the changed parts. "
+        f"Make the design modern, responsive, and professional. "
+        f"Use the primary color {page.primary_color or '#2563eb'} and font {page.font_family or 'Inter, system-ui, sans-serif'}."
+    )
+
+    result = None
+
+    if gemini_key:
+        try:
+            result = await _chat_with_gemini(gemini_key, system_prompt, chat_history)
+        except Exception as e:
+            logger.warning("Gemini chat failed: %s", e)
+
+    if not result and anthropic_key:
+        try:
+            result = await _chat_with_claude(anthropic_key, system_prompt, chat_history)
+        except Exception as e:
+            logger.warning("Claude chat failed: %s", e)
+
+    if not result:
+        result = {
+            "response": "I need an AI API key (Gemini or Anthropic) to generate pages. Please configure one in settings.",
+            "html_content": page.html_content or "",
+            "css_content": page.css_content or "",
+        }
+
+    # Save chat history
+    chat_history.append({"role": "assistant", "content": result["response"]})
+    # Keep last 50 messages
+    if len(chat_history) > 50:
+        chat_history = chat_history[-50:]
+    page.chat_history_json = json.dumps(chat_history)
+
+    # Update page content if AI returned new content
+    if result.get("html_content") and result["html_content"] != page.html_content:
+        page.html_content = result["html_content"]
+    if result.get("css_content") and result["css_content"] != page.css_content:
+        page.css_content = result["css_content"]
+
+    await db.commit()
+    await db.refresh(page)
+
+    return {
+        "response": result["response"],
+        "html_content": page.html_content,
+        "css_content": page.css_content,
+        "js_content": page.js_content or "",
+    }
+
+
+async def _chat_with_gemini(api_key: str, system_prompt: str, chat_history: list) -> dict:
+    import httpx
+
+    messages = [{"text": system_prompt}]
+    for msg in chat_history[-10:]:  # Last 10 messages for context
+        messages.append({"text": f"{msg['role'].upper()}: {msg['content']}"})
+
+    async with httpx.AsyncClient(timeout=90) as client:
+        resp = await client.post(
+            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}",
+            json={
+                "contents": [{"parts": messages}],
+                "generationConfig": {"temperature": 0.7, "maxOutputTokens": 16384},
+            },
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        text = data["candidates"][0]["content"]["parts"][0]["text"]
+
+    return _parse_ai_response(text)
+
+
+async def _chat_with_claude(api_key: str, system_prompt: str, chat_history: list) -> dict:
+    import httpx
+
+    messages = []
+    for msg in chat_history[-10:]:
+        messages.append({"role": msg["role"], "content": msg["content"]})
+
+    async with httpx.AsyncClient(timeout=90) as client:
+        resp = await client.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={
+                "x-api-key": api_key,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json",
+            },
+            json={
+                "model": "claude-sonnet-4-20250514",
+                "max_tokens": 16384,
+                "system": system_prompt,
+                "messages": messages,
+            },
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        text = data["content"][0]["text"]
+
+    return _parse_ai_response(text)
+
+
+def _parse_ai_response(text: str) -> dict:
+    """Parse AI response — try JSON first, then extract HTML/CSS."""
+    # Try JSON parse
+    try:
+        # Find JSON block
+        json_match = re.search(r'\{[\s\S]*"response"[\s\S]*\}', text)
+        if json_match:
+            parsed = json.loads(json_match.group())
+            if "response" in parsed:
+                return parsed
+    except (json.JSONDecodeError, TypeError):
+        pass
+
+    # Fallback: extract HTML and CSS from fenced blocks
+    html = ""
+    css = ""
+    response = text
+
+    html_match = re.search(r'```html\s*\n?([\s\S]*?)\n?```', text)
+    if html_match:
+        html = html_match.group(1).strip()
+        response = re.sub(r'```html[\s\S]*?```', '', text).strip()
+
+    css_match = re.search(r'```css\s*\n?([\s\S]*?)\n?```', text)
+    if css_match:
+        css = css_match.group(1).strip()
+        response = re.sub(r'```css[\s\S]*?```', response).strip()
+
+    # Extract embedded style from HTML
+    if html and not css:
+        style_match = re.search(r'<style[^>]*>(.*?)</style>', html, re.DOTALL)
+        if style_match:
+            css = style_match.group(1).strip()
+            html = re.sub(r'<style[^>]*>.*?</style>', '', html, flags=re.DOTALL).strip()
+
+    return {
+        "response": response or "I've updated the page.",
+        "html_content": html,
+        "css_content": css,
     }
 
 
 async def _generate_with_gemini(
-    api_key: str,
-    prompt: str,
-    color: str,
-    font: str,
-    sections: list[str],
+    api_key: str, prompt: str, color: str, font: str, sections: list[str],
 ) -> dict:
-    """Call Gemini API to generate page HTML/CSS."""
     import httpx
 
     system_prompt = (
@@ -533,16 +1136,61 @@ async def _generate_with_gemini(
         data = resp.json()
         text = data["candidates"][0]["content"]["parts"][0]["text"]
 
-    # Extract HTML and CSS from response
     html = text
     css = ""
-    # Try to extract style block
     style_match = re.search(r"<style[^>]*>(.*?)</style>", text, re.DOTALL)
     if style_match:
         css = style_match.group(1).strip()
         html = re.sub(r"<style[^>]*>.*?</style>", "", text, flags=re.DOTALL).strip()
 
-    # Strip markdown code fences if present
+    html = re.sub(r"^```html?\s*\n?", "", html)
+    html = re.sub(r"\n?```\s*$", "", html)
+
+    return {
+        "html_content": html,
+        "css_content": css,
+        "js_content": "",
+        "sections_json": json.dumps(sections),
+    }
+
+
+async def _generate_with_claude(
+    api_key: str, prompt: str, color: str, font: str, sections: list[str],
+) -> dict:
+    import httpx
+
+    system_prompt = (
+        f"You are a web designer. Generate a complete, responsive landing page "
+        f"using HTML and CSS. Use {color} as primary color and {font} as font. "
+        f"Include sections: {', '.join(sections)}. "
+        f"Return ONLY the HTML with embedded <style> tags. Modern, responsive, professional."
+    )
+
+    async with httpx.AsyncClient(timeout=60) as client:
+        resp = await client.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={
+                "x-api-key": api_key,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json",
+            },
+            json={
+                "model": "claude-sonnet-4-20250514",
+                "max_tokens": 8192,
+                "messages": [{"role": "user", "content": f"{system_prompt}\n\n{prompt}"}],
+            },
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        text = data["content"][0]["text"]
+
+    html = text
+    css = ""
+    style_match = re.search(r"<style[^>]*>(.*?)</style>", text, re.DOTALL)
+    if style_match:
+        css = style_match.group(1).strip()
+        html = re.sub(r"<style[^>]*>.*?</style>", "", text, flags=re.DOTALL).strip()
+
     html = re.sub(r"^```html?\s*\n?", "", html)
     html = re.sub(r"\n?```\s*$", "", html)
 
@@ -555,13 +1203,8 @@ async def _generate_with_gemini(
 
 
 async def _refine_with_gemini(
-    api_key: str,
-    html: str,
-    css: str,
-    instruction: str,
-    section_index: int | None = None,
+    api_key: str, html: str, css: str, instruction: str, section_index: int | None = None,
 ) -> dict:
-    """Call Gemini API to refine existing page."""
     import httpx
 
     system_prompt = (
@@ -603,6 +1246,53 @@ async def _refine_with_gemini(
     }
 
 
+async def _refine_with_claude(
+    api_key: str, html: str, css: str, instruction: str, section_index: int | None = None,
+) -> dict:
+    import httpx
+
+    system_prompt = (
+        "You are a web designer. Apply the instruction to the HTML/CSS. "
+        "Return the complete updated HTML with embedded <style> tags."
+    )
+    content = f"HTML:\n{html}\n\nCSS:\n{css}\n\nInstruction: {instruction}"
+    if section_index is not None:
+        content += f"\n\nOnly modify section index {section_index}."
+
+    async with httpx.AsyncClient(timeout=60) as client:
+        resp = await client.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={
+                "x-api-key": api_key,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json",
+            },
+            json={
+                "model": "claude-sonnet-4-20250514",
+                "max_tokens": 8192,
+                "messages": [{"role": "user", "content": f"{system_prompt}\n\n{content}"}],
+            },
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        text = data["content"][0]["text"]
+
+    css_out = ""
+    style_match = re.search(r"<style[^>]*>(.*?)</style>", text, re.DOTALL)
+    if style_match:
+        css_out = style_match.group(1).strip()
+        text = re.sub(r"<style[^>]*>.*?</style>", "", text, flags=re.DOTALL).strip()
+
+    text = re.sub(r"^```html?\s*\n?", "", text)
+    text = re.sub(r"\n?```\s*$", "", text)
+
+    return {
+        "html_content": text,
+        "css_content": css_out or css,
+        "js_content": "",
+    }
+
+
 def _generate_default_css(color: str, font: str) -> str:
     return f"""
 :root {{
@@ -627,3 +1317,251 @@ img {{ max-width: 100%; height: auto; }}
   .hidden {{ display: none; }}
 }}
 """
+
+
+# ---------------------------------------------------------------------------
+# Video processing
+# ---------------------------------------------------------------------------
+
+
+async def process_video(input_path: str, output_dir: str) -> dict:
+    """Process uploaded video: compress, strip audio, generate poster."""
+    import asyncio
+    import os
+
+    base_name = str(uuid.uuid4())
+    mp4_path = os.path.join(output_dir, f"{base_name}.mp4")
+    webm_path = os.path.join(output_dir, f"{base_name}.webm")
+    poster_path = os.path.join(output_dir, f"{base_name}_poster.jpg")
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Generate poster (first frame)
+    poster_cmd = [
+        "ffmpeg", "-i", input_path, "-vframes", "1", "-q:v", "2",
+        "-y", poster_path,
+    ]
+    proc = await asyncio.create_subprocess_exec(
+        *poster_cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+    )
+    await proc.communicate()
+
+    # Compress to MP4 (H.264, 720p, no audio, max 30s)
+    mp4_cmd = [
+        "ffmpeg", "-i", input_path, "-an", "-vf", "scale=-2:720",
+        "-c:v", "libx264", "-preset", "medium", "-crf", "28",
+        "-t", "30", "-movflags", "+faststart", "-y", mp4_path,
+    ]
+    proc = await asyncio.create_subprocess_exec(
+        *mp4_cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+    )
+    await proc.communicate()
+
+    # Compress to WebM (VP9, 720p, no audio, max 30s)
+    webm_cmd = [
+        "ffmpeg", "-i", input_path, "-an", "-vf", "scale=-2:720",
+        "-c:v", "libvpx-vp9", "-b:v", "1M", "-crf", "35",
+        "-t", "30", "-y", webm_path,
+    ]
+    proc = await asyncio.create_subprocess_exec(
+        *webm_cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+    )
+    await proc.communicate()
+
+    # Get duration
+    duration = 0.0
+    try:
+        probe_cmd = [
+            "ffprobe", "-v", "quiet", "-show_entries", "format=duration",
+            "-of", "csv=p=0", input_path,
+        ]
+        proc = await asyncio.create_subprocess_exec(
+            *probe_cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, _ = await proc.communicate()
+        duration = min(float(stdout.decode().strip()), 30.0)
+    except Exception:
+        pass
+
+    # Clean up input
+    try:
+        os.unlink(input_path)
+    except Exception:
+        pass
+
+    return {
+        "mp4_path": mp4_path,
+        "webm_path": webm_path,
+        "poster_path": poster_path,
+        "duration_seconds": duration,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Tracking pixel / script injection
+# ---------------------------------------------------------------------------
+
+
+def build_tracking_head(page: Page, website: Website | None = None) -> str:
+    """Build tracking pixel/script tags to inject in <head>."""
+    scripts = []
+
+    # Merge website-level + page-level pixels (page overrides)
+    pixels = {}
+    if website and website.tracking_pixels_json:
+        try:
+            pixels.update(json.loads(website.tracking_pixels_json))
+        except (json.JSONDecodeError, TypeError):
+            pass
+    if page.tracking_pixels_json:
+        try:
+            page_pixels = json.loads(page.tracking_pixels_json)
+            pixels.update(page_pixels)
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    # Facebook Pixel
+    fb_id = pixels.get("facebook_pixel")
+    if fb_id:
+        scripts.append(
+            f"<script>!function(f,b,e,v,n,t,s){{if(f.fbq)return;n=f.fbq=function(){{n.callMethod?"
+            f"n.callMethod.apply(n,arguments):n.queue.push(arguments)}};if(!f._fbq)f._fbq=n;"
+            f"n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;"
+            f"t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}}"
+            f"(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');"
+            f"fbq('init','{fb_id}');fbq('track','PageView');</script>"
+        )
+
+    # GA4
+    ga4_id = pixels.get("ga4")
+    if ga4_id:
+        scripts.append(
+            f'<script async src="https://www.googletagmanager.com/gtag/js?id={ga4_id}"></script>'
+            f"<script>window.dataLayer=window.dataLayer||[];function gtag(){{dataLayer.push(arguments)}}"
+            f"gtag('js',new Date());gtag('config','{ga4_id}');</script>"
+        )
+
+    # GTM
+    gtm_id = pixels.get("gtm")
+    if gtm_id:
+        scripts.append(
+            f"<script>(function(w,d,s,l,i){{w[l]=w[l]||[];w[l].push({{'gtm.start':new Date().getTime(),"
+            f"event:'gtm.js'}});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?"
+            f"'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;"
+            f"f.parentNode.insertBefore(j,f);}})(window,document,'script','dataLayer','{gtm_id}');</script>"
+        )
+
+    # TikTok Pixel
+    tt_id = pixels.get("tiktok")
+    if tt_id:
+        scripts.append(
+            f"<script>!function(w,d,t){{w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];"
+            f"ttq.methods=['page','track','identify','instances','debug','on','off','once','ready','alias','group','enableCookie','disableCookie'];"
+            f"ttq.setAndDefer=function(t,e){{t[e]=function(){{t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}}};"
+            f"for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);"
+            f"ttq.instance=function(t){{for(var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);"
+            f"return e}};ttq.load=function(e,n){{var i='https://analytics.tiktok.com/i18n/pixel/events.js';"
+            f"ttq._i=ttq._i||{{}};ttq._i[e]=[];ttq._i[e]._u=i;ttq._t=ttq._t||{{}};ttq._t[e]=+new Date;"
+            f"ttq._o=ttq._o||{{}};ttq._o[e]=n||{{}};var o=document.createElement('script');"
+            f"o.type='text/javascript';o.async=!0;o.src=i+'?sdkid='+e+'&lib='+t;var a=document.getElementsByTagName('script')[0];"
+            f"a.parentNode.insertBefore(o,a)}};ttq.load('{tt_id}');ttq.page();}}(window,document,'ttq');</script>"
+        )
+
+    # LinkedIn
+    li_id = pixels.get("linkedin")
+    if li_id:
+        scripts.append(
+            f'<script>_linkedin_partner_id="{li_id}";window._linkedin_data_partner_ids='
+            f'window._linkedin_data_partner_ids||[];window._linkedin_data_partner_ids.push(_linkedin_partner_id);</script>'
+            f'<script>(function(l){{if(!l){{window.lintrk=function(a,b){{window.lintrk.q.push([a,b])}};'
+            f'window.lintrk.q=[]}};var s=document.getElementsByTagName("script")[0];var b=document.createElement("script");'
+            f'b.type="text/javascript";b.async=true;b.src="https://snap.licdn.com/li.lms-analytics/insight.min.js";'
+            f's.parentNode.insertBefore(b,s);}})(window.lintrk);</script>'
+        )
+
+    # Custom scripts (head placement)
+    custom_scripts = pixels.get("custom_scripts", [])
+    for script in custom_scripts:
+        if script.get("active") and script.get("placement") == "head":
+            scripts.append(script.get("code", ""))
+
+    return "\n".join(scripts)
+
+
+def build_tracking_body_start(page: Page, website: Website | None = None) -> str:
+    """Build scripts for body start."""
+    pixels = {}
+    if website and website.tracking_pixels_json:
+        try:
+            pixels.update(json.loads(website.tracking_pixels_json))
+        except (json.JSONDecodeError, TypeError):
+            pass
+    if page.tracking_pixels_json:
+        try:
+            pixels.update(json.loads(page.tracking_pixels_json))
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    scripts = []
+    custom_scripts = pixels.get("custom_scripts", [])
+    for script in custom_scripts:
+        if script.get("active") and script.get("placement") == "body_start":
+            scripts.append(script.get("code", ""))
+    return "\n".join(scripts)
+
+
+def build_tracking_body_end(page: Page, website: Website | None = None) -> str:
+    """Build scripts for body end."""
+    pixels = {}
+    if website and website.tracking_pixels_json:
+        try:
+            pixels.update(json.loads(website.tracking_pixels_json))
+        except (json.JSONDecodeError, TypeError):
+            pass
+    if page.tracking_pixels_json:
+        try:
+            pixels.update(json.loads(page.tracking_pixels_json))
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    scripts = []
+    custom_scripts = pixels.get("custom_scripts", [])
+    for script in custom_scripts:
+        if script.get("active") and script.get("placement") == "body_end":
+            scripts.append(script.get("code", ""))
+    return "\n".join(scripts)
+
+
+def build_analytics_script(page_id: str, base_url: str) -> str:
+    """Build the lightweight analytics tracking script."""
+    return f"""<script>
+(function(){{
+  var pid="{page_id}";
+  var endpoint="{base_url}/api/analytics/track";
+  var vid=localStorage.getItem("_av")||("v_"+Math.random().toString(36).substr(2,9));
+  localStorage.setItem("_av",vid);
+  var sid=sessionStorage.getItem("_as")||("s_"+Math.random().toString(36).substr(2,9));
+  sessionStorage.setItem("_as",sid);
+  var u=new URL(location.href);
+  var utm_s=u.searchParams.get("utm_source");
+  var utm_m=u.searchParams.get("utm_medium");
+  var utm_c=u.searchParams.get("utm_campaign");
+  function send(type,data){{
+    var body=JSON.stringify({{page_id:pid,visitor_id:vid,session_id:sid,event_type:type,event_data:data||{{}},referrer:document.referrer,utm_source:utm_s,utm_medium:utm_m,utm_campaign:utm_c}});
+    if(navigator.sendBeacon){{navigator.sendBeacon(endpoint,body)}}
+    else{{fetch(endpoint,{{method:"POST",body:body,headers:{{"Content-Type":"application/json"}},keepalive:true}})}}
+  }}
+  send("page_view");
+  var scrolled={{}};
+  window.addEventListener("scroll",function(){{
+    var pct=Math.round((window.scrollY+window.innerHeight)/document.documentElement.scrollHeight*100);
+    [25,50,75,100].forEach(function(t){{if(pct>=t&&!scrolled[t]){{scrolled[t]=1;send("scroll_"+t)}}}});
+  }});
+  document.addEventListener("click",function(e){{
+    var t=e.target.closest("a,button,[role=button]");
+    if(t){{send("click",{{text:t.innerText.substring(0,100),selector:t.tagName+(t.className?" ."+t.className.split(" ")[0]:""),href:t.href||""}})}}
+  }});
+  var start=Date.now();
+  window.addEventListener("beforeunload",function(){{send("time_on_page",{{seconds:Math.round((Date.now()-start)/1000)}})}});
+}})();
+</script>"""

@@ -1,10 +1,66 @@
 """Pydantic schemas for the AI page builder module."""
 
 import uuid
-from datetime import datetime
+from datetime import datetime, date
 from typing import Optional
 
 from pydantic import BaseModel, Field
+
+
+# ── Website schemas ─────────────────────────────────────────────────────
+
+
+class WebsiteCreate(BaseModel):
+    name: str = Field(max_length=255)
+    slug: Optional[str] = None
+
+
+class WebsiteUpdate(BaseModel):
+    name: Optional[str] = Field(None, max_length=255)
+    slug: Optional[str] = None
+    domain: Optional[str] = None
+    favicon_url: Optional[str] = None
+    global_css: Optional[str] = None
+    nav_config_json: Optional[str] = None
+    header_html: Optional[str] = None
+    footer_html: Optional[str] = None
+    seo_defaults_json: Optional[str] = None
+    tracking_pixels_json: Optional[str] = None
+    is_published: Optional[bool] = None
+
+
+class WebsiteResponse(BaseModel):
+    id: uuid.UUID
+    name: str
+    slug: str
+    domain: Optional[str] = None
+    favicon_url: Optional[str] = None
+    global_css: Optional[str] = None
+    nav_config_json: Optional[str] = None
+    header_html: Optional[str] = None
+    footer_html: Optional[str] = None
+    seo_defaults_json: Optional[str] = None
+    tracking_pixels_json: Optional[str] = None
+    is_published: bool
+    created_by: uuid.UUID
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class WebsiteListItem(BaseModel):
+    id: uuid.UUID
+    name: str
+    slug: str
+    domain: Optional[str] = None
+    is_published: bool
+    page_count: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+
+# ── Page schemas ────────────────────────────────────────────────────────
 
 
 class PageCreate(BaseModel):
@@ -14,6 +70,8 @@ class PageCreate(BaseModel):
     style_preset: Optional[str] = None
     primary_color: Optional[str] = None
     font_family: Optional[str] = None
+    website_id: Optional[uuid.UUID] = None
+    page_order: Optional[int] = None
 
 
 class PageUpdate(BaseModel):
@@ -35,6 +93,9 @@ class PageUpdate(BaseModel):
     style_preset: Optional[str] = None
     primary_color: Optional[str] = None
     font_family: Optional[str] = None
+    tracking_pixels_json: Optional[str] = None
+    chat_history_json: Optional[str] = None
+    page_order: Optional[int] = None
 
 
 class PageResponse(BaseModel):
@@ -57,6 +118,10 @@ class PageResponse(BaseModel):
     style_preset: Optional[str] = None
     primary_color: Optional[str] = None
     font_family: Optional[str] = None
+    tracking_pixels_json: Optional[str] = None
+    chat_history_json: Optional[str] = None
+    website_id: Optional[uuid.UUID] = None
+    page_order: int = 0
     created_by: uuid.UUID
     created_at: datetime
     updated_at: datetime
@@ -71,6 +136,8 @@ class PageListItem(BaseModel):
     status: str
     is_homepage: bool
     custom_domain: Optional[str] = None
+    website_id: Optional[uuid.UUID] = None
+    page_order: int = 0
     created_at: datetime
     updated_at: datetime
 
@@ -106,6 +173,16 @@ class PageAnalyticsSummary(BaseModel):
     total_submissions: int
     conversion_rate: float
     views_by_day: list[dict]
+    avg_time_seconds: int = 0
+    bounce_rate: float = 0.0
+    top_sources: list[dict] = []
+    devices: dict = {}
+    scroll_depth: dict = {}
+    top_clicks: list[dict] = []
+    utm_campaigns: list[dict] = []
+
+
+# ── AI schemas ──────────────────────────────────────────────────────────
 
 
 class AIGenerateRequest(BaseModel):
@@ -122,6 +199,11 @@ class AIRefineRequest(BaseModel):
     section_index: Optional[int] = None
 
 
+class AIChatMessage(BaseModel):
+    page_id: uuid.UUID
+    message: str = Field(max_length=4000)
+
+
 class StylePreset(BaseModel):
     id: str
     name: str
@@ -135,3 +217,29 @@ class SectionTemplate(BaseModel):
     name: str
     description: str
     default_html: str
+
+
+# ── Analytics tracking ──────────────────────────────────────────────────
+
+
+class TrackEventRequest(BaseModel):
+    page_id: uuid.UUID
+    visitor_id: str
+    session_id: str
+    event_type: str  # page_view, scroll_25, scroll_50, scroll_75, scroll_100, click, form_submit, time_on_page
+    event_data: Optional[dict] = None
+    referrer: Optional[str] = None
+    utm_source: Optional[str] = None
+    utm_medium: Optional[str] = None
+    utm_campaign: Optional[str] = None
+    user_agent: Optional[str] = None
+
+
+# ── Video upload ────────────────────────────────────────────────────────
+
+
+class VideoUploadResponse(BaseModel):
+    mp4_url: str
+    webm_url: str
+    poster_url: str
+    duration_seconds: float = 0

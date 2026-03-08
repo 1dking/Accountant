@@ -113,6 +113,19 @@ async def _send_booking_reminders() -> None:
         logger.exception("Error sending booking reminders")
 
 
+async def _aggregate_page_analytics() -> None:
+    """Job: aggregate yesterday's page visit data into daily summary table."""
+    try:
+        async with _session_factory() as db:
+            from app.pages.service import aggregate_daily_analytics
+
+            count = await aggregate_daily_analytics(db)
+            if count > 0:
+                logger.info("Aggregated analytics for %d pages", count)
+    except Exception:
+        logger.exception("Error aggregating page analytics")
+
+
 async def _sync_google_calendars() -> None:
     """Job: sync events with connected Google Calendar accounts."""
     try:
@@ -180,6 +193,13 @@ def setup_scheduler(session_factory: Any, settings: Any = None) -> None:
         _sync_google_calendars,
         IntervalTrigger(minutes=15),
         id="sync_google_calendars",
+        replace_existing=True,
+    )
+
+    scheduler.add_job(
+        _aggregate_page_analytics,
+        CronTrigger(hour=3, minute=0),
+        id="aggregate_page_analytics",
         replace_existing=True,
     )
 

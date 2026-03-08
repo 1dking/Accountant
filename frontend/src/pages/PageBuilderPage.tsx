@@ -1,90 +1,241 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
 import { pagesApi } from '@/api/pages'
-import type { PageItem, PageDetail, StylePreset } from '@/types/models'
+import { toast } from 'sonner'
 import {
-  Globe,
   Plus,
-  Trash2,
-  Eye,
-  BarChart3,
-  Sparkles,
   Send,
+  Globe,
+  FileText,
+  Eye,
+  Code,
+  Paintbrush,
+  BarChart3,
+  Loader2,
+  Monitor,
+  Tablet,
+  Smartphone,
+  Save,
+  Upload,
   ArrowLeft,
-  History,
-  RotateCcw,
+  Trash2,
   ExternalLink,
+  Settings,
+  X,
+  MessageSquare,
 } from 'lucide-react'
+import VisualEditor from '@/components/pages/VisualEditor'
+import AnalyticsDashboard from '@/components/pages/AnalyticsDashboard'
+import TrackingPixelsSettings from '@/components/pages/TrackingPixelsSettings'
 
-type View = 'list' | 'create' | 'edit' | 'preview'
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+interface PageItem {
+  id: string
+  title: string
+  slug: string
+  status: string
+  is_homepage: boolean
+  website_id?: string
+  page_order: number
+  created_at: string
+  updated_at: string
+}
+
+interface PageDetail extends PageItem {
+  html_content?: string
+  css_content?: string
+  js_content?: string
+  tracking_pixels_json?: string
+  chat_history_json?: string
+  style_preset?: string
+  primary_color?: string
+  font_family?: string
+  created_by: string
+  meta_title?: string
+  meta_description?: string
+}
+
+interface WebsiteItem {
+  id: string
+  name: string
+  slug: string
+  domain?: string
+  is_published: boolean
+  page_count: number
+  created_at: string
+  updated_at: string
+}
+
+interface ChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+type View = 'list' | 'edit' | 'website-edit'
+type EditorTab = 'preview' | 'visual' | 'html' | 'css' | 'analytics' | 'settings'
+type ResponsiveSize = 'desktop' | 'tablet' | 'mobile'
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function unwrap<T>(res: unknown): T {
+  return (res as any).data?.data ?? (res as any).data ?? res
+}
+
+function parseChatHistory(json?: string | null): ChatMessage[] {
+  if (!json) return []
+  try {
+    const parsed = JSON.parse(json)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+const RESPONSIVE_WIDTHS: Record<ResponsiveSize, string> = {
+  desktop: '100%',
+  tablet: '768px',
+  mobile: '375px',
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
 
 export default function PageBuilderPage() {
   const queryClient = useQueryClient()
+
+  // Navigation state
   const [view, setView] = useState<View>('list')
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null)
-  const [createTitle, setCreateTitle] = useState('')
-  const [createPreset, setCreatePreset] = useState('modern')
-  const [aiPrompt, setAiPrompt] = useState('')
+  const [selectedWebsiteId, setSelectedWebsiteId] = useState<string | null>(null)
+
+  // Modals
+  const [showCreatePage, setShowCreatePage] = useState(false)
+  const [showCreateWebsite, setShowCreateWebsite] = useState(false)
+  const [createPageTitle, setCreatePageTitle] = useState('')
+  const [createWebsiteName, setCreateWebsiteName] = useState('')
+
+  // Editor state
   const [editHtml, setEditHtml] = useState('')
   const [editCss, setEditCss] = useState('')
-  const [showVersions, setShowVersions] = useState(false)
+  const [activeTab, setActiveTab] = useState<EditorTab>('preview')
+  const [responsiveSize, setResponsiveSize] = useState<ResponsiveSize>('desktop')
 
-  const { data: pagesData } = useQuery({
+  // Chat state
+  const [chatInput, setChatInput] = useState('')
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
+  const chatEndRef = useRef<HTMLDivElement>(null)
+
+  // Auto-save
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const htmlRef = useRef(editHtml)
+  const cssRef = useRef(editCss)
+  htmlRef.current = editHtml
+  cssRef.current = editCss
+
+  // -------------------------------------------------------------------------
+  // Queries
+  // -------------------------------------------------------------------------
+
+  const { data: pagesRes, isLoading: pagesLoading } = useQuery({
     queryKey: ['pages'],
-    queryFn: () => pagesApi.list() as Promise<{ data: PageItem[]; meta: { total_count: number } }>,
+    queryFn: () => pagesApi.list(),
   })
 
-  const { data: presetsData } = useQuery({
-    queryKey: ['style-presets'],
-    queryFn: () => pagesApi.getStylePresets() as Promise<{ data: StylePreset[] }>,
+  const { data: websitesRes, isLoading: websitesLoading } = useQuery({
+    queryKey: ['websites'],
+    queryFn: () => pagesApi.listWebsites(),
   })
 
-  const { data: pageDetail } = useQuery({
+  const { data: pageDetailRes, isLoading: pageDetailLoading } = useQuery({
     queryKey: ['page', selectedPageId],
-    queryFn: () => pagesApi.get(selectedPageId!) as Promise<{ data: PageDetail }>,
+    queryFn: () => pagesApi.get(selectedPageId!),
     enabled: !!selectedPageId,
   })
 
-  const { data: versionsData } = useQuery({
-    queryKey: ['page-versions', selectedPageId],
-    queryFn: () => pagesApi.listVersions(selectedPageId!) as Promise<{ data: { id: string; version_number: number; change_summary?: string; created_at: string }[] }>,
-    enabled: !!selectedPageId && showVersions,
+  const { data: websitePagesRes } = useQuery({
+    queryKey: ['website-pages', selectedWebsiteId],
+    queryFn: () => pagesApi.getWebsitePages(selectedWebsiteId!),
+    enabled: !!selectedWebsiteId && view === 'website-edit',
   })
 
-  const { data: analyticsData } = useQuery({
-    queryKey: ['page-analytics', selectedPageId],
-    queryFn: () => pagesApi.getAnalytics(selectedPageId!) as Promise<{ data: { total_views: number; unique_visitors: number; total_submissions: number; conversion_rate: number } }>,
-    enabled: !!selectedPageId && view === 'edit',
-  })
+  const pages: PageItem[] = unwrap<PageItem[]>(pagesRes) || []
+  const websites: WebsiteItem[] = unwrap<WebsiteItem[]>(websitesRes) || []
+  const detail: PageDetail | null = unwrap<PageDetail>(pageDetailRes) || null
+  const websitePages: PageItem[] = unwrap<PageItem[]>(websitePagesRes) || []
 
-  const createMutation = useMutation({
-    mutationFn: (data: { title: string; style_preset?: string }) => pagesApi.create(data) as Promise<{ data: PageDetail }>,
+  const standalonePages = pages.filter((p) => !p.website_id)
+
+  // -------------------------------------------------------------------------
+  // Sync editor state when page detail loads
+  // -------------------------------------------------------------------------
+
+  useEffect(() => {
+    if (detail) {
+      setEditHtml(detail.html_content || '')
+      setEditCss(detail.css_content || '')
+      setChatMessages(parseChatHistory(detail.chat_history_json))
+    }
+  }, [detail?.id, detail?.html_content, detail?.css_content, detail?.chat_history_json])
+
+  // Scroll chat to bottom
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [chatMessages])
+
+  // -------------------------------------------------------------------------
+  // Mutations
+  // -------------------------------------------------------------------------
+
+  const createPageMutation = useMutation({
+    mutationFn: (data: { title: string; website_id?: string }) =>
+      pagesApi.create(data),
     onSuccess: (res) => {
+      const created = unwrap<PageDetail>(res)
       queryClient.invalidateQueries({ queryKey: ['pages'] })
-      setSelectedPageId(res.data.id)
-      setView('edit')
+      queryClient.invalidateQueries({ queryKey: ['websites'] })
+      if (created?.id) {
+        setSelectedPageId(created.id)
+        if (created.website_id) {
+          setSelectedWebsiteId(created.website_id)
+          queryClient.invalidateQueries({ queryKey: ['website-pages', created.website_id] })
+          setView('website-edit')
+        } else {
+          setView('edit')
+        }
+      }
+      setShowCreatePage(false)
+      setCreatePageTitle('')
       toast.success('Page created')
     },
+    onError: () => toast.error('Failed to create page'),
+  })
+
+  const createWebsiteMutation = useMutation({
+    mutationFn: (data: { name: string }) => pagesApi.createWebsite(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['websites'] })
+      setShowCreateWebsite(false)
+      setCreateWebsiteName('')
+      toast.success('Website created')
+    },
+    onError: () => toast.error('Failed to create website'),
   })
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) => pagesApi.update(id, data),
+    mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) =>
+      pagesApi.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pages'] })
       queryClient.invalidateQueries({ queryKey: ['page', selectedPageId] })
       toast.success('Page saved')
     },
-  })
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => pagesApi.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pages'] })
-      setView('list')
-      setSelectedPageId(null)
-      toast.success('Page deleted')
-    },
+    onError: () => toast.error('Failed to save page'),
   })
 
   const publishMutation = useMutation({
@@ -94,302 +245,826 @@ export default function PageBuilderPage() {
       queryClient.invalidateQueries({ queryKey: ['page', selectedPageId] })
       toast.success('Page published!')
     },
+    onError: () => toast.error('Failed to publish page'),
   })
 
-  const aiGenerateMutation = useMutation({
-    mutationFn: (data: { prompt: string; style_preset?: string }) =>
-      pagesApi.aiGenerate(data) as Promise<{ data: { html_content: string; css_content: string; js_content: string } }>,
-    onSuccess: (res) => {
-      setEditHtml(res.data.html_content || '')
-      setEditCss(res.data.css_content || '')
-      toast.success('AI content generated')
-    },
-  })
-
-  const restoreVersionMutation = useMutation({
-    mutationFn: ({ pageId, versionId }: { pageId: string; versionId: string }) =>
-      pagesApi.restoreVersion(pageId, versionId),
+  const deletePageMutation = useMutation({
+    mutationFn: (id: string) => pagesApi.delete(id),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pages'] })
+      queryClient.invalidateQueries({ queryKey: ['websites'] })
+      if (selectedWebsiteId) {
+        queryClient.invalidateQueries({ queryKey: ['website-pages', selectedWebsiteId] })
+      }
+      toast.success('Page deleted')
+    },
+    onError: () => toast.error('Failed to delete page'),
+  })
+
+  const deleteWebsiteMutation = useMutation({
+    mutationFn: (id: string) => pagesApi.deleteWebsite(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['websites'] })
+      queryClient.invalidateQueries({ queryKey: ['pages'] })
+      toast.success('Website deleted')
+    },
+    onError: () => toast.error('Failed to delete website'),
+  })
+
+  const aiChatMutation = useMutation({
+    mutationFn: (data: { page_id: string; message: string }) =>
+      pagesApi.aiChat(data),
+    onSuccess: (res) => {
+      const result = unwrap<{
+        html_content?: string
+        css_content?: string
+        message?: string
+        chat_history?: ChatMessage[]
+      }>(res)
+      if (result?.html_content !== undefined) setEditHtml(result.html_content || '')
+      if (result?.css_content !== undefined) setEditCss(result.css_content || '')
+      if (result?.chat_history) {
+        setChatMessages(result.chat_history)
+      } else if (result?.message) {
+        setChatMessages((prev) => [...prev, { role: 'assistant', content: result.message! }])
+      }
       queryClient.invalidateQueries({ queryKey: ['page', selectedPageId] })
-      toast.success('Version restored')
+    },
+    onError: () => {
+      toast.error('AI chat failed')
+      setChatMessages((prev) => prev.filter((m) => m.content !== '...'))
     },
   })
 
-  const pages = pagesData?.data || []
-  const presets = presetsData?.data || []
-  const detail = pageDetail?.data
-  const analytics = analyticsData?.data
+  // -------------------------------------------------------------------------
+  // Auto-save (debounced 3s on HTML/CSS change)
+  // -------------------------------------------------------------------------
 
-  const openEditor = (pageId: string) => {
-    setSelectedPageId(pageId)
-    setView('edit')
+  const triggerAutoSave = useCallback(() => {
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
+    autoSaveTimerRef.current = setTimeout(() => {
+      if (selectedPageId) {
+        updateMutation.mutate({
+          id: selectedPageId,
+          data: { html_content: htmlRef.current, css_content: cssRef.current },
+        })
+      }
+    }, 3000)
+  }, [selectedPageId])
+
+  const handleHtmlChange = useCallback(
+    (val: string) => {
+      setEditHtml(val)
+      triggerAutoSave()
+    },
+    [triggerAutoSave],
+  )
+
+  const handleCssChange = useCallback(
+    (val: string) => {
+      setEditCss(val)
+      triggerAutoSave()
+    },
+    [triggerAutoSave],
+  )
+
+  // Cleanup auto-save on unmount or page switch
+  useEffect(() => {
+    return () => {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
+    }
+  }, [selectedPageId])
+
+  // -------------------------------------------------------------------------
+  // Handlers
+  // -------------------------------------------------------------------------
+
+  const handleSave = () => {
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
+    if (selectedPageId) {
+      updateMutation.mutate({
+        id: selectedPageId,
+        data: { html_content: editHtml, css_content: editCss },
+      })
+    }
   }
 
-  // --- List View ---
+  const handlePublish = () => {
+    if (selectedPageId) publishMutation.mutate(selectedPageId)
+  }
+
+  const handleSendChat = () => {
+    const msg = chatInput.trim()
+    if (!msg || !selectedPageId) return
+    setChatMessages((prev) => [...prev, { role: 'user', content: msg }])
+    setChatInput('')
+    aiChatMutation.mutate({ page_id: selectedPageId, message: msg })
+  }
+
+  const handleChatKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSendChat()
+    }
+  }
+
+  const goBack = () => {
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
+    setView('list')
+    setSelectedPageId(null)
+    setSelectedWebsiteId(null)
+    setActiveTab('preview')
+    setChatMessages([])
+    setEditHtml('')
+    setEditCss('')
+  }
+
+  const openPage = (page: PageItem) => {
+    setSelectedPageId(page.id)
+    setActiveTab('preview')
+    if (page.website_id) {
+      setSelectedWebsiteId(page.website_id)
+      setView('website-edit')
+    } else {
+      setSelectedWebsiteId(null)
+      setView('edit')
+    }
+  }
+
+  const openWebsite = (ws: WebsiteItem) => {
+    setSelectedWebsiteId(ws.id)
+    setSelectedPageId(null)
+    setView('website-edit')
+  }
+
+  // -------------------------------------------------------------------------
+  // Shared: Preview iframe srcdoc
+  // -------------------------------------------------------------------------
+
+  const previewSrcDoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${editCss}</style></head><body>${editHtml}</body></html>`
+
+  // -------------------------------------------------------------------------
+  // Render: Create Page Modal
+  // -------------------------------------------------------------------------
+
+  const renderCreatePageModal = () => {
+    if (!showCreatePage) return null
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Create New Page</h3>
+            <button
+              onClick={() => { setShowCreatePage(false); setCreatePageTitle('') }}
+              className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          <input
+            value={createPageTitle}
+            onChange={(e) => setCreatePageTitle(e.target.value)}
+            placeholder="Page title"
+            autoFocus
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && createPageTitle.trim()) {
+                createPageMutation.mutate({ title: createPageTitle.trim() })
+              }
+            }}
+          />
+          <button
+            onClick={() => createPageMutation.mutate({ title: createPageTitle.trim() })}
+            disabled={!createPageTitle.trim() || createPageMutation.isPending}
+            className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
+          >
+            {createPageMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            {createPageMutation.isPending ? 'Creating...' : 'Create Page'}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // -------------------------------------------------------------------------
+  // Render: Create Website Modal
+  // -------------------------------------------------------------------------
+
+  const renderCreateWebsiteModal = () => {
+    if (!showCreateWebsite) return null
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Create New Website</h3>
+            <button
+              onClick={() => { setShowCreateWebsite(false); setCreateWebsiteName('') }}
+              className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          <input
+            value={createWebsiteName}
+            onChange={(e) => setCreateWebsiteName(e.target.value)}
+            placeholder="Website name"
+            autoFocus
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && createWebsiteName.trim()) {
+                createWebsiteMutation.mutate({ name: createWebsiteName.trim() })
+              }
+            }}
+          />
+          <button
+            onClick={() => createWebsiteMutation.mutate({ name: createWebsiteName.trim() })}
+            disabled={!createWebsiteName.trim() || createWebsiteMutation.isPending}
+            className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
+          >
+            {createWebsiteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />}
+            {createWebsiteMutation.isPending ? 'Creating...' : 'Create Website'}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // =========================================================================
+  // LIST VIEW
+  // =========================================================================
+
   if (view === 'list') {
     return (
       <div className="p-6 max-w-6xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
+        {renderCreatePageModal()}
+        {renderCreateWebsiteModal()}
+
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Page Builder</h1>
-            <p className="text-gray-500 dark:text-gray-400 mt-1">Create AI-powered landing pages</p>
+            <p className="text-gray-500 dark:text-gray-400 mt-1">Build websites and landing pages with AI</p>
           </div>
-          <button
-            onClick={() => setView('create')}
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
-          >
-            <Plus className="h-4 w-4" />
-            New Page
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowCreateWebsite(true)}
+              className="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+            >
+              <Globe className="h-4 w-4" />
+              New Website
+            </button>
+            <button
+              onClick={() => setShowCreatePage(true)}
+              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+            >
+              <Plus className="h-4 w-4" />
+              New Page
+            </button>
+          </div>
         </div>
 
-        {pages.length === 0 ? (
-          <div className="text-center py-20 text-gray-500 dark:text-gray-400">
-            <Globe className="h-12 w-12 mx-auto mb-4 opacity-40" />
-            <p>No pages yet. Create your first landing page.</p>
-          </div>
-        ) : (
-          <div className="grid gap-4">
-            {pages.map((p) => (
-              <div
-                key={p.id}
-                className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex items-center justify-between hover:shadow-sm transition cursor-pointer"
-                onClick={() => openEditor(p.id)}
-              >
-                <div>
-                  <h3 className="font-semibold text-gray-900 dark:text-gray-100">{p.title}</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">/{p.slug}</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                    p.status === 'published' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
-                  }`}>
-                    {p.status}
-                  </span>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(p.id) }}
-                    className="p-1.5 text-gray-400 hover:text-red-500 transition"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  // --- Create View ---
-  if (view === 'create') {
-    return (
-      <div className="p-6 max-w-2xl mx-auto">
-        <button onClick={() => setView('list')} className="flex items-center gap-1 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 mb-6">
-          <ArrowLeft className="h-4 w-4" /> Back
-        </button>
-        <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-6">Create New Page</h2>
-
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Page Title</label>
-            <input
-              value={createTitle}
-              onChange={(e) => setCreateTitle(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-              placeholder="My Landing Page"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Style Preset</label>
-            <div className="grid grid-cols-3 gap-3">
-              {presets.map((preset) => (
-                <button
-                  key={preset.id}
-                  onClick={() => setCreatePreset(preset.id)}
-                  className={`p-3 rounded-lg border text-left transition ${
-                    createPreset === preset.id
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                      : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
-                  }`}
+        {/* Websites Section */}
+        <div className="mb-10">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
+            <Globe className="h-5 w-5 text-blue-500" />
+            Websites
+          </h2>
+          {websitesLoading ? (
+            <div className="flex items-center gap-2 text-gray-400 py-8">
+              <Loader2 className="h-5 w-5 animate-spin" /> Loading websites...
+            </div>
+          ) : websites.length === 0 ? (
+            <div className="text-center py-12 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-dashed border-gray-300 dark:border-gray-700">
+              <Globe className="h-10 w-10 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
+              <p className="text-gray-500 dark:text-gray-400">No websites yet. Create one to group pages together.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {websites.map((ws) => (
+                <div
+                  key={ws.id}
+                  onClick={() => openWebsite(ws)}
+                  className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 hover:shadow-md transition cursor-pointer group"
                 >
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="w-4 h-4 rounded-full" style={{ background: preset.preview_colors.primary }} />
-                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{preset.name}</span>
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Globe className="h-5 w-5 text-blue-500" />
+                      <h3 className="font-semibold text-gray-900 dark:text-gray-100">{ws.name}</h3>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (confirm('Delete this website and all its pages?')) {
+                          deleteWebsiteMutation.mutate(ws.id)
+                        }
+                      }}
+                      className="p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{preset.description}</p>
-                </button>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-500 dark:text-gray-400">
+                      {ws.page_count} {ws.page_count === 1 ? 'page' : 'pages'}
+                    </span>
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                        ws.is_published
+                          ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                          : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+                      }`}
+                    >
+                      {ws.is_published ? 'Published' : 'Draft'}
+                    </span>
+                  </div>
+                  {ws.domain && (
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 truncate">{ws.domain}</p>
+                  )}
+                </div>
               ))}
             </div>
-          </div>
+          )}
+        </div>
 
-          <button
-            onClick={() => createMutation.mutate({ title: createTitle, style_preset: createPreset })}
-            disabled={!createTitle.trim() || createMutation.isPending}
-            className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
-          >
-            {createMutation.isPending ? 'Creating...' : 'Create Page'}
-          </button>
+        {/* Standalone Pages Section */}
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
+            <FileText className="h-5 w-5 text-purple-500" />
+            Standalone Pages
+          </h2>
+          {pagesLoading ? (
+            <div className="flex items-center gap-2 text-gray-400 py-8">
+              <Loader2 className="h-5 w-5 animate-spin" /> Loading pages...
+            </div>
+          ) : standalonePages.length === 0 ? (
+            <div className="text-center py-12 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-dashed border-gray-300 dark:border-gray-700">
+              <FileText className="h-10 w-10 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
+              <p className="text-gray-500 dark:text-gray-400">No standalone pages yet. Create one to get started.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {standalonePages.map((p) => (
+                <div
+                  key={p.id}
+                  onClick={() => openPage(p)}
+                  className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 hover:shadow-md transition cursor-pointer group"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <h3 className="font-semibold text-gray-900 dark:text-gray-100">{p.title}</h3>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (confirm('Delete this page?')) deletePageMutation.mutate(p.id)
+                      }}
+                      className="p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-500 dark:text-gray-400">/{p.slug}</span>
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                        p.status === 'published'
+                          ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                          : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+                      }`}
+                    >
+                      {p.status}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     )
   }
 
-  // --- Edit / Preview View ---
-  return (
-    <div className="h-full flex flex-col">
-      {/* Top bar */}
-      <div className="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <button onClick={() => { setView('list'); setSelectedPageId(null) }} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <h2 className="font-semibold text-gray-900 dark:text-gray-100">{detail?.title || 'Loading...'}</h2>
-          {detail && (
-            <span className={`text-xs px-2 py-0.5 rounded-full ${
-              detail.status === 'published' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
-            }`}>
-              {detail.status}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {analytics && (
-            <div className="flex items-center gap-4 text-xs text-gray-500 mr-4">
-              <span><BarChart3 className="h-3 w-3 inline mr-1" />{analytics.total_views} views</span>
-              <span>{analytics.conversion_rate}% conversion</span>
-            </div>
-          )}
-          <button
-            onClick={() => setShowVersions(!showVersions)}
-            className="p-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-            title="Version history"
-          >
-            <History className="h-4 w-4" />
-          </button>
-          <button
-            onClick={() => setView(view === 'preview' ? 'edit' : 'preview')}
-            className="flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
-          >
-            <Eye className="h-4 w-4" />
-            {view === 'preview' ? 'Edit' : 'Preview'}
-          </button>
-          {detail?.status === 'published' && (
-            <a
-              href={`/api/pages/public/view/${detail.slug}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
-            >
-              <ExternalLink className="h-4 w-4" />
-              View Live
-            </a>
-          )}
+  // =========================================================================
+  // EDIT VIEW & WEBSITE-EDIT VIEW
+  // =========================================================================
+
+  // The editor UI is identical for both views, except website-edit has a pages
+  // sidebar on the far left.
+
+  const isWebsiteEdit = view === 'website-edit'
+
+  // -------------------------------------------------------------------------
+  // Render: Pages Sidebar (website-edit only)
+  // -------------------------------------------------------------------------
+
+  const renderPagesSidebar = () => {
+    if (!isWebsiteEdit) return null
+    return (
+      <div className="w-[200px] flex-shrink-0 border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex flex-col overflow-hidden">
+        <div className="p-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+          <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Pages</span>
           <button
             onClick={() => {
-              if (selectedPageId) {
-                updateMutation.mutate({ id: selectedPageId, data: { html_content: editHtml, css_content: editCss } })
+              if (!selectedWebsiteId) return
+              const title = prompt('New page title:')
+              if (title?.trim()) {
+                createPageMutation.mutate({ title: title.trim(), website_id: selectedWebsiteId })
               }
             }}
-            disabled={updateMutation.isPending}
-            className="px-3 py-1.5 text-sm bg-gray-800 text-white rounded-lg hover:bg-gray-700 dark:bg-gray-600 dark:hover:bg-gray-500 disabled:opacity-50"
+            className="p-1 text-gray-400 hover:text-blue-500 transition"
+            title="Add page"
           >
-            Save
+            <Plus className="h-4 w-4" />
           </button>
-          {detail?.status !== 'published' && selectedPageId && (
-            <button
-              onClick={() => publishMutation.mutate(selectedPageId)}
-              disabled={publishMutation.isPending}
-              className="flex items-center gap-1 px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
-            >
-              <Send className="h-4 w-4" />
-              Publish
-            </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-2 space-y-1">
+          {websitePages.length === 0 ? (
+            <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-4">No pages yet</p>
+          ) : (
+            websitePages.map((wp) => (
+              <button
+                key={wp.id}
+                onClick={() => setSelectedPageId(wp.id)}
+                className={`w-full text-left px-3 py-2 rounded-lg text-sm transition truncate ${
+                  wp.id === selectedPageId
+                    ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <FileText className="h-3.5 w-3.5 flex-shrink-0" />
+                  <span className="truncate">{wp.title}</span>
+                </div>
+                {wp.is_homepage && (
+                  <span className="text-[10px] text-blue-500 dark:text-blue-400 ml-5">Home</span>
+                )}
+              </button>
+            ))
           )}
         </div>
       </div>
+    )
+  }
 
-      <div className="flex-1 flex overflow-hidden">
-        {/* Version history panel */}
-        {showVersions && (
-          <div className="w-64 border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-3 overflow-y-auto">
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Versions</h3>
-            {(versionsData?.data || []).map((v) => (
-              <div key={v.id} className="mb-2 p-2 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100">v{v.version_number}</span>
-                  <button
-                    onClick={() => selectedPageId && restoreVersionMutation.mutate({ pageId: selectedPageId, versionId: v.id })}
-                    className="p-1 text-gray-400 hover:text-blue-500"
-                    title="Restore"
-                  >
-                    <RotateCcw className="h-3 w-3" />
-                  </button>
-                </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">{v.change_summary || 'No description'}</p>
-              </div>
+  // -------------------------------------------------------------------------
+  // Render: Chat Panel (left 40%)
+  // -------------------------------------------------------------------------
+
+  const renderChatPanel = () => (
+    <div className="flex flex-col overflow-hidden bg-white dark:bg-gray-900">
+      {/* Chat header */}
+      <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2">
+        <MessageSquare className="h-4 w-4 text-purple-500" />
+        <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">AI Chat</span>
+        {aiChatMutation.isPending && (
+          <span className="ml-auto flex items-center gap-1 text-xs text-purple-500">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            Generating...
+          </span>
+        )}
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {chatMessages.length === 0 && !aiChatMutation.isPending && (
+          <div className="text-center py-12 text-gray-400 dark:text-gray-500">
+            <MessageSquare className="h-10 w-10 mx-auto mb-3 opacity-40" />
+            <p className="text-sm">Describe what you want to build or change.</p>
+            <p className="text-xs mt-1">The AI will update your page HTML and CSS.</p>
+          </div>
+        )}
+        {chatMessages.map((msg, i) => (
+          <div
+            key={i}
+            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+          >
+            <div
+              className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap ${
+                msg.role === 'user'
+                  ? 'bg-blue-600 text-white rounded-br-md'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-bl-md'
+              }`}
+            >
+              {msg.content}
+            </div>
+          </div>
+        ))}
+        {aiChatMutation.isPending && (
+          <div className="flex justify-start">
+            <div className="bg-gray-100 dark:bg-gray-800 rounded-2xl rounded-bl-md px-4 py-2.5 text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Generating...
+            </div>
+          </div>
+        )}
+        <div ref={chatEndRef} />
+      </div>
+
+      {/* Input */}
+      <div className="p-3 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex gap-2">
+          <textarea
+            value={chatInput}
+            onChange={(e) => setChatInput(e.target.value)}
+            onKeyDown={handleChatKeyDown}
+            placeholder="Describe changes you want..."
+            rows={2}
+            className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <button
+            onClick={handleSendChat}
+            disabled={!chatInput.trim() || aiChatMutation.isPending || !selectedPageId}
+            className="self-end p-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
+          >
+            <Send className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+
+  // -------------------------------------------------------------------------
+  // Render: Editor Tabs (right 60%)
+  // -------------------------------------------------------------------------
+
+  const renderEditorPanel = () => (
+    <div className="flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-950">
+      {/* Tabs */}
+      <div className="flex items-center border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2">
+        {(
+          [
+            { key: 'preview', label: 'Preview', icon: Eye },
+            { key: 'visual', label: 'Visual', icon: Paintbrush },
+            { key: 'html', label: 'HTML', icon: Code },
+            { key: 'css', label: 'CSS', icon: Code },
+            { key: 'analytics', label: 'Analytics', icon: BarChart3 },
+            { key: 'settings', label: 'Settings', icon: Settings },
+          ] as { key: EditorTab; label: string; icon: typeof Eye }[]
+        ).map(({ key, label, icon: Icon }) => (
+          <button
+            key={key}
+            onClick={() => setActiveTab(key)}
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition ${
+              activeTab === key
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+            }`}
+          >
+            <Icon className="h-4 w-4" />
+            {label}
+          </button>
+        ))}
+
+        {/* Responsive toggle (preview tab only) */}
+        {activeTab === 'preview' && (
+          <div className="ml-auto flex items-center gap-1 pr-2">
+            {(
+              [
+                { key: 'desktop', icon: Monitor },
+                { key: 'tablet', icon: Tablet },
+                { key: 'mobile', icon: Smartphone },
+              ] as { key: ResponsiveSize; icon: typeof Monitor }[]
+            ).map(({ key, icon: Icon }) => (
+              <button
+                key={key}
+                onClick={() => setResponsiveSize(key)}
+                className={`p-1.5 rounded transition ${
+                  responsiveSize === key
+                    ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                    : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+                }`}
+                title={key.charAt(0).toUpperCase() + key.slice(1)}
+              >
+                <Icon className="h-4 w-4" />
+              </button>
             ))}
           </div>
         )}
+      </div>
 
-        {/* Main editor area */}
-        {view === 'preview' ? (
-          <div className="flex-1 bg-white">
-            <iframe
-              srcDoc={`<!DOCTYPE html><html><head><style>${editCss || detail?.css_content || ''}</style></head><body>${editHtml || detail?.html_content || ''}</body></html>`}
-              className="w-full h-full border-0"
-              title="Page preview"
+      {/* Tab content */}
+      <div className="flex-1 overflow-hidden">
+        {activeTab === 'preview' && (
+          <div className="h-full flex items-start justify-center bg-gray-100 dark:bg-gray-950 p-4 overflow-auto">
+            <div
+              className="bg-white shadow-lg transition-all duration-300 h-full"
+              style={{
+                width: RESPONSIVE_WIDTHS[responsiveSize],
+                maxWidth: '100%',
+              }}
+            >
+              {pageDetailLoading ? (
+                <div className="flex items-center justify-center h-full text-gray-400">
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                </div>
+              ) : (
+                <iframe
+                  srcDoc={previewSrcDoc}
+                  className="w-full h-full border-0"
+                  title="Page preview"
+                  sandbox="allow-scripts"
+                />
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'visual' && (
+          <VisualEditor
+            html={editHtml}
+            css={editCss}
+            onHtmlChange={handleHtmlChange}
+            onCssChange={handleCssChange}
+            onVideoUpload={async (file: File) => {
+              const res = await pagesApi.uploadVideo(file)
+              const data = unwrap<{ mp4_url: string; webm_url: string; poster_url: string }>(res)
+              return data
+            }}
+          />
+        )}
+
+        {activeTab === 'html' && (
+          <div className="h-full flex flex-col overflow-hidden">
+            <div className="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 text-xs font-medium text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+              <span>HTML</span>
+              <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                {editHtml.length} characters
+              </span>
+            </div>
+            <textarea
+              value={editHtml}
+              onChange={(e) => handleHtmlChange(e.target.value)}
+              className="flex-1 w-full p-4 font-mono text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 resize-none focus:outline-none leading-relaxed"
+              spellCheck={false}
+              placeholder="<div>Your HTML content here...</div>"
             />
           </div>
-        ) : (
-          <div className="flex-1 flex flex-col overflow-hidden">
-            {/* AI bar */}
-            <div className="p-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-              <div className="flex gap-2">
-                <input
-                  value={aiPrompt}
-                  onChange={(e) => setAiPrompt(e.target.value)}
-                  className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                  placeholder="Describe what you want AI to build or change..."
-                />
-                <button
-                  onClick={() => {
-                    if (selectedPageId && detail) {
-                      aiGenerateMutation.mutate({ prompt: aiPrompt, style_preset: detail.style_preset || 'modern' })
-                    }
-                  }}
-                  disabled={!aiPrompt.trim() || aiGenerateMutation.isPending}
-                  className="flex items-center gap-1 px-4 py-2 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
-                >
-                  <Sparkles className="h-4 w-4" />
-                  {aiGenerateMutation.isPending ? 'Generating...' : 'Generate'}
-                </button>
-              </div>
-            </div>
+        )}
 
-            {/* Code editors */}
-            <div className="flex-1 grid grid-cols-2 overflow-hidden">
-              <div className="border-r border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden">
-                <div className="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 text-xs font-medium text-gray-600 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">HTML</div>
-                <textarea
-                  value={editHtml || detail?.html_content || ''}
-                  onChange={(e) => setEditHtml(e.target.value)}
-                  className="flex-1 p-3 font-mono text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 resize-none focus:outline-none"
-                  spellCheck={false}
-                />
-              </div>
-              <div className="flex flex-col overflow-hidden">
-                <div className="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 text-xs font-medium text-gray-600 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">CSS</div>
-                <textarea
-                  value={editCss || detail?.css_content || ''}
-                  onChange={(e) => setEditCss(e.target.value)}
-                  className="flex-1 p-3 font-mono text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 resize-none focus:outline-none"
-                  spellCheck={false}
-                />
-              </div>
+        {activeTab === 'css' && (
+          <div className="h-full flex flex-col overflow-hidden">
+            <div className="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 text-xs font-medium text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+              <span>CSS</span>
+              <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                {editCss.length} characters
+              </span>
+            </div>
+            <textarea
+              value={editCss}
+              onChange={(e) => handleCssChange(e.target.value)}
+              className="flex-1 w-full p-4 font-mono text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 resize-none focus:outline-none leading-relaxed"
+              spellCheck={false}
+              placeholder="body { font-family: sans-serif; }"
+            />
+          </div>
+        )}
+
+        {activeTab === 'analytics' && selectedPageId && (
+          <AnalyticsDashboard
+            pageId={selectedPageId}
+            onClose={() => setActiveTab('preview')}
+          />
+        )}
+
+        {activeTab === 'settings' && selectedPageId && (
+          <div className="h-full overflow-y-auto p-6">
+            <TrackingPixelsSettings
+              value={detail?.tracking_pixels_json || '{}'}
+              onChange={(json: string) => {
+                if (selectedPageId) {
+                  updateMutation.mutate({ id: selectedPageId, data: { tracking_pixels_json: json } })
+                }
+              }}
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  )
+
+  // -------------------------------------------------------------------------
+  // Render: Top Bar (shared by edit and website-edit)
+  // -------------------------------------------------------------------------
+
+  const renderTopBar = () => (
+    <div className="h-12 flex-shrink-0 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 flex items-center justify-between">
+      <div className="flex items-center gap-3 min-w-0">
+        <button
+          onClick={goBack}
+          className="p-1 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+        <h2 className="font-semibold text-gray-900 dark:text-gray-100 truncate">
+          {pageDetailLoading ? 'Loading...' : detail?.title || 'Select a page'}
+        </h2>
+        {detail && (
+          <span
+            className={`flex-shrink-0 text-xs px-2 py-0.5 rounded-full font-medium ${
+              detail.status === 'published'
+                ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+            }`}
+          >
+            {detail.status}
+          </span>
+        )}
+      </div>
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <button
+          onClick={handleSave}
+          disabled={updateMutation.isPending || !selectedPageId}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-gray-800 dark:bg-gray-600 text-white rounded-lg hover:bg-gray-700 dark:hover:bg-gray-500 disabled:opacity-50 transition"
+        >
+          {updateMutation.isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Save className="h-4 w-4" />
+          )}
+          Save
+        </button>
+        {detail && detail.status !== 'published' && (
+          <button
+            onClick={handlePublish}
+            disabled={publishMutation.isPending || !selectedPageId}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition"
+          >
+            {publishMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Upload className="h-4 w-4" />
+            )}
+            Publish
+          </button>
+        )}
+        {detail?.status === 'published' && (
+          <a
+            href={`/api/pages/public/view/${detail.slug}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition"
+          >
+            <ExternalLink className="h-4 w-4" />
+            View Live
+          </a>
+        )}
+      </div>
+    </div>
+  )
+
+  // =========================================================================
+  // Compose editor layout
+  // =========================================================================
+
+  return (
+    <div className="h-full flex flex-col overflow-hidden">
+      {renderCreatePageModal()}
+      {renderCreateWebsiteModal()}
+
+      {/* Top bar */}
+      {renderTopBar()}
+
+      {/* Main content */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Website pages sidebar */}
+        {renderPagesSidebar()}
+
+        {/* If no page is selected in website-edit, show prompt */}
+        {isWebsiteEdit && !selectedPageId ? (
+          <div className="flex-1 flex items-center justify-center text-gray-400 dark:text-gray-500">
+            <div className="text-center">
+              <FileText className="h-12 w-12 mx-auto mb-3 opacity-40" />
+              {websitePages.length > 0 ? (
+                <p className="text-sm">Select a page from the sidebar to start editing.</p>
+              ) : (
+                <>
+                  <p className="text-sm">This website has no pages yet.</p>
+                  <button
+                    onClick={() => {
+                      const title = prompt('New page title:')
+                      if (title?.trim() && selectedWebsiteId) {
+                        createPageMutation.mutate({ title: title.trim(), website_id: selectedWebsiteId })
+                      }
+                    }}
+                    className="mt-3 flex items-center gap-2 mx-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm transition"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Create First Page
+                  </button>
+                </>
+              )}
             </div>
           </div>
+        ) : (
+          <>
+            {/* Chat panel - left 40% */}
+            <div className="w-[40%] flex-shrink-0 border-r border-gray-200 dark:border-gray-700 overflow-hidden">
+              {renderChatPanel()}
+            </div>
+
+            {/* Editor panel - right 60% */}
+            <div className="flex-1 overflow-hidden">
+              {renderEditorPanel()}
+            </div>
+          </>
         )}
       </div>
     </div>

@@ -1,9 +1,10 @@
 """SQLAlchemy models for the AI page builder module."""
 
+import datetime as _dt
 import enum
 import uuid
 
-from sqlalchemy import Boolean, Enum, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import Boolean, Date, DateTime, Enum, ForeignKey, Integer, Numeric, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base, TimestampMixin
@@ -32,6 +33,40 @@ class SectionType(str, enum.Enum):
     CUSTOM_HTML = "custom_html"
 
 
+# ── Website (multi-page container) ──────────────────────────────────────
+
+
+class Website(TimestampMixin, Base):
+    """A multi-page website that groups several pages together."""
+
+    __tablename__ = "websites"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    domain: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    favicon_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    global_css: Mapped[str | None] = mapped_column(Text, nullable=True)
+    nav_config_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    header_html: Mapped[str | None] = mapped_column(Text, nullable=True)
+    footer_html: Mapped[str | None] = mapped_column(Text, nullable=True)
+    seo_defaults_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    tracking_pixels_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_published: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_by: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+
+    # Relationships
+    pages: Mapped[list["Page"]] = relationship(
+        back_populates="website", cascade="all, delete-orphan",
+        foreign_keys="Page.website_id",
+    )
+
+
+# ── Page ────────────────────────────────────────────────────────────────
+
+
 class Page(TimestampMixin, Base):
     """Landing page / website page built with AI."""
 
@@ -58,11 +93,25 @@ class Page(TimestampMixin, Base):
     style_preset: Mapped[str | None] = mapped_column(String(50), nullable=True)
     primary_color: Mapped[str | None] = mapped_column(String(20), nullable=True)
     font_family: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    tracking_pixels_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    chat_history_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Website FK (nullable — standalone pages have no website)
+    website_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("websites.id", ondelete="CASCADE", name="fk_pages_website"),
+        nullable=True,
+        index=True,
+    )
+    page_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
     created_by: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
 
     # Relationships
+    website: Mapped["Website | None"] = relationship(
+        back_populates="pages", foreign_keys=[website_id]
+    )
     versions: Mapped[list["PageVersion"]] = relationship(
         back_populates="page", cascade="all, delete-orphan"
     )
@@ -116,3 +165,77 @@ class PageAnalytic(TimestampMixin, Base):
 
     # Relationships
     page: Mapped["Page"] = relationship(back_populates="analytics")
+
+
+# ── Visitor-level analytics ─────────────────────────────────────────────
+
+
+class PageVisit(Base):
+    """Individual page visit with full context."""
+
+    __tablename__ = "page_visits"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    page_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("pages.id", ondelete="CASCADE"), nullable=False, index=True,
+    )
+    website_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("websites.id", ondelete="SET NULL"), nullable=True,
+    )
+    visitor_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    session_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    referrer: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    utm_source: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    utm_medium: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    utm_campaign: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    device_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    browser: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    os: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    country: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    city: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    ip_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[_dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(),
+    )
+
+
+class PageEvent(Base):
+    """Individual analytics event (scroll, click, etc.)."""
+
+    __tablename__ = "page_events"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    visit_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("page_visits.id", ondelete="CASCADE"), nullable=False, index=True,
+    )
+    page_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("pages.id", ondelete="CASCADE"), nullable=False, index=True,
+    )
+    event_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    event_data_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[_dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(),
+    )
+
+
+class PageAnalyticsDaily(Base):
+    """Pre-aggregated daily analytics for fast dashboard queries."""
+
+    __tablename__ = "page_analytics_daily"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    page_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("pages.id", ondelete="CASCADE"), nullable=False, index=True,
+    )
+    date: Mapped[_dt.date] = mapped_column(Date, nullable=False)
+    visitors: Mapped[int] = mapped_column(Integer, default=0)
+    unique_visitors: Mapped[int] = mapped_column(Integer, default=0)
+    page_views: Mapped[int] = mapped_column(Integer, default=0)
+    avg_time_seconds: Mapped[int] = mapped_column(Integer, default=0)
+    bounce_count: Mapped[int] = mapped_column(Integer, default=0)
+    scroll_25_count: Mapped[int] = mapped_column(Integer, default=0)
+    scroll_50_count: Mapped[int] = mapped_column(Integer, default=0)
+    scroll_75_count: Mapped[int] = mapped_column(Integer, default=0)
+    scroll_100_count: Mapped[int] = mapped_column(Integer, default=0)
+    click_count: Mapped[int] = mapped_column(Integer, default=0)
+    form_submit_count: Mapped[int] = mapped_column(Integer, default=0)
