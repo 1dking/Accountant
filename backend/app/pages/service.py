@@ -1313,7 +1313,7 @@ async def _chat_with_gemini(
 
     async with httpx.AsyncClient(timeout=120) as client:
         resp = await client.post(
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
             + "?key=" + api_key,
             json={
                 "contents": [{"parts": parts}],
@@ -1447,7 +1447,7 @@ async def _generate_with_gemini(
 
     async with httpx.AsyncClient(timeout=60) as client:
         resp = await client.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}",
+            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}",
             json={
                 "contents": [
                     {"parts": [{"text": f"{system_prompt}\n\nUser request: {prompt}"}]}
@@ -1541,7 +1541,7 @@ async def _refine_with_gemini(
 
     async with httpx.AsyncClient(timeout=60) as client:
         resp = await client.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}",
+            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}",
             json={
                 "contents": [
                     {"parts": [{"text": f"{system_prompt}\n\n{content}"}]}

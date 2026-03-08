@@ -721,7 +721,7 @@ async def generate_single_template(
         try:
             async with httpx.AsyncClient(timeout=180) as client:
                 resp = await client.post(
-                    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+                    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
                     "?key=" + gemini_key,
                     json={
                         "contents": [{"parts": parts}],
