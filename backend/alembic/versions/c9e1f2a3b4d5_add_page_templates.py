@@ -28,9 +28,9 @@ def upgrade() -> None:
         sa.Column("metadata_json", sa.Text(), nullable=True),
         sa.Column(
             "scope",
-            sa.Enum("org", "platform", name="templatescope"),
+            sa.Enum("ORG", "PLATFORM", name="templatescope"),
             nullable=False,
-            server_default="org",
+            server_default="ORG",
         ),
         sa.Column("is_active", sa.Boolean(), nullable=False, server_default="1"),
         sa.Column("created_by", sa.Uuid(), nullable=True),
