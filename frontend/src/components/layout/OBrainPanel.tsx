@@ -77,6 +77,10 @@ export default function OBrainPanel() {
   const [view, setView] = useState<PanelView>('chat')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
+  // Token queue — buffer incoming tokens and release at natural reading pace
+  const tokenQueueRef = useRef<string[]>([])
+  const isProcessingRef = useRef(false)
+  const drainTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const scrollToBottom = useCallback(() => {
     const el = scrollContainerRef.current
@@ -135,46 +139,64 @@ export default function OBrainPanel() {
     // Force scroll to bottom when sending
     requestAnimationFrame(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }))
 
+    // Drain token queue at natural reading pace (~35ms per token)
+    const drainQueue = () => {
+      if (tokenQueueRef.current.length === 0) {
+        isProcessingRef.current = false
+        return
+      }
+      isProcessingRef.current = true
+      const token = tokenQueueRef.current.shift()!
+      setMessages((prev) => {
+        const updated = [...prev]
+        const last = updated[updated.length - 1]
+        if (last.role === 'assistant') last.content += token
+        return [...updated]
+      })
+      drainTimerRef.current = setTimeout(drainQueue, 35)
+    }
+
+    const enqueueToken = (text: string) => {
+      tokenQueueRef.current.push(text)
+      if (!isProcessingRef.current) drainQueue()
+    }
+
     try {
       const context = getPageContext(location.pathname)
       for await (const event of chatStream(userText, conversationId, context)) {
         if (event.type === 'text' && event.content) {
-          setMessages((prev) => {
-            const updated = [...prev]
-            const last = updated[updated.length - 1]
-            if (last.role === 'assistant') {
-              last.content += event.content!
-            }
-            return [...updated]
-          })
+          enqueueToken(event.content)
         } else if (event.type === 'tool_use' && event.tool) {
           setMessages((prev) => {
             const updated = [...prev]
             const last = updated[updated.length - 1]
-            if (last.role === 'assistant') {
-              last.tools = [...(last.tools || []), event.tool!]
-            }
+            if (last.role === 'assistant') last.tools = [...(last.tools || []), event.tool!]
             return [...updated]
           })
         } else if (event.type === 'sources' && event.sources) {
           setMessages((prev) => {
             const updated = [...prev]
             const last = updated[updated.length - 1]
-            if (last.role === 'assistant') {
-              last.sources = event.sources
-            }
+            if (last.role === 'assistant') last.sources = event.sources
             return [...updated]
           })
         } else if (event.type === 'done') {
-          if (event.conversation_id) {
-            setConversationId(event.conversation_id)
+          // Flush remaining tokens immediately
+          if (tokenQueueRef.current.length > 0) {
+            const remaining = tokenQueueRef.current.join('')
+            tokenQueueRef.current = []
+            setMessages((prev) => {
+              const updated = [...prev]
+              const last = updated[updated.length - 1]
+              if (last.role === 'assistant') last.content += remaining
+              return [...updated]
+            })
           }
+          if (event.conversation_id) setConversationId(event.conversation_id)
           setMessages((prev) => {
             const updated = [...prev]
             const last = updated[updated.length - 1]
-            if (last.role === 'assistant') {
-              last.isStreaming = false
-            }
+            if (last.role === 'assistant') last.isStreaming = false
             return [...updated]
           })
         }
@@ -190,6 +212,10 @@ export default function OBrainPanel() {
         return [...updated]
       })
     } finally {
+      if (drainTimerRef.current) clearTimeout(drainTimerRef.current)
+      drainTimerRef.current = null
+      tokenQueueRef.current = []
+      isProcessingRef.current = false
       setIsStreaming(false)
     }
   }

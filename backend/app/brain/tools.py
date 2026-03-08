@@ -6,12 +6,16 @@ These handle structured data (invoices, contacts, cashbook, etc.).
 NOTE: This is a single-org system.  Tool queries intentionally have NO
 user-scoped filters so that O-Brain can see all data regardless of who
 created or imported it.
+
+IMPORTANT: PostgreSQL stores enum values as UPPERCASE member names
+(e.g. INCOME, EXPENSE, PAID, CLIENT).  All comparisons must use .upper().
 """
 
 import json
 import logging
 import uuid
 from datetime import date, datetime, timedelta
+from decimal import Decimal
 
 from sqlalchemy import select, and_, or_, desc
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Helper
+# Helpers
 # ---------------------------------------------------------------------------
 
 def _serialize(rows: list) -> list[dict]:
@@ -36,6 +40,8 @@ def _serialize(rows: list) -> list[dict]:
                 d[col.name] = val.isoformat()
             elif isinstance(val, uuid.UUID):
                 d[col.name] = str(val)
+            elif isinstance(val, Decimal):
+                d[col.name] = float(val)
             elif hasattr(val, 'value'):
                 d[col.name] = val.value
             else:
@@ -45,15 +51,63 @@ def _serialize(rows: list) -> list[dict]:
 
 
 def _enum_val(v) -> str:
-    """Get string value whether v is an Enum member or plain string."""
-    return v.value if hasattr(v, 'value') else str(v)
+    """Get the UPPERCASE string from an enum member or plain string."""
+    if hasattr(v, 'name'):
+        return v.name  # Python enum → NAME is uppercase
+    if hasattr(v, 'value'):
+        return str(v.value).upper()
+    return str(v).upper()
+
+
+async def _resolve_contact(db: AsyncSession, name_or_id: str):
+    """Look up a contact by UUID or by name search. Returns Contact or None."""
+    from app.contacts.models import Contact
+
+    # Try UUID first
+    try:
+        cid = uuid.UUID(name_or_id)
+        result = await db.execute(
+            select(Contact).where(Contact.id == cid)
+        )
+        return result.scalar_one_or_none()
+    except (ValueError, AttributeError):
+        pass
+
+    # Search by name
+    q = f"%{name_or_id}%"
+    result = await db.execute(
+        select(Contact).where(
+            and_(
+                Contact.is_active == True,  # noqa: E712
+                or_(
+                    Contact.company_name.ilike(q),
+                    Contact.contact_name.ilike(q),
+                ),
+            )
+        ).limit(1)
+    )
+    return result.scalar_one_or_none()
+
+
+async def _get_user(db: AsyncSession, user_id: uuid.UUID):
+    """Fetch User object for write operations."""
+    from app.auth.models import User
+    result = await db.execute(select(User).where(User.id == user_id))
+    return result.scalar_one_or_none()
+
+
+async def _get_default_account(db: AsyncSession):
+    """Get the first payment account (default)."""
+    from app.cashbook.models import PaymentAccount
+    result = await db.execute(select(PaymentAccount).limit(1))
+    return result.scalar_one_or_none()
 
 
 # ---------------------------------------------------------------------------
-# Tool definitions (for Claude function calling)
+# READ Tool definitions (for Claude function calling)
 # ---------------------------------------------------------------------------
 
-TOOL_DEFINITIONS = [
+READ_TOOL_DEFINITIONS = [
     {
         "name": "query_invoices",
         "description": "Query invoices from the database. Returns invoice records with amounts, dates, contacts, status. Use for financial questions about invoices, revenue, payments.",
@@ -70,7 +124,7 @@ TOOL_DEFINITIONS = [
     },
     {
         "name": "query_cashbook",
-        "description": "Query cashbook entries (income/expense transactions). Returns entries with amounts, categories, dates.",
+        "description": "Query cashbook entries (income/expense transactions). Returns entries with amounts, categories, dates. This is the main ledger for all money in/out.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -108,11 +162,10 @@ TOOL_DEFINITIONS = [
     },
     {
         "name": "query_expenses",
-        "description": "Query expense records. Returns expenses with amounts, vendors, categories.",
+        "description": "Query expense records from the expenses table AND expense-type cashbook entries. Returns expenses with amounts, vendors, categories, dates. Use for any question about spending.",
         "input_schema": {
             "type": "object",
             "properties": {
-                "category": {"type": "string", "description": "Category name"},
                 "vendor": {"type": "string", "description": "Vendor name search"},
                 "date_from": {"type": "string", "description": "Start date YYYY-MM-DD"},
                 "date_to": {"type": "string", "description": "End date YYYY-MM-DD"},
@@ -122,7 +175,7 @@ TOOL_DEFINITIONS = [
     },
     {
         "name": "query_revenue_summary",
-        "description": "Get revenue summary — total income grouped by month or client. Use for revenue and financial overview questions.",
+        "description": "Get revenue summary — total income grouped by period. Use for revenue and financial overview questions.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -149,7 +202,7 @@ TOOL_DEFINITIONS = [
     },
     {
         "name": "search_communications",
-        "description": "Semantic search across emails, SMS, and call notes. Use for questions about what was discussed, communicated, or agreed upon.",
+        "description": "Semantic search across emails, SMS, and call notes.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -162,7 +215,7 @@ TOOL_DEFINITIONS = [
     },
     {
         "name": "search_meeting_transcripts",
-        "description": "Semantic search across meeting and call transcriptions. Use for questions about what was said in meetings.",
+        "description": "Semantic search across meeting and call transcriptions.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -201,6 +254,157 @@ TOOL_DEFINITIONS = [
 
 
 # ---------------------------------------------------------------------------
+# WRITE Tool definitions
+# ---------------------------------------------------------------------------
+
+WRITE_TOOL_DEFINITIONS = [
+    {
+        "name": "create_expense",
+        "description": "Create a new expense entry in the cashbook. Use when the user wants to record spending, add a bill, or log a purchase.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "vendor": {"type": "string", "description": "Vendor/payee name (e.g. 'Canva', 'Staples')"},
+                "amount": {"type": "number", "description": "Expense amount (positive number)"},
+                "date": {"type": "string", "description": "Date YYYY-MM-DD (default: today)"},
+                "description": {"type": "string", "description": "Description of the expense"},
+                "category": {"type": "string", "description": "Category name (e.g. 'Software & Subscriptions', 'Office Supplies')"},
+            },
+            "required": ["vendor", "amount"],
+        },
+    },
+    {
+        "name": "create_income_entry",
+        "description": "Create a new income entry in the cashbook. Use when the user wants to record money received.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "source": {"type": "string", "description": "Income source name"},
+                "amount": {"type": "number", "description": "Income amount (positive number)"},
+                "date": {"type": "string", "description": "Date YYYY-MM-DD (default: today)"},
+                "description": {"type": "string", "description": "Description of the income"},
+                "category": {"type": "string", "description": "Category: service, product, interest, refund, or other"},
+            },
+            "required": ["source", "amount"],
+        },
+    },
+    {
+        "name": "create_invoice",
+        "description": "Create a new draft invoice for a contact. Use when the user wants to bill a client.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "contact": {"type": "string", "description": "Contact name or UUID"},
+                "items": {
+                    "type": "array",
+                    "description": "Line items: each has description, quantity, rate",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "description": {"type": "string"},
+                            "quantity": {"type": "number", "description": "Default 1"},
+                            "rate": {"type": "number", "description": "Unit price"},
+                        },
+                        "required": ["description", "rate"],
+                    },
+                },
+                "due_days": {"type": "integer", "description": "Days until due (default 30)"},
+                "notes": {"type": "string", "description": "Invoice notes"},
+                "currency": {"type": "string", "description": "Currency code (default USD)"},
+            },
+            "required": ["contact", "items"],
+        },
+    },
+    {
+        "name": "create_contact",
+        "description": "Create a new contact (client, vendor, or both).",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Company or person name"},
+                "email": {"type": "string", "description": "Email address"},
+                "phone": {"type": "string", "description": "Phone number"},
+                "company": {"type": "string", "description": "Company name (if person name is different)"},
+                "type": {"type": "string", "description": "client, vendor, or both (default: client)"},
+            },
+            "required": ["name"],
+        },
+    },
+    {
+        "name": "update_contact",
+        "description": "Update an existing contact's fields (email, phone, company, notes, etc.).",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "contact": {"type": "string", "description": "Contact name or UUID"},
+                "email": {"type": "string"},
+                "phone": {"type": "string"},
+                "company": {"type": "string"},
+                "notes": {"type": "string"},
+            },
+            "required": ["contact"],
+        },
+    },
+    {
+        "name": "add_contact_note",
+        "description": "Add an internal note to a contact's activity timeline.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "contact": {"type": "string", "description": "Contact name or UUID"},
+                "note": {"type": "string", "description": "The note text"},
+            },
+            "required": ["contact", "note"],
+        },
+    },
+    {
+        "name": "create_calendar_event",
+        "description": "Create a calendar event, reminder, or task.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "title": {"type": "string", "description": "Event title"},
+                "date": {"type": "string", "description": "Date YYYY-MM-DD"},
+                "event_type": {"type": "string", "description": "deadline, reminder, meeting, or custom (default: reminder)"},
+                "description": {"type": "string", "description": "Event description"},
+            },
+            "required": ["title", "date"],
+        },
+    },
+    {
+        "name": "create_proposal",
+        "description": "Create a draft proposal for a contact.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "contact": {"type": "string", "description": "Contact name or UUID"},
+                "title": {"type": "string", "description": "Proposal title"},
+                "value": {"type": "number", "description": "Proposal value/amount"},
+                "description": {"type": "string", "description": "Proposal description text"},
+                "currency": {"type": "string", "description": "Currency code (default USD)"},
+            },
+            "required": ["contact", "title", "value"],
+        },
+    },
+    {
+        "name": "update_invoice_status",
+        "description": "Update an invoice's status (e.g. mark as sent, paid, cancelled).",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "invoice": {"type": "string", "description": "Invoice number (e.g. INV-0001) or UUID"},
+                "status": {"type": "string", "description": "New status: draft, sent, paid, overdue, cancelled"},
+            },
+            "required": ["invoice", "status"],
+        },
+    },
+]
+
+# Combined definitions
+TOOL_DEFINITIONS = READ_TOOL_DEFINITIONS + WRITE_TOOL_DEFINITIONS
+
+
+# ---------------------------------------------------------------------------
 # Tool execution
 # ---------------------------------------------------------------------------
 
@@ -212,6 +416,7 @@ async def execute_tool(
 ) -> str:
     """Execute a tool and return the result as a JSON string."""
     handlers = {
+        # Read tools
         "query_invoices": _query_invoices,
         "query_cashbook": _query_cashbook,
         "query_contacts": _query_contacts,
@@ -224,6 +429,16 @@ async def execute_tool(
         "search_meeting_transcripts": _search_meeting_transcripts,
         "search_documents": _search_documents,
         "search_brain": _search_brain_tool,
+        # Write tools
+        "create_expense": _create_expense,
+        "create_income_entry": _create_income_entry,
+        "create_invoice": _create_invoice,
+        "create_contact": _create_contact,
+        "update_contact": _update_contact,
+        "add_contact_note": _add_contact_note,
+        "create_calendar_event": _create_calendar_event,
+        "create_proposal": _create_proposal,
+        "update_invoice_status": _update_invoice_status,
     }
 
     handler = handlers.get(tool_name)
@@ -238,7 +453,7 @@ async def execute_tool(
 
 
 # ---------------------------------------------------------------------------
-# Structured data tool implementations
+# READ: Structured data tool implementations
 # ---------------------------------------------------------------------------
 
 async def _query_invoices(db: AsyncSession, user_id: uuid.UUID, params: dict) -> str:
@@ -248,7 +463,7 @@ async def _query_invoices(db: AsyncSession, user_id: uuid.UUID, params: dict) ->
     if params.get("contact_id"):
         conditions.append(Invoice.contact_id == uuid.UUID(params["contact_id"]))
     if params.get("status"):
-        conditions.append(Invoice.status == params["status"])
+        conditions.append(Invoice.status == params["status"].upper())
     if params.get("date_from"):
         conditions.append(Invoice.issue_date >= params["date_from"])
     if params.get("date_to"):
@@ -261,6 +476,7 @@ async def _query_invoices(db: AsyncSession, user_id: uuid.UUID, params: dict) ->
     stmt = stmt.order_by(desc(Invoice.issue_date)).limit(limit)
     result = await db.execute(stmt)
     invoices = list(result.scalars().all())
+    logger.info("query_invoices: %d results (filters: %s)", len(invoices), params)
     return json.dumps({"invoices": _serialize(invoices), "count": len(invoices)})
 
 
@@ -269,7 +485,7 @@ async def _query_cashbook(db: AsyncSession, user_id: uuid.UUID, params: dict) ->
 
     conditions = []
     if params.get("entry_type"):
-        conditions.append(CashbookEntry.entry_type == params["entry_type"].lower())
+        conditions.append(CashbookEntry.entry_type == params["entry_type"].upper())
     if params.get("date_from"):
         conditions.append(CashbookEntry.date >= params["date_from"])
     if params.get("date_to"):
@@ -283,9 +499,10 @@ async def _query_cashbook(db: AsyncSession, user_id: uuid.UUID, params: dict) ->
     result = await db.execute(stmt)
     entries = list(result.scalars().all())
 
-    total_income = sum(float(e.total_amount) for e in entries if _enum_val(e.entry_type) == "income")
-    total_expense = sum(float(e.total_amount) for e in entries if _enum_val(e.entry_type) == "expense")
+    total_income = sum(float(e.total_amount) for e in entries if _enum_val(e.entry_type) == "INCOME")
+    total_expense = sum(float(e.total_amount) for e in entries if _enum_val(e.entry_type) == "EXPENSE")
 
+    logger.info("query_cashbook: %d results (filters: %s)", len(entries), params)
     return json.dumps({
         "entries": _serialize(entries),
         "count": len(entries),
@@ -309,12 +526,13 @@ async def _query_contacts(db: AsyncSession, user_id: uuid.UUID, params: dict) ->
             )
         )
     if params.get("type"):
-        conditions.append(Contact.type == params["type"].lower())
+        conditions.append(Contact.type == params["type"].upper())
 
     limit = min(params.get("limit", 20), 50)
     stmt = select(Contact).where(and_(*conditions)).limit(limit)
     result = await db.execute(stmt)
     contacts = list(result.scalars().all())
+    logger.info("query_contacts: %d results (filters: %s)", len(contacts), params)
     return json.dumps({"contacts": _serialize(contacts), "count": len(contacts)})
 
 
@@ -323,7 +541,7 @@ async def _query_proposals(db: AsyncSession, user_id: uuid.UUID, params: dict) -
 
     conditions = []
     if params.get("status"):
-        conditions.append(Proposal.status == params["status"])
+        conditions.append(Proposal.status == params["status"].upper())
     if params.get("contact_id"):
         conditions.append(Proposal.contact_id == uuid.UUID(params["contact_id"]))
 
@@ -336,6 +554,7 @@ async def _query_proposals(db: AsyncSession, user_id: uuid.UUID, params: dict) -
     proposals = list(result.scalars().all())
 
     total_value = sum(float(p.value or 0) for p in proposals)
+    logger.info("query_proposals: %d results (filters: %s)", len(proposals), params)
     return json.dumps({
         "proposals": _serialize(proposals),
         "count": len(proposals),
@@ -344,31 +563,79 @@ async def _query_proposals(db: AsyncSession, user_id: uuid.UUID, params: dict) -
 
 
 async def _query_expenses(db: AsyncSession, user_id: uuid.UUID, params: dict) -> str:
+    """Query BOTH the expenses table AND cashbook expense entries."""
     from app.accounting.models import Expense
+    from app.cashbook.models import CashbookEntry
 
-    conditions = []
+    combined = []
+
+    # 1) Expenses table
+    exp_conditions = []
     if params.get("vendor"):
-        conditions.append(Expense.vendor_name.ilike(f"%{params['vendor']}%"))
+        exp_conditions.append(Expense.vendor_name.ilike(f"%{params['vendor']}%"))
     if params.get("date_from"):
-        conditions.append(Expense.date >= params["date_from"])
+        exp_conditions.append(Expense.date >= params["date_from"])
     if params.get("date_to"):
-        conditions.append(Expense.date <= params["date_to"])
+        exp_conditions.append(Expense.date <= params["date_to"])
 
-    limit = min(params.get("limit", 20), 50)
     stmt = select(Expense)
-    if conditions:
-        stmt = stmt.where(and_(*conditions))
-    stmt = stmt.order_by(desc(Expense.date)).limit(limit)
+    if exp_conditions:
+        stmt = stmt.where(and_(*exp_conditions))
+    stmt = stmt.order_by(desc(Expense.date)).limit(50)
     result = await db.execute(stmt)
     expenses = list(result.scalars().all())
 
-    total = sum(e.amount for e in expenses)
-    return json.dumps({"expenses": _serialize(expenses), "count": len(expenses), "total": float(total)})
+    for e in expenses:
+        combined.append({
+            "source": "expenses",
+            "id": str(e.id),
+            "vendor": e.vendor_name or "",
+            "description": e.description or "",
+            "amount": float(e.amount),
+            "currency": e.currency or "USD",
+            "date": e.date.isoformat() if e.date else None,
+            "status": _enum_val(e.status) if e.status else None,
+        })
+
+    # 2) Cashbook expense entries
+    cb_conditions = [CashbookEntry.entry_type == "EXPENSE"]
+    if params.get("vendor"):
+        cb_conditions.append(CashbookEntry.description.ilike(f"%{params['vendor']}%"))
+    if params.get("date_from"):
+        cb_conditions.append(CashbookEntry.date >= params["date_from"])
+    if params.get("date_to"):
+        cb_conditions.append(CashbookEntry.date <= params["date_to"])
+
+    stmt2 = select(CashbookEntry).where(and_(*cb_conditions)).order_by(desc(CashbookEntry.date)).limit(50)
+    result2 = await db.execute(stmt2)
+    cb_entries = list(result2.scalars().all())
+
+    for e in cb_entries:
+        combined.append({
+            "source": "cashbook",
+            "id": str(e.id),
+            "vendor": "",
+            "description": e.description or "",
+            "amount": float(e.total_amount),
+            "currency": "USD",
+            "date": e.date.isoformat() if e.date else None,
+            "status": "recorded",
+        })
+
+    # Sort by date desc and limit
+    combined.sort(key=lambda x: x.get("date") or "", reverse=True)
+    limit = min(params.get("limit", 20), 50)
+    combined = combined[:limit]
+
+    total = sum(e["amount"] for e in combined)
+    logger.info("query_expenses: %d results (%d from expenses, %d from cashbook)", len(combined), len(expenses), len(cb_entries))
+    return json.dumps({"expenses": combined, "count": len(combined), "total": float(total)})
 
 
 async def _query_revenue_summary(db: AsyncSession, user_id: uuid.UUID, params: dict) -> str:
     from app.invoicing.models import Invoice
     from app.income.models import Income
+    from app.cashbook.models import CashbookEntry
 
     period = params.get("period", "this_month")
     today = date.today()
@@ -394,7 +661,7 @@ async def _query_revenue_summary(db: AsyncSession, user_id: uuid.UUID, params: d
     # Paid invoices in period
     stmt = select(Invoice).where(
         and_(
-            Invoice.status == "paid",
+            Invoice.status == "PAID",
             Invoice.issue_date >= start.isoformat(),
             Invoice.issue_date <= end.isoformat(),
         )
@@ -403,7 +670,7 @@ async def _query_revenue_summary(db: AsyncSession, user_id: uuid.UUID, params: d
     paid_invoices = list(result.scalars().all())
     invoice_revenue = sum(float(i.total) for i in paid_invoices)
 
-    # Income records in period
+    # Income entries in period
     stmt2 = select(Income).where(
         and_(
             Income.date >= start.isoformat(),
@@ -414,13 +681,29 @@ async def _query_revenue_summary(db: AsyncSession, user_id: uuid.UUID, params: d
     incomes = list(result2.scalars().all())
     income_total = sum(float(i.amount) for i in incomes)
 
+    # Cashbook income entries in period
+    stmt3 = select(CashbookEntry).where(
+        and_(
+            CashbookEntry.entry_type == "INCOME",
+            CashbookEntry.date >= start.isoformat(),
+            CashbookEntry.date <= end.isoformat(),
+        )
+    )
+    result3 = await db.execute(stmt3)
+    cb_incomes = list(result3.scalars().all())
+    cb_income_total = sum(float(e.total_amount) for e in cb_incomes)
+
+    total_revenue = invoice_revenue + income_total + cb_income_total
+    logger.info("query_revenue_summary: period=%s, invoices=%d, income=%d, cashbook=%d",
+                period, len(paid_invoices), len(incomes), len(cb_incomes))
     return json.dumps({
         "period": period,
         "start_date": start.isoformat(),
         "end_date": end.isoformat(),
         "invoice_revenue": float(invoice_revenue),
         "other_income": float(income_total),
-        "total_revenue": float(invoice_revenue + income_total),
+        "cashbook_income": float(cb_income_total),
+        "total_revenue": float(total_revenue),
         "paid_invoice_count": len(paid_invoices),
     })
 
@@ -432,17 +715,15 @@ async def _query_overdue_items(db: AsyncSession, user_id: uuid.UUID, params: dic
     today = date.today()
     seven_days_ago = today - timedelta(days=7)
 
-    # Overdue invoices
     stmt = select(Invoice).where(
-        Invoice.status == "overdue"
+        Invoice.status == "OVERDUE"
     ).order_by(Invoice.due_date)
     result = await db.execute(stmt)
     overdue_invoices = list(result.scalars().all())
 
-    # Unsigned proposals > 7 days
     stmt2 = select(Proposal).where(
         and_(
-            Proposal.status.in_(["sent", "viewed", "waiting_signature"]),
+            Proposal.status.in_(["SENT", "VIEWED", "WAITING_SIGNATURE"]),
             Proposal.sent_at <= datetime.combine(seven_days_ago, datetime.min.time()),
         )
     )
@@ -478,7 +759,7 @@ async def _query_calendar_bookings(db: AsyncSession, user_id: uuid.UUID, params:
 
 
 # ---------------------------------------------------------------------------
-# Unstructured search tool implementations
+# READ: Unstructured search tool implementations
 # ---------------------------------------------------------------------------
 
 async def _search_communications(db: AsyncSession, user_id: uuid.UUID, params: dict) -> str:
@@ -528,3 +809,329 @@ async def _search_brain_tool(db: AsyncSession, user_id: uuid.UUID, params: dict)
         {"content": r.content, "source_type": r.source_type, "relevance": r.relevance_score}
         for r in results
     ], "count": len(results)})
+
+
+# ---------------------------------------------------------------------------
+# WRITE: Tool implementations
+# ---------------------------------------------------------------------------
+
+async def _create_expense(db: AsyncSession, user_id: uuid.UUID, params: dict) -> str:
+    """Create a cashbook expense entry."""
+    from app.cashbook.models import CashbookEntry, EntryType
+
+    user = await _get_user(db, user_id)
+    if not user:
+        return json.dumps({"error": "User not found"})
+
+    account = await _get_default_account(db)
+    if not account:
+        return json.dumps({"error": "No payment account found. Please create one first in Cashbook settings."})
+
+    expense_date = date.fromisoformat(params["date"]) if params.get("date") else date.today()
+    amount = Decimal(str(params["amount"]))
+    description = params.get("description") or f"Payment to {params['vendor']}"
+
+    entry = CashbookEntry(
+        id=uuid.uuid4(),
+        account_id=account.id,
+        entry_type=EntryType.EXPENSE,
+        date=expense_date,
+        description=description,
+        total_amount=amount,
+        user_id=user_id,
+        notes=f"Created by O-Brain. Vendor: {params['vendor']}",
+    )
+    db.add(entry)
+    await db.commit()
+
+    logger.info("Created expense: $%.2f to %s on %s", float(amount), params['vendor'], expense_date)
+    return json.dumps({
+        "success": True,
+        "message": f"Expense created: ${float(amount):.2f} to {params['vendor']} on {expense_date.strftime('%b %d, %Y')}",
+        "id": str(entry.id),
+    })
+
+
+async def _create_income_entry(db: AsyncSession, user_id: uuid.UUID, params: dict) -> str:
+    """Create a cashbook income entry."""
+    from app.cashbook.models import CashbookEntry, EntryType
+
+    user = await _get_user(db, user_id)
+    if not user:
+        return json.dumps({"error": "User not found"})
+
+    account = await _get_default_account(db)
+    if not account:
+        return json.dumps({"error": "No payment account found."})
+
+    income_date = date.fromisoformat(params["date"]) if params.get("date") else date.today()
+    amount = Decimal(str(params["amount"]))
+    description = params.get("description") or f"Income from {params['source']}"
+
+    entry = CashbookEntry(
+        id=uuid.uuid4(),
+        account_id=account.id,
+        entry_type=EntryType.INCOME,
+        date=income_date,
+        description=description,
+        total_amount=amount,
+        user_id=user_id,
+        notes=f"Created by O-Brain. Source: {params['source']}",
+    )
+    db.add(entry)
+    await db.commit()
+
+    logger.info("Created income: $%.2f from %s on %s", float(amount), params['source'], income_date)
+    return json.dumps({
+        "success": True,
+        "message": f"Income recorded: ${float(amount):.2f} from {params['source']} on {income_date.strftime('%b %d, %Y')}",
+        "id": str(entry.id),
+    })
+
+
+async def _create_invoice(db: AsyncSession, user_id: uuid.UUID, params: dict) -> str:
+    """Create a draft invoice using the invoicing service."""
+    from app.invoicing.service import create_invoice
+    from app.invoicing.schemas import InvoiceCreate, InvoiceLineItemCreate
+
+    user = await _get_user(db, user_id)
+    if not user:
+        return json.dumps({"error": "User not found"})
+
+    contact = await _resolve_contact(db, params["contact"])
+    if not contact:
+        return json.dumps({"error": f"Contact '{params['contact']}' not found. Please create them first."})
+
+    due_days = params.get("due_days", 30)
+    items = params.get("items", [])
+    if not items:
+        return json.dumps({"error": "At least one line item is required."})
+
+    line_items = [
+        InvoiceLineItemCreate(
+            description=item["description"],
+            quantity=Decimal(str(item.get("quantity", 1))),
+            unit_price=Decimal(str(item["rate"])),
+        )
+        for item in items
+    ]
+
+    data = InvoiceCreate(
+        contact_id=contact.id,
+        issue_date=date.today(),
+        due_date=date.today() + timedelta(days=due_days),
+        currency=params.get("currency", "USD"),
+        notes=params.get("notes"),
+        line_items=line_items,
+    )
+
+    invoice = await create_invoice(db, data, user)
+    total = float(invoice.total)
+    contact_name = contact.contact_name or contact.company_name
+
+    logger.info("Created invoice %s for %s — $%.2f", invoice.invoice_number, contact_name, total)
+    return json.dumps({
+        "success": True,
+        "message": f"Draft invoice {invoice.invoice_number} created for {contact_name} — ${total:.2f}. View at /invoices/{invoice.id}",
+        "id": str(invoice.id),
+        "invoice_number": invoice.invoice_number,
+    })
+
+
+async def _create_contact(db: AsyncSession, user_id: uuid.UUID, params: dict) -> str:
+    """Create a new contact."""
+    from app.contacts.service import create_contact
+    from app.contacts.schemas import ContactCreate
+    from app.contacts.models import ContactType
+
+    user = await _get_user(db, user_id)
+    if not user:
+        return json.dumps({"error": "User not found"})
+
+    contact_type_str = (params.get("type") or "client").upper()
+    try:
+        contact_type = ContactType[contact_type_str]
+    except KeyError:
+        contact_type = ContactType.CLIENT
+
+    company = params.get("company") or params["name"]
+    contact_name = params["name"] if params.get("company") else None
+
+    data = ContactCreate(
+        type=contact_type,
+        company_name=company,
+        contact_name=contact_name,
+        email=params.get("email"),
+        phone=params.get("phone"),
+    )
+
+    contact = await create_contact(db, data, user)
+    display_name = contact.contact_name or contact.company_name
+    email_part = f" ({contact.email})" if contact.email else ""
+
+    logger.info("Created contact: %s%s", display_name, email_part)
+    return json.dumps({
+        "success": True,
+        "message": f"Contact created: {display_name}{email_part}",
+        "id": str(contact.id),
+    })
+
+
+async def _update_contact(db: AsyncSession, user_id: uuid.UUID, params: dict) -> str:
+    """Update an existing contact."""
+    contact = await _resolve_contact(db, params["contact"])
+    if not contact:
+        return json.dumps({"error": f"Contact '{params['contact']}' not found."})
+
+    changes = []
+    if params.get("email"):
+        contact.email = params["email"]
+        changes.append(f"email → {params['email']}")
+    if params.get("phone"):
+        contact.phone = params["phone"]
+        changes.append(f"phone → {params['phone']}")
+    if params.get("company"):
+        contact.company_name = params["company"]
+        changes.append(f"company → {params['company']}")
+    if params.get("notes"):
+        contact.notes = params["notes"]
+        changes.append("notes updated")
+
+    if not changes:
+        return json.dumps({"message": "No changes specified."})
+
+    await db.commit()
+    display_name = contact.contact_name or contact.company_name
+    return json.dumps({
+        "success": True,
+        "message": f"Updated {display_name}: {', '.join(changes)}",
+    })
+
+
+async def _add_contact_note(db: AsyncSession, user_id: uuid.UUID, params: dict) -> str:
+    """Add a note to a contact's activity timeline."""
+    from app.contacts.service import log_contact_activity
+    from app.contacts.models import ActivityType
+
+    contact = await _resolve_contact(db, params["contact"])
+    if not contact:
+        return json.dumps({"error": f"Contact '{params['contact']}' not found."})
+
+    await log_contact_activity(
+        db,
+        contact_id=contact.id,
+        activity_type=ActivityType.NOTE_ADDED,
+        title="Note from O-Brain",
+        description=params["note"],
+        user_id=user_id,
+    )
+
+    display_name = contact.contact_name or contact.company_name
+    return json.dumps({
+        "success": True,
+        "message": f"Note added to {display_name}'s timeline",
+    })
+
+
+async def _create_calendar_event(db: AsyncSession, user_id: uuid.UUID, params: dict) -> str:
+    """Create a calendar event."""
+    from app.calendar.service import create_event
+    from app.calendar.schemas import CalendarEventCreate
+    from app.calendar.models import EventType, Recurrence
+
+    event_type_str = (params.get("event_type") or "reminder").upper()
+    try:
+        event_type = EventType[event_type_str]
+    except KeyError:
+        event_type = EventType.REMINDER
+
+    data = CalendarEventCreate(
+        title=params["title"],
+        date=date.fromisoformat(params["date"]),
+        event_type=event_type,
+        description=params.get("description"),
+        recurrence=Recurrence.NONE,
+    )
+
+    event = await create_event(db, user_id, data)
+    return json.dumps({
+        "success": True,
+        "message": f"Calendar event created: '{params['title']}' on {params['date']}",
+        "id": str(event.id),
+    })
+
+
+async def _create_proposal(db: AsyncSession, user_id: uuid.UUID, params: dict) -> str:
+    """Create a draft proposal."""
+    from app.proposals.service import create_proposal
+    from app.proposals.schemas import ProposalCreate
+
+    user = await _get_user(db, user_id)
+    if not user:
+        return json.dumps({"error": "User not found"})
+
+    contact = await _resolve_contact(db, params["contact"])
+    if not contact:
+        return json.dumps({"error": f"Contact '{params['contact']}' not found."})
+
+    # Build simple content JSON with description text
+    desc_text = params.get("description") or params["title"]
+    content_blocks = json.dumps([{
+        "id": str(uuid.uuid4()),
+        "type": "text",
+        "data": {"text": desc_text},
+        "order": 0,
+    }])
+
+    data = ProposalCreate(
+        contact_id=contact.id,
+        title=params["title"],
+        value=Decimal(str(params["value"])),
+        currency=params.get("currency", "USD"),
+        content_json=content_blocks,
+    )
+
+    proposal = await create_proposal(db, data, user)
+    contact_name = contact.contact_name or contact.company_name
+    value = float(params["value"])
+
+    logger.info("Created proposal '%s' for %s — $%.2f", params["title"], contact_name, value)
+    return json.dumps({
+        "success": True,
+        "message": f"Draft proposal '{params['title']}' created for {contact_name} — ${value:,.2f}. View at /proposals/{proposal.id}",
+        "id": str(proposal.id),
+    })
+
+
+async def _update_invoice_status(db: AsyncSession, user_id: uuid.UUID, params: dict) -> str:
+    """Update an invoice's status."""
+    from app.invoicing.models import Invoice
+
+    invoice_ref = params["invoice"]
+
+    # Try by invoice number first, then UUID
+    result = await db.execute(
+        select(Invoice).where(Invoice.invoice_number == invoice_ref)
+    )
+    invoice = result.scalar_one_or_none()
+
+    if not invoice:
+        try:
+            inv_id = uuid.UUID(invoice_ref)
+            result = await db.execute(select(Invoice).where(Invoice.id == inv_id))
+            invoice = result.scalar_one_or_none()
+        except (ValueError, AttributeError):
+            pass
+
+    if not invoice:
+        return json.dumps({"error": f"Invoice '{invoice_ref}' not found."})
+
+    new_status = params["status"].upper()
+    old_status = _enum_val(invoice.status)
+    invoice.status = new_status
+    await db.commit()
+
+    return json.dumps({
+        "success": True,
+        "message": f"Invoice {invoice.invoice_number} status changed from {old_status} to {new_status}",
+    })

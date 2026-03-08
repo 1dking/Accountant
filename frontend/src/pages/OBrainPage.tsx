@@ -65,10 +65,10 @@ export default function OBrainPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  // Streaming refs — accumulate tokens without triggering React renders,
-  // then flush to state at ~60fps via requestAnimationFrame.
-  const streamBufferRef = useRef('')
-  const rafIdRef = useRef<number | null>(null)
+  // Token queue — buffer incoming tokens and release at natural reading pace
+  const tokenQueueRef = useRef<string[]>([])
+  const isProcessingRef = useRef(false)
+  const drainTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const scrollToBottom = useCallback(() => {
     const el = scrollContainerRef.current
@@ -142,21 +142,27 @@ export default function OBrainPage() {
     setIsStreaming(true)
     requestAnimationFrame(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }))
 
-    // Flush buffered tokens to React state at ~60fps
-    const flushBuffer = () => {
-      const chunk = streamBufferRef.current
-      if (chunk) {
-        streamBufferRef.current = ''
-        setMessages((prev) => {
-          const updated = [...prev]
-          const last = updated[updated.length - 1]
-          if (last.role === 'assistant') last.content += chunk
-          return [...updated]
-        })
+    // Drain token queue at natural reading pace (~35ms per token)
+    const drainQueue = () => {
+      if (tokenQueueRef.current.length === 0) {
+        isProcessingRef.current = false
+        return
       }
-      rafIdRef.current = requestAnimationFrame(flushBuffer)
+      isProcessingRef.current = true
+      const token = tokenQueueRef.current.shift()!
+      setMessages((prev) => {
+        const updated = [...prev]
+        const last = updated[updated.length - 1]
+        if (last.role === 'assistant') last.content += token
+        return [...updated]
+      })
+      drainTimerRef.current = setTimeout(drainQueue, 35)
     }
-    rafIdRef.current = requestAnimationFrame(flushBuffer)
+
+    const enqueueToken = (text: string) => {
+      tokenQueueRef.current.push(text)
+      if (!isProcessingRef.current) drainQueue()
+    }
 
     try {
       for await (const event of chatStream(
@@ -166,8 +172,7 @@ export default function OBrainPage() {
         uploadedFileIds.length > 0 ? uploadedFileIds : undefined,
       )) {
         if (event.type === 'text' && event.content) {
-          // Accumulate in ref — the RAF loop pushes to state at 60fps
-          streamBufferRef.current += event.content
+          enqueueToken(event.content)
         } else if (event.type === 'tool_use' && event.tool) {
           setMessages((prev) => {
             const updated = [...prev]
@@ -183,10 +188,10 @@ export default function OBrainPage() {
             return [...updated]
           })
         } else if (event.type === 'done') {
-          // Final flush of any remaining buffered text
-          if (streamBufferRef.current) {
-            const remaining = streamBufferRef.current
-            streamBufferRef.current = ''
+          // Flush remaining tokens immediately
+          if (tokenQueueRef.current.length > 0) {
+            const remaining = tokenQueueRef.current.join('')
+            tokenQueueRef.current = []
             setMessages((prev) => {
               const updated = [...prev]
               const last = updated[updated.length - 1]
@@ -215,10 +220,10 @@ export default function OBrainPage() {
         return [...updated]
       })
     } finally {
-      // Stop the RAF flush loop
-      if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current)
-      rafIdRef.current = null
-      streamBufferRef.current = ''
+      if (drainTimerRef.current) clearTimeout(drainTimerRef.current)
+      drainTimerRef.current = null
+      tokenQueueRef.current = []
+      isProcessingRef.current = false
       setIsStreaming(false)
     }
   }
