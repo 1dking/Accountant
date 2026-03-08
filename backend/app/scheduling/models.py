@@ -32,6 +32,12 @@ class CalendarType(str, enum.Enum):
     ROUND_ROBIN = "round_robin"
 
 
+class MeetingType(str, enum.Enum):
+    PHONE = "phone"
+    VIDEO = "video"
+    IN_PERSON = "in_person"
+
+
 class SchedulingCalendar(TimestampMixin, Base):
     """A booking calendar that can be shared publicly."""
 
@@ -143,6 +149,12 @@ class CalendarBooking(TimestampMixin, Base):
         Enum(BookingStatus), default=BookingStatus.PENDING, nullable=False
     )
     cancellation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    meeting_type: Mapped[MeetingType | None] = mapped_column(
+        Enum(MeetingType), nullable=True
+    )
+    meeting_location: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    reschedule_token: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True)
+    cancel_token: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True)
     google_event_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     reminder_24h_sent: Mapped[bool] = mapped_column(Boolean, default=False)
     reminder_1h_sent: Mapped[bool] = mapped_column(Boolean, default=False)

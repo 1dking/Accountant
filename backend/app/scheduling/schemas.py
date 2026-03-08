@@ -106,12 +106,17 @@ class BookingCreate(BaseModel):
     guest_phone: Optional[str] = None
     guest_notes: Optional[str] = None
     start_time: datetime
+    meeting_type: Optional[str] = None
+    meeting_location: Optional[str] = None
 
 
 class BookingUpdate(BaseModel):
     status: Optional[str] = None
     cancellation_reason: Optional[str] = None
     assigned_user_id: Optional[uuid.UUID] = None
+    meeting_type: Optional[str] = None
+    meeting_location: Optional[str] = None
+    start_time: Optional[datetime] = None
 
 
 class BookingResponse(BaseModel):
@@ -127,6 +132,10 @@ class BookingResponse(BaseModel):
     end_time: datetime
     status: str
     cancellation_reason: Optional[str] = None
+    meeting_type: Optional[str] = None
+    meeting_location: Optional[str] = None
+    reschedule_token: Optional[str] = None
+    cancel_token: Optional[str] = None
     google_event_id: Optional[str] = None
     confirmation_sent: bool
     created_at: datetime
@@ -143,6 +152,7 @@ class BookingListItem(BaseModel):
     start_time: datetime
     end_time: datetime
     status: str
+    meeting_type: Optional[str] = None
     assigned_user_id: Optional[uuid.UUID] = None
     created_at: datetime
 

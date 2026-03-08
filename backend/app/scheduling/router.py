@@ -2,9 +2,11 @@
 
 import math
 import uuid
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import Role, User
@@ -25,6 +27,14 @@ from app.scheduling.schemas import (
 )
 
 router = APIRouter()
+
+
+class RescheduleRequest(BaseModel):
+    new_start_time: datetime
+
+
+class CancelRequest(BaseModel):
+    reason: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -62,6 +72,65 @@ async def public_book(
 ) -> dict:
     cal = await service.get_calendar_by_slug(db, slug)
     booking = await service.create_booking(db, cal.id, data)
+    # Try to send confirmation email (non-blocking)
+    await service.send_booking_confirmation(db, booking)
+    return {"data": BookingResponse.model_validate(booking)}
+
+
+# ---------------------------------------------------------------------------
+# Public reschedule & cancel (token-based, no auth required)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/public/booking/reschedule/{token}")
+async def get_reschedule_info(
+    token: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    booking = await service.get_booking_by_reschedule_token(db, token)
+    cal = await service.get_calendar(db, booking.calendar_id)
+    return {
+        "data": {
+            "booking": BookingResponse.model_validate(booking),
+            "calendar_name": cal.name,
+            "duration_minutes": cal.duration_minutes,
+        }
+    }
+
+
+@router.post("/public/booking/reschedule/{token}")
+async def public_reschedule(
+    token: str,
+    data: RescheduleRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    booking = await service.reschedule_booking(db, token, data.new_start_time)
+    return {"data": BookingResponse.model_validate(booking)}
+
+
+@router.get("/public/booking/cancel/{token}")
+async def get_cancel_info(
+    token: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    booking = await service.get_booking_by_cancel_token(db, token)
+    cal = await service.get_calendar(db, booking.calendar_id)
+    return {
+        "data": {
+            "booking": BookingResponse.model_validate(booking),
+            "calendar_name": cal.name,
+        }
+    }
+
+
+@router.post("/public/booking/cancel/{token}")
+async def public_cancel(
+    token: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    data: CancelRequest | None = None,
+) -> dict:
+    reason = data.reason if data else None
+    booking = await service.cancel_booking_by_token(db, token, reason)
     return {"data": BookingResponse.model_validate(booking)}
 
 

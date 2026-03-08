@@ -398,6 +398,23 @@ WRITE_TOOL_DEFINITIONS = [
             "required": ["invoice", "status"],
         },
     },
+    {
+        "name": "create_booking",
+        "description": "Create a booking/appointment on a scheduling calendar. Use when someone wants to book a meeting.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "guest_name": {"type": "string", "description": "Guest's full name"},
+                "guest_email": {"type": "string", "description": "Guest's email address"},
+                "start_time": {"type": "string", "description": "Start time in ISO format (e.g. 2025-01-15T10:00:00)"},
+                "meeting_type": {"type": "string", "description": "phone, video, or in_person (default: video)"},
+                "guest_phone": {"type": "string", "description": "Guest's phone number"},
+                "guest_notes": {"type": "string", "description": "Notes about the meeting"},
+                "meeting_location": {"type": "string", "description": "Meeting location or link"},
+            },
+            "required": ["guest_name", "guest_email", "start_time"],
+        },
+    },
 ]
 
 # Combined definitions
@@ -439,6 +456,7 @@ async def execute_tool(
         "create_calendar_event": _create_calendar_event,
         "create_proposal": _create_proposal,
         "update_invoice_status": _update_invoice_status,
+        "create_booking": _create_booking,
     }
 
     handler = handlers.get(tool_name)
@@ -1134,4 +1152,38 @@ async def _update_invoice_status(db: AsyncSession, user_id: uuid.UUID, params: d
     return json.dumps({
         "success": True,
         "message": f"Invoice {invoice.invoice_number} status changed from {old_status} to {new_status}",
+    })
+
+
+async def _create_booking(db: AsyncSession, user_id: uuid.UUID, params: dict) -> str:
+    """Create a booking on the first available scheduling calendar."""
+    from app.scheduling.service import create_booking, list_calendars
+    from app.scheduling.schemas import BookingCreate
+
+    # Find first calendar
+    calendars, _ = await list_calendars(db, user_id, page=1, page_size=1)
+    if not calendars:
+        return json.dumps({"error": "No scheduling calendars exist. Create one first at /scheduling."})
+
+    calendar = calendars[0]
+    start_time = datetime.fromisoformat(params["start_time"])
+
+    data = BookingCreate(
+        guest_name=params["guest_name"],
+        guest_email=params["guest_email"],
+        start_time=start_time,
+        guest_phone=params.get("guest_phone"),
+        guest_notes=params.get("guest_notes"),
+        meeting_type=params.get("meeting_type", "video"),
+        meeting_location=params.get("meeting_location"),
+    )
+
+    booking = await create_booking(db, calendar.id, data)
+    start_fmt = booking.start_time.strftime("%A, %B %d at %I:%M %p")
+
+    logger.info("Created booking for %s on %s", params["guest_name"], start_fmt)
+    return json.dumps({
+        "success": True,
+        "message": f"Booking created for {params['guest_name']} ({params['guest_email']}) on {start_fmt}. View at /scheduling",
+        "id": str(booking.id),
     })

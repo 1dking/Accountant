@@ -5,7 +5,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import {
   ArrowLeft, Send, Sparkles, Loader2, Plus, Trash2,
-  Database, PanelLeftClose, PanelLeft, Paperclip, X, FileIcon,
+  Database, PanelLeftClose, PanelLeft, Paperclip, X, FileIcon, Mic, Square,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
@@ -67,6 +67,12 @@ export default function OBrainPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  // Audio recorder
+  const [isRecording, setIsRecording] = useState(false)
+  const [recordingTime, setRecordingTime] = useState(0)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const recordingChunksRef = useRef<Blob[]>([])
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   // Token queue — buffer incoming tokens and release at natural reading pace
   const tokenQueueRef = useRef<string[]>([])
   const isProcessingRef = useRef(false)
@@ -298,6 +304,49 @@ export default function OBrainPage() {
     setAttachedFiles((prev) => prev.filter((_, i) => i !== index))
   }
 
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' })
+      recordingChunksRef.current = []
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) recordingChunksRef.current.push(e.data)
+      }
+
+      recorder.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop())
+        const blob = new Blob(recordingChunksRef.current, { type: 'audio/webm' })
+        const file = new File([blob], `recording-${Date.now()}.webm`, { type: 'audio/webm' })
+        setAttachedFiles((prev) => [...prev, file])
+        setRecordingTime(0)
+        if (recordingTimerRef.current) clearInterval(recordingTimerRef.current)
+      }
+
+      recorder.start(250)
+      mediaRecorderRef.current = recorder
+      setIsRecording(true)
+      setRecordingTime(0)
+      recordingTimerRef.current = setInterval(() => setRecordingTime((t) => t + 1), 1000)
+    } catch {
+      // Microphone permission denied or not available
+    }
+  }
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop()
+    }
+    setIsRecording(false)
+    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current)
+  }
+
+  const formatRecordingTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60)
+    const s = seconds % 60
+    return `${m}:${s.toString().padStart(2, '0')}`
+  }
+
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
     setIsDragging(true)
@@ -521,17 +570,35 @@ export default function OBrainPage() {
             >
               <Paperclip className="h-5 w-5" />
             </button>
+            {isRecording ? (
+              <button
+                onClick={stopRecording}
+                className="flex items-center gap-1.5 px-2.5 py-1 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg transition animate-pulse"
+                title="Stop recording"
+              >
+                <Square className="h-3.5 w-3.5 fill-current" />
+                <span className="text-xs font-medium">{formatRecordingTime(recordingTime)}</span>
+              </button>
+            ) : (
+              <button
+                onClick={startRecording}
+                className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition"
+                title="Record audio"
+              >
+                <Mic className="h-5 w-5" />
+              </button>
+            )}
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ask O-Brain anything about your business..."
-              disabled={isStreaming}
+              placeholder={isRecording ? 'Recording...' : 'Ask O-Brain anything about your business...'}
+              disabled={isStreaming || isRecording}
               className="flex-1 bg-transparent text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none disabled:opacity-50"
             />
             <button
-              onClick={() => handleSend()}
-              disabled={!input.trim() || isStreaming}
+              onClick={() => handleSend(attachedFiles.length > 0 && !input.trim() ? 'Please analyze this recording and transcribe it.' : undefined)}
+              disabled={(!input.trim() && attachedFiles.length === 0) || isStreaming || isRecording}
               className="p-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-30 transition"
             >
               {isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}

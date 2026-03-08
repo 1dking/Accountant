@@ -139,7 +139,7 @@ export interface Notification {
 }
 
 // Calendar
-export type EventType = 'deadline' | 'reminder' | 'tax_date' | 'contract_expiry' | 'custom'
+export type EventType = 'deadline' | 'reminder' | 'tax_date' | 'contract_expiry' | 'meeting' | 'custom'
 export type Recurrence = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly'
 
 export interface CalendarEvent {
@@ -1534,6 +1534,10 @@ export interface CalendarBooking {
   end_time: string
   status: string
   cancellation_reason?: string
+  meeting_type?: string
+  meeting_location?: string
+  reschedule_token?: string
+  cancel_token?: string
   google_event_id?: string
   confirmation_sent: boolean
   created_at: string

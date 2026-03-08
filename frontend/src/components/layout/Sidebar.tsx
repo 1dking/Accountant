@@ -24,6 +24,7 @@ import {
   ClipboardCheck,
   Phone,
   Globe,
+  Calendar,
   CalendarDays,
   UserCog,
   ChevronDown,
@@ -118,6 +119,7 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: 'MEETINGS',
     items: [
+      { path: '/calendar', label: 'Calendar', icon: Calendar },
       { path: '/meetings', label: 'Meetings', icon: Video },
       { path: '/recordings', label: 'Recordings', icon: Film },
       { path: '/scheduling', label: 'Scheduling', icon: CalendarDays },

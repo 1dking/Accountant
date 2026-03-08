@@ -54,4 +54,17 @@ export const schedulingApi = {
   // Public
   getPublicCalendar: (slug: string, date?: string) =>
     api.get(`/scheduling/public/${slug}${date ? `?date=${date}` : ''}`),
+
+  // Public reschedule/cancel (token-based, no auth)
+  getRescheduleInfo: (token: string) =>
+    api.get(`/scheduling/public/booking/reschedule/${token}`),
+
+  rescheduleBooking: (token: string, newStartTime: string) =>
+    api.post(`/scheduling/public/booking/reschedule/${token}`, { new_start_time: newStartTime }),
+
+  getCancelInfo: (token: string) =>
+    api.get(`/scheduling/public/booking/cancel/${token}`),
+
+  cancelBookingByToken: (token: string, reason?: string) =>
+    api.post(`/scheduling/public/booking/cancel/${token}`, { reason }),
 }

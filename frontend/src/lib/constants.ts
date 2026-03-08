@@ -21,6 +21,7 @@ export const EVENT_TYPES = [
   { value: 'reminder', label: 'Reminder', color: '#3b82f6' },
   { value: 'tax_date', label: 'Tax Date', color: '#f59e0b' },
   { value: 'contract_expiry', label: 'Contract Expiry', color: '#8b5cf6' },
+  { value: 'meeting', label: 'Meeting', color: '#2563eb' },
   { value: 'custom', label: 'Custom', color: '#6b7280' },
 ] as const
 

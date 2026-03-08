@@ -82,6 +82,37 @@ async def _process_payment_reminders() -> None:
         logger.exception("Error processing payment reminders")
 
 
+async def _send_booking_reminders() -> None:
+    """Job: send 24h and 1h booking reminders via email."""
+    try:
+        async with _session_factory() as db:
+            from datetime import datetime, timedelta, timezone as tz
+            from app.scheduling.service import (
+                get_bookings_needing_reminders,
+                send_booking_reminder,
+            )
+
+            bookings = await get_bookings_needing_reminders(db)
+            sent = 0
+            now = datetime.now(tz.utc)
+            for booking in bookings:
+                start = booking.start_time
+                if start.tzinfo is None:
+                    start = start.replace(tzinfo=tz.utc)
+
+                if not booking.reminder_1h_sent and start <= now + timedelta(hours=1):
+                    if await send_booking_reminder(db, booking, "1h"):
+                        sent += 1
+                elif not booking.reminder_24h_sent and start <= now + timedelta(hours=24):
+                    if await send_booking_reminder(db, booking, "24h"):
+                        sent += 1
+
+            if sent > 0:
+                logger.info("Sent %d booking reminders", sent)
+    except Exception:
+        logger.exception("Error sending booking reminders")
+
+
 def setup_scheduler(session_factory: Any, settings: Any = None) -> None:
     """Register all periodic jobs and start the scheduler."""
     global _session_factory, _settings
@@ -120,6 +151,13 @@ def setup_scheduler(session_factory: Any, settings: Any = None) -> None:
         _process_payment_reminders,
         CronTrigger(hour=8, minute=0),
         id="process_payment_reminders",
+        replace_existing=True,
+    )
+
+    scheduler.add_job(
+        _send_booking_reminders,
+        IntervalTrigger(minutes=15),
+        id="send_booking_reminders",
         replace_existing=True,
     )
 
