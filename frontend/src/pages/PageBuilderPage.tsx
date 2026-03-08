@@ -22,12 +22,12 @@ import {
   ExternalLink,
   Settings,
   X,
-  MessageSquare,
   PanelLeftClose,
   PanelLeftOpen,
   Bookmark,
   LayoutTemplate,
   Search,
+  Brain,
 } from 'lucide-react'
 import VisualEditor from '@/components/pages/VisualEditor'
 import AnalyticsDashboard from '@/components/pages/AnalyticsDashboard'
@@ -313,17 +313,22 @@ export default function PageBuilderPage() {
       pagesApi.aiChat(data),
     onSuccess: (res) => {
       const result = unwrap<{
+        response?: string
         html_content?: string
         css_content?: string
-        message?: string
-        chat_history?: ChatMessage[]
       }>(res)
+      // Update preview with generated HTML/CSS
       if (result?.html_content !== undefined) setEditHtml(result.html_content || '')
       if (result?.css_content !== undefined) setEditCss(result.css_content || '')
-      if (result?.chat_history) {
-        setChatMessages(result.chat_history)
-      } else if (result?.message) {
-        setChatMessages((prev) => [...prev, { role: 'assistant', content: result.message! }])
+      // Show only conversational text in chat (strip any stray HTML/code blocks)
+      if (result?.response) {
+        let chatText = result.response
+        // Remove any HTML code blocks that leaked into the response
+        chatText = chatText.replace(/```html[\s\S]*?```/g, '').replace(/```css[\s\S]*?```/g, '').replace(/```[\s\S]*?```/g, '').trim()
+        if (!chatText) chatText = 'Page updated. Check the preview!'
+        setChatMessages((prev) => [...prev, { role: 'assistant', content: chatText }])
+      } else {
+        setChatMessages((prev) => [...prev, { role: 'assistant', content: 'Page updated. Check the preview!' }])
       }
       queryClient.invalidateQueries({ queryKey: ['page', selectedPageId] })
     },
@@ -487,7 +492,13 @@ export default function PageBuilderPage() {
   // Shared: Preview iframe srcdoc
   // -------------------------------------------------------------------------
 
-  const previewSrcDoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${editCss}</style></head><body>${editHtml}</body></html>`
+  // If editHtml is a full document (from AI), use it directly; otherwise wrap it
+  const isFullDocument = editHtml.trim().toLowerCase().startsWith('<!doctype') || editHtml.trim().toLowerCase().startsWith('<html')
+  const previewSrcDoc = isFullDocument
+    ? (editCss.trim()
+        ? editHtml.replace('</head>', `<style>${editCss}</style></head>`)
+        : editHtml)
+    : `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><script src="https://cdn.tailwindcss.com"><\/script><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"><style>body{font-family:'Inter',system-ui,sans-serif;margin:0}${editCss}</style></head><body>${editHtml}</body></html>`
 
   // -------------------------------------------------------------------------
   // Render: Create Page Modal
@@ -1066,8 +1077,8 @@ export default function PageBuilderPage() {
     <div className="flex flex-col overflow-hidden bg-white dark:bg-gray-900 h-full">
       {/* Chat header */}
       <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2">
-        <MessageSquare className="h-4 w-4 text-purple-500" />
-        <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">AI Chat</span>
+        <Brain className="h-4 w-4 text-purple-500" />
+        <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">O-Brain</span>
         {aiChatMutation.isPending && (
           <span className="ml-auto flex items-center gap-1 text-xs text-purple-500">
             <Loader2 className="h-3 w-3 animate-spin" />
@@ -1084,12 +1095,12 @@ export default function PageBuilderPage() {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4">
         {chatMessages.length === 0 && !aiChatMutation.isPending && (
           <div className="text-center py-12 text-gray-400 dark:text-gray-500">
-            <MessageSquare className="h-10 w-10 mx-auto mb-3 opacity-40" />
-            <p className="text-sm">Describe what you want to build or change.</p>
-            <p className="text-xs mt-1">The AI will update your page HTML and CSS.</p>
+            <Brain className="h-10 w-10 mx-auto mb-3 opacity-40" />
+            <p className="text-sm">Tell O-Brain what you want to build.</p>
+            <p className="text-xs mt-1">Your page will appear in the preview panel.</p>
           </div>
         )}
         {chatMessages.map((msg, i) => (
@@ -1098,11 +1109,12 @@ export default function PageBuilderPage() {
             className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             <div
-              className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap ${
+              className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap break-words overflow-hidden ${
                 msg.role === 'user'
                   ? 'bg-blue-600 text-white rounded-br-md'
                   : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-bl-md'
               }`}
+              style={{ overflowWrap: 'break-word', wordBreak: 'break-word' }}
             >
               {msg.content}
             </div>
@@ -1120,20 +1132,20 @@ export default function PageBuilderPage() {
       </div>
 
       {/* Input */}
-      <div className="p-3 border-t border-gray-200 dark:border-gray-700">
+      <div className="p-3 border-t border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="flex gap-2">
           <textarea
             value={chatInput}
             onChange={(e) => setChatInput(e.target.value)}
             onKeyDown={handleChatKeyDown}
-            placeholder="Describe changes you want..."
+            placeholder="Tell O-Brain what you want..."
             rows={2}
-            className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 min-w-0 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <button
             onClick={handleSendChat}
             disabled={!chatInput.trim() || aiChatMutation.isPending || !selectedPageId}
-            className="self-end p-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
+            className="self-end flex-shrink-0 p-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
           >
             <Send className="h-4 w-4" />
           </button>
@@ -1147,7 +1159,7 @@ export default function PageBuilderPage() {
   // -------------------------------------------------------------------------
 
   const renderEditorPanel = () => (
-    <div className="flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-950">
+    <div className="h-full flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-950">
       {/* Tabs */}
       <div className="flex items-center border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2">
         {(
@@ -1204,7 +1216,7 @@ export default function PageBuilderPage() {
       {/* Tab content */}
       <div className="flex-1 overflow-hidden">
         {activeTab === 'preview' && (
-          <div className="h-full flex justify-center bg-gray-100 dark:bg-gray-950 p-4 overflow-auto">
+          <div className="h-full flex justify-center bg-gray-100 dark:bg-gray-950 p-4 overflow-hidden">
             <div
               className="bg-white shadow-lg transition-all duration-300 flex-shrink-0"
               style={{
@@ -1223,8 +1235,8 @@ export default function PageBuilderPage() {
                   srcDoc={previewSrcDoc}
                   className="w-full h-full border-0"
                   title="Page preview"
-                  sandbox="allow-scripts"
-                  style={{ minHeight: '100%' }}
+                  sandbox="allow-scripts allow-same-origin allow-popups"
+                  style={{ display: 'block' }}
                 />
               )}
             </div>
@@ -1441,7 +1453,7 @@ export default function PageBuilderPage() {
                   <PanelLeftOpen className="h-4 w-4" />
                 </button>
                 <div className="mt-2 writing-mode-vertical text-xs text-gray-400 dark:text-gray-500 font-medium" style={{ writingMode: 'vertical-rl' }}>
-                  AI Chat
+                  O-Brain
                 </div>
               </div>
             ) : (

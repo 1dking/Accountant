@@ -1100,19 +1100,87 @@ async def ai_chat_generate(
     except Exception:
         pass
 
+    primary_color = page.primary_color or "#2563eb"
+    font_family = page.font_family or "Inter, system-ui, sans-serif"
+    current_html = page.html_content or ""
+    current_css = page.css_content or ""
+    is_new_page = not current_html.strip()
+
+    # Build page state section (avoid backslashes in f-string expressions for Python <3.12)
+    nl = "\n"
+    if is_new_page:
+        page_state_section = "This is a NEW page — generate a complete website from scratch."
+    else:
+        page_state_section = "Current HTML (modify this):" + nl + current_html[:3000]
+    if current_css.strip():
+        page_state_section += nl + nl + "Current CSS:" + nl + current_css[:1000]
+
     system_prompt = (
-        f"You are a professional web designer AI. You build and modify landing pages.\n"
-        f"The user is chatting with you to create or refine their page.\n"
-        f"{branding_context}\n\n"
-        f"Current page HTML:\n{page.html_content or '(empty - generate a new page)'}\n\n"
-        f"Current page CSS:\n{page.css_content or '(empty)'}\n\n"
-        f"IMPORTANT: Return your response in this exact JSON format:\n"
-        f'{{"response": "your conversational reply to the user", '
-        f'"html_content": "the complete updated HTML", '
-        f'"css_content": "the complete updated CSS"}}\n\n'
-        f"Always return the FULL HTML and CSS, not just the changed parts. "
-        f"Make the design modern, responsive, and professional. "
-        f"Use the primary color {page.primary_color or '#2563eb'} and font {page.font_family or 'Inter, system-ui, sans-serif'}."
+        "You are an elite web designer who creates Apple-level, award-winning websites.\n"
+        "You produce COMPLETE, standalone HTML files that look like they cost $50,000 to build.\n"
+        + branding_context + "\n\n"
+        "## DESIGN STANDARDS (MANDATORY)\n"
+        "Every page you create MUST have:\n\n"
+        "1. **COMPLETE STANDALONE HTML** — Return a FULL HTML document with <!DOCTYPE html>, <head>, and <body>.\n"
+        "   Include ALL resources in the HTML file via CDN links:\n"
+        "   - Tailwind CSS: <script src=\"https://cdn.tailwindcss.com\"></script>\n"
+        "   - Google Fonts: <link href=\"https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap\" rel=\"stylesheet\">\n"
+        "   - Lucide Icons: <script src=\"https://unpkg.com/lucide@latest/dist/umd/lucide.js\"></script> then <script>lucide.createIcons();</script> before </body>\n\n"
+        "2. **REAL IMAGES FROM UNSPLASH** — NEVER use placeholder boxes or gray divs.\n"
+        "   Use real, high-quality images from Unsplash:\n"
+        "   - Hero backgrounds: <img src=\"https://images.unsplash.com/photo-[ID]?w=1920&q=80\" />\n"
+        "   - Team photos: Use portrait photos from Unsplash\n"
+        "   - Service images: Use relevant industry photos\n"
+        "   - Pick images that match the business type (dental=smiling patients, restaurant=food, etc.)\n"
+        "   - Always include alt text and loading=\"lazy\" on images below the fold\n\n"
+        "3. **PREMIUM VISUAL DESIGN** — Every page must include:\n"
+        "   - Glassmorphism effects: backdrop-blur-xl, bg-white/10, border border-white/20\n"
+        "   - Smooth gradients: bg-gradient-to-br, from-[color]-900 via-[color]-800 to-[color]-700\n"
+        "   - Subtle animations: CSS transitions, hover transforms (scale, translateY), fade-in on scroll\n"
+        "   - Shadow depth: shadow-2xl, shadow-[color]/20 for colored shadows\n"
+        "   - Rounded corners: rounded-2xl or rounded-3xl for cards\n"
+        "   - Generous whitespace: py-24 or py-32 between sections\n"
+        "   - Typography hierarchy: text-5xl/text-6xl bold headings, text-lg/text-xl light subheadings\n"
+        "   - Dark overlays on hero images: bg-black/40 or bg-gradient-to-r from-black/60\n"
+        "   - Floating cards with glass effect for testimonials and features\n"
+        "   - Accent color pops: " + primary_color + " for CTAs, highlights, and decorative elements\n\n"
+        "4. **RESPONSIVE DESIGN** — Must work on desktop, tablet, and mobile:\n"
+        "   - Use Tailwind responsive prefixes: sm:, md:, lg:, xl:\n"
+        "   - Mobile-first grid: grid-cols-1 md:grid-cols-2 lg:grid-cols-3\n"
+        "   - Hamburger menu concept for mobile (can be CSS-only)\n\n"
+        "5. **PROFESSIONAL SECTIONS** — Include these patterns:\n"
+        "   - Navigation: Sticky, transparent on scroll, glass effect\n"
+        "   - Hero: Full-viewport height, dramatic imagery, compelling headline, CTA button\n"
+        "   - Social proof: Client logos, testimonial cards with photos, star ratings\n"
+        "   - Services/Features: Icon cards with hover effects, 3-column grid\n"
+        "   - About: Split layout with image + text, company story\n"
+        "   - CTA: Bold section with gradient background and centered button\n"
+        "   - Footer: Multi-column with links, contact info, social icons, copyright\n\n"
+        "6. **MICRO-INTERACTIONS** — Add CSS-only animations:\n"
+        "   - Buttons: hover:scale-105 hover:shadow-lg transition-all duration-300\n"
+        "   - Cards: hover:-translate-y-2 hover:shadow-2xl transition-all duration-500\n"
+        "   - Links: hover:text-[accent] transition-colors\n"
+        "   - Add scroll-based fade-in using IntersectionObserver in a <script> tag\n\n"
+        "7. **COLOR PALETTE** — Use " + primary_color + " as the accent. Build a cohesive palette:\n"
+        "   - Dark backgrounds: slate-900, gray-950, or deep brand color\n"
+        "   - Light text on dark: white, gray-100, gray-200\n"
+        "   - Accent highlights: " + primary_color + " for buttons and key elements\n"
+        "   - Subtle borders: border-white/10 or border-gray-200\n\n"
+        "## CURRENT PAGE STATE\n"
+        + page_state_section + "\n\n"
+        "## RESPONSE FORMAT\n"
+        "Return your response as JSON with this EXACT structure:\n"
+        '{"response": "Brief conversational summary of what you built/changed (2-3 sentences, NO code)", '
+        '"html_content": "The COMPLETE standalone HTML document with <!DOCTYPE html> through </html>", '
+        '"css_content": ""}\n\n'
+        "CRITICAL RULES:\n"
+        "- html_content MUST be a complete HTML document (<!DOCTYPE html> to </html>)\n"
+        "- Put ALL CSS inside <style> tags within the HTML <head> — do NOT put CSS in css_content\n"
+        "- css_content should be empty string (all styles go in the HTML)\n"
+        "- The response field must contain ONLY conversational text — NEVER include HTML code in it\n"
+        "- Always return the FULL HTML, not just changed parts\n"
+        "- Use font: " + font_family + "\n"
+        "- Primary accent color: " + primary_color
     )
 
     result = None
@@ -1167,12 +1235,16 @@ async def _chat_with_gemini(api_key: str, system_prompt: str, chat_history: list
     for msg in chat_history[-10:]:  # Last 10 messages for context
         messages.append({"text": f"{msg['role'].upper()}: {msg['content']}"})
 
-    async with httpx.AsyncClient(timeout=90) as client:
+    async with httpx.AsyncClient(timeout=120) as client:
         resp = await client.post(
             f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}",
             json={
                 "contents": [{"parts": messages}],
-                "generationConfig": {"temperature": 0.7, "maxOutputTokens": 16384},
+                "generationConfig": {
+                    "temperature": 0.8,
+                    "maxOutputTokens": 65536,
+                    "responseMimeType": "application/json",
+                },
             },
         )
         resp.raise_for_status()
@@ -1189,7 +1261,7 @@ async def _chat_with_claude(api_key: str, system_prompt: str, chat_history: list
     for msg in chat_history[-10:]:
         messages.append({"role": msg["role"], "content": msg["content"]})
 
-    async with httpx.AsyncClient(timeout=90) as client:
+    async with httpx.AsyncClient(timeout=120) as client:
         resp = await client.post(
             "https://api.anthropic.com/v1/messages",
             headers={
@@ -1215,12 +1287,28 @@ def _parse_ai_response(text: str) -> dict:
     """Parse AI response — try JSON first, then extract HTML/CSS."""
     # Try JSON parse
     try:
-        # Find JSON block
-        json_match = re.search(r'\{[\s\S]*"response"[\s\S]*\}', text)
+        # Direct JSON parse (for responseMimeType=application/json)
+        parsed = json.loads(text)
+        if "response" in parsed and "html_content" in parsed:
+            return {
+                "response": parsed["response"],
+                "html_content": parsed.get("html_content", ""),
+                "css_content": parsed.get("css_content", ""),
+            }
+    except (json.JSONDecodeError, TypeError):
+        pass
+
+    try:
+        # Find JSON block in mixed text
+        json_match = re.search(r'\{[\s\S]*"response"[\s\S]*"html_content"[\s\S]*\}', text)
         if json_match:
             parsed = json.loads(json_match.group())
             if "response" in parsed:
-                return parsed
+                return {
+                    "response": parsed["response"],
+                    "html_content": parsed.get("html_content", ""),
+                    "css_content": parsed.get("css_content", ""),
+                }
     except (json.JSONDecodeError, TypeError):
         pass
 
@@ -1234,17 +1322,31 @@ def _parse_ai_response(text: str) -> dict:
         html = html_match.group(1).strip()
         response = re.sub(r'```html[\s\S]*?```', '', text).strip()
 
+    # Check for full HTML document without fences
+    if not html:
+        doc_match = re.search(r'(<!DOCTYPE html[\s\S]*</html>)', text, re.IGNORECASE)
+        if doc_match:
+            html = doc_match.group(1).strip()
+            response = text[:doc_match.start()].strip()
+
     css_match = re.search(r'```css\s*\n?([\s\S]*?)\n?```', text)
     if css_match:
         css = css_match.group(1).strip()
-        response = re.sub(r'```css[\s\S]*?```', response).strip()
+        response = re.sub(r'```css[\s\S]*?```', '', response).strip()
 
-    # Extract embedded style from HTML
-    if html and not css:
-        style_match = re.search(r'<style[^>]*>(.*?)</style>', html, re.DOTALL)
-        if style_match:
-            css = style_match.group(1).strip()
-            html = re.sub(r'<style[^>]*>.*?</style>', '', html, flags=re.DOTALL).strip()
+    # Clean up response — remove any remaining code fences or HTML tags
+    response = re.sub(r'```[\s\S]*?```', '', response).strip()
+    response = re.sub(r'<[^>]+>', '', response).strip()
+
+    # If the html is a full document, do NOT extract styles separately
+    # (styles belong in the document <head>)
+    if html and not html.strip().lower().startswith("<!doctype") and not html.strip().lower().startswith("<html"):
+        # Only extract embedded styles for partial HTML
+        if not css:
+            style_match = re.search(r'<style[^>]*>(.*?)</style>', html, re.DOTALL)
+            if style_match:
+                css = style_match.group(1).strip()
+                html = re.sub(r'<style[^>]*>.*?</style>', '', html, flags=re.DOTALL).strip()
 
     return {
         "response": response or "I've updated the page.",
