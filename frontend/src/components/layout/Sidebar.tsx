@@ -131,6 +131,12 @@ const NAV_SECTIONS: NavSection[] = [
       { path: '/portal-admin', label: 'Portal Admin', icon: UserCog },
     ],
   },
+  {
+    title: 'ADMIN',
+    items: [
+      { path: '/platform-admin', label: 'Platform Admin', icon: Settings },
+    ],
+  },
 ]
 
 export default function Sidebar() {

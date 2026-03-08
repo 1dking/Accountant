@@ -79,6 +79,7 @@ import PipelinesPage from '@/pages/PipelinesPage'
 import ConversationsPage from '@/pages/ConversationsPage'
 import OBrainPage from '@/pages/OBrainPage'
 import SmartImportPage from '@/pages/SmartImportPage'
+import PlatformAdminPage from '@/pages/PlatformAdminPage'
 import ReschedulePage from '@/pages/ReschedulePage'
 import CancelBookingPage from '@/pages/CancelBookingPage'
 
@@ -197,6 +198,7 @@ function AuthenticatedApp() {
         <Route path="/scheduling" element={<SchedulingPage />} />
         <Route path="/branding" element={<BrandingPage />} />
         <Route path="/portal-admin" element={<PortalAdminPage />} />
+        <Route path="/platform-admin" element={<PlatformAdminPage />} />
         <Route path="/help" element={<HelpPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

@@ -106,6 +106,9 @@ class Settings(BaseSettings):
     # O-Brain settings
     obrain_rate_limit_per_hour: int = 120
 
+    # Platform admin
+    super_admin_emails: str = ""  # comma-separated list of super admin emails
+
     @property
     def is_sqlite(self) -> bool:
         return "sqlite" in self.database_url
