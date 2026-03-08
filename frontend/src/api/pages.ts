@@ -76,4 +76,24 @@ export const pagesApi = {
     formData.append('file', file)
     return api.upload('/pages/video/upload', formData)
   },
+
+  // Update live page
+  updateLive: (id: string) => api.post(`/pages/${id}/update-live`),
+
+  // Custom domains
+  listDomains: (pageId: string) => api.get(`/pages/${pageId}/domains`),
+  addDomain: (pageId: string, domain: string) => api.post(`/pages/${pageId}/domains`, { domain }),
+  verifyDomain: (domainId: string) => api.post(`/pages/domains/${domainId}/verify`),
+  deleteDomain: (domainId: string) => api.delete(`/pages/domains/${domainId}`),
+
+  // Split tests
+  listSplitTests: (pageId: string) => api.get(`/pages/${pageId}/split-tests`),
+  createSplitTest: (pageId: string, name: string) => api.post(`/pages/${pageId}/split-tests`, { name, page_id: pageId }),
+  getSplitTest: (testId: string) => api.get(`/pages/split-tests/${testId}`),
+  addVariation: (testId: string, data: { name: string; html_content?: string; css_content?: string; traffic_percentage?: number }) => api.post(`/pages/split-tests/${testId}/variations`, data),
+  duplicateVariation: (testId: string, pageId: string) => api.post(`/pages/split-tests/${testId}/duplicate-variation?page_id=${pageId}`),
+  startTest: (testId: string) => api.post(`/pages/split-tests/${testId}/start`),
+  pauseTest: (testId: string) => api.post(`/pages/split-tests/${testId}/pause`),
+  stopTest: (testId: string) => api.post(`/pages/split-tests/${testId}/stop`),
+  declareWinner: (testId: string, variationId: string) => api.post(`/pages/split-tests/${testId}/declare-winner?variation_id=${variationId}`),
 }

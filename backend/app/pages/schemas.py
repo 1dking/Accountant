@@ -96,6 +96,11 @@ class PageUpdate(BaseModel):
     tracking_pixels_json: Optional[str] = None
     chat_history_json: Optional[str] = None
     page_order: Optional[int] = None
+    live_html_content: Optional[str] = None
+    live_css_content: Optional[str] = None
+    auto_publish: Optional[bool] = None
+    next_page_id: Optional[uuid.UUID] = None
+    page_purpose: Optional[str] = None
 
 
 class PageResponse(BaseModel):
@@ -122,6 +127,11 @@ class PageResponse(BaseModel):
     chat_history_json: Optional[str] = None
     website_id: Optional[uuid.UUID] = None
     page_order: int = 0
+    live_html_content: Optional[str] = None
+    live_css_content: Optional[str] = None
+    auto_publish: bool = False
+    next_page_id: Optional[uuid.UUID] = None
+    page_purpose: Optional[str] = None
     created_by: uuid.UUID
     created_at: datetime
     updated_at: datetime
@@ -148,6 +158,8 @@ class PageVersionResponse(BaseModel):
     id: uuid.UUID
     page_id: uuid.UUID
     version_number: int
+    html_content: Optional[str] = None
+    css_content: Optional[str] = None
     change_summary: Optional[str] = None
     created_by: uuid.UUID
     created_at: datetime
@@ -304,3 +316,79 @@ class VideoUploadResponse(BaseModel):
     webm_url: str
     poster_url: str
     duration_seconds: float = 0
+
+
+# ── Publish schemas ─────────────────────────────────────────────────────────
+
+
+class PagePublishRequest(BaseModel):
+    change_summary: Optional[str] = None
+
+
+# ── Custom domain schemas ────────────────────────────────────────────────────
+
+
+class CustomDomainCreate(BaseModel):
+    domain: str
+
+
+class CustomDomainResponse(BaseModel):
+    id: uuid.UUID
+    page_id: Optional[uuid.UUID] = None
+    website_id: Optional[uuid.UUID] = None
+    domain: str
+    domain_type: Optional[str] = None
+    dns_record_type: Optional[str] = None
+    dns_target: Optional[str] = None
+    dns_verified: bool = False
+    ssl_status: Optional[str] = None
+    ssl_expires_at: Optional[datetime] = None
+    verified_at: Optional[datetime] = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# ── Split test schemas ─────────────────────────────────────────────────────
+
+
+class SplitTestVariationCreate(BaseModel):
+    name: str
+    html_content: Optional[str] = None
+    css_content: Optional[str] = None
+    traffic_percentage: int = 50
+
+
+class SplitTestVariationResponse(BaseModel):
+    id: uuid.UUID
+    test_id: uuid.UUID
+    name: str
+    html_content: Optional[str] = None
+    css_content: Optional[str] = None
+    traffic_percentage: int
+    visitors: int = 0
+    conversions: int = 0
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class SplitTestCreate(BaseModel):
+    name: str
+    page_id: uuid.UUID
+
+
+class SplitTestResponse(BaseModel):
+    id: uuid.UUID
+    page_id: uuid.UUID
+    name: str
+    status: Optional[str] = None
+    auto_optimize: bool = False
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    winner_variation_id: Optional[uuid.UUID] = None
+    created_by: Optional[uuid.UUID] = None
+    created_at: datetime
+    variations: list[SplitTestVariationResponse] = []
+
+    model_config = {"from_attributes": True}

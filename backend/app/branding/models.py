@@ -2,7 +2,7 @@
 
 import uuid
 
-from sqlalchemy import ForeignKey, String, Text
+from sqlalchemy import ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base, TimestampMixin
@@ -20,6 +20,21 @@ class BrandingSettings(TimestampMixin, Base):
     logo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     logo_dark_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     favicon_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+    # Logo system: text | image | both
+    logo_type: Mapped[str] = mapped_column(
+        String(20), default="text", server_default="text",
+    )
+    logo_text_settings_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    logo_image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    logo_image_light_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    logo_image_dark_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    logo_mark_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    logo_max_height: Mapped[int] = mapped_column(Integer, default=40, server_default="40")
+    logo_layout: Mapped[str] = mapped_column(
+        String(20), default="horizontal", server_default="horizontal",
+    )
+
     primary_color: Mapped[str] = mapped_column(
         String(20), default="#2563eb", server_default="#2563eb"
     )

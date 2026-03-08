@@ -4,7 +4,7 @@ import datetime as _dt
 import enum
 import uuid
 
-from sqlalchemy import Boolean, Date, DateTime, Enum, ForeignKey, Integer, Numeric, String, Text, func
+from sqlalchemy import Boolean, Date, DateTime, Enum, Float, ForeignKey, Integer, Numeric, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base, TimestampMixin
@@ -31,6 +31,20 @@ class SectionType(str, enum.Enum):
     FOOTER = "footer"
     HEADER = "header"
     CUSTOM_HTML = "custom_html"
+
+
+class SplitTestStatus(str, enum.Enum):
+    DRAFT = "draft"
+    RUNNING = "running"
+    PAUSED = "paused"
+    COMPLETED = "completed"
+
+
+class DomainStatus(str, enum.Enum):
+    PENDING = "pending"
+    CHECKING = "checking"
+    CONNECTED = "connected"
+    FAILED = "failed"
 
 
 # ── Website (multi-page container) ──────────────────────────────────────
@@ -96,6 +110,20 @@ class Page(TimestampMixin, Base):
     tracking_pixels_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     chat_history_json: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # Draft/Live publishing system
+    # html_content / css_content = DRAFT (always latest edits)
+    # live_* = what the public URL serves (set on Publish/Update)
+    live_html_content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    live_css_content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    auto_publish: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+
+    # Funnel linking
+    next_page_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("pages.id", ondelete="SET NULL", name="fk_pages_next_page"),
+        nullable=True,
+    )
+    page_purpose: Mapped[str | None] = mapped_column(String(50), nullable=True)
+
     # Website FK (nullable — standalone pages have no website)
     website_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("websites.id", ondelete="CASCADE", name="fk_pages_website"),
@@ -117,6 +145,13 @@ class Page(TimestampMixin, Base):
     )
     analytics: Mapped[list["PageAnalytic"]] = relationship(
         back_populates="page", cascade="all, delete-orphan"
+    )
+    split_tests: Mapped[list["SplitTest"]] = relationship(
+        back_populates="page", cascade="all, delete-orphan"
+    )
+    custom_domains: Mapped[list["CustomDomain"]] = relationship(
+        back_populates="page", cascade="all, delete-orphan",
+        foreign_keys="CustomDomain.page_id",
     )
 
 
@@ -267,3 +302,119 @@ class PageAnalyticsDaily(Base):
     scroll_100_count: Mapped[int] = mapped_column(Integer, default=0)
     click_count: Mapped[int] = mapped_column(Integer, default=0)
     form_submit_count: Mapped[int] = mapped_column(Integer, default=0)
+
+
+# ── Custom Domains ─────────────────────────────────────────────────────
+
+
+class CustomDomain(TimestampMixin, Base):
+    """Custom domain mapping for a page or website."""
+
+    __tablename__ = "custom_domains"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    org_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=True,
+    )
+    page_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("pages.id", ondelete="CASCADE"), nullable=True, index=True,
+    )
+    website_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("websites.id", ondelete="CASCADE"), nullable=True,
+    )
+    domain: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    domain_type: Mapped[str] = mapped_column(
+        String(20), default="subdomain", nullable=False,
+    )
+    dns_record_type: Mapped[str] = mapped_column(
+        String(10), default="CNAME", nullable=False,
+    )
+    dns_target: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    dns_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    ssl_status: Mapped[str] = mapped_column(
+        String(20), default="pending", nullable=False,
+    )
+    ssl_expires_at: Mapped[_dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True,
+    )
+    verified_at: Mapped[_dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True,
+    )
+
+    # Relationships
+    page: Mapped["Page | None"] = relationship(
+        back_populates="custom_domains", foreign_keys=[page_id],
+    )
+
+
+# ── Split Testing ──────────────────────────────────────────────────────
+
+
+class SplitTest(TimestampMixin, Base):
+    """A/B split test configuration for a page."""
+
+    __tablename__ = "split_tests"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    page_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("pages.id", ondelete="CASCADE"), nullable=False, index=True,
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    status: Mapped[SplitTestStatus] = mapped_column(
+        Enum(SplitTestStatus), default=SplitTestStatus.DRAFT, nullable=False,
+    )
+    auto_optimize: Mapped[bool] = mapped_column(Boolean, default=False)
+    started_at: Mapped[_dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True,
+    )
+    completed_at: Mapped[_dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True,
+    )
+    winner_variation_id: Mapped[uuid.UUID | None] = mapped_column(nullable=True)
+    created_by: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False,
+    )
+
+    # Relationships
+    page: Mapped["Page"] = relationship(back_populates="split_tests")
+    variations: Mapped[list["SplitTestVariation"]] = relationship(
+        back_populates="test", cascade="all, delete-orphan",
+    )
+
+
+class SplitTestVariation(TimestampMixin, Base):
+    """A single variation in a split test."""
+
+    __tablename__ = "split_test_variations"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    test_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("split_tests.id", ondelete="CASCADE"), nullable=False, index=True,
+    )
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    html_content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    css_content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    traffic_percentage: Mapped[int] = mapped_column(Integer, default=50)
+    visitors: Mapped[int] = mapped_column(Integer, default=0)
+    conversions: Mapped[int] = mapped_column(Integer, default=0)
+
+    # Relationships
+    test: Mapped["SplitTest"] = relationship(back_populates="variations")
+
+
+class SplitTestAssignment(Base):
+    """Tracks which visitor sees which variation."""
+
+    __tablename__ = "split_test_assignments"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    test_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("split_tests.id", ondelete="CASCADE"), nullable=False, index=True,
+    )
+    visitor_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    variation_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("split_test_variations.id", ondelete="CASCADE"), nullable=False,
+    )
+    assigned_at: Mapped[_dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(),
+    )

@@ -17,12 +17,19 @@ from app.pages.schemas import (
     AIChatMessage,
     AIGenerateRequest,
     AIRefineRequest,
+    CustomDomainCreate,
+    CustomDomainResponse,
     PageCreate,
     PageListItem,
+    PagePublishRequest,
     PageResponse,
     PageUpdate,
     PageVersionResponse,
     PageAnalyticsSummary,
+    SplitTestCreate,
+    SplitTestResponse,
+    SplitTestVariationCreate,
+    SplitTestVariationResponse,
     TemplateCreate,
     TemplateListItem,
     TemplateResponse,
@@ -365,9 +372,168 @@ async def publish_page(
     page_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
+    body: PagePublishRequest | None = None,
 ) -> dict:
     page = await service.publish_page(db, page_id, current_user)
     return {"data": PageResponse.model_validate(page)}
+
+
+@router.post("/{page_id}/update-live")
+async def update_live(
+    page_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
+) -> dict:
+    """Push draft content to live (for already-published pages)."""
+    page = await service.update_live(db, page_id, current_user)
+    return {"data": PageResponse.model_validate(page)}
+
+
+# ---------------------------------------------------------------------------
+# Custom Domains
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{page_id}/domains")
+async def list_page_domains(
+    page_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    domains = await service.list_page_domains(db, page_id)
+    return {"data": [CustomDomainResponse.model_validate(d) for d in domains]}
+
+
+@router.post("/{page_id}/domains", status_code=201)
+async def add_domain(
+    page_id: uuid.UUID,
+    data: CustomDomainCreate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
+) -> dict:
+    domain = await service.add_custom_domain(db, page_id, data.domain, current_user.id)
+    return {"data": CustomDomainResponse.model_validate(domain)}
+
+
+@router.post("/domains/{domain_id}/verify")
+async def verify_domain(
+    domain_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
+) -> dict:
+    domain = await service.verify_domain_dns(db, domain_id)
+    return {"data": CustomDomainResponse.model_validate(domain)}
+
+
+@router.delete("/domains/{domain_id}")
+async def delete_domain(
+    domain_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(require_role([Role.ADMIN]))],
+) -> dict:
+    await service.delete_custom_domain(db, domain_id)
+    return {"data": {"message": "Domain deleted"}}
+
+
+# ---------------------------------------------------------------------------
+# Split Tests
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{page_id}/split-tests")
+async def list_page_split_tests(
+    page_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    tests = await service.list_page_tests(db, page_id)
+    return {"data": [SplitTestResponse.model_validate(t) for t in tests]}
+
+
+@router.post("/{page_id}/split-tests", status_code=201)
+async def create_split_test(
+    page_id: uuid.UUID,
+    data: SplitTestCreate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
+) -> dict:
+    test = await service.create_split_test(db, page_id, data.name, current_user.id)
+    return {"data": SplitTestResponse.model_validate(test)}
+
+
+@router.get("/split-tests/{test_id}")
+async def get_split_test(
+    test_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    test = await service.get_split_test(db, test_id)
+    return {"data": SplitTestResponse.model_validate(test)}
+
+
+@router.post("/split-tests/{test_id}/variations", status_code=201)
+async def add_variation(
+    test_id: uuid.UUID,
+    data: SplitTestVariationCreate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
+) -> dict:
+    variation = await service.add_variation(
+        db, test_id, data.name, data.html_content, data.css_content, data.traffic_percentage,
+    )
+    return {"data": SplitTestVariationResponse.model_validate(variation)}
+
+
+@router.post("/split-tests/{test_id}/duplicate-variation", status_code=201)
+async def duplicate_as_variation(
+    test_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
+    page_id: uuid.UUID = Query(...),
+) -> dict:
+    variation = await service.duplicate_as_variation(db, test_id, page_id)
+    return {"data": SplitTestVariationResponse.model_validate(variation)}
+
+
+@router.post("/split-tests/{test_id}/start")
+async def start_split_test(
+    test_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
+) -> dict:
+    test = await service.start_test(db, test_id)
+    return {"data": SplitTestResponse.model_validate(test)}
+
+
+@router.post("/split-tests/{test_id}/pause")
+async def pause_split_test(
+    test_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
+) -> dict:
+    test = await service.pause_test(db, test_id)
+    return {"data": SplitTestResponse.model_validate(test)}
+
+
+@router.post("/split-tests/{test_id}/stop")
+async def stop_split_test(
+    test_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
+) -> dict:
+    test = await service.stop_test(db, test_id)
+    return {"data": SplitTestResponse.model_validate(test)}
+
+
+@router.post("/split-tests/{test_id}/declare-winner")
+async def declare_winner(
+    test_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
+    variation_id: uuid.UUID = Query(...),
+) -> dict:
+    test = await service.declare_winner(db, test_id, variation_id)
+    return {"data": SplitTestResponse.model_validate(test)}
 
 
 # ---------------------------------------------------------------------------
@@ -555,6 +721,10 @@ async def view_public_page(
         nav_html = website.header_html or ""
         footer_html = website.footer_html or ""
 
+    # Use live content if available, otherwise fall back to draft content
+    serve_html = page.live_html_content or page.html_content or ''
+    serve_css = page.live_css_content or page.css_content or ''
+
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -563,7 +733,7 @@ async def view_public_page(
     <title>{page.meta_title or page.title}</title>
     <meta name="description" content="{page.meta_description or page.description or ''}">
     {f'<link rel="icon" href="{page.favicon_url}">' if page.favicon_url else ''}
-    <style>{page.css_content or ''}</style>
+    <style>{serve_css}</style>
     {global_css}
     {page.custom_head_html or ''}
     {tracking_head}
@@ -571,7 +741,7 @@ async def view_public_page(
 <body>
     {tracking_body_start}
     {nav_html}
-    {page.html_content or ''}
+    {serve_html}
     {footer_html}
     {f'<script>{page.js_content}</script>' if page.js_content else ''}
     {tracking_body_end}

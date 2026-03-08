@@ -3,7 +3,9 @@
 import hashlib
 import json
 import logging
+import random
 import re
+import socket
 import uuid
 from datetime import date, datetime, timedelta, timezone
 
@@ -12,8 +14,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
 from app.pages.models import (
+    CustomDomain, DomainStatus,
     Page, PageAnalytic, PageAnalyticsDaily, PageEvent, PageStatus, PageTemplate,
-    PageVersion, PageVisit, TemplateScope, Website,
+    PageVersion, PageVisit,
+    SplitTest, SplitTestAssignment, SplitTestStatus, SplitTestVariation,
+    TemplateScope, Website,
 )
 
 logger = logging.getLogger(__name__)
@@ -330,13 +335,19 @@ async def update_page(db: AsyncSession, page_id: uuid.UUID, data, user) -> Page:
     update_data = data.model_dump(exclude_unset=True)
 
     content_fields = {"html_content", "css_content", "js_content", "sections_json"}
-    if content_fields & set(update_data.keys()):
+    content_changed = bool(content_fields & set(update_data.keys()))
+    if content_changed:
         await _create_version(db, page, user.id, "Content updated")
 
     for field, value in update_data.items():
         if field == "status":
             value = PageStatus(value)
         setattr(page, field, value)
+
+    # When auto_publish is on and the page is published, push draft to live
+    if content_changed and page.auto_publish and page.status == PageStatus.PUBLISHED:
+        page.live_html_content = page.html_content
+        page.live_css_content = page.css_content
 
     await db.commit()
     await db.refresh(page)
@@ -352,7 +363,23 @@ async def delete_page(db: AsyncSession, page_id: uuid.UUID) -> None:
 async def publish_page(db: AsyncSession, page_id: uuid.UUID, user) -> Page:
     page = await get_page(db, page_id)
     page.status = PageStatus.PUBLISHED
+    # Copy draft content to live
+    page.live_html_content = page.html_content
+    page.live_css_content = page.css_content
     await _create_version(db, page, user.id, "Published")
+    await db.commit()
+    await db.refresh(page)
+    return page
+
+
+async def update_live(db: AsyncSession, page_id: uuid.UUID, user) -> Page:
+    """For already-published pages: copy current draft content to live and create a version."""
+    page = await get_page(db, page_id)
+    if page.status != PageStatus.PUBLISHED:
+        raise ValueError("Page is not published. Use publish_page instead.")
+    page.live_html_content = page.html_content
+    page.live_css_content = page.css_content
+    await _create_version(db, page, user.id, "Live content updated")
     await db.commit()
     await db.refresh(page)
     return page
@@ -1888,3 +1915,416 @@ def build_analytics_script(page_id: str, base_url: str) -> str:
   window.addEventListener("beforeunload",function(){{send("time_on_page",{{seconds:Math.round((Date.now()-start)/1000)}})}});
 }})();
 </script>"""
+
+
+# ---------------------------------------------------------------------------
+# DNS verification helper
+# ---------------------------------------------------------------------------
+
+
+def _check_dns(domain: str, expected_target: str) -> bool:
+    """Check if a domain resolves via DNS."""
+    try:
+        result = socket.getaddrinfo(domain, None)
+        # For CNAME, check if it resolves at all
+        return len(result) > 0
+    except socket.gaierror:
+        return False
+
+
+# ---------------------------------------------------------------------------
+# Custom domains
+# ---------------------------------------------------------------------------
+
+
+async def add_custom_domain(
+    db: AsyncSession,
+    page_id: uuid.UUID,
+    domain: str,
+    user_id: uuid.UUID,
+) -> CustomDomain:
+    """Create a CustomDomain record for a page."""
+    # Validate page exists
+    await get_page(db, page_id)
+
+    # Determine domain type: root domain vs subdomain
+    parts = domain.strip().lower().split(".")
+    if len(parts) <= 2:
+        domain_type = "root"
+        dns_record_type = "A"
+    else:
+        domain_type = "subdomain"
+        dns_record_type = "CNAME"
+
+    # Default DNS target (our server)
+    dns_target = "pages.yourdomain.com"
+
+    cd = CustomDomain(
+        id=uuid.uuid4(),
+        page_id=page_id,
+        org_id=user_id,
+        domain=domain.strip().lower(),
+        domain_type=domain_type,
+        dns_record_type=dns_record_type,
+        dns_target=dns_target,
+        dns_verified=False,
+        ssl_status="pending",
+    )
+    db.add(cd)
+    await db.commit()
+    await db.refresh(cd)
+    return cd
+
+
+async def verify_domain_dns(
+    db: AsyncSession,
+    domain_id: uuid.UUID,
+) -> CustomDomain:
+    """Check DNS resolution for a custom domain and update dns_verified."""
+    result = await db.execute(
+        select(CustomDomain).where(CustomDomain.id == domain_id)
+    )
+    cd = result.scalar_one_or_none()
+    if cd is None:
+        raise NotFoundError("CustomDomain", str(domain_id))
+
+    verified = _check_dns(cd.domain, cd.dns_target or "")
+    cd.dns_verified = verified
+    if verified:
+        cd.verified_at = datetime.now(timezone.utc)
+        cd.ssl_status = "active"
+    else:
+        cd.ssl_status = "pending"
+
+    await db.commit()
+    await db.refresh(cd)
+    return cd
+
+
+async def list_page_domains(
+    db: AsyncSession,
+    page_id: uuid.UUID,
+) -> list[CustomDomain]:
+    """List all custom domains for a page."""
+    result = await db.execute(
+        select(CustomDomain)
+        .where(CustomDomain.page_id == page_id)
+        .order_by(CustomDomain.created_at.desc())
+    )
+    return list(result.scalars().all())
+
+
+async def delete_custom_domain(
+    db: AsyncSession,
+    domain_id: uuid.UUID,
+) -> None:
+    """Delete a custom domain."""
+    result = await db.execute(
+        select(CustomDomain).where(CustomDomain.id == domain_id)
+    )
+    cd = result.scalar_one_or_none()
+    if cd is None:
+        raise NotFoundError("CustomDomain", str(domain_id))
+    await db.delete(cd)
+    await db.commit()
+
+
+# ---------------------------------------------------------------------------
+# Split testing
+# ---------------------------------------------------------------------------
+
+
+async def create_split_test(
+    db: AsyncSession,
+    page_id: uuid.UUID,
+    name: str,
+    user_id: uuid.UUID,
+) -> SplitTest:
+    """Create a split test with an initial Control variation from the current page HTML."""
+    page = await get_page(db, page_id)
+
+    test = SplitTest(
+        id=uuid.uuid4(),
+        page_id=page_id,
+        name=name,
+        status=SplitTestStatus.DRAFT,
+        created_by=user_id,
+    )
+    db.add(test)
+    await db.flush()
+
+    # Create the Control variation from current page content
+    control = SplitTestVariation(
+        id=uuid.uuid4(),
+        test_id=test.id,
+        name="Control",
+        html_content=page.html_content,
+        css_content=page.css_content,
+        traffic_percentage=100,
+    )
+    db.add(control)
+    await db.commit()
+    await db.refresh(test)
+    return test
+
+
+async def add_variation(
+    db: AsyncSession,
+    test_id: uuid.UUID,
+    name: str,
+    html_content: str | None,
+    css_content: str | None,
+    traffic_pct: int,
+) -> SplitTestVariation:
+    """Add a new variation to a split test."""
+    # Verify test exists
+    result = await db.execute(
+        select(SplitTest).where(SplitTest.id == test_id)
+    )
+    test = result.scalar_one_or_none()
+    if test is None:
+        raise NotFoundError("SplitTest", str(test_id))
+
+    variation = SplitTestVariation(
+        id=uuid.uuid4(),
+        test_id=test_id,
+        name=name,
+        html_content=html_content,
+        css_content=css_content,
+        traffic_percentage=traffic_pct,
+    )
+    db.add(variation)
+    await db.commit()
+    await db.refresh(variation)
+    return variation
+
+
+async def duplicate_as_variation(
+    db: AsyncSession,
+    test_id: uuid.UUID,
+    page_id: uuid.UUID,
+) -> SplitTestVariation:
+    """Clone a page's HTML/CSS as a new variation in a split test."""
+    page = await get_page(db, page_id)
+
+    # Verify test exists
+    result = await db.execute(
+        select(SplitTest).where(SplitTest.id == test_id)
+    )
+    test = result.scalar_one_or_none()
+    if test is None:
+        raise NotFoundError("SplitTest", str(test_id))
+
+    # Count existing variations for naming
+    count_q = select(func.count(SplitTestVariation.id)).where(
+        SplitTestVariation.test_id == test_id
+    )
+    count = (await db.execute(count_q)).scalar() or 0
+
+    variation = SplitTestVariation(
+        id=uuid.uuid4(),
+        test_id=test_id,
+        name=f"Variation {count}",
+        html_content=page.html_content,
+        css_content=page.css_content,
+        traffic_percentage=0,
+    )
+    db.add(variation)
+    await db.commit()
+    await db.refresh(variation)
+    return variation
+
+
+async def start_test(
+    db: AsyncSession,
+    test_id: uuid.UUID,
+) -> SplitTest:
+    """Start a split test (set status=running, started_at)."""
+    result = await db.execute(
+        select(SplitTest).where(SplitTest.id == test_id)
+    )
+    test = result.scalar_one_or_none()
+    if test is None:
+        raise NotFoundError("SplitTest", str(test_id))
+
+    test.status = SplitTestStatus.RUNNING
+    test.started_at = datetime.now(timezone.utc)
+    await db.commit()
+    await db.refresh(test)
+    return test
+
+
+async def pause_test(
+    db: AsyncSession,
+    test_id: uuid.UUID,
+) -> SplitTest:
+    """Pause a running split test."""
+    result = await db.execute(
+        select(SplitTest).where(SplitTest.id == test_id)
+    )
+    test = result.scalar_one_or_none()
+    if test is None:
+        raise NotFoundError("SplitTest", str(test_id))
+
+    test.status = SplitTestStatus.PAUSED
+    await db.commit()
+    await db.refresh(test)
+    return test
+
+
+async def stop_test(
+    db: AsyncSession,
+    test_id: uuid.UUID,
+) -> SplitTest:
+    """Stop / complete a split test."""
+    result = await db.execute(
+        select(SplitTest).where(SplitTest.id == test_id)
+    )
+    test = result.scalar_one_or_none()
+    if test is None:
+        raise NotFoundError("SplitTest", str(test_id))
+
+    test.status = SplitTestStatus.COMPLETED
+    test.completed_at = datetime.now(timezone.utc)
+    await db.commit()
+    await db.refresh(test)
+    return test
+
+
+async def declare_winner(
+    db: AsyncSession,
+    test_id: uuid.UUID,
+    variation_id: uuid.UUID,
+) -> SplitTest:
+    """Declare a winner: copy the winning variation's HTML to the page, complete the test."""
+    result = await db.execute(
+        select(SplitTest).where(SplitTest.id == test_id)
+    )
+    test = result.scalar_one_or_none()
+    if test is None:
+        raise NotFoundError("SplitTest", str(test_id))
+
+    # Get the winning variation
+    var_result = await db.execute(
+        select(SplitTestVariation).where(
+            SplitTestVariation.id == variation_id,
+            SplitTestVariation.test_id == test_id,
+        )
+    )
+    winner = var_result.scalar_one_or_none()
+    if winner is None:
+        raise NotFoundError("SplitTestVariation", str(variation_id))
+
+    # Copy winner HTML to the page
+    page = await get_page(db, test.page_id)
+    page.html_content = winner.html_content
+    page.css_content = winner.css_content
+    # Also update live content if page is published
+    if page.status == PageStatus.PUBLISHED:
+        page.live_html_content = winner.html_content
+        page.live_css_content = winner.css_content
+
+    # Mark test as completed with winner
+    test.winner_variation_id = variation_id
+    test.status = SplitTestStatus.COMPLETED
+    test.completed_at = datetime.now(timezone.utc)
+
+    await db.commit()
+    await db.refresh(test)
+    return test
+
+
+async def get_split_test(
+    db: AsyncSession,
+    test_id: uuid.UUID,
+) -> SplitTest:
+    """Return a split test with its variations eagerly loaded."""
+    from sqlalchemy.orm import selectinload
+
+    result = await db.execute(
+        select(SplitTest)
+        .where(SplitTest.id == test_id)
+        .options(selectinload(SplitTest.variations))
+    )
+    test = result.scalar_one_or_none()
+    if test is None:
+        raise NotFoundError("SplitTest", str(test_id))
+    return test
+
+
+async def list_page_tests(
+    db: AsyncSession,
+    page_id: uuid.UUID,
+) -> list[SplitTest]:
+    """List all split tests for a page."""
+    from sqlalchemy.orm import selectinload
+
+    result = await db.execute(
+        select(SplitTest)
+        .where(SplitTest.page_id == page_id)
+        .options(selectinload(SplitTest.variations))
+        .order_by(SplitTest.created_at.desc())
+    )
+    return list(result.scalars().all())
+
+
+async def assign_visitor(
+    db: AsyncSession,
+    test_id: uuid.UUID,
+    visitor_id: str,
+) -> SplitTestAssignment:
+    """Assign a visitor to a variation based on traffic split percentages.
+
+    If the visitor already has an assignment for this test, return the existing one.
+    """
+    # Check for existing assignment
+    existing = await db.execute(
+        select(SplitTestAssignment).where(
+            SplitTestAssignment.test_id == test_id,
+            SplitTestAssignment.visitor_id == visitor_id,
+        )
+    )
+    assignment = existing.scalar_one_or_none()
+    if assignment is not None:
+        return assignment
+
+    # Load variations with traffic percentages
+    var_result = await db.execute(
+        select(SplitTestVariation)
+        .where(SplitTestVariation.test_id == test_id)
+        .order_by(SplitTestVariation.traffic_percentage.desc())
+    )
+    variations = list(var_result.scalars().all())
+    if not variations:
+        raise NotFoundError("SplitTest", str(test_id))
+
+    # Weighted random selection based on traffic_percentage
+    total_weight = sum(v.traffic_percentage for v in variations)
+    if total_weight <= 0:
+        # Equal split if all percentages are 0
+        chosen = random.choice(variations)
+    else:
+        rand = random.randint(1, total_weight)
+        cumulative = 0
+        chosen = variations[0]
+        for v in variations:
+            cumulative += v.traffic_percentage
+            if rand <= cumulative:
+                chosen = v
+                break
+
+    # Create assignment
+    assignment = SplitTestAssignment(
+        id=uuid.uuid4(),
+        test_id=test_id,
+        visitor_id=visitor_id,
+        variation_id=chosen.id,
+    )
+    db.add(assignment)
+
+    # Increment visitor count on the variation
+    chosen.visitors += 1
+
+    await db.commit()
+    await db.refresh(assignment)
+    return assignment
