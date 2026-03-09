@@ -1,10 +1,11 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import {
   Inbox, Download, RefreshCw, FileText, CheckCircle, Trash2, Search,
   ChevronLeft, ChevronRight, X, ArrowRight, Calendar, Filter, Repeat,
+  Eye, Paperclip,
 } from 'lucide-react'
 import {
   listGmailAccounts,
@@ -14,6 +15,7 @@ import {
   importEmailFull,
   deleteGmailScanResult,
   bulkDeleteGmailScanResults,
+  getAttachmentPreview,
 } from '@/api/integrations'
 import { listCategories } from '@/api/accounting'
 import { listAccounts as listCashbookAccounts } from '@/api/cashbook'
@@ -85,6 +87,50 @@ function ImportModal({
   const [recurringFrequency, setRecurringFrequency] = useState('monthly')
   const [recurringNextDate, setRecurringNextDate] = useState('')
 
+  // Preview state
+  const [previewTab, setPreviewTab] = useState<'email' | 'attachment'>('email')
+  const [attachmentData, setAttachmentData] = useState<{ content_base64: string; mimeType: string; filename: string } | null>(null)
+  const [loadingAttachment, setLoadingAttachment] = useState(false)
+  const iframeRef = useRef<HTMLIFrameElement>(null)
+
+  const attachments = parsedData?.attachments ?? []
+  const hasPdfAttachment = attachments.some(a => a.mimeType === 'application/pdf')
+
+  // Load PDF attachment for preview
+  const loadAttachment = useCallback(async (index: number) => {
+    setLoadingAttachment(true)
+    try {
+      const res = await getAttachmentPreview(result.id, index)
+      const att = res.data
+      // Gmail returns URL-safe base64, convert to standard base64
+      const standardBase64 = att.content_base64.replace(/-/g, '+').replace(/_/g, '/')
+      setAttachmentData({ content_base64: standardBase64, mimeType: att.mimeType, filename: att.filename })
+      setPreviewTab('attachment')
+    } catch {
+      toast.error('Failed to load attachment preview')
+    } finally {
+      setLoadingAttachment(false)
+    }
+  }, [result.id])
+
+  // Write email HTML into sandboxed iframe
+  useEffect(() => {
+    if (previewTab === 'email' && iframeRef.current && parsedData?.body_html) {
+      const doc = iframeRef.current.contentDocument
+      if (doc) {
+        doc.open()
+        doc.write(`
+          <!DOCTYPE html>
+          <html><head>
+            <meta charset="utf-8">
+            <style>body{font-family:system-ui,-apple-system,sans-serif;font-size:14px;color:#333;margin:16px;line-height:1.5}img{max-width:100%;height:auto}a{color:#2563eb}</style>
+          </head><body>${parsedData.body_html}</body></html>
+        `)
+        doc.close()
+      }
+    }
+  }, [previewTab, parsedData?.body_html])
+
   // Try to match suggested category to an actual category
   const suggestedCat = parsedData?.category_suggestion
   const matchedCategory = suggestedCat
@@ -95,7 +141,6 @@ function ImportModal({
     setCategoryId(matchedCategory.id)
   }
 
-  // Auto-calculate next date when toggling recurring or changing frequency
   const handleRecurringToggle = (on: boolean) => {
     setIsRecurring(on)
     if (on && date && !recurringNextDate) {
@@ -117,258 +162,304 @@ function ImportModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onCancel}>
       <div
-        className="bg-white dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto"
+        className="bg-white dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-6xl mx-4 max-h-[92vh] flex flex-col"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between p-4 border-b dark:border-gray-700">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            Import Email
-          </h2>
-          <button onClick={onCancel} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-3 border-b dark:border-gray-700 shrink-0">
+          <div className="flex-1 min-w-0">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">{result.subject || 'Import Email'}</h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">From: {result.sender}</p>
+          </div>
+          <button onClick={onCancel} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded ml-3">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="p-4 space-y-4">
-          {/* Email info */}
-          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 text-sm">
-            <p className="font-medium text-gray-900 dark:text-gray-100 truncate">{result.subject}</p>
-            <p className="text-gray-500 dark:text-gray-400 text-xs mt-1">From: {result.sender}</p>
-            {result.has_attachments && (
-              <p className="text-blue-600 dark:text-blue-400 text-xs mt-1 flex items-center gap-1">
-                <FileText className="w-3 h-3" /> Attachment will be saved to Drive
-              </p>
-            )}
-          </div>
-
-          {/* Record type */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
-            <div className="flex gap-2">
+        {/* Split-screen body */}
+        <div className="flex flex-1 overflow-hidden">
+          {/* LEFT — Email / Attachment Preview (60%) */}
+          <div className="w-3/5 border-r dark:border-gray-700 flex flex-col">
+            {/* Preview tabs */}
+            <div className="flex items-center gap-1 px-3 py-2 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 shrink-0">
               <button
-                onClick={() => setRecordType('expense')}
-                className={`flex-1 px-3 py-2 text-sm rounded-lg border ${
-                  recordType === 'expense'
-                    ? 'bg-red-50 dark:bg-red-950 border-red-300 dark:border-red-700 text-red-700 dark:text-red-300'
-                    : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
+                onClick={() => setPreviewTab('email')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md ${
+                  previewTab === 'email' ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-gray-100' : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
-                Expense
+                <Eye className="w-3.5 h-3.5" /> Email
               </button>
-              <button
-                onClick={() => setRecordType('income')}
-                className={`flex-1 px-3 py-2 text-sm rounded-lg border ${
-                  recordType === 'income'
-                    ? 'bg-green-50 dark:bg-green-950 border-green-300 dark:border-green-700 text-green-700 dark:text-green-300'
-                    : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
-                }`}
-              >
-                Income
-              </button>
-            </div>
-          </div>
-
-          {/* Account (REQUIRED) */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Account <span className="text-red-500">*</span>
-            </label>
-            {cashbookAccounts.length === 0 ? (
-              <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
-                <span className="text-sm text-amber-700 dark:text-amber-400">No accounts yet.</span>
+              {attachments.length > 0 && attachments.map((att, i) => (
                 <button
-                  onClick={() => { onCancel(); navigate('/cashbook') }}
-                  className="text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium"
+                  key={i}
+                  onClick={() => {
+                    if (attachmentData && attachmentData.filename === att.filename) {
+                      setPreviewTab('attachment')
+                    } else {
+                      loadAttachment(i)
+                    }
+                  }}
+                  disabled={loadingAttachment}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md ${
+                    previewTab === 'attachment' && attachmentData?.filename === att.filename ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-gray-100' : 'text-gray-500 hover:text-gray-700'
+                  } disabled:opacity-50`}
                 >
-                  Create an account first
+                  <Paperclip className="w-3.5 h-3.5" />
+                  <span className="truncate max-w-[120px]">{att.filename}</span>
+                  <span className="text-gray-400">({(att.size / 1024).toFixed(0)}KB)</span>
                 </button>
-              </div>
-            ) : (
-              <select
-                value={accountId}
-                onChange={e => setAccountId(e.target.value)}
-                className={inputCls}
-              >
-                <option value="">Select account...</option>
-                {cashbookAccounts.map(acc => (
-                  <option key={acc.id} value={acc.id}>{acc.name} ({acc.currency})</option>
-                ))}
-              </select>
-            )}
-          </div>
-
-          {/* Vendor */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {recordType === 'expense' ? 'Vendor' : 'Source'}
-            </label>
-            <input
-              type="text"
-              value={vendorName}
-              onChange={e => setVendorName(e.target.value)}
-              className={inputCls}
-              placeholder={parsedData?.vendor_name || 'Enter vendor name...'}
-            />
-            {suggestedCat && (
-              <p className="text-xs text-gray-400 mt-1">
-                Suggested category: <span className="text-blue-500">{suggestedCat}</span>
-              </p>
-            )}
-          </div>
-
-          {/* Amount + Currency */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Amount</label>
-              <input
-                type="number"
-                step="0.01"
-                value={amount}
-                onChange={e => setAmount(e.target.value)}
-                className={inputCls}
-                placeholder="0.00"
-              />
+              ))}
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Currency</label>
-              <select value={currency} onChange={e => setCurrency(e.target.value)} className={inputCls}>
-                <option value="CAD">CAD</option>
-                <option value="USD">USD</option>
-                <option value="EUR">EUR</option>
-                <option value="GBP">GBP</option>
-              </select>
+
+            {/* Preview content */}
+            <div className="flex-1 overflow-auto bg-white dark:bg-gray-950">
+              {previewTab === 'email' ? (
+                parsedData?.body_html ? (
+                  <iframe
+                    ref={iframeRef}
+                    sandbox="allow-same-origin"
+                    title="Email preview"
+                    className="w-full h-full border-0"
+                  />
+                ) : parsedData?.body_text ? (
+                  <pre className="p-4 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-sans">{parsedData.body_text}</pre>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+                    <div className="text-center">
+                      <Eye className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                      <p>No email preview available</p>
+                      <p className="text-xs mt-1">Re-scan to capture email content</p>
+                    </div>
+                  </div>
+                )
+              ) : (
+                loadingAttachment ? (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="animate-spin w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full" />
+                  </div>
+                ) : attachmentData ? (
+                  attachmentData.mimeType === 'application/pdf' ? (
+                    <iframe
+                      src={`data:application/pdf;base64,${attachmentData.content_base64}`}
+                      title={attachmentData.filename}
+                      className="w-full h-full border-0"
+                    />
+                  ) : attachmentData.mimeType.startsWith('image/') ? (
+                    <div className="flex items-center justify-center h-full p-4">
+                      <img
+                        src={`data:${attachmentData.mimeType};base64,${attachmentData.content_base64}`}
+                        alt={attachmentData.filename}
+                        className="max-w-full max-h-full object-contain"
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+                      <div className="text-center">
+                        <FileText className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                        <p>{attachmentData.filename}</p>
+                        <p className="text-xs mt-1">Preview not available for this file type</p>
+                      </div>
+                    </div>
+                  )
+                ) : null
+              )}
             </div>
           </div>
 
-          {/* Date */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date</label>
-            <input type="date" value={date} onChange={e => setDate(e.target.value)} className={inputCls} />
-          </div>
-
-          {/* Description */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
-            <input type="text" value={description} onChange={e => setDescription(e.target.value)} className={inputCls} />
-          </div>
-
-          {/* Category */}
-          {recordType === 'expense' ? (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Category</label>
-              <select value={categoryId} onChange={e => setCategoryId(e.target.value)} className={inputCls}>
-                <option value="">Uncategorized</option>
-                {categories.map(cat => (
-                  <option key={cat.id} value={cat.id}>{cat.name}</option>
-                ))}
-              </select>
-            </div>
-          ) : (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Income Category</label>
-              <select value={incomeCategory} onChange={e => setIncomeCategory(e.target.value)} className={inputCls}>
-                <option value="service">Service</option>
-                <option value="product">Product</option>
-                <option value="invoice_payment">Invoice Payment</option>
-                <option value="interest">Interest</option>
-                <option value="refund">Refund</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
-          )}
-
-          {/* Recurring toggle */}
-          <div className="border dark:border-gray-700 rounded-lg p-3 space-y-3">
-            <label className="flex items-center justify-between cursor-pointer">
-              <div className="flex items-center gap-2">
-                <Repeat className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Recurring bill?</span>
-              </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={isRecurring}
-                onClick={() => handleRecurringToggle(!isRecurring)}
-                className={`relative w-10 h-5 rounded-full transition-colors ${
-                  isRecurring ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
-                }`}
-              >
-                <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${
-                  isRecurring ? 'translate-x-5' : ''
-                }`} />
-              </button>
-            </label>
-
-            {isRecurring && (
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Frequency</label>
-                  <select
-                    value={recurringFrequency}
-                    onChange={e => handleFrequencyChange(e.target.value)}
-                    className={inputCls}
+          {/* RIGHT — Import Form (40%) */}
+          <div className="w-2/5 flex flex-col">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {/* Record type */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setRecordType('expense')}
+                    className={`flex-1 px-3 py-2 text-sm rounded-lg border ${
+                      recordType === 'expense'
+                        ? 'bg-red-50 dark:bg-red-950 border-red-300 dark:border-red-700 text-red-700 dark:text-red-300'
+                        : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
+                    }`}
                   >
-                    <option value="weekly">Weekly</option>
-                    <option value="monthly">Monthly</option>
-                    <option value="quarterly">Quarterly</option>
-                    <option value="yearly">Yearly</option>
+                    Expense
+                  </button>
+                  <button
+                    onClick={() => setRecordType('income')}
+                    className={`flex-1 px-3 py-2 text-sm rounded-lg border ${
+                      recordType === 'income'
+                        ? 'bg-green-50 dark:bg-green-950 border-green-300 dark:border-green-700 text-green-700 dark:text-green-300'
+                        : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
+                    }`}
+                  >
+                    Income
+                  </button>
+                </div>
+              </div>
+
+              {/* Account */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Account <span className="text-red-500">*</span>
+                </label>
+                {cashbookAccounts.length === 0 ? (
+                  <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+                    <span className="text-sm text-amber-700 dark:text-amber-400">No accounts yet.</span>
+                    <button onClick={() => { onCancel(); navigate('/cashbook') }} className="text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium">
+                      Create an account first
+                    </button>
+                  </div>
+                ) : (
+                  <select value={accountId} onChange={e => setAccountId(e.target.value)} className={inputCls}>
+                    <option value="">Select account...</option>
+                    {cashbookAccounts.map(acc => (
+                      <option key={acc.id} value={acc.id}>{acc.name} ({acc.currency})</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              {/* Vendor */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  {recordType === 'expense' ? 'Vendor' : 'Source'}
+                </label>
+                <input type="text" value={vendorName} onChange={e => setVendorName(e.target.value)} className={inputCls} placeholder={parsedData?.vendor_name || 'Enter vendor name...'} />
+                {suggestedCat && (
+                  <p className="text-xs text-gray-400 mt-1">Suggested category: <span className="text-blue-500">{suggestedCat}</span></p>
+                )}
+              </div>
+
+              {/* Amount + Currency */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Amount</label>
+                  <input type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} className={inputCls} placeholder="0.00" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Currency</label>
+                  <select value={currency} onChange={e => setCurrency(e.target.value)} className={inputCls}>
+                    <option value="CAD">CAD</option>
+                    <option value="USD">USD</option>
+                    <option value="EUR">EUR</option>
+                    <option value="GBP">GBP</option>
                   </select>
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Next Due Date</label>
-                  <input
-                    type="date"
-                    value={recurringNextDate}
-                    onChange={e => setRecurringNextDate(e.target.value)}
-                    className={inputCls}
-                  />
-                </div>
               </div>
-            )}
-          </div>
 
-          {/* Notes */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
-            <textarea
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              rows={2}
-              className={inputCls + ' resize-none'}
-              placeholder="Optional notes..."
-            />
-          </div>
-        </div>
+              {/* Date */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date</label>
+                <input type="date" value={date} onChange={e => setDate(e.target.value)} className={inputCls} />
+              </div>
 
-        <div className="flex justify-end gap-2 p-4 border-t dark:border-gray-700">
-          <button
-            onClick={onCancel}
-            className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => onConfirm({
-              record_type: recordType,
-              vendor_name: vendorName,
-              description: description || 'Imported from email',
-              amount: amount ? parseFloat(String(amount)) : null,
-              currency,
-              date,
-              category_id: categoryId || null,
-              income_category: incomeCategory,
-              notes,
-              account_id: accountId || null,
-              is_recurring: isRecurring,
-              recurring_frequency: isRecurring ? recurringFrequency : null,
-              recurring_next_date: isRecurring ? recurringNextDate : null,
-            })}
-            disabled={isPending || !canImport}
-            className="flex items-center gap-1.5 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Download className="w-4 h-4" />
-            {isPending ? 'Importing...' : 'Import'}
-          </button>
+              {/* Description */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
+                <input type="text" value={description} onChange={e => setDescription(e.target.value)} className={inputCls} />
+              </div>
+
+              {/* Category */}
+              {recordType === 'expense' ? (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Category</label>
+                  <select value={categoryId} onChange={e => setCategoryId(e.target.value)} className={inputCls}>
+                    <option value="">Uncategorized</option>
+                    {categories.map(cat => (
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Income Category</label>
+                  <select value={incomeCategory} onChange={e => setIncomeCategory(e.target.value)} className={inputCls}>
+                    <option value="service">Service</option>
+                    <option value="product">Product</option>
+                    <option value="invoice_payment">Invoice Payment</option>
+                    <option value="interest">Interest</option>
+                    <option value="refund">Refund</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+              )}
+
+              {/* Recurring toggle */}
+              <div className="border dark:border-gray-700 rounded-lg p-3 space-y-3">
+                <label className="flex items-center justify-between cursor-pointer">
+                  <div className="flex items-center gap-2">
+                    <Repeat className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Recurring bill?</span>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={isRecurring}
+                    onClick={() => handleRecurringToggle(!isRecurring)}
+                    className={`relative w-10 h-5 rounded-full transition-colors ${
+                      isRecurring ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
+                    }`}
+                  >
+                    <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${
+                      isRecurring ? 'translate-x-5' : ''
+                    }`} />
+                  </button>
+                </label>
+                {isRecurring && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Frequency</label>
+                      <select value={recurringFrequency} onChange={e => handleFrequencyChange(e.target.value)} className={inputCls}>
+                        <option value="weekly">Weekly</option>
+                        <option value="monthly">Monthly</option>
+                        <option value="quarterly">Quarterly</option>
+                        <option value="yearly">Yearly</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Next Due Date</label>
+                      <input type="date" value={recurringNextDate} onChange={e => setRecurringNextDate(e.target.value)} className={inputCls} />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
+                <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} className={inputCls + ' resize-none'} placeholder="Optional notes..." />
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end gap-2 p-4 border-t dark:border-gray-700 shrink-0">
+              <button onClick={onCancel} className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
+                Cancel
+              </button>
+              <button
+                onClick={() => onConfirm({
+                  record_type: recordType,
+                  vendor_name: vendorName,
+                  description: description || 'Imported from email',
+                  amount: amount ? parseFloat(String(amount)) : null,
+                  currency,
+                  date,
+                  category_id: categoryId || null,
+                  income_category: incomeCategory,
+                  notes,
+                  account_id: accountId || null,
+                  is_recurring: isRecurring,
+                  recurring_frequency: isRecurring ? recurringFrequency : null,
+                  recurring_next_date: isRecurring ? recurringNextDate : null,
+                })}
+                disabled={isPending || !canImport}
+                className="flex items-center gap-1.5 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Download className="w-4 h-4" />
+                {isPending ? 'Importing...' : 'Import'}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -43,6 +43,13 @@ export function deleteAccount(id: string) {
   return api.delete<ApiResponse<{ message: string }>>(`/cashbook/accounts/${id}`)
 }
 
+export function deleteAccountWithEntries(id: string, action: 'move' | 'delete', targetAccountId?: string) {
+  return api.post<ApiResponse<{ message: string; entries_moved: number; entries_deleted: number }>>(
+    `/cashbook/accounts/${id}/delete`,
+    { action, target_account_id: targetAccountId || null }
+  )
+}
+
 // Cashbook Entries
 export function listEntries(filters: CashbookEntryFilters = {}) {
   const params = new URLSearchParams()

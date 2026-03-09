@@ -14,6 +14,7 @@ from app.cashbook import service
 from app.cashbook.excel_import import parse_excel_file
 from app.cashbook.models import CategoryType, EntryStatus, EntryType
 from app.cashbook.schemas import (
+    AccountDeleteRequest,
     BulkCategorizeRequest,
     BulkDeleteRequest,
     BulkMoveAccountRequest,
@@ -171,6 +172,19 @@ async def delete_account(
 ) -> dict:
     await service.delete_account(db, account_id, current_user)
     return {"data": {"message": "Account deactivated successfully"}}
+
+
+@router.post("/accounts/{account_id}/delete")
+async def delete_account_with_entries(
+    account_id: uuid.UUID,
+    data: AccountDeleteRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN]))],
+) -> dict:
+    result = await service.delete_account_with_entries(
+        db, account_id, data.action, data.target_account_id, current_user,
+    )
+    return {"data": result}
 
 
 # ---------------------------------------------------------------------------

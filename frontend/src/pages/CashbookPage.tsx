@@ -5,7 +5,8 @@ import { toast } from 'sonner'
 import {
   listAccounts,
   createAccount,
-  deleteAccount,
+  updateAccount,
+  deleteAccountWithEntries,
   listEntries,
   getSummary,
   listCategories,
@@ -25,6 +26,8 @@ import {
   Upload,
   Download,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   DollarSign,
   TrendingUp,
   TrendingDown,
@@ -39,6 +42,7 @@ import {
   CheckCircle2,
   XCircle,
   Shield,
+  ArrowRightLeft,
   X,
 } from 'lucide-react'
 import type {
@@ -113,6 +117,23 @@ export default function CashbookPage() {
   const [newAccountCurrency, setNewAccountCurrency] = useState('CAD')
   const [newAccountBalance, setNewAccountBalance] = useState('')
   const [newAccountDate, setNewAccountDate] = useState(new Date().toISOString().split('T')[0])
+
+  // Edit Account modal
+  const [editAccountTarget, setEditAccountTarget] = useState<PaymentAccount | null>(null)
+  const [editAccName, setEditAccName] = useState('')
+  const [editAccType, setEditAccType] = useState<AccountType>('bank')
+  const [editAccCurrency, setEditAccCurrency] = useState('CAD')
+  const [editAccBalance, setEditAccBalance] = useState('')
+  const [editAccDate, setEditAccDate] = useState('')
+
+  // Delete Account modal
+  const [deleteAccountTarget, setDeleteAccountTarget] = useState<PaymentAccount | null>(null)
+  const [deleteAction, setDeleteAction] = useState<'move' | 'delete'>('move')
+  const [deleteMoveTargetId, setDeleteMoveTargetId] = useState('')
+
+  // Tab scrolling
+  const tabContainerRef = useRef<HTMLDivElement>(null)
+  const activeTabRef = useRef<HTMLButtonElement>(null)
 
   // Fetch accounts
   const { data: accountsData, isLoading: accountsLoading } = useQuery({
@@ -192,14 +213,33 @@ export default function CashbookPage() {
     },
   })
 
+  const updateAccountMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) => updateAccount(id, data),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['cashbook-accounts'] })
+      queryClient.invalidateQueries({ queryKey: ['cashbook-summary'] })
+      setEditAccountTarget(null)
+      toast.success(`Account "${(data.data as any).name}" updated`)
+    },
+    onError: (err: any) => toast.error(err?.message || 'Failed to update account'),
+  })
+
   const deleteAccountMutation = useMutation({
-    mutationFn: (accountId: string) => deleteAccount(accountId),
-    onSuccess: () => {
+    mutationFn: ({ id, action, targetId }: { id: string; action: 'move' | 'delete'; targetId?: string }) =>
+      deleteAccountWithEntries(id, action, targetId),
+    onSuccess: (data) => {
+      const d = data.data
       queryClient.invalidateQueries({ queryKey: ['cashbook-accounts'] })
       queryClient.invalidateQueries({ queryKey: ['cashbook-entries'] })
       queryClient.invalidateQueries({ queryKey: ['cashbook-summary'] })
       setSelectedAccountId('all')
+      setDeleteAccountTarget(null)
+      const parts: string[] = ['Account deleted']
+      if (d.entries_moved > 0) parts.push(`${d.entries_moved} entries moved`)
+      if (d.entries_deleted > 0) parts.push(`${d.entries_deleted} entries deleted`)
+      toast.success(parts.join('. '))
     },
+    onError: (err: any) => toast.error(err?.message || 'Failed to delete account'),
   })
 
   const bulkDeleteMutation = useMutation({
@@ -283,8 +323,36 @@ export default function CashbookPage() {
     else setSelectedIds(new Set(entries.map(e => e.id)))
   }, [entries, selectedIds.size])
 
-  const handleDeleteAccount = (account: PaymentAccount) => {
-    if (confirm(`Delete "${account.name}"?`)) deleteAccountMutation.mutate(account.id)
+  const openEditAccount = (account: PaymentAccount) => {
+    setEditAccountTarget(account)
+    setEditAccName(account.name)
+    setEditAccType(account.account_type as AccountType)
+    setEditAccCurrency(account.currency || 'CAD')
+    setEditAccBalance(String(account.opening_balance ?? 0))
+    setEditAccDate(account.opening_balance_date || '')
+  }
+
+  const openDeleteAccount = (account: PaymentAccount) => {
+    setDeleteAccountTarget(account)
+    setDeleteAction('move')
+    const other = accounts.find(a => a.id !== account.id)
+    setDeleteMoveTargetId(other?.id ?? '')
+  }
+
+  // Auto-scroll active tab into view
+  useEffect(() => {
+    if (activeTabRef.current && tabContainerRef.current) {
+      const container = tabContainerRef.current
+      const tab = activeTabRef.current
+      const left = tab.offsetLeft - container.offsetLeft - 40
+      container.scrollTo({ left: Math.max(0, left), behavior: 'smooth' })
+    }
+  }, [activeAccountId])
+
+  const scrollTabs = (dir: 'left' | 'right') => {
+    if (tabContainerRef.current) {
+      tabContainerRef.current.scrollBy({ left: dir === 'left' ? -200 : 200, behavior: 'smooth' })
+    }
   }
 
   const handleSearch = () => { setSearchTerm(searchInput); setPage(1) }
@@ -419,21 +487,38 @@ export default function CashbookPage() {
         </div>
       )}
 
-      {/* Account Tabs */}
-      <div className="flex items-center gap-1 border-b dark:border-gray-700 overflow-x-auto">
-        <button onClick={() => { setSelectedAccountId('all'); setPage(1); setSelectedIds(new Set()) }} className={`px-4 py-2 text-sm font-medium border-b-2 whitespace-nowrap ${activeAccountId === 'all' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}>
-          All Accounts
-        </button>
-        {accounts.map(account => (
-          <button key={account.id} onClick={() => { setSelectedAccountId(account.id); setPage(1); setSelectedIds(new Set()) }} className={`px-4 py-2 text-sm font-medium border-b-2 whitespace-nowrap ${activeAccountId === account.id ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}>
-            {account.name}
-            <span className="ml-2 text-xs text-gray-400">{ACCOUNT_TYPES.find(t => t.value === account.account_type)?.label ?? ''} ({account.currency || 'CAD'})</span>
+      {/* Account Tabs — scrollable */}
+      <div className="relative flex items-center border-b dark:border-gray-700">
+        {accounts.length > 3 && (
+          <button onClick={() => scrollTabs('left')} className="shrink-0 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded">
+            <ChevronLeft className="h-4 w-4" />
           </button>
-        ))}
+        )}
+        <div ref={tabContainerRef} className="flex items-center gap-1 overflow-x-auto scrollbar-hide scroll-smooth flex-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+          <button onClick={() => { setSelectedAccountId('all'); setPage(1); setSelectedIds(new Set()) }} ref={activeAccountId === 'all' ? activeTabRef : undefined} className={`px-4 py-2 text-sm font-medium border-b-2 whitespace-nowrap shrink-0 ${activeAccountId === 'all' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}>
+            All Accounts
+          </button>
+          {accounts.map(account => (
+            <button key={account.id} onClick={() => { setSelectedAccountId(account.id); setPage(1); setSelectedIds(new Set()) }} ref={activeAccountId === account.id ? activeTabRef : undefined} className={`px-4 py-2 text-sm font-medium border-b-2 whitespace-nowrap shrink-0 ${activeAccountId === account.id ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}>
+              {account.name}
+              <span className="ml-2 text-xs text-gray-400">{ACCOUNT_TYPES.find(t => t.value === account.account_type)?.label ?? ''} ({account.currency || 'CAD'})</span>
+            </button>
+          ))}
+        </div>
+        {accounts.length > 3 && (
+          <button onClick={() => scrollTabs('right')} className="shrink-0 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded">
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        )}
         {activeAccountId !== 'all' && (
-          <button onClick={() => handleDeleteAccount(accounts.find(a => a.id === activeAccountId)!)} disabled={deleteAccountMutation.isPending} className="ml-auto px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg flex items-center gap-1 disabled:opacity-50">
-            <Trash2 className="h-3.5 w-3.5" /> Delete
-          </button>
+          <div className="shrink-0 flex items-center gap-1 ml-2 pl-2 border-l dark:border-gray-700">
+            <button onClick={() => openEditAccount(accounts.find(a => a.id === activeAccountId)!)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 rounded" title="Edit account">
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+            <button onClick={() => openDeleteAccount(accounts.find(a => a.id === activeAccountId)!)} disabled={deleteAccountMutation.isPending} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950 rounded disabled:opacity-50" title="Delete account">
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
         )}
       </div>
 
@@ -708,6 +793,137 @@ export default function CashbookPage() {
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Edit Account Modal */}
+      {editAccountTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setEditAccountTarget(null)}>
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl border dark:border-gray-700 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b dark:border-gray-700">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Edit Account</h3>
+              <button onClick={() => setEditAccountTarget(null)} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Account Name *</label>
+                <input type="text" value={editAccName} onChange={e => setEditAccName(e.target.value)} className="w-full px-3 py-2 text-sm border dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" autoFocus />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
+                  <select value={editAccType} onChange={e => setEditAccType(e.target.value as AccountType)} className="w-full px-3 py-2 text-sm border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 dark:text-gray-100">
+                    {ACCOUNT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Currency</label>
+                  <select value={editAccCurrency} onChange={e => setEditAccCurrency(e.target.value)} className="w-full px-3 py-2 text-sm border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 dark:text-gray-100">
+                    <option value="CAD">CAD</option>
+                    <option value="USD">USD</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Opening Balance</label>
+                  <input type="number" step="0.01" value={editAccBalance} onChange={e => setEditAccBalance(e.target.value)} className="w-full px-3 py-2 text-sm border dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">As of Date</label>
+                  <input type="date" value={editAccDate} onChange={e => setEditAccDate(e.target.value)} className="w-full px-3 py-2 text-sm border dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 px-6 py-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 rounded-b-xl">
+              <button onClick={() => setEditAccountTarget(null)} className="px-4 py-2 text-sm border dark:border-gray-600 rounded-lg dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Cancel</button>
+              <button
+                onClick={() => {
+                  const data: Record<string, unknown> = {}
+                  if (editAccName !== editAccountTarget.name) data.name = editAccName
+                  if (editAccType !== editAccountTarget.account_type) data.account_type = editAccType
+                  if (editAccCurrency !== (editAccountTarget.currency || 'CAD')) data.currency = editAccCurrency
+                  const bal = parseFloat(editAccBalance) || 0
+                  if (bal !== Number(editAccountTarget.opening_balance ?? 0)) data.opening_balance = bal
+                  if (editAccDate && editAccDate !== editAccountTarget.opening_balance_date) data.opening_balance_date = editAccDate
+                  if (Object.keys(data).length === 0) { setEditAccountTarget(null); return }
+                  updateAccountMutation.mutate({ id: editAccountTarget.id, data })
+                }}
+                disabled={!editAccName || updateAccountMutation.isPending}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              >
+                {updateAccountMutation.isPending ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Account Modal */}
+      {deleteAccountTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setDeleteAccountTarget(null)}>
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl border dark:border-gray-700 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b dark:border-gray-700">
+              <h3 className="text-lg font-semibold text-red-700 dark:text-red-400">Delete Account</h3>
+              <button onClick={() => setDeleteAccountTarget(null)} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <p className="text-sm text-gray-700 dark:text-gray-300">
+                Are you sure you want to delete <strong>{deleteAccountTarget.name}</strong>?
+              </p>
+              {accounts.length <= 1 ? (
+                <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-sm text-amber-800 dark:text-amber-300">
+                  This is your only account. You cannot delete it.
+                </div>
+              ) : (
+                <>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">What should happen to entries in this account?</p>
+                  <div className="space-y-3">
+                    <label className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer ${deleteAction === 'move' ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/20' : 'dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>
+                      <input type="radio" name="deleteAction" value="move" checked={deleteAction === 'move'} onChange={() => setDeleteAction('move')} className="mt-0.5" />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-gray-100">
+                          <ArrowRightLeft className="h-4 w-4 text-blue-600" /> Move entries to another account
+                        </div>
+                        {deleteAction === 'move' && (
+                          <select value={deleteMoveTargetId} onChange={e => setDeleteMoveTargetId(e.target.value)} className="mt-2 w-full px-3 py-2 text-sm border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 dark:text-gray-100">
+                            {accounts.filter(a => a.id !== deleteAccountTarget.id).map(a => (
+                              <option key={a.id} value={a.id}>{a.name}</option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+                    </label>
+                    <label className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer ${deleteAction === 'delete' ? 'border-red-500 bg-red-50 dark:bg-red-950/20' : 'dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>
+                      <input type="radio" name="deleteAction" value="delete" checked={deleteAction === 'delete'} onChange={() => setDeleteAction('delete')} className="mt-0.5" />
+                      <div>
+                        <div className="flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-gray-100">
+                          <Trash2 className="h-4 w-4 text-red-600" /> Delete all entries too
+                        </div>
+                        <p className="text-xs text-gray-500 mt-0.5">Entries will be soft-deleted and can be restored later.</p>
+                      </div>
+                    </label>
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="flex justify-end gap-2 px-6 py-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 rounded-b-xl">
+              <button onClick={() => setDeleteAccountTarget(null)} className="px-4 py-2 text-sm border dark:border-gray-600 rounded-lg dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Cancel</button>
+              {accounts.length > 1 && (
+                <button
+                  onClick={() => deleteAccountMutation.mutate({
+                    id: deleteAccountTarget.id,
+                    action: deleteAction,
+                    targetId: deleteAction === 'move' ? deleteMoveTargetId : undefined,
+                  })}
+                  disabled={deleteAccountMutation.isPending || (deleteAction === 'move' && !deleteMoveTargetId)}
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50"
+                >
+                  {deleteAccountMutation.isPending ? 'Deleting...' : 'Delete Account'}
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       )}
 

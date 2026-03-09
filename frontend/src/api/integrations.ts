@@ -144,6 +144,15 @@ export async function importEmailFull(resultId: string, data: EmailImportRequest
   }>>(`/integrations/gmail/results/${resultId}/import-full`, data)
 }
 
+export async function getAttachmentPreview(resultId: string, attachmentIndex: number) {
+  return api.get<ApiResponse<{
+    filename: string
+    mimeType: string
+    size: number
+    content_base64: string
+  }>>(`/integrations/gmail/results/${resultId}/attachment/${attachmentIndex}`)
+}
+
 export async function deleteGmailScanResult(resultId: string) {
   return api.delete<ApiResponse<{ detail: string }>>(`/integrations/gmail/results/${resultId}`)
 }

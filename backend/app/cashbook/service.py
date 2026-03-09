@@ -407,6 +407,69 @@ async def delete_account(db: AsyncSession, account_id: uuid.UUID, user: User) ->
     await db.commit()
 
 
+async def delete_account_with_entries(
+    db: AsyncSession,
+    account_id: uuid.UUID,
+    action: str,
+    target_account_id: uuid.UUID | None,
+    user: User,
+) -> dict:
+    """Delete account, optionally moving or soft-deleting its entries first."""
+    account = await get_account(db, account_id, user)
+
+    # Count entries
+    entry_count = (
+        await db.execute(
+            select(func.count()).where(CashbookEntry.account_id == account_id)
+        )
+    ).scalar() or 0
+
+    moved = 0
+    deleted = 0
+
+    if entry_count > 0:
+        if action == "move":
+            if target_account_id is None:
+                raise ValidationError("target_account_id is required when action is 'move'")
+            if target_account_id == account_id:
+                raise ValidationError("Cannot move entries to the same account")
+            # Verify target exists and user can access it
+            await get_account(db, target_account_id, user)
+            result = await db.execute(
+                sa_update(CashbookEntry)
+                .where(CashbookEntry.account_id == account_id)
+                .values(account_id=target_account_id)
+            )
+            moved = result.rowcount
+            await db.flush()
+        elif action == "delete":
+            now = datetime.now(timezone.utc)
+            result = await db.execute(
+                sa_update(CashbookEntry)
+                .where(
+                    CashbookEntry.account_id == account_id,
+                    CashbookEntry.is_deleted.is_(False),
+                )
+                .values(is_deleted=True, deleted_at=now, status=EntryStatus.VOIDED)
+            )
+            deleted = result.rowcount
+            await db.flush()
+
+    account.is_active = False
+    await db.commit()
+
+    await log_activity(
+        db,
+        user_id=user.id,
+        action="account_deleted",
+        resource_type="payment_account",
+        resource_id=str(account_id),
+        details={"name": account.name, "entries_moved": moved, "entries_deleted": deleted},
+    )
+
+    return {"message": "Account deactivated", "entries_moved": moved, "entries_deleted": deleted}
+
+
 async def get_account_current_balance(
     db: AsyncSession,
     account_id: uuid.UUID,

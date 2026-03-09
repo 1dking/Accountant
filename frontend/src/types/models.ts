@@ -660,7 +660,9 @@ export interface EmailParsedData {
   description: string | null
   category_suggestion: string | null
   record_type: 'expense' | 'income'
-  attachments: { name: string; has_file: boolean }[]
+  attachments: { filename: string; mimeType: string; size: number }[]
+  body_html: string | null
+  body_text: string | null
 }
 
 export interface EmailImportRequest {

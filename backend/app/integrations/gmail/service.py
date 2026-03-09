@@ -2,6 +2,7 @@
 from typing import Optional
 
 import base64
+import json
 import mimetypes
 import os
 import re
@@ -290,6 +291,47 @@ def _extract_body_text(payload: dict) -> str:
     return ""
 
 
+def _extract_body_html(payload: dict) -> str:
+    """Extract HTML body from message payload recursively."""
+    mime_type = payload.get("mimeType", "")
+
+    if mime_type == "text/html":
+        data = payload.get("body", {}).get("data", "")
+        if data:
+            return base64.urlsafe_b64decode(data).decode("utf-8", errors="replace")
+
+    parts = payload.get("parts", [])
+    for part in parts:
+        part_mime = part.get("mimeType", "")
+        if part_mime == "text/html":
+            data = part.get("body", {}).get("data", "")
+            if data:
+                return base64.urlsafe_b64decode(data).decode("utf-8", errors="replace")
+        elif part_mime.startswith("multipart/"):
+            html = _extract_body_html(part)
+            if html:
+                return html
+
+    return ""
+
+
+def _extract_attachment_metadata(payload: dict) -> list[dict]:
+    """Extract attachment metadata (filename, mimeType, size) from payload."""
+    attachments: list[dict] = []
+    parts = payload.get("parts", [])
+    for part in parts:
+        filename = part.get("filename")
+        if filename and part.get("body", {}).get("attachmentId"):
+            attachments.append({
+                "filename": filename,
+                "mimeType": part.get("mimeType", "application/octet-stream"),
+                "size": part.get("body", {}).get("size", 0),
+                "attachmentId": part["body"]["attachmentId"],
+            })
+        attachments.extend(_extract_attachment_metadata(part))
+    return attachments
+
+
 async def scan_emails(
     db: AsyncSession,
     gmail_account_id: uuid.UUID,
@@ -374,8 +416,11 @@ async def scan_emails(
             except Exception:
                 parsed_date = None
 
-        attachments_found = _has_attachments(msg.get("payload", {}))
-        body_text = _extract_body_text(msg.get("payload", {}))
+        payload = msg.get("payload", {})
+        attachments_found = _has_attachments(payload)
+        body_text = _extract_body_text(payload)
+        body_html = _extract_body_html(payload)
+        att_meta = _extract_attachment_metadata(payload)
 
         scan_result = GmailScanResult(
             gmail_account_id=gmail_account_id,
@@ -385,7 +430,9 @@ async def scan_emails(
             date=parsed_date,
             snippet=msg.get("snippet"),
             body_text=body_text[:5000] if body_text else None,
+            body_html=body_html[:50000] if body_html else None,
             has_attachments=attachments_found,
+            attachment_metadata=json.dumps(att_meta) if att_meta else None,
             is_processed=False,
         )
         db.add(scan_result)
@@ -509,23 +556,43 @@ async def bulk_delete_scan_results(
 
 
 def _parse_amount_from_text(text: str) -> Decimal | None:
-    """Try to extract a monetary amount from text."""
-    # Patterns: $1,234.56 or USD 1234.56 or Total: $99.99
-    patterns = [
-        r"\$\s*([\d,]+\.?\d{0,2})",
-        r"(?:total|amount|charge|payment|due|balance)[:\s]*\$?\s*([\d,]+\.?\d{0,2})",
-        r"(?:USD|EUR|GBP)\s*([\d,]+\.?\d{0,2})",
+    """Try to extract a monetary amount from text.
+
+    Priority: "Total"/"Amount Due"/"Balance Due" lines first, then general $ amounts.
+    For general amounts, pick the largest reasonable value (likely the invoice total).
+    """
+    # High-priority: labeled amounts (total, amount due, balance due, etc.)
+    priority_patterns = [
+        r"(?:total\s*(?:amount|due|charged?)?|amount\s*due|balance\s*due|grand\s*total|invoice\s*total|payment\s*(?:amount|due))[:\s]*\$?\s*([\d,]+\.?\d{0,2})",
+        r"(?:total|amount\s*due|balance\s*due)[:\s]*(?:USD|CAD|EUR|GBP)?\s*\$?\s*([\d,]+\.?\d{0,2})",
     ]
-    for pattern in patterns:
+    for pattern in priority_patterns:
         matches = re.findall(pattern, text, re.IGNORECASE)
         for match in matches:
             try:
                 val = Decimal(match.replace(",", ""))
-                if Decimal("0.01") <= val <= Decimal("999999.99"):
+                if Decimal("0.50") <= val <= Decimal("999999.99"):
                     return val
             except (InvalidOperation, ValueError):
                 continue
-    return None
+
+    # General dollar amounts — pick the largest (likely the total)
+    general_patterns = [
+        r"\$\s*([\d,]+\.\d{2})",
+        r"(?:USD|CAD|EUR|GBP)\s*([\d,]+\.\d{2})",
+    ]
+    best: Decimal | None = None
+    for pattern in general_patterns:
+        matches = re.findall(pattern, text, re.IGNORECASE)
+        for match in matches:
+            try:
+                val = Decimal(match.replace(",", ""))
+                if Decimal("0.50") <= val <= Decimal("999999.99"):
+                    if best is None or val > best:
+                        best = val
+            except (InvalidOperation, ValueError):
+                continue
+    return best
 
 
 def _parse_date_from_text(text: str) -> date | None:
@@ -587,12 +654,20 @@ def parse_email_for_import(
     sender: str | None,
     body_text: str | None,
     email_date: datetime | None,
+    body_html: str | None = None,
 ) -> dict:
     """Parse email content and return structured data for import."""
     combined_text = " ".join(filter(None, [subject, body_text or ""]))
 
     vendor_name = _extract_vendor_from_sender(sender)
     amount = _parse_amount_from_text(combined_text)
+
+    # If no amount found in plain text, try HTML body (often has better structured data)
+    if amount is None and body_html:
+        html_text = re.sub(r"<[^>]+>", " ", body_html)
+        html_text = re.sub(r"\s+", " ", html_text).strip()
+        amount = _parse_amount_from_text(html_text)
+
     parsed_date = _parse_date_from_text(combined_text)
 
     # Use email date if no date found in body

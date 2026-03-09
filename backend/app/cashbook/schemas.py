@@ -85,6 +85,12 @@ class PaymentAccountResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class AccountDeleteRequest(BaseModel):
+    """Request body for deleting an account that may have entries."""
+    action: str = Field(pattern=r"^(move|delete)$")
+    target_account_id: uuid.UUID | None = None
+
+
 # ---------------------------------------------------------------------------
 # Cashbook Entry schemas
 # ---------------------------------------------------------------------------

@@ -5,6 +5,7 @@ from decimal import Decimal
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import RedirectResponse
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import Role, User
@@ -180,16 +181,110 @@ async def parse_email_for_import(
         sender=scan_result.sender,
         body_text=scan_result.body_text,
         email_date=scan_result.date,
+        body_html=scan_result.body_html,
     )
 
-    # List attachments info
+    # Attachment metadata
+    import json as _json
     attachments = []
-    if scan_result.has_attachments:
-        attachments.append({"name": "attachment", "has_file": True})
+    if scan_result.attachment_metadata:
+        try:
+            att_list = _json.loads(scan_result.attachment_metadata)
+            for att in att_list:
+                attachments.append({
+                    "filename": att.get("filename", "attachment"),
+                    "mimeType": att.get("mimeType", "application/octet-stream"),
+                    "size": att.get("size", 0),
+                })
+        except Exception:
+            if scan_result.has_attachments:
+                attachments.append({"filename": "attachment", "mimeType": "unknown", "size": 0})
+    elif scan_result.has_attachments:
+        attachments.append({"filename": "attachment", "mimeType": "unknown", "size": 0})
 
     parsed["attachments"] = attachments
+    parsed["body_html"] = scan_result.body_html
+    parsed["body_text"] = scan_result.body_text
 
     return {"data": parsed}
+
+
+# ---------------------------------------------------------------------------
+# Attachment preview (download on-demand for PDF preview)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/results/{result_id}/attachment/{attachment_index}")
+async def get_attachment_preview(
+    result_id: uuid.UUID,
+    attachment_index: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role([Role.ACCOUNTANT, Role.ADMIN])),
+):
+    """Download a specific attachment for preview (returns base64-encoded content)."""
+    import json as _json
+    from .models import GmailScanResult, GmailAccount
+
+    stmt = (
+        select(GmailScanResult)
+        .join(GmailAccount, GmailScanResult.gmail_account_id == GmailAccount.id)
+        .where(GmailScanResult.id == result_id, GmailAccount.user_id == user.id)
+    )
+    result = await db.execute(stmt)
+    scan_result = result.scalar_one_or_none()
+    if not scan_result:
+        from app.core.exceptions import NotFoundError
+        raise NotFoundError("Scan result", str(result_id))
+
+    if not scan_result.attachment_metadata:
+        from app.core.exceptions import ValidationError
+        raise ValidationError("No attachment metadata available")
+
+    att_list = _json.loads(scan_result.attachment_metadata)
+    if attachment_index < 0 or attachment_index >= len(att_list):
+        from app.core.exceptions import ValidationError
+        raise ValidationError(f"Attachment index {attachment_index} out of range")
+
+    att = att_list[attachment_index]
+    attachment_id = att.get("attachmentId")
+    if not attachment_id:
+        from app.core.exceptions import ValidationError
+        raise ValidationError("No attachment ID available for download")
+
+    # Get Gmail service
+    acct_stmt = select(GmailAccount).where(
+        GmailAccount.id == scan_result.gmail_account_id,
+        GmailAccount.user_id == user.id,
+    )
+    acct_result = await db.execute(acct_stmt)
+    gmail_account = acct_result.scalar_one_or_none()
+    if not gmail_account:
+        from app.core.exceptions import NotFoundError
+        raise NotFoundError("Gmail account", "unknown")
+
+    settings = _get_settings(request)
+    gmail_service = await service._get_gmail_service(gmail_account, settings)
+
+    # Download attachment data
+    import base64
+    att_response = (
+        gmail_service.users()
+        .messages()
+        .attachments()
+        .get(userId="me", messageId=scan_result.message_id, id=attachment_id)
+        .execute()
+    )
+    data = att_response.get("data", "")
+
+    return {
+        "data": {
+            "filename": att.get("filename", "attachment"),
+            "mimeType": att.get("mimeType", "application/octet-stream"),
+            "size": att.get("size", 0),
+            "content_base64": data,  # Already URL-safe base64 from Gmail API
+        }
+    }
 
 
 # ---------------------------------------------------------------------------
