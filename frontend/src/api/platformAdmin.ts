@@ -68,4 +68,39 @@ export const platformAdminApi = {
 
   // API keys
   listApiKeys: () => api.get('/platform-admin/api-keys'),
+
+  // Organizations
+  listOrganizations: (params?: { search?: string; plan?: string; is_active?: boolean; page?: number; page_size?: number }) => {
+    const searchParams = new URLSearchParams()
+    if (params?.search) searchParams.set('search', params.search)
+    if (params?.plan) searchParams.set('plan', params.plan)
+    if (params?.is_active !== undefined) searchParams.set('is_active', String(params.is_active))
+    if (params?.page) searchParams.set('page', String(params.page))
+    if (params?.page_size) searchParams.set('page_size', String(params.page_size))
+    return api.get(`/platform-admin/organizations?${searchParams.toString()}`)
+  },
+  getOrganization: (orgId: string) => api.get(`/platform-admin/organizations/${orgId}`),
+  createOrganization: (data: { name: string; slug: string; owner_id: string; plan?: string; max_users?: number; max_storage_gb?: number; notes?: string }) =>
+    api.post('/platform-admin/organizations', data),
+  updateOrganization: (orgId: string, data: Record<string, unknown>) =>
+    api.put(`/platform-admin/organizations/${orgId}`, data),
+  deleteOrganization: (orgId: string) => api.delete(`/platform-admin/organizations/${orgId}`),
+
+  // Org feature overrides
+  setOrgFeatureOverride: (orgId: string, featureKey: string, enabled: boolean) =>
+    api.put(`/platform-admin/organizations/${orgId}/features/${featureKey}`, { feature_key: featureKey, enabled }),
+  deleteOrgFeatureOverride: (orgId: string, featureKey: string) =>
+    api.delete(`/platform-admin/organizations/${orgId}/features/${featureKey}`),
+
+  // Org setting overrides
+  setOrgSettingOverride: (orgId: string, settingKey: string, value: string) =>
+    api.put(`/platform-admin/organizations/${orgId}/settings/${settingKey}`, { setting_key: settingKey, value }),
+  deleteOrgSettingOverride: (orgId: string, settingKey: string) =>
+    api.delete(`/platform-admin/organizations/${orgId}/settings/${settingKey}`),
+
+  // Org members
+  addOrgMember: (orgId: string, userId: string) =>
+    api.post(`/platform-admin/organizations/${orgId}/members`, { user_id: userId }),
+  removeOrgMember: (orgId: string, userId: string) =>
+    api.delete(`/platform-admin/organizations/${orgId}/members/${userId}`),
 }

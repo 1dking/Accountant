@@ -29,6 +29,9 @@ class User(TimestampMixin, Base):
     auth_provider: Mapped[str] = mapped_column(String(20), default="local", server_default="local", nullable=False)
     google_id: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
     news_preferences_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    org_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True, index=True
+    )
 
 
 class RefreshToken(Base):

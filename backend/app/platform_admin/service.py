@@ -9,7 +9,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import RefreshToken, Role, User
 from app.collaboration.models import ActivityLog
-from app.platform_admin.models import ErrorLog, FeatureFlag, PlatformSetting
+from app.platform_admin.models import (
+    ErrorLog,
+    FeatureFlag,
+    OrgFeatureOverride,
+    OrgSettingOverride,
+    Organization,
+    PlatformSetting,
+)
 
 # Track app start time for uptime calculation
 _start_time = time.time()
@@ -791,3 +798,273 @@ async def revoke_all_user_sessions(db: AsyncSession, user_id: uuid.UUID) -> int:
     )
     await db.commit()
     return result.rowcount
+
+
+# ── Organization management ─────────────────────────────────────────
+
+
+async def list_organizations(
+    db: AsyncSession,
+    search: str | None = None,
+    plan: str | None = None,
+    is_active: bool | None = None,
+    page: int = 1,
+    page_size: int = 50,
+) -> tuple[list[dict], int]:
+    """List organizations with member counts."""
+    stmt = (
+        select(Organization, User.full_name, User.email)
+        .join(User, Organization.owner_id == User.id)
+        .order_by(Organization.created_at.desc())
+    )
+    count_stmt = select(func.count(Organization.id))
+
+    if search:
+        search_filter = Organization.name.ilike(f"%{search}%") | Organization.slug.ilike(f"%{search}%")
+        stmt = stmt.where(search_filter)
+        count_stmt = count_stmt.where(search_filter)
+    if plan:
+        stmt = stmt.where(Organization.plan == plan)
+        count_stmt = count_stmt.where(Organization.plan == plan)
+    if is_active is not None:
+        stmt = stmt.where(Organization.is_active == is_active)
+        count_stmt = count_stmt.where(Organization.is_active == is_active)
+
+    total = (await db.execute(count_stmt)).scalar() or 0
+    stmt = stmt.offset((page - 1) * page_size).limit(page_size)
+    rows = (await db.execute(stmt)).all()
+
+    org_list = []
+    for org, owner_name, owner_email in rows:
+        member_count = (await db.execute(
+            select(func.count(User.id)).where(User.org_id == org.id)
+        )).scalar() or 0
+        org_list.append({
+            "id": str(org.id),
+            "name": org.name,
+            "slug": org.slug,
+            "is_active": org.is_active,
+            "plan": org.plan,
+            "member_count": member_count,
+            "owner_name": owner_name,
+            "owner_email": owner_email,
+            "created_at": org.created_at.isoformat() if org.created_at else None,
+        })
+
+    return org_list, total
+
+
+async def get_organization(db: AsyncSession, org_id: uuid.UUID) -> dict | None:
+    """Get organization detail with overrides and members."""
+    result = await db.execute(
+        select(Organization, User.full_name, User.email)
+        .join(User, Organization.owner_id == User.id)
+        .where(Organization.id == org_id)
+    )
+    row = result.one_or_none()
+    if not row:
+        return None
+
+    org, owner_name, owner_email = row
+
+    member_count = (await db.execute(
+        select(func.count(User.id)).where(User.org_id == org.id)
+    )).scalar() or 0
+
+    # Feature overrides
+    fo_rows = (await db.execute(
+        select(OrgFeatureOverride).where(OrgFeatureOverride.org_id == org.id)
+    )).scalars().all()
+    feature_overrides = [
+        {
+            "id": str(fo.id),
+            "org_id": str(fo.org_id),
+            "feature_key": fo.feature_key,
+            "enabled": fo.enabled,
+            "created_at": fo.created_at.isoformat() if fo.created_at else None,
+            "updated_at": fo.updated_at.isoformat() if fo.updated_at else None,
+        }
+        for fo in fo_rows
+    ]
+
+    # Setting overrides
+    so_rows = (await db.execute(
+        select(OrgSettingOverride).where(OrgSettingOverride.org_id == org.id)
+    )).scalars().all()
+    setting_overrides = [
+        {
+            "id": str(so.id),
+            "org_id": str(so.org_id),
+            "setting_key": so.setting_key,
+            "value": so.value,
+            "created_at": so.created_at.isoformat() if so.created_at else None,
+            "updated_at": so.updated_at.isoformat() if so.updated_at else None,
+        }
+        for so in so_rows
+    ]
+
+    # Members
+    members_result = (await db.execute(
+        select(User).where(User.org_id == org.id).order_by(User.full_name)
+    )).scalars().all()
+    members = [
+        {
+            "id": str(u.id),
+            "email": u.email,
+            "full_name": u.full_name,
+            "role": u.role.value if hasattr(u.role, "value") else str(u.role),
+            "is_active": u.is_active,
+        }
+        for u in members_result
+    ]
+
+    return {
+        "id": str(org.id),
+        "name": org.name,
+        "slug": org.slug,
+        "owner_id": str(org.owner_id),
+        "is_active": org.is_active,
+        "plan": org.plan,
+        "max_users": org.max_users,
+        "max_storage_gb": org.max_storage_gb,
+        "logo_url": org.logo_url,
+        "primary_color": org.primary_color,
+        "secondary_color": org.secondary_color,
+        "custom_domain": org.custom_domain,
+        "notes": org.notes,
+        "created_at": org.created_at.isoformat() if org.created_at else None,
+        "updated_at": org.updated_at.isoformat() if org.updated_at else None,
+        "feature_overrides": feature_overrides,
+        "setting_overrides": setting_overrides,
+        "member_count": member_count,
+        "members": members,
+        "owner_name": owner_name,
+        "owner_email": owner_email,
+    }
+
+
+async def create_organization(db: AsyncSession, data: dict) -> Organization:
+    """Create a new organization and assign owner."""
+    org = Organization(**data)
+    db.add(org)
+    await db.flush()
+
+    # Assign owner to this org
+    await db.execute(
+        update(User).where(User.id == org.owner_id).values(org_id=org.id)
+    )
+
+    await db.commit()
+    await db.refresh(org)
+    return org
+
+
+async def update_organization(
+    db: AsyncSession, org_id: uuid.UUID, data: dict
+) -> Organization | None:
+    result = await db.execute(select(Organization).where(Organization.id == org_id))
+    org = result.scalar_one_or_none()
+    if not org:
+        return None
+    for field, value in data.items():
+        if value is not None:
+            setattr(org, field, value)
+    await db.commit()
+    await db.refresh(org)
+    return org
+
+
+async def delete_organization(db: AsyncSession, org_id: uuid.UUID) -> bool:
+    """Delete org, unlink members first."""
+    await db.execute(update(User).where(User.org_id == org_id).values(org_id=None))
+    result = await db.execute(delete(Organization).where(Organization.id == org_id))
+    await db.commit()
+    return result.rowcount > 0
+
+
+async def set_org_feature_override(
+    db: AsyncSession, org_id: uuid.UUID, feature_key: str, enabled: bool
+) -> OrgFeatureOverride:
+    """Set or update a per-org feature override."""
+    result = await db.execute(
+        select(OrgFeatureOverride).where(
+            OrgFeatureOverride.org_id == org_id,
+            OrgFeatureOverride.feature_key == feature_key,
+        )
+    )
+    existing = result.scalar_one_or_none()
+    if existing:
+        existing.enabled = enabled
+    else:
+        existing = OrgFeatureOverride(org_id=org_id, feature_key=feature_key, enabled=enabled)
+        db.add(existing)
+    await db.commit()
+    await db.refresh(existing)
+    return existing
+
+
+async def delete_org_feature_override(
+    db: AsyncSession, org_id: uuid.UUID, feature_key: str
+) -> bool:
+    """Remove a per-org feature override (revert to global default)."""
+    result = await db.execute(
+        delete(OrgFeatureOverride).where(
+            OrgFeatureOverride.org_id == org_id,
+            OrgFeatureOverride.feature_key == feature_key,
+        )
+    )
+    await db.commit()
+    return result.rowcount > 0
+
+
+async def set_org_setting_override(
+    db: AsyncSession, org_id: uuid.UUID, setting_key: str, value: str
+) -> OrgSettingOverride:
+    """Set or update a per-org setting override."""
+    result = await db.execute(
+        select(OrgSettingOverride).where(
+            OrgSettingOverride.org_id == org_id,
+            OrgSettingOverride.setting_key == setting_key,
+        )
+    )
+    existing = result.scalar_one_or_none()
+    if existing:
+        existing.value = value
+    else:
+        existing = OrgSettingOverride(org_id=org_id, setting_key=setting_key, value=value)
+        db.add(existing)
+    await db.commit()
+    await db.refresh(existing)
+    return existing
+
+
+async def delete_org_setting_override(
+    db: AsyncSession, org_id: uuid.UUID, setting_key: str
+) -> bool:
+    """Remove a per-org setting override (revert to global default)."""
+    result = await db.execute(
+        delete(OrgSettingOverride).where(
+            OrgSettingOverride.org_id == org_id,
+            OrgSettingOverride.setting_key == setting_key,
+        )
+    )
+    await db.commit()
+    return result.rowcount > 0
+
+
+async def add_org_member(db: AsyncSession, org_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+    """Add a user to an organization."""
+    result = await db.execute(
+        update(User).where(User.id == user_id).values(org_id=org_id)
+    )
+    await db.commit()
+    return result.rowcount > 0
+
+
+async def remove_org_member(db: AsyncSession, org_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+    """Remove a user from an organization."""
+    result = await db.execute(
+        update(User).where(User.id == user_id, User.org_id == org_id).values(org_id=None)
+    )
+    await db.commit()
+    return result.rowcount > 0

@@ -295,7 +295,7 @@ async def list_api_key_status(
             return "****" + val[-2:]
         return "****" + val[-4:]
 
-    keys = [
+    keys: list[dict] = [
         {
             "integration": "anthropic",
             "configured": bool(s.anthropic_api_key),
@@ -384,3 +384,157 @@ async def list_api_key_status(
         },
     ]
     return {"data": keys}
+
+
+# ── Organizations ───────────────────────────────────────────────────
+
+
+@router.get("/organizations")
+async def list_organizations(
+    admin: Annotated[User, Depends(require_platform_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    search: Optional[str] = Query(None),
+    plan: Optional[str] = Query(None),
+    is_active: Optional[bool] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=100),
+):
+    orgs, total = await service.list_organizations(db, search, plan, is_active, page, page_size)
+    return {
+        "data": orgs,
+        "meta": {"total": total, "page": page, "page_size": page_size},
+    }
+
+
+@router.post("/organizations", status_code=201)
+async def create_organization(
+    body: schemas.OrganizationCreate,
+    admin: Annotated[User, Depends(require_platform_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    org = await service.create_organization(db, body.model_dump())
+    detail = await service.get_organization(db, org.id)
+    return {"data": detail}
+
+
+@router.get("/organizations/{org_id}")
+async def get_organization(
+    org_id: uuid.UUID,
+    admin: Annotated[User, Depends(require_platform_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    detail = await service.get_organization(db, org_id)
+    if not detail:
+        raise HTTPException(404, "Organization not found")
+    return {"data": detail}
+
+
+@router.put("/organizations/{org_id}")
+async def update_organization(
+    org_id: uuid.UUID,
+    body: schemas.OrganizationUpdate,
+    admin: Annotated[User, Depends(require_platform_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    org = await service.update_organization(db, org_id, body.model_dump(exclude_unset=True))
+    if not org:
+        raise HTTPException(404, "Organization not found")
+    detail = await service.get_organization(db, org.id)
+    return {"data": detail}
+
+
+@router.delete("/organizations/{org_id}")
+async def delete_organization(
+    org_id: uuid.UUID,
+    admin: Annotated[User, Depends(require_platform_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    deleted = await service.delete_organization(db, org_id)
+    if not deleted:
+        raise HTTPException(404, "Organization not found")
+    return {"data": {"deleted": True}}
+
+
+# ── Org feature overrides ──────────────────────────────────────────
+
+
+@router.put("/organizations/{org_id}/features/{feature_key}")
+async def set_org_feature_override(
+    org_id: uuid.UUID,
+    feature_key: str,
+    body: schemas.OrgFeatureOverrideSet,
+    admin: Annotated[User, Depends(require_platform_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    override = await service.set_org_feature_override(db, org_id, feature_key, body.enabled)
+    return {"data": {"feature_key": override.feature_key, "enabled": override.enabled}}
+
+
+@router.delete("/organizations/{org_id}/features/{feature_key}")
+async def delete_org_feature_override(
+    org_id: uuid.UUID,
+    feature_key: str,
+    admin: Annotated[User, Depends(require_platform_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    deleted = await service.delete_org_feature_override(db, org_id, feature_key)
+    if not deleted:
+        raise HTTPException(404, "Override not found")
+    return {"data": {"deleted": True}}
+
+
+# ── Org setting overrides ──────────────────────────────────────────
+
+
+@router.put("/organizations/{org_id}/settings/{setting_key}")
+async def set_org_setting_override(
+    org_id: uuid.UUID,
+    setting_key: str,
+    body: schemas.OrgSettingOverrideSet,
+    admin: Annotated[User, Depends(require_platform_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    override = await service.set_org_setting_override(db, org_id, setting_key, body.value)
+    return {"data": {"setting_key": override.setting_key, "value": override.value}}
+
+
+@router.delete("/organizations/{org_id}/settings/{setting_key}")
+async def delete_org_setting_override(
+    org_id: uuid.UUID,
+    setting_key: str,
+    admin: Annotated[User, Depends(require_platform_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    deleted = await service.delete_org_setting_override(db, org_id, setting_key)
+    if not deleted:
+        raise HTTPException(404, "Override not found")
+    return {"data": {"deleted": True}}
+
+
+# ── Org members ─────────────────────────────────────────────────────
+
+
+@router.post("/organizations/{org_id}/members")
+async def add_org_member(
+    org_id: uuid.UUID,
+    body: schemas.OrgAddMemberRequest,
+    admin: Annotated[User, Depends(require_platform_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    added = await service.add_org_member(db, org_id, body.user_id)
+    if not added:
+        raise HTTPException(404, "User not found")
+    return {"data": {"added": True}}
+
+
+@router.delete("/organizations/{org_id}/members/{user_id}")
+async def remove_org_member(
+    org_id: uuid.UUID,
+    user_id: uuid.UUID,
+    admin: Annotated[User, Depends(require_platform_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    removed = await service.remove_org_member(db, org_id, user_id)
+    if not removed:
+        raise HTTPException(404, "Member not found in organization")
+    return {"data": {"removed": True}}

@@ -22,12 +22,21 @@ import {
   FileText,
   Globe,
   Save,
+  Building2,
+  Plus,
+  Trash2,
+  ChevronLeft,
+  Palette,
+  UserPlus,
+  UserMinus,
+  Edit3,
 } from 'lucide-react'
 
 // ── Tab definitions ──────────────────────────────────────────────────────
 
 const TABS = [
   { key: 'overview', label: 'Overview', icon: LayoutDashboard },
+  { key: 'organizations', label: 'Organizations', icon: Building2 },
   { key: 'users', label: 'Users', icon: Users },
   { key: 'features', label: 'Feature Toggles', icon: ToggleLeft },
   { key: 'pricing', label: 'Pricing & Limits', icon: DollarSign },
@@ -85,6 +94,7 @@ export default function PlatformAdminPage() {
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-6">
         {activeTab === 'overview' && <OverviewTab />}
+        {activeTab === 'organizations' && <OrganizationsTab />}
         {activeTab === 'users' && <UsersTab />}
         {activeTab === 'features' && <FeatureTogglesTab />}
         {activeTab === 'pricing' && <PricingTab />}
@@ -196,6 +206,720 @@ function OverviewTab() {
           ))}
           {(!metrics?.recent_activity || metrics.recent_activity.length === 0) && (
             <p className="text-sm text-gray-400">No recent activity</p>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Organizations tab ─────────────────────────────────────────────────────
+
+function OrganizationsTab() {
+  const queryClient = useQueryClient()
+  const [search, setSearch] = useState('')
+  const [planFilter, setPlanFilter] = useState('')
+  const [showCreate, setShowCreate] = useState(false)
+  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null)
+
+  // List
+  const { data, isLoading } = useQuery({
+    queryKey: ['platform-admin', 'organizations', search, planFilter],
+    queryFn: () => platformAdminApi.listOrganizations({ search: search || undefined, plan: planFilter || undefined }),
+  })
+
+  // Detail
+  const { data: orgDetailData } = useQuery({
+    queryKey: ['platform-admin', 'org-detail', selectedOrgId],
+    queryFn: () => platformAdminApi.getOrganization(selectedOrgId!),
+    enabled: !!selectedOrgId,
+  })
+
+  // Feature flags (for override UI)
+  const { data: flagsData } = useQuery({
+    queryKey: ['platform-admin', 'feature-flags'],
+    queryFn: () => platformAdminApi.listFeatureFlags(),
+    enabled: !!selectedOrgId,
+  })
+
+  // Settings (for override UI)
+  const { data: settingsData } = useQuery({
+    queryKey: ['platform-admin', 'settings'],
+    queryFn: () => platformAdminApi.listSettings(),
+    enabled: !!selectedOrgId,
+  })
+
+  // Users list (for owner picker and member add)
+  const { data: usersData } = useQuery({
+    queryKey: ['platform-admin', 'users-all'],
+    queryFn: () => platformAdminApi.listUsers({ page_size: 100 }),
+    enabled: showCreate || !!selectedOrgId,
+  })
+
+  const orgs = (data as any)?.data ?? []
+  const orgDetail = (orgDetailData as any)?.data
+  const allFlags = (flagsData as any)?.data ?? []
+  const allSettings = (settingsData as any)?.data ?? []
+  const allUsers = (usersData as any)?.data ?? []
+
+  if (selectedOrgId && orgDetail) {
+    return (
+      <OrgDetailView
+        org={orgDetail}
+        allFlags={allFlags}
+        allSettings={allSettings}
+        allUsers={allUsers}
+        onBack={() => { setSelectedOrgId(null); queryClient.invalidateQueries({ queryKey: ['platform-admin', 'organizations'] }) }}
+      />
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Organizations</h1>
+        <button
+          onClick={() => setShowCreate(true)}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium bg-blue-600 text-white hover:bg-blue-700"
+        >
+          <Plus className="w-4 h-4" /> Create Organization
+        </button>
+      </div>
+
+      <div className="flex gap-3">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search organizations..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-10 pr-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
+          />
+        </div>
+        <select
+          value={planFilter}
+          onChange={(e) => setPlanFilter(e.target.value)}
+          className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
+        >
+          <option value="">All Plans</option>
+          <option value="starter">Starter</option>
+          <option value="pro">Pro</option>
+          <option value="business">Business</option>
+          <option value="enterprise">Enterprise</option>
+        </select>
+      </div>
+
+      {isLoading ? (
+        <LoadingSpinner />
+      ) : orgs.length === 0 ? (
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
+          <Building2 className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+          <p className="text-sm text-gray-500 dark:text-gray-400">No organizations yet</p>
+        </div>
+      ) : (
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 dark:bg-gray-900">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Organization</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Plan</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Members</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Owner</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Created</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+              {orgs.map((org: any) => (
+                <tr
+                  key={org.id}
+                  className="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer"
+                  onClick={() => setSelectedOrgId(org.id)}
+                >
+                  <td className="px-4 py-3">
+                    <div className="font-medium text-gray-900 dark:text-white">{org.name}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 font-mono">{org.slug}</div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium capitalize ${
+                      org.plan === 'enterprise' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400' :
+                      org.plan === 'business' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' :
+                      org.plan === 'pro' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
+                      'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                    }`}>
+                      {org.plan}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{org.member_count}</td>
+                  <td className="px-4 py-3">
+                    <div className="text-sm text-gray-900 dark:text-white">{org.owner_name}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">{org.owner_email}</div>
+                  </td>
+                  <td className="px-4 py-3">
+                    {org.is_active ? (
+                      <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400 text-xs">
+                        <CheckCircle className="w-3 h-3" /> Active
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-red-500 text-xs">
+                        <XCircle className="w-3 h-3" /> Inactive
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
+                    {org.created_at ? timeAgo(org.created_at) : '-'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Create Modal */}
+      {showCreate && (
+        <CreateOrgModal
+          allUsers={allUsers}
+          onClose={() => setShowCreate(false)}
+          onCreated={() => {
+            setShowCreate(false)
+            queryClient.invalidateQueries({ queryKey: ['platform-admin', 'organizations'] })
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+// ── Create Org Modal ──────────────────────────────────────────────────────
+
+function CreateOrgModal({ allUsers, onClose, onCreated }: { allUsers: any[]; onClose: () => void; onCreated: () => void }) {
+  const [name, setName] = useState('')
+  const [slug, setSlug] = useState('')
+  const [ownerId, setOwnerId] = useState('')
+  const [plan, setPlan] = useState('starter')
+  const [maxUsers, setMaxUsers] = useState(5)
+  const [maxStorage, setMaxStorage] = useState(5)
+  const [notes, setNotes] = useState('')
+
+  const createMut = useMutation({
+    mutationFn: () => platformAdminApi.createOrganization({
+      name,
+      slug,
+      owner_id: ownerId,
+      plan,
+      max_users: maxUsers,
+      max_storage_gb: maxStorage,
+      notes: notes || undefined,
+    }),
+    onSuccess: () => {
+      toast.success('Organization created')
+      onCreated()
+    },
+    onError: (err: any) => toast.error(err?.message || 'Failed to create organization'),
+  })
+
+  const autoSlug = (n: string) => n.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Create Organization</h2>
+
+        <div className="space-y-3">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name <span className="text-red-500">*</span></label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => { setName(e.target.value); if (!slug || slug === autoSlug(name)) setSlug(autoSlug(e.target.value)) }}
+              className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white"
+              placeholder="Acme Corp"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Slug <span className="text-red-500">*</span></label>
+            <input
+              type="text"
+              value={slug}
+              onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+              className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white font-mono"
+              placeholder="acme-corp"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Owner <span className="text-red-500">*</span></label>
+            <select
+              value={ownerId}
+              onChange={(e) => setOwnerId(e.target.value)}
+              className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white"
+            >
+              <option value="">Select owner...</option>
+              {allUsers.map((u: any) => (
+                <option key={u.id} value={u.id}>{u.full_name} ({u.email})</option>
+              ))}
+            </select>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Plan</label>
+              <select
+                value={plan}
+                onChange={(e) => setPlan(e.target.value)}
+                className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white"
+              >
+                <option value="starter">Starter</option>
+                <option value="pro">Pro</option>
+                <option value="business">Business</option>
+                <option value="enterprise">Enterprise</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Max Users</label>
+              <input type="number" value={maxUsers} onChange={(e) => setMaxUsers(Number(e.target.value))} min={1}
+                className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Storage (GB)</label>
+              <input type="number" value={maxStorage} onChange={(e) => setMaxStorage(Number(e.target.value))} min={1}
+                className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={2}
+              className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white"
+            />
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 mt-5">
+          <button onClick={onClose} className="px-4 py-2 rounded-md text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Cancel</button>
+          <button
+            onClick={() => createMut.mutate()}
+            disabled={!name || !slug || !ownerId || createMut.isPending}
+            className="px-4 py-2 rounded-md text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            {createMut.isPending ? 'Creating...' : 'Create'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Org Detail View ──────────────────────────────────────────────────────
+
+function OrgDetailView({ org, allFlags, allSettings, allUsers, onBack }: {
+  org: any; allFlags: any[]; allSettings: any[]; allUsers: any[]; onBack: () => void
+}) {
+  const queryClient = useQueryClient()
+  const [editMode, setEditMode] = useState(false)
+  const [editData, setEditData] = useState<any>({})
+  const [showAddMember, setShowAddMember] = useState(false)
+  const [addUserId, setAddUserId] = useState('')
+
+  const invalidateOrg = () => queryClient.invalidateQueries({ queryKey: ['platform-admin', 'org-detail', org.id] })
+
+  // Update org
+  const updateMut = useMutation({
+    mutationFn: (data: any) => platformAdminApi.updateOrganization(org.id, data),
+    onSuccess: () => { toast.success('Organization updated'); setEditMode(false); invalidateOrg() },
+    onError: (err: any) => toast.error(err?.message || 'Update failed'),
+  })
+
+  // Delete org
+  const deleteMut = useMutation({
+    mutationFn: () => platformAdminApi.deleteOrganization(org.id),
+    onSuccess: () => { toast.success('Organization deleted'); onBack() },
+  })
+
+  // Feature override
+  const featureOverrideMut = useMutation({
+    mutationFn: ({ key, enabled }: { key: string; enabled: boolean }) =>
+      platformAdminApi.setOrgFeatureOverride(org.id, key, enabled),
+    onSuccess: () => invalidateOrg(),
+  })
+
+  const deleteFeatureOverrideMut = useMutation({
+    mutationFn: (key: string) => platformAdminApi.deleteOrgFeatureOverride(org.id, key),
+    onSuccess: () => invalidateOrg(),
+  })
+
+  // Setting override
+  const settingOverrideMut = useMutation({
+    mutationFn: ({ key, value }: { key: string; value: string }) =>
+      platformAdminApi.setOrgSettingOverride(org.id, key, value),
+    onSuccess: () => invalidateOrg(),
+  })
+
+  const deleteSettingOverrideMut = useMutation({
+    mutationFn: (key: string) => platformAdminApi.deleteOrgSettingOverride(org.id, key),
+    onSuccess: () => invalidateOrg(),
+  })
+
+  // Members
+  const addMemberMut = useMutation({
+    mutationFn: (userId: string) => platformAdminApi.addOrgMember(org.id, userId),
+    onSuccess: () => { toast.success('Member added'); setShowAddMember(false); setAddUserId(''); invalidateOrg() },
+  })
+
+  const removeMemberMut = useMutation({
+    mutationFn: (userId: string) => platformAdminApi.removeOrgMember(org.id, userId),
+    onSuccess: () => { toast.success('Member removed'); invalidateOrg() },
+  })
+
+  // Build override lookup maps
+  const featureOverrideMap = new Map<string, boolean>()
+  ;(org.feature_overrides ?? []).forEach((o: any) => featureOverrideMap.set(o.feature_key, o.enabled))
+  const settingOverrideMap = new Map<string, string>()
+  ;(org.setting_overrides ?? []).forEach((o: any) => settingOverrideMap.set(o.setting_key, o.value))
+
+  const categories = [...new Set(allFlags.map((f: any) => f.category))] as string[]
+  const settingCategories = [...new Set(allSettings.map((s: any) => s.category))] as string[]
+  const memberIds = new Set((org.members ?? []).map((m: any) => m.id))
+  const nonMembers = allUsers.filter((u: any) => !memberIds.has(u.id))
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <button onClick={onBack} className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500">
+          <ChevronLeft className="w-5 h-5" />
+        </button>
+        <div className="flex-1">
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{org.name}</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 font-mono">{org.slug}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => { setEditMode(!editMode); setEditData({ name: org.name, slug: org.slug, plan: org.plan, max_users: org.max_users, max_storage_gb: org.max_storage_gb, is_active: org.is_active, logo_url: org.logo_url || '', primary_color: org.primary_color || '', secondary_color: org.secondary_color || '', custom_domain: org.custom_domain || '', notes: org.notes || '' }) }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+          >
+            <Edit3 className="w-3.5 h-3.5" /> Edit
+          </button>
+          <button
+            onClick={() => { if (confirm('Delete this organization? Members will be unlinked.')) deleteMut.mutate() }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm border border-red-300 dark:border-red-600 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+          >
+            <Trash2 className="w-3.5 h-3.5" /> Delete
+          </button>
+        </div>
+      </div>
+
+      {/* Edit form */}
+      {editMode && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-blue-200 dark:border-blue-800 p-4 space-y-3">
+          <h3 className="text-sm font-medium text-gray-900 dark:text-white">Edit Organization</h3>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Name</label>
+              <input type="text" value={editData.name ?? ''} onChange={(e) => setEditData({ ...editData, name: e.target.value })}
+                className="w-full px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Slug</label>
+              <input type="text" value={editData.slug ?? ''} onChange={(e) => setEditData({ ...editData, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })}
+                className="w-full px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white font-mono" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Plan</label>
+              <select value={editData.plan ?? 'starter'} onChange={(e) => setEditData({ ...editData, plan: e.target.value })}
+                className="w-full px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white">
+                <option value="starter">Starter</option>
+                <option value="pro">Pro</option>
+                <option value="business">Business</option>
+                <option value="enterprise">Enterprise</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Active</label>
+              <select value={editData.is_active ? 'true' : 'false'} onChange={(e) => setEditData({ ...editData, is_active: e.target.value === 'true' })}
+                className="w-full px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white">
+                <option value="true">Active</option>
+                <option value="false">Inactive</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Max Users</label>
+              <input type="number" min={1} value={editData.max_users ?? 5} onChange={(e) => setEditData({ ...editData, max_users: Number(e.target.value) })}
+                className="w-full px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Max Storage (GB)</label>
+              <input type="number" min={1} value={editData.max_storage_gb ?? 5} onChange={(e) => setEditData({ ...editData, max_storage_gb: Number(e.target.value) })}
+                className="w-full px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white" />
+            </div>
+          </div>
+
+          {/* White-label */}
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-3 mt-3">
+            <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-2 flex items-center gap-1"><Palette className="w-3.5 h-3.5" /> White-label</h4>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Logo URL</label>
+                <input type="text" value={editData.logo_url ?? ''} onChange={(e) => setEditData({ ...editData, logo_url: e.target.value })}
+                  className="w-full px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white" placeholder="https://..." />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Custom Domain</label>
+                <input type="text" value={editData.custom_domain ?? ''} onChange={(e) => setEditData({ ...editData, custom_domain: e.target.value })}
+                  className="w-full px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white" placeholder="app.example.com" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Primary Color</label>
+                <div className="flex items-center gap-2">
+                  <input type="color" value={editData.primary_color || '#3b82f6'} onChange={(e) => setEditData({ ...editData, primary_color: e.target.value })}
+                    className="w-8 h-8 rounded border border-gray-300 dark:border-gray-600 cursor-pointer" />
+                  <input type="text" value={editData.primary_color ?? ''} onChange={(e) => setEditData({ ...editData, primary_color: e.target.value })}
+                    className="flex-1 px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white font-mono" placeholder="#3b82f6" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Secondary Color</label>
+                <div className="flex items-center gap-2">
+                  <input type="color" value={editData.secondary_color || '#6b7280'} onChange={(e) => setEditData({ ...editData, secondary_color: e.target.value })}
+                    className="w-8 h-8 rounded border border-gray-300 dark:border-gray-600 cursor-pointer" />
+                  <input type="text" value={editData.secondary_color ?? ''} onChange={(e) => setEditData({ ...editData, secondary_color: e.target.value })}
+                    className="flex-1 px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white font-mono" placeholder="#6b7280" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Notes</label>
+            <textarea value={editData.notes ?? ''} onChange={(e) => setEditData({ ...editData, notes: e.target.value })} rows={2}
+              className="w-full px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white" />
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <button onClick={() => setEditMode(false)} className="px-3 py-1.5 rounded text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Cancel</button>
+            <button onClick={() => updateMut.mutate(editData)} disabled={updateMut.isPending}
+              className="flex items-center gap-1 px-3 py-1.5 rounded text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
+              <Save className="w-3.5 h-3.5" /> Save
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Info cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+          <p className="text-xs text-gray-500 dark:text-gray-400 uppercase">Plan</p>
+          <p className="text-lg font-bold text-gray-900 dark:text-white capitalize">{org.plan}</p>
+        </div>
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+          <p className="text-xs text-gray-500 dark:text-gray-400 uppercase">Members</p>
+          <p className="text-lg font-bold text-gray-900 dark:text-white">{org.member_count} / {org.max_users}</p>
+        </div>
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+          <p className="text-xs text-gray-500 dark:text-gray-400 uppercase">Storage Limit</p>
+          <p className="text-lg font-bold text-gray-900 dark:text-white">{org.max_storage_gb} GB</p>
+        </div>
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+          <p className="text-xs text-gray-500 dark:text-gray-400 uppercase">Status</p>
+          <p className={`text-lg font-bold ${org.is_active ? 'text-green-600' : 'text-red-500'}`}>{org.is_active ? 'Active' : 'Inactive'}</p>
+        </div>
+      </div>
+
+      {/* Members */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="px-4 py-3 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+          <h3 className="text-sm font-medium text-gray-900 dark:text-white">Members ({org.members?.length ?? 0})</h3>
+          <button onClick={() => setShowAddMember(!showAddMember)}
+            className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-blue-600 text-white hover:bg-blue-700">
+            <UserPlus className="w-3 h-3" /> Add
+          </button>
+        </div>
+        {showAddMember && (
+          <div className="px-4 py-2 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-200 dark:border-blue-800 flex items-center gap-2">
+            <select value={addUserId} onChange={(e) => setAddUserId(e.target.value)}
+              className="flex-1 px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white">
+              <option value="">Select user...</option>
+              {nonMembers.map((u: any) => <option key={u.id} value={u.id}>{u.full_name} ({u.email})</option>)}
+            </select>
+            <button onClick={() => addUserId && addMemberMut.mutate(addUserId)} disabled={!addUserId || addMemberMut.isPending}
+              className="px-3 py-1.5 rounded text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">Add</button>
+            <button onClick={() => { setShowAddMember(false); setAddUserId('') }}
+              className="px-2 py-1.5 rounded text-xs text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700">Cancel</button>
+          </div>
+        )}
+        <div className="divide-y divide-gray-200 dark:divide-gray-700">
+          {(org.members ?? []).map((m: any) => (
+            <div key={m.id} className="flex items-center justify-between px-4 py-2.5">
+              <div>
+                <p className="text-sm font-medium text-gray-900 dark:text-white">{m.full_name}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{m.email} &middot; <span className="capitalize">{m.role?.replace('_', ' ')}</span></p>
+              </div>
+              <button onClick={() => { if (confirm(`Remove ${m.full_name}?`)) removeMemberMut.mutate(m.id) }}
+                className="p-1 rounded text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20" title="Remove member">
+                <UserMinus className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+          {(!org.members || org.members.length === 0) && (
+            <p className="px-4 py-3 text-sm text-gray-400">No members</p>
+          )}
+        </div>
+      </div>
+
+      {/* Feature Overrides */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="px-4 py-3 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+          <h3 className="text-sm font-medium text-gray-900 dark:text-white">Feature Overrides</h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Override global feature flags for this org. Unset = uses global default.</p>
+        </div>
+        {categories.map((cat) => (
+          <div key={cat}>
+            <div className="px-4 py-2 bg-gray-50/50 dark:bg-gray-900/50 border-b border-gray-100 dark:border-gray-800">
+              <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{cat}</span>
+            </div>
+            <div className="divide-y divide-gray-100 dark:divide-gray-800">
+              {allFlags.filter((f: any) => f.category === cat).map((flag: any) => {
+                const hasOverride = featureOverrideMap.has(flag.key)
+                const overrideValue = featureOverrideMap.get(flag.key)
+                const effectiveValue = hasOverride ? overrideValue : flag.enabled
+                return (
+                  <div key={flag.key} className="flex items-center justify-between px-4 py-2.5">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-gray-900 dark:text-white">{flag.name}</p>
+                      <p className="text-[10px] text-gray-400 font-mono">{flag.key} {hasOverride ? '(overridden)' : '(global)'}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => featureOverrideMut.mutate({ key: flag.key, enabled: !effectiveValue })}
+                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                          effectiveValue ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
+                        } ${hasOverride ? 'ring-2 ring-blue-300 dark:ring-blue-700' : ''}`}
+                      >
+                        <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                          effectiveValue ? 'translate-x-4' : 'translate-x-0.5'
+                        }`} />
+                      </button>
+                      {hasOverride && (
+                        <button onClick={() => deleteFeatureOverrideMut.mutate(flag.key)}
+                          className="p-0.5 rounded text-gray-400 hover:text-red-500" title="Reset to global">
+                          <XCircle className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Setting Overrides */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="px-4 py-3 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+          <h3 className="text-sm font-medium text-gray-900 dark:text-white">Setting Overrides</h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Override global pricing/limits for this org.</p>
+        </div>
+        {settingCategories.map((cat) => (
+          <div key={cat}>
+            <div className="px-4 py-2 bg-gray-50/50 dark:bg-gray-900/50 border-b border-gray-100 dark:border-gray-800">
+              <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{cat}</span>
+            </div>
+            <div className="divide-y divide-gray-100 dark:divide-gray-800">
+              {allSettings.filter((s: any) => s.category === cat).map((setting: any) => {
+                const hasOverride = settingOverrideMap.has(setting.key)
+                const overrideValue = settingOverrideMap.get(setting.key)
+                const effectiveValue = hasOverride ? overrideValue : setting.value
+                return (
+                  <div key={setting.key} className="flex items-center justify-between px-4 py-2.5">
+                    <div className="flex-1 min-w-0 mr-4">
+                      <p className="text-sm text-gray-900 dark:text-white">{setting.description || setting.key}</p>
+                      <p className="text-[10px] text-gray-400 font-mono">{setting.key} {hasOverride ? '(overridden)' : '(global)'}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type={setting.value_type === 'number' ? 'number' : 'text'}
+                        value={effectiveValue ?? ''}
+                        onChange={(e) => settingOverrideMut.mutate({ key: setting.key, value: e.target.value })}
+                        className={`w-24 px-2 py-1 rounded border text-sm text-right font-mono text-gray-900 dark:text-white bg-white dark:bg-gray-700 ${
+                          hasOverride
+                            ? 'border-blue-300 dark:border-blue-700 ring-1 ring-blue-200 dark:ring-blue-800'
+                            : 'border-gray-300 dark:border-gray-600'
+                        }`}
+                      />
+                      {hasOverride && (
+                        <button onClick={() => deleteSettingOverrideMut.mutate(setting.key)}
+                          className="p-0.5 rounded text-gray-400 hover:text-red-500" title="Reset to global">
+                          <XCircle className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* White-label preview */}
+      {(org.logo_url || org.primary_color || org.custom_domain) && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+          <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3 flex items-center gap-1.5"><Palette className="w-4 h-4" /> White-label Settings</h3>
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            {org.logo_url && (
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Logo</p>
+                <img src={org.logo_url} alt="Org logo" className="h-10 object-contain" />
+              </div>
+            )}
+            {org.primary_color && (
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Primary Color</p>
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded" style={{ backgroundColor: org.primary_color }} />
+                  <span className="font-mono text-gray-700 dark:text-gray-300">{org.primary_color}</span>
+                </div>
+              </div>
+            )}
+            {org.secondary_color && (
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Secondary Color</p>
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded" style={{ backgroundColor: org.secondary_color }} />
+                  <span className="font-mono text-gray-700 dark:text-gray-300">{org.secondary_color}</span>
+                </div>
+              </div>
+            )}
+            {org.custom_domain && (
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Custom Domain</p>
+                <span className="font-mono text-gray-700 dark:text-gray-300">{org.custom_domain}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Owner + meta */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 text-sm">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Owner</p>
+            <p className="text-gray-900 dark:text-white font-medium">{org.owner_name}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{org.owner_email}</p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Created</p>
+            <p className="text-gray-900 dark:text-white">{org.created_at ? new Date(org.created_at).toLocaleDateString() : '-'}</p>
+          </div>
+          {org.notes && (
+            <div className="col-span-2">
+              <p className="text-xs text-gray-500 dark:text-gray-400">Notes</p>
+              <p className="text-gray-700 dark:text-gray-300">{org.notes}</p>
+            </div>
           )}
         </div>
       </div>
