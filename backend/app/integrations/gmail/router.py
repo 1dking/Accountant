@@ -4,13 +4,13 @@ from datetime import date
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, Query, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import Role, User
 from app.config import Settings
-from app.dependencies import get_current_user, get_db, require_role
+from app.dependencies import get_current_user, get_current_user_or_token, get_db, require_role
 
 from . import service
 from .schemas import (
@@ -210,7 +210,7 @@ async def parse_email_for_import(
 
 
 # ---------------------------------------------------------------------------
-# Attachment preview (download on-demand for PDF preview)
+# Attachment preview (stream from storage for inline PDF/image display)
 # ---------------------------------------------------------------------------
 
 
@@ -220,11 +220,16 @@ async def get_attachment_preview(
     attachment_index: int,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role([Role.ACCOUNTANT, Role.ADMIN])),
+    user: User = Depends(get_current_user_or_token),
 ):
-    """Download a specific attachment for preview (returns base64-encoded content)."""
+    """Stream a pre-downloaded attachment for inline preview.
+
+    Accepts auth via Bearer header or ?token= query parameter
+    so it can be used in <iframe> and <img> tags.
+    """
     import json as _json
     from .models import GmailScanResult, GmailAccount
+    from app.documents.storage import build_storage
 
     stmt = (
         select(GmailScanResult)
@@ -247,12 +252,40 @@ async def get_attachment_preview(
         raise ValidationError(f"Attachment index {attachment_index} out of range")
 
     att = att_list[attachment_index]
+    storage_path = att.get("storage_path")
+    filename = att.get("filename", "attachment")
+    mime_type = att.get("mimeType", "application/octet-stream")
+
+    settings = _get_settings(request)
+    storage = build_storage(settings)
+
+    # Prefer pre-downloaded file from storage
+    if storage_path and await storage.exists(storage_path):
+        from app.documents.storage import LocalStorage
+        if isinstance(storage, LocalStorage):
+            full_path = storage.get_full_path(storage_path)
+            return FileResponse(
+                path=str(full_path),
+                media_type=mime_type,
+                filename=filename,
+                headers={"Content-Disposition": f'inline; filename="{filename}"'},
+            )
+        else:
+            # R2 or other — read bytes and return
+            from fastapi.responses import Response
+            data = await storage.read(storage_path)
+            return Response(
+                content=data,
+                media_type=mime_type,
+                headers={"Content-Disposition": f'inline; filename="{filename}"'},
+            )
+
+    # Fallback: download from Gmail API on-demand (for older scan results)
     attachment_id = att.get("attachmentId")
     if not attachment_id:
         from app.core.exceptions import ValidationError
-        raise ValidationError("No attachment ID available for download")
+        raise ValidationError("Attachment not available — re-scan to download")
 
-    # Get Gmail service
     acct_stmt = select(GmailAccount).where(
         GmailAccount.id == scan_result.gmail_account_id,
         GmailAccount.user_id == user.id,
@@ -263,10 +296,8 @@ async def get_attachment_preview(
         from app.core.exceptions import NotFoundError
         raise NotFoundError("Gmail account", "unknown")
 
-    settings = _get_settings(request)
     gmail_service = await service._get_gmail_service(gmail_account, settings)
 
-    # Download attachment data
     import base64
     att_response = (
         gmail_service.users()
@@ -275,16 +306,27 @@ async def get_attachment_preview(
         .get(userId="me", messageId=scan_result.message_id, id=attachment_id)
         .execute()
     )
-    data = att_response.get("data", "")
+    raw_data = att_response.get("data", "")
+    file_bytes = base64.urlsafe_b64decode(raw_data) if raw_data else b""
 
-    return {
-        "data": {
-            "filename": att.get("filename", "attachment"),
-            "mimeType": att.get("mimeType", "application/octet-stream"),
-            "size": att.get("size", 0),
-            "content_base64": data,  # Already URL-safe base64 from Gmail API
-        }
-    }
+    # Save to storage for next time
+    if file_bytes:
+        try:
+            ext = filename.rsplit(".", 1)[-1] if "." in filename else "bin"
+            saved_path = await storage.save(file_bytes, ext)
+            att["storage_path"] = saved_path
+            att["size"] = len(file_bytes)
+            scan_result.attachment_metadata = _json.dumps(att_list)
+            await db.commit()
+        except Exception:
+            pass
+
+    from fastapi.responses import Response
+    return Response(
+        content=file_bytes,
+        media_type=mime_type,
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
 
 
 # ---------------------------------------------------------------------------

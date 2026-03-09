@@ -15,7 +15,6 @@ import {
   importEmailFull,
   deleteGmailScanResult,
   bulkDeleteGmailScanResults,
-  getAttachmentPreview,
 } from '@/api/integrations'
 import { listCategories } from '@/api/accounting'
 import { listAccounts as listCashbookAccounts } from '@/api/cashbook'
@@ -88,29 +87,23 @@ function ImportModal({
   const [recurringNextDate, setRecurringNextDate] = useState('')
 
   // Preview state
-  const [previewTab, setPreviewTab] = useState<'email' | 'attachment'>('email')
-  const [attachmentData, setAttachmentData] = useState<{ content_base64: string; mimeType: string; filename: string } | null>(null)
-  const [loadingAttachment, setLoadingAttachment] = useState(false)
+  const [previewTab, setPreviewTab] = useState<'email' | number>('email')
   const iframeRef = useRef<HTMLIFrameElement>(null)
 
   const attachments = parsedData?.attachments ?? []
+  const authToken = localStorage.getItem('access_token') || ''
 
-  // Load PDF attachment for preview
-  const loadAttachment = useCallback(async (index: number) => {
-    setLoadingAttachment(true)
-    try {
-      const res = await getAttachmentPreview(result.id, index)
-      const att = res.data
-      // Gmail returns URL-safe base64, convert to standard base64
-      const standardBase64 = att.content_base64.replace(/-/g, '+').replace(/_/g, '/')
-      setAttachmentData({ content_base64: standardBase64, mimeType: att.mimeType, filename: att.filename })
-      setPreviewTab('attachment')
-    } catch {
-      toast.error('Failed to load attachment preview')
-    } finally {
-      setLoadingAttachment(false)
+  // Build streaming URL for an attachment
+  const getAttachmentUrl = (index: number) =>
+    `/api/integrations/gmail/results/${result.id}/attachment/${index}?token=${encodeURIComponent(authToken)}`
+
+  // Auto-switch to first PDF attachment if available
+  const firstPdfIndex = attachments.findIndex(a => a.mimeType === 'application/pdf')
+  useEffect(() => {
+    if (firstPdfIndex >= 0 && previewTab === 'email' && !parsedData?.body_html && !parsedData?.body_text) {
+      setPreviewTab(firstPdfIndex)
     }
-  }, [result.id])
+  }, [firstPdfIndex])
 
   // Write email HTML into sandboxed iframe
   useEffect(() => {
@@ -189,24 +182,17 @@ function ImportModal({
               >
                 <Eye className="w-3.5 h-3.5" /> Email
               </button>
-              {attachments.length > 0 && attachments.map((att, i) => (
+              {attachments.map((att, i) => (
                 <button
                   key={i}
-                  onClick={() => {
-                    if (attachmentData && attachmentData.filename === att.filename) {
-                      setPreviewTab('attachment')
-                    } else {
-                      loadAttachment(i)
-                    }
-                  }}
-                  disabled={loadingAttachment}
+                  onClick={() => setPreviewTab(i)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md ${
-                    previewTab === 'attachment' && attachmentData?.filename === att.filename ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-gray-100' : 'text-gray-500 hover:text-gray-700'
-                  } disabled:opacity-50`}
+                    previewTab === i ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-gray-100' : 'text-gray-500 hover:text-gray-700'
+                  }`}
                 >
-                  <Paperclip className="w-3.5 h-3.5" />
+                  {att.mimeType === 'application/pdf' ? <FileText className="w-3.5 h-3.5" /> : att.mimeType.startsWith('image/') ? <Eye className="w-3.5 h-3.5" /> : <Paperclip className="w-3.5 h-3.5" />}
                   <span className="truncate max-w-[120px]">{att.filename}</span>
-                  <span className="text-gray-400">({(att.size / 1024).toFixed(0)}KB)</span>
+                  <span className="text-gray-400">({att.size > 1024 ? `${(att.size / 1024).toFixed(0)}KB` : `${att.size}B`})</span>
                 </button>
               ))}
             </div>
@@ -232,37 +218,40 @@ function ImportModal({
                     </div>
                   </div>
                 )
-              ) : (
-                loadingAttachment ? (
-                  <div className="flex items-center justify-center h-full">
-                    <div className="animate-spin w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full" />
-                  </div>
-                ) : attachmentData ? (
-                  attachmentData.mimeType === 'application/pdf' ? (
-                    <iframe
-                      src={`data:application/pdf;base64,${attachmentData.content_base64}`}
-                      title={attachmentData.filename}
-                      className="w-full h-full border-0"
-                    />
-                  ) : attachmentData.mimeType.startsWith('image/') ? (
-                    <div className="flex items-center justify-center h-full p-4">
-                      <img
-                        src={`data:${attachmentData.mimeType};base64,${attachmentData.content_base64}`}
-                        alt={attachmentData.filename}
-                        className="max-w-full max-h-full object-contain"
+              ) : typeof previewTab === 'number' && attachments[previewTab] ? (
+                (() => {
+                  const att = attachments[previewTab]
+                  const url = getAttachmentUrl(previewTab)
+                  if (att.mimeType === 'application/pdf') {
+                    return (
+                      <iframe
+                        src={url}
+                        title={att.filename}
+                        className="w-full h-full border-0"
                       />
-                    </div>
-                  ) : (
+                    )
+                  }
+                  if (att.mimeType.startsWith('image/')) {
+                    return (
+                      <div className="flex items-center justify-center h-full p-4">
+                        <img src={url} alt={att.filename} className="max-w-full max-h-full object-contain" />
+                      </div>
+                    )
+                  }
+                  return (
                     <div className="flex items-center justify-center h-full text-gray-400 text-sm">
                       <div className="text-center">
                         <FileText className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                        <p>{attachmentData.filename}</p>
-                        <p className="text-xs mt-1">Preview not available for this file type</p>
+                        <p className="font-medium">{att.filename}</p>
+                        <p className="text-xs mt-1">{att.mimeType} — {att.size > 1024 ? `${(att.size / 1024).toFixed(0)} KB` : `${att.size} bytes`}</p>
+                        <a href={url} download={att.filename} className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                          <Download className="w-3.5 h-3.5" /> Download
+                        </a>
                       </div>
                     </div>
                   )
-                ) : null
-              )}
+                })()
+              ) : null}
             </div>
           </div>
 

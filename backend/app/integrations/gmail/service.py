@@ -422,6 +422,32 @@ async def scan_emails(
         body_html = _extract_body_html(payload)
         att_meta = _extract_attachment_metadata(payload)
 
+        # Download PDF/image attachments and save to storage for preview
+        if att_meta:
+            from app.documents.storage import build_storage
+            storage = build_storage(settings)
+            for att in att_meta:
+                att_id = att.get("attachmentId")
+                mime = att.get("mimeType", "")
+                if att_id and (mime == "application/pdf" or mime.startswith("image/")):
+                    try:
+                        att_response = (
+                            service.users()
+                            .messages()
+                            .attachments()
+                            .get(userId="me", messageId=msg_id, id=att_id)
+                            .execute()
+                        )
+                        raw_data = att_response.get("data", "")
+                        if raw_data:
+                            file_bytes = base64.urlsafe_b64decode(raw_data)
+                            ext = att.get("filename", "file").rsplit(".", 1)[-1] or "bin"
+                            storage_path = await storage.save(file_bytes, ext)
+                            att["storage_path"] = storage_path
+                            att["size"] = len(file_bytes)
+                    except Exception:
+                        pass  # Attachment download failed; keep metadata without storage_path
+
         scan_result = GmailScanResult(
             gmail_account_id=gmail_account_id,
             message_id=msg_id,
