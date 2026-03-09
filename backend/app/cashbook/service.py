@@ -298,7 +298,7 @@ async def create_account(
     await db.refresh(account)
 
     # Reassign orphaned entries (NULL account_id) to this new account
-    orphan_count = await _reassign_orphan_entries(db, account.id, user.id)
+    orphan_count = await reassign_orphan_entries(db, account.id, user.id)
 
     await log_activity(
         db,
@@ -316,7 +316,7 @@ async def create_account(
     return account
 
 
-async def _reassign_orphan_entries(
+async def reassign_orphan_entries(
     db: AsyncSession, account_id: uuid.UUID, user_id: uuid.UUID,
 ) -> int:
     """Assign entries with NULL account_id to the given account."""
@@ -333,6 +333,14 @@ async def _reassign_orphan_entries(
         await db.commit()
         logger.info("Reassigned %d orphan entries to account %s", result.rowcount, account_id)
     return result.rowcount
+
+
+async def fix_orphan_entries(db: AsyncSession, user: User) -> int:
+    """Find user's first active account and reassign all orphan entries to it."""
+    accounts = await list_accounts(db, user)
+    if not accounts:
+        return 0
+    return await reassign_orphan_entries(db, accounts[0].id, user.id)
 
 
 async def list_accounts(db: AsyncSession, user: User) -> list[PaymentAccount]:
@@ -514,7 +522,8 @@ async def create_entry(
         document_id=data.document_id,
         notes=data.notes,
         user_id=user.id,
-        source="manual",
+        source=data.source or "manual",
+        source_id=data.source_id,
     )
     db.add(entry)
     await db.commit()

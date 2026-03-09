@@ -306,6 +306,20 @@ async def split_entry(
 
 
 # ---------------------------------------------------------------------------
+# Orphan fix
+# ---------------------------------------------------------------------------
+
+
+@router.post("/entries/fix-orphans")
+async def fix_orphan_entries(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    count = await service.fix_orphan_entries(db, current_user)
+    return {"data": {"reassigned": count}}
+
+
+# ---------------------------------------------------------------------------
 # Bulk action endpoints
 # ---------------------------------------------------------------------------
 

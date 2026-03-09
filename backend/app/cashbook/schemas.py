@@ -102,6 +102,8 @@ class CashbookEntryCreate(BaseModel):
     contact_id: uuid.UUID | None = None
     document_id: uuid.UUID | None = None
     notes: str | None = None
+    source: str | None = None
+    source_id: str | None = None
 
 
 class CashbookEntryUpdate(BaseModel):

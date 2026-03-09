@@ -73,7 +73,20 @@ async function handleResponse<T>(response: Response, retryFn?: () => Promise<Res
   }
 
   if (!response.ok) {
-    throw new ApiClientError(response.status, body.error || { code: 'UNKNOWN', message: 'Request failed', details: null })
+    // FastAPI returns {detail: [...]} for 422, our API returns {error: {...}}
+    let error = body.error
+    if (!error) {
+      let message = 'Request failed'
+      if (body.detail) {
+        if (typeof body.detail === 'string') {
+          message = body.detail
+        } else if (Array.isArray(body.detail)) {
+          message = body.detail.map((d: any) => d.msg || d.message || JSON.stringify(d)).join('; ')
+        }
+      }
+      error = { code: String(response.status), message, details: body.detail || null }
+    }
+    throw new ApiClientError(response.status, error)
   }
 
   return body

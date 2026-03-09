@@ -166,3 +166,7 @@ export function bulkMoveEntries(entry_ids: string[], account_id: string) {
 export function bulkUpdateStatus(entry_ids: string[], status: string) {
   return api.post<ApiResponse<{ updated: number }>>('/cashbook/entries/bulk-status', { entry_ids, status })
 }
+
+export function fixOrphanEntries() {
+  return api.post<ApiResponse<{ reassigned: number }>>('/cashbook/entries/fix-orphans')
+}

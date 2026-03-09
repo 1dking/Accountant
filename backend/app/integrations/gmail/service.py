@@ -909,6 +909,8 @@ async def import_email_full(
                 total_amount=use_amount,
                 category_id=category_id if record_type == "expense" else None,
                 notes=notes or f"Email import: {scan_result.sender}",
+                source="email_scanner",
+                source_id=str(result_id),
             )
             cashbook_entry = await create_entry(db, entry_data, user)
             cashbook_entry_id = str(cashbook_entry.id)

@@ -317,6 +317,8 @@ async def confirm_import(
                 total_amount=item.amount,
                 tax_amount=item.tax_amount,
                 tax_override=item.tax_amount is not None,
+                source="smart_import",
+                source_id=str(item.id),
             )
 
             entry = await create_entry(db, entry_data, user)

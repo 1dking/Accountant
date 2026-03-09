@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -14,6 +14,7 @@ import {
   bulkMoveEntries,
   bulkUpdateStatus,
   restoreEntry,
+  fixOrphanEntries,
 } from '@/api/cashbook'
 import { formatDate } from '@/lib/utils'
 import { ACCOUNT_TYPES } from '@/lib/constants'
@@ -85,6 +86,7 @@ export default function CashbookPage() {
   const [entryTypeFilter, setEntryTypeFilter] = useState<'all' | 'income' | 'expense'>('all')
   const [dateFrom, setDateFrom] = useState(`${currentYear}-01-01`)
   const [dateTo, setDateTo] = useState(`${currentYear}-12-31`)
+  const [statusFilter, setStatusFilter] = useState<string>('all')
   const [searchInput, setSearchInput] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [page, setPage] = useState(1)
@@ -124,6 +126,7 @@ export default function CashbookPage() {
   const filters: CashbookEntryFilters = {
     account_id: activeAccountId !== 'all' ? activeAccountId : undefined,
     entry_type: entryTypeFilter !== 'all' ? entryTypeFilter : undefined,
+    status: statusFilter !== 'all' ? statusFilter as any : undefined,
     date_from: dateFrom,
     date_to: dateTo,
     search: searchTerm || undefined,
@@ -172,8 +175,14 @@ export default function CashbookPage() {
         opening_balance: parseFloat(newAccountBalance) || 0,
         opening_balance_date: newAccountDate,
       }),
-    onSuccess: async (data) => {
-      await queryClient.invalidateQueries({ queryKey: ['cashbook-accounts'] })
+    onSuccess: (data) => {
+      // Optimistically add new account to cache so UI updates instantly
+      queryClient.setQueryData(['cashbook-accounts'], (old: any) => ({
+        ...(old ?? {}),
+        data: [...(old?.data ?? []), data.data],
+      }))
+      // Then refetch everything in background for fresh data
+      queryClient.invalidateQueries({ queryKey: ['cashbook-accounts'] })
       queryClient.invalidateQueries({ queryKey: ['cashbook-entries'] })
       queryClient.invalidateQueries({ queryKey: ['cashbook-summary'] })
       setSelectedAccountId(data.data.id)
@@ -184,6 +193,9 @@ export default function CashbookPage() {
       setNewAccountBalance('')
       setNewAccountDate(new Date().toISOString().split('T')[0])
       toast.success(`Account "${data.data.name}" created`)
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || 'Failed to create account')
     },
   })
 
@@ -245,6 +257,25 @@ export default function CashbookPage() {
     },
   })
 
+  // Fix orphan entries on page load (one-shot)
+  const orphanFixedRef = useRef(false)
+  const fixOrphanMutation = useMutation({
+    mutationFn: fixOrphanEntries,
+    onSuccess: (data) => {
+      if (data.data.reassigned > 0) {
+        queryClient.invalidateQueries({ queryKey: ['cashbook-entries'] })
+        queryClient.invalidateQueries({ queryKey: ['cashbook-summary'] })
+        toast.success(`Assigned ${data.data.reassigned} orphan entries to your first account`)
+      }
+    },
+  })
+  useEffect(() => {
+    if (accounts.length > 0 && !orphanFixedRef.current) {
+      orphanFixedRef.current = true
+      fixOrphanMutation.mutate()
+    }
+  }, [accounts.length])
+
   const toggleSelect = useCallback((id: string) => {
     setSelectedIds(prev => {
       const next = new Set(prev)
@@ -300,11 +331,22 @@ export default function CashbookPage() {
               </select>
             </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Opening Balance</label>
-            <input type="number" step="0.01" value={newAccountBalance} onChange={e => setNewAccountBalance(e.target.value)} placeholder="0.00" className="w-full px-3 py-2 text-sm border dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Opening Balance</label>
+              <input type="number" step="0.01" value={newAccountBalance} onChange={e => setNewAccountBalance(e.target.value)} placeholder="0.00" className="w-full px-3 py-2 text-sm border dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">As of Date *</label>
+              <input type="date" value={newAccountDate} onChange={e => setNewAccountDate(e.target.value)} className="w-full px-3 py-2 text-sm border dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+            </div>
           </div>
         </div>
+        {createAccountMutation.isError && (
+          <div className="mx-6 mb-0 p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-300">
+            {(createAccountMutation.error as any)?.message || 'Failed to create account'}
+          </div>
+        )}
         <div className="flex justify-end gap-2 px-6 py-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 rounded-b-xl">
           <button onClick={() => setShowAddAccount(false)} className="px-4 py-2 text-sm border dark:border-gray-600 rounded-lg dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Cancel</button>
           <button onClick={() => createAccountMutation.mutate()} disabled={!newAccountName || createAccountMutation.isPending} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">
@@ -326,22 +368,7 @@ export default function CashbookPage() {
     )
   }
 
-  if (accounts.length === 0) {
-    return (
-      <div className="p-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">Cashbook</h1>
-        <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-12 text-center">
-          <Wallet className="h-16 w-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-          <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">Create your first account</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Add a payment account to start tracking income and expenses.</p>
-          <button onClick={() => setShowAddAccount(true)} className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">
-            <Plus className="h-4 w-4" /> Add Account
-          </button>
-        </div>
-        {showAddAccount && <AddAccountModal />}
-      </div>
-    )
-  }
+  /* No empty-state gate — page always renders fully */
 
   return (
     <div className="p-6 space-y-4">
@@ -388,6 +415,17 @@ export default function CashbookPage() {
       {/* Add Account Modal */}
       {showAddAccount && <AddAccountModal />}
 
+      {/* No-accounts banner */}
+      {accounts.length === 0 && (
+        <div className="flex items-center gap-3 p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+          <Wallet className="h-5 w-5 text-amber-600 shrink-0" />
+          <p className="text-sm text-amber-800 dark:text-amber-300">Create a payment account to start tracking income and expenses.</p>
+          <button onClick={() => setShowAddAccount(true)} className="ml-auto shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">
+            <Plus className="h-3.5 w-3.5" /> Add Account
+          </button>
+        </div>
+      )}
+
       {/* Account Tabs */}
       <div className="flex items-center gap-1 border-b dark:border-gray-700 overflow-x-auto">
         <button onClick={() => { setSelectedAccountId('all'); setPage(1); setSelectedIds(new Set()) }} className={`px-4 py-2 text-sm font-medium border-b-2 whitespace-nowrap ${activeAccountId === 'all' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}>
@@ -418,6 +456,22 @@ export default function CashbookPage() {
               {type === 'all' ? 'All' : type === 'income' ? 'Income' : 'Expenses'}
             </button>
           ))}
+        </div>
+        <div className="flex gap-1">
+          {(['all', 'pending', 'cleared', 'reconciled'] as const).map(st => {
+            const Icon = st !== 'all' ? STATUS_ICONS[st] : null
+            const color = st !== 'all' ? STATUS_COLORS[st] : ''
+            return (
+              <button key={st} onClick={() => { setStatusFilter(st); setPage(1) }} className={`px-3 py-1.5 text-sm font-medium rounded-lg flex items-center gap-1.5 ${
+                statusFilter === st
+                  ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100'
+                  : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'
+              }`}>
+                {Icon && <Icon className={`h-3.5 w-3.5 ${color}`} />}
+                {st === 'all' ? 'All Status' : st.charAt(0).toUpperCase() + st.slice(1)}
+              </button>
+            )
+          })}
         </div>
         <div className="flex items-center gap-2">
           <input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1) }} className="px-3 py-1.5 text-sm border dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-gray-100" />
