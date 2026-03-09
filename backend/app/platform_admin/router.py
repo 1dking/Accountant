@@ -1,9 +1,12 @@
 """API endpoints for platform administration."""
 
+import json
 import uuid
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import Role, User
@@ -278,112 +281,292 @@ async def revoke_user_sessions(
     return {"data": {"revoked_count": count}}
 
 
-# ── API key status ───────────────────────────────────────────────────────
+# ── API key management ────────────────────────────────────────────────────
+
+
+class ApiKeysSaveRequest(BaseModel):
+    config: dict[str, str]
+
+
+def _mask(val: str) -> str:
+    if not val:
+        return ""
+    if len(val) <= 8:
+        return "****" + val[-2:]
+    return "****" + val[-4:]
+
 
 @router.get("/api-keys")
 async def list_api_key_status(
     request: Request,
     admin: Annotated[User, Depends(require_platform_admin)],
 ):
-    """Show which API keys are configured (masked) and which are missing."""
+    """Show all integrations with per-field masked values."""
+    from app.integrations.settings_router import INTEGRATION_FIELDS, SETTINGS_MAP, NON_SECRET_FIELDS
     s = request.app.state.settings
 
-    def mask(val: str) -> str | None:
-        if not val:
-            return None
-        if len(val) <= 8:
-            return "****" + val[-2:]
-        return "****" + val[-4:]
+    result = []
+    for integration, fields in INTEGRATION_FIELDS.items():
+        mapping = SETTINGS_MAP.get(integration, {})
+        non_secret = NON_SECRET_FIELDS.get(integration, set())
 
-    keys: list[dict] = [
-        {
-            "integration": "anthropic",
-            "configured": bool(s.anthropic_api_key),
-            "masked_key": mask(s.anthropic_api_key),
-            "fields": [{"name": "anthropic_api_key", "configured": bool(s.anthropic_api_key)}],
-        },
-        {
-            "integration": "gemini",
-            "configured": bool(s.gemini_api_key),
-            "masked_key": mask(s.gemini_api_key),
-            "fields": [{"name": "gemini_api_key", "configured": bool(s.gemini_api_key)}],
-        },
-        {
-            "integration": "openai",
-            "configured": bool(s.openai_api_key),
-            "masked_key": mask(s.openai_api_key),
-            "fields": [{"name": "openai_api_key", "configured": bool(s.openai_api_key)}],
-        },
-        {
-            "integration": "stripe",
-            "configured": bool(s.stripe_secret_key),
-            "masked_key": mask(s.stripe_secret_key),
-            "fields": [
-                {"name": "stripe_secret_key", "configured": bool(s.stripe_secret_key)},
-                {"name": "stripe_publishable_key", "configured": bool(s.stripe_publishable_key)},
-                {"name": "stripe_webhook_secret", "configured": bool(s.stripe_webhook_secret)},
-            ],
-        },
-        {
-            "integration": "twilio",
-            "configured": bool(s.twilio_account_sid and s.twilio_auth_token),
-            "masked_key": mask(s.twilio_account_sid),
-            "fields": [
-                {"name": "twilio_account_sid", "configured": bool(s.twilio_account_sid)},
-                {"name": "twilio_auth_token", "configured": bool(s.twilio_auth_token)},
-                {"name": "twilio_from_number", "configured": bool(s.twilio_from_number)},
-            ],
-        },
-        {
-            "integration": "plaid",
-            "configured": bool(s.plaid_client_id and s.plaid_secret),
-            "masked_key": mask(s.plaid_client_id),
-            "fields": [
-                {"name": "plaid_client_id", "configured": bool(s.plaid_client_id)},
-                {"name": "plaid_secret", "configured": bool(s.plaid_secret)},
-            ],
-        },
-        {
-            "integration": "google",
-            "configured": bool(s.google_client_id and s.google_client_secret),
-            "masked_key": mask(s.google_client_id),
-            "fields": [
-                {"name": "google_client_id", "configured": bool(s.google_client_id)},
-                {"name": "google_client_secret", "configured": bool(s.google_client_secret)},
-            ],
-        },
-        {
-            "integration": "livekit",
-            "configured": bool(s.livekit_api_key and s.livekit_api_secret),
-            "masked_key": mask(s.livekit_api_key),
-            "fields": [
-                {"name": "livekit_api_key", "configured": bool(s.livekit_api_key)},
-                {"name": "livekit_api_secret", "configured": bool(s.livekit_api_secret)},
-                {"name": "livekit_url", "configured": bool(s.livekit_url)},
-            ],
-        },
-        {
-            "integration": "smtp",
-            "configured": bool(s.smtp_host and s.smtp_username),
-            "masked_key": mask(s.smtp_username),
-            "fields": [
-                {"name": "smtp_host", "configured": bool(s.smtp_host)},
-                {"name": "smtp_username", "configured": bool(s.smtp_username)},
-                {"name": "smtp_password", "configured": bool(s.smtp_password)},
-            ],
-        },
-        {
-            "integration": "cloudflare_r2",
-            "configured": bool(s.r2_access_key_id),
-            "masked_key": mask(s.r2_access_key_id),
-            "fields": [
-                {"name": "r2_access_key_id", "configured": bool(s.r2_access_key_id)},
-                {"name": "r2_secret_access_key", "configured": bool(s.r2_secret_access_key)},
-                {"name": "r2_bucket_name", "configured": bool(s.r2_bucket_name)},
-            ],
-        },
-    ]
-    return {"data": keys}
+        field_list = []
+        any_configured = False
+        for field in fields:
+            setting_attr = mapping.get(field, "")
+            val = str(getattr(s, setting_attr, "")) if setting_attr else ""
+            is_configured = bool(val)
+            if is_configured:
+                any_configured = True
+            # Non-secret fields: show full value; secret fields: mask
+            masked = val if (field in non_secret and val) else (_mask(val) if val else "")
+            field_list.append({"name": field, "configured": is_configured, "masked_value": masked})
+
+        result.append({
+            "integration": integration,
+            "configured": any_configured,
+            "fields": field_list,
+        })
+
+    return {"data": result}
+
+
+@router.put("/api-keys/{integration}")
+async def save_api_keys(
+    integration: str,
+    body: ApiKeysSaveRequest,
+    request: Request,
+    admin: Annotated[User, Depends(require_platform_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Save or update API keys for an integration (encrypted in DB)."""
+    from app.integrations.settings_router import INTEGRATION_FIELDS, SETTINGS_MAP
+    from app.integrations.settings_models import IntegrationConfig
+    from app.core.encryption import get_encryption_service
+
+    if integration not in INTEGRATION_FIELDS:
+        raise HTTPException(400, f"Unknown integration: {integration}")
+
+    allowed = set(INTEGRATION_FIELDS[integration])
+    for key in body.config:
+        if key not in allowed:
+            raise HTTPException(400, f"Unknown field: {key}")
+
+    enc = get_encryption_service()
+
+    # Load existing to merge
+    result = await db.execute(
+        select(IntegrationConfig).where(IntegrationConfig.integration_type == integration)
+    )
+    existing = result.scalar_one_or_none()
+    existing_config: dict = {}
+    if existing:
+        existing_config = json.loads(enc.decrypt(existing.encrypted_config))
+
+    # Merge: skip masked placeholders
+    new_config = dict(existing_config)
+    for key, val in body.config.items():
+        if val and not val.startswith("****"):
+            new_config[key] = val
+        elif val == "":
+            new_config.pop(key, None)
+
+    encrypted = enc.encrypt(json.dumps(new_config))
+
+    if existing:
+        existing.encrypted_config = encrypted
+        existing.updated_by = admin.id
+    else:
+        db.add(IntegrationConfig(
+            integration_type=integration,
+            encrypted_config=encrypted,
+            updated_by=admin.id,
+        ))
+
+    await db.commit()
+
+    # Update runtime settings immediately
+    mapping = SETTINGS_MAP.get(integration, {})
+    settings = request.app.state.settings
+    for field, setting_attr in mapping.items():
+        val = new_config.get(field, "")
+        if val:
+            setattr(settings, setting_attr, val)
+        else:
+            setattr(settings, setting_attr, "")
+
+    return {"data": {"message": f"{integration} keys saved"}}
+
+
+@router.delete("/api-keys/{integration}")
+async def remove_api_keys(
+    integration: str,
+    request: Request,
+    admin: Annotated[User, Depends(require_platform_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Remove all stored keys for an integration."""
+    from app.integrations.settings_router import INTEGRATION_FIELDS, SETTINGS_MAP
+    from app.integrations.settings_models import IntegrationConfig
+    from sqlalchemy import delete as sa_delete
+
+    if integration not in INTEGRATION_FIELDS:
+        raise HTTPException(400, f"Unknown integration: {integration}")
+
+    await db.execute(
+        sa_delete(IntegrationConfig).where(IntegrationConfig.integration_type == integration)
+    )
+    await db.commit()
+
+    # Clear runtime settings
+    mapping = SETTINGS_MAP.get(integration, {})
+    settings = request.app.state.settings
+    for _field, setting_attr in mapping.items():
+        setattr(settings, setting_attr, "")
+
+    return {"data": {"message": f"{integration} keys removed"}}
+
+
+@router.post("/api-keys/{integration}/test")
+async def test_api_connection(
+    integration: str,
+    request: Request,
+    admin: Annotated[User, Depends(require_platform_admin)],
+):
+    """Test connectivity for an integration. Returns status and latency."""
+    import time
+    import httpx
+
+    s = request.app.state.settings
+    start = time.monotonic()
+    detail = ""
+
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            if integration == "anthropic":
+                if not s.anthropic_api_key:
+                    return {"data": {"status": "unconfigured", "message": "No API key set"}}
+                r = await client.get(
+                    "https://api.anthropic.com/v1/models",
+                    headers={"x-api-key": s.anthropic_api_key, "anthropic-version": "2023-06-01"},
+                )
+                r.raise_for_status()
+                detail = f"{len(r.json().get('data', []))} models available"
+
+            elif integration == "gemini":
+                if not s.gemini_api_key:
+                    return {"data": {"status": "unconfigured", "message": "No API key set"}}
+                r = await client.get(
+                    f"https://generativelanguage.googleapis.com/v1beta/models?key={s.gemini_api_key}"
+                )
+                r.raise_for_status()
+                detail = f"{len(r.json().get('models', []))} models available"
+
+            elif integration == "openai":
+                if not s.openai_api_key:
+                    return {"data": {"status": "unconfigured", "message": "No API key set"}}
+                r = await client.get(
+                    "https://api.openai.com/v1/models",
+                    headers={"Authorization": f"Bearer {s.openai_api_key}"},
+                )
+                r.raise_for_status()
+                detail = f"{len(r.json().get('data', []))} models available"
+
+            elif integration == "stripe":
+                if not s.stripe_secret_key:
+                    return {"data": {"status": "unconfigured", "message": "No secret key set"}}
+                r = await client.get(
+                    "https://api.stripe.com/v1/balance",
+                    auth=(s.stripe_secret_key, ""),
+                )
+                r.raise_for_status()
+                detail = "Balance retrieved"
+
+            elif integration == "twilio":
+                if not s.twilio_account_sid or not s.twilio_auth_token:
+                    return {"data": {"status": "unconfigured", "message": "Account SID or auth token missing"}}
+                r = await client.get(
+                    f"https://api.twilio.com/2010-04-01/Accounts/{s.twilio_account_sid}.json",
+                    auth=(s.twilio_account_sid, s.twilio_auth_token),
+                )
+                r.raise_for_status()
+                detail = f"Account: {r.json().get('friendly_name', 'OK')}"
+
+            elif integration == "plaid":
+                if not s.plaid_client_id or not s.plaid_secret:
+                    return {"data": {"status": "unconfigured", "message": "Client ID or secret missing"}}
+                env_url = {"sandbox": "sandbox", "development": "development", "production": "production"}.get(s.plaid_env, "sandbox")
+                r = await client.post(
+                    f"https://{env_url}.plaid.com/categories/get",
+                    json={},
+                    headers={"Content-Type": "application/json"},
+                )
+                r.raise_for_status()
+                detail = "Categories endpoint reachable"
+
+            elif integration == "google":
+                if not s.google_client_id:
+                    return {"data": {"status": "unconfigured", "message": "No client ID set"}}
+                detail = "OAuth client configured (cannot test without user flow)"
+                elapsed = int((time.monotonic() - start) * 1000)
+                return {"data": {"status": "configured", "message": detail, "latency_ms": elapsed}}
+
+            elif integration == "livekit":
+                if not s.livekit_url:
+                    return {"data": {"status": "unconfigured", "message": "No LiveKit URL set"}}
+                url = s.livekit_url.rstrip("/")
+                if not url.startswith("http"):
+                    url = "https://" + url
+                r = await client.get(url, follow_redirects=True)
+                detail = f"Server reachable (HTTP {r.status_code})"
+
+            elif integration == "smtp":
+                if not s.smtp_host:
+                    return {"data": {"status": "unconfigured", "message": "No SMTP host set"}}
+                import smtplib
+                smtp = smtplib.SMTP(s.smtp_host, int(s.smtp_port) if s.smtp_port else 587, timeout=10)
+                smtp.ehlo()
+                if s.smtp_use_tls:
+                    smtp.starttls()
+                if s.smtp_username and s.smtp_password:
+                    smtp.login(s.smtp_username, s.smtp_password)
+                smtp.quit()
+                detail = "SMTP connection successful"
+
+            elif integration == "cloudflare_r2":
+                if not s.r2_access_key_id:
+                    return {"data": {"status": "unconfigured", "message": "No R2 credentials set"}}
+                import boto3
+                s3 = boto3.client(
+                    "s3",
+                    endpoint_url=s.r2_endpoint or f"https://{s.cloudflare_account_id}.r2.cloudflarestorage.com",
+                    aws_access_key_id=s.r2_access_key_id,
+                    aws_secret_access_key=s.r2_secret_access_key,
+                    region_name="auto",
+                )
+                s3.head_bucket(Bucket=s.r2_bucket_name)
+                detail = f"Bucket '{s.r2_bucket_name}' accessible"
+
+            elif integration == "assemblyai":
+                if not s.assemblyai_api_key:
+                    return {"data": {"status": "unconfigured", "message": "No API key set"}}
+                r = await client.get(
+                    "https://api.assemblyai.com/v2/transcript",
+                    headers={"Authorization": s.assemblyai_api_key},
+                    params={"limit": 1},
+                )
+                r.raise_for_status()
+                detail = "API reachable"
+
+            else:
+                return {"data": {"status": "error", "message": f"No test available for {integration}"}}
+
+        elapsed = int((time.monotonic() - start) * 1000)
+        return {"data": {"status": "healthy", "message": detail, "latency_ms": elapsed}}
+
+    except Exception as e:
+        elapsed = int((time.monotonic() - start) * 1000)
+        return {"data": {"status": "error", "message": str(e)[:300], "latency_ms": elapsed}}
 
 
 # ── Organizations ───────────────────────────────────────────────────

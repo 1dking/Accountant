@@ -30,6 +30,10 @@ import {
   UserPlus,
   UserMinus,
   Edit3,
+  Eye,
+  EyeOff,
+  Zap,
+  Loader2,
 } from 'lucide-react'
 
 // ── Tab definitions ──────────────────────────────────────────────────────
@@ -1273,7 +1277,232 @@ function PricingTab() {
 
 // ── API Keys tab ────────────────────────────────────────────────────────
 
+const INTEGRATION_LABELS: Record<string, string> = {
+  anthropic: 'Anthropic (Claude)',
+  gemini: 'Google Gemini',
+  openai: 'OpenAI',
+  stripe: 'Stripe',
+  twilio: 'Twilio',
+  plaid: 'Plaid',
+  google: 'Google OAuth',
+  livekit: 'LiveKit',
+  smtp: 'SMTP Email',
+  cloudflare_r2: 'Cloudflare R2',
+  assemblyai: 'AssemblyAI',
+}
+
+const SECRET_FIELD_KEYWORDS = ['key', 'secret', 'token', 'password', 'sid']
+
+function isSecretField(name: string) {
+  return SECRET_FIELD_KEYWORDS.some(kw => name.toLowerCase().includes(kw))
+}
+
+function ApiKeyCard({ integration, fields, configured, onSaved }: {
+  integration: string
+  fields: { name: string; configured: boolean; masked_value: string }[]
+  configured: boolean
+  onSaved: () => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [values, setValues] = useState<Record<string, string>>({})
+  const [showValues, setShowValues] = useState<Record<string, boolean>>({})
+  const [testResult, setTestResult] = useState<{ status: string; message: string; latency_ms?: number } | null>(null)
+  const [testing, setTesting] = useState(false)
+
+  const saveMut = useMutation({
+    mutationFn: () => platformAdminApi.saveApiKeys(integration, values),
+    onSuccess: () => {
+      toast.success(`${INTEGRATION_LABELS[integration] || integration} keys saved`)
+      setEditing(false)
+      setValues({})
+      onSaved()
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.detail || 'Failed to save'),
+  })
+
+  const removeMut = useMutation({
+    mutationFn: () => platformAdminApi.deleteApiKeys(integration),
+    onSuccess: () => {
+      toast.success(`${INTEGRATION_LABELS[integration] || integration} keys removed`)
+      setTestResult(null)
+      onSaved()
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.detail || 'Failed to remove'),
+  })
+
+  const handleTest = async () => {
+    setTesting(true)
+    setTestResult(null)
+    try {
+      const res = await platformAdminApi.testApiConnection(integration)
+      setTestResult((res as any).data)
+    } catch (err: any) {
+      setTestResult({ status: 'error', message: err?.response?.data?.detail || 'Test failed' })
+    } finally {
+      setTesting(false)
+    }
+  }
+
+  const startEditing = () => {
+    const init: Record<string, string> = {}
+    fields.forEach(f => { init[f.name] = f.configured ? f.masked_value : '' })
+    setValues(init)
+    setEditing(true)
+    setTestResult(null)
+  }
+
+  const hasChanges = Object.entries(values).some(([key, val]) => {
+    const field = fields.find(f => f.name === key)
+    return field ? val !== field.masked_value : !!val
+  })
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+          {INTEGRATION_LABELS[integration] || integration}
+        </h3>
+        <div className="flex items-center gap-2">
+          {configured ? (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+              <CheckCircle className="w-3 h-3" /> Configured
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
+              <AlertTriangle className="w-3 h-3" /> Not configured
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* View mode: field status list */}
+      {!editing && (
+        <>
+          <div className="space-y-1.5 mb-3">
+            {fields.map(f => (
+              <div key={f.name} className="flex items-center gap-2 text-xs">
+                {f.configured ? (
+                  <CheckCircle className="w-3 h-3 text-green-500 shrink-0" />
+                ) : (
+                  <XCircle className="w-3 h-3 text-gray-300 dark:text-gray-600 shrink-0" />
+                )}
+                <span className="font-mono text-gray-600 dark:text-gray-400">{f.name}</span>
+                {f.configured && f.masked_value && (
+                  <span className="font-mono text-gray-400 dark:text-gray-500 ml-auto">{f.masked_value}</span>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex items-center gap-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+            <button
+              onClick={startEditing}
+              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/30"
+            >
+              <Edit3 className="w-3 h-3" />
+              {configured ? 'Update' : 'Configure'}
+            </button>
+            {configured && (
+              <>
+                <button
+                  onClick={handleTest}
+                  disabled={testing}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-purple-50 text-purple-700 hover:bg-purple-100 dark:bg-purple-900/20 dark:text-purple-400 dark:hover:bg-purple-900/30 disabled:opacity-50"
+                >
+                  {testing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
+                  Test
+                </button>
+                <button
+                  onClick={() => { if (confirm(`Remove all ${INTEGRATION_LABELS[integration] || integration} keys?`)) removeMut.mutate() }}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30 ml-auto"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  Remove
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* Test result */}
+          {testResult && (
+            <div className={`mt-2 p-2 rounded text-xs ${
+              testResult.status === 'healthy' || testResult.status === 'configured'
+                ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400'
+                : testResult.status === 'error'
+                ? 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400'
+                : 'bg-yellow-50 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400'
+            }`}>
+              <span className="font-medium">{testResult.status === 'healthy' || testResult.status === 'configured' ? 'Connected' : testResult.status === 'error' ? 'Error' : 'Warning'}:</span>{' '}
+              {testResult.message}
+              {testResult.latency_ms !== undefined && (
+                <span className="ml-2 opacity-75">({testResult.latency_ms}ms)</span>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Edit mode: input fields */}
+      {editing && (
+        <>
+          <div className="space-y-3 mb-3">
+            {fields.map(f => {
+              const isSecret = isSecretField(f.name)
+              const showing = showValues[f.name] ?? false
+              return (
+                <div key={f.name}>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 font-mono">
+                    {f.name}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={isSecret && !showing ? 'password' : 'text'}
+                      value={values[f.name] || ''}
+                      onChange={e => setValues(prev => ({ ...prev, [f.name]: e.target.value }))}
+                      placeholder={f.configured ? 'Leave unchanged or paste new value' : 'Paste value here'}
+                      className="w-full px-3 py-1.5 text-xs font-mono rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 pr-8"
+                    />
+                    {isSecret && (
+                      <button
+                        type="button"
+                        onClick={() => setShowValues(prev => ({ ...prev, [f.name]: !showing }))}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        {showing ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          <div className="flex items-center gap-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+            <button
+              onClick={() => saveMut.mutate()}
+              disabled={saveMut.isPending || !hasChanges}
+              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              {saveMut.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+              Save
+            </button>
+            <button
+              onClick={() => { setEditing(false); setValues({}) }}
+              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+            >
+              Cancel
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 function ApiKeysTab() {
+  const qc = useQueryClient()
   const { data, isLoading } = useQuery({
     queryKey: ['platform-admin', 'api-keys'],
     queryFn: () => platformAdminApi.listApiKeys(),
@@ -1284,40 +1513,22 @@ function ApiKeysTab() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold text-gray-900 dark:text-white">API Keys & Integrations</h1>
-      <p className="text-sm text-gray-500 dark:text-gray-400">View the status of all configured API keys and integrations. Keys are managed via environment variables or the Integration Settings page.</p>
+      <div>
+        <h1 className="text-xl font-semibold text-gray-900 dark:text-white">API Keys & Integrations</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          Manage API keys for all integrations. Keys are stored encrypted and never shown in full.
+        </p>
+      </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         {keys.map((k: any) => (
-          <div key={k.integration} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-medium text-gray-900 dark:text-white capitalize">{k.integration.replace('_', ' ')}</h3>
-              {k.configured ? (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
-                  <CheckCircle className="w-3 h-3" /> Configured
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
-                  <AlertTriangle className="w-3 h-3" /> Not configured
-                </span>
-              )}
-            </div>
-            {k.masked_key && (
-              <p className="text-xs font-mono text-gray-500 dark:text-gray-400 mb-2">{k.masked_key}</p>
-            )}
-            <div className="space-y-1">
-              {(k.fields || []).map((f: any) => (
-                <div key={f.name} className="flex items-center gap-2 text-xs">
-                  {f.configured ? (
-                    <CheckCircle className="w-3 h-3 text-green-500" />
-                  ) : (
-                    <XCircle className="w-3 h-3 text-gray-300 dark:text-gray-600" />
-                  )}
-                  <span className="font-mono text-gray-600 dark:text-gray-400">{f.name}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+          <ApiKeyCard
+            key={k.integration}
+            integration={k.integration}
+            fields={k.fields}
+            configured={k.configured}
+            onSaved={() => qc.invalidateQueries({ queryKey: ['platform-admin', 'api-keys'] })}
+          />
         ))}
       </div>
     </div>

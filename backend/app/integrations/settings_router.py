@@ -18,27 +18,78 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 INTEGRATION_FIELDS = {
-    "twilio": ["account_sid", "auth_token", "from_number"],
+    "anthropic": ["api_key"],
+    "gemini": ["api_key"],
+    "openai": ["api_key"],
     "stripe": ["secret_key", "publishable_key", "webhook_secret"],
+    "twilio": ["account_sid", "auth_token", "from_number"],
     "plaid": ["client_id", "secret", "environment"],
+    "google": ["client_id", "client_secret"],
+    "livekit": ["api_key", "api_secret", "url"],
+    "smtp": ["host", "port", "username", "password", "from_email"],
+    "cloudflare_r2": ["access_key_id", "secret_access_key", "bucket_name", "endpoint", "account_id"],
+    "assemblyai": ["api_key"],
 }
 
 SETTINGS_MAP = {
-    "twilio": {
-        "account_sid": "twilio_account_sid",
-        "auth_token": "twilio_auth_token",
-        "from_number": "twilio_from_number",
+    "anthropic": {
+        "api_key": "anthropic_api_key",
+    },
+    "gemini": {
+        "api_key": "gemini_api_key",
+    },
+    "openai": {
+        "api_key": "openai_api_key",
     },
     "stripe": {
         "secret_key": "stripe_secret_key",
         "publishable_key": "stripe_publishable_key",
         "webhook_secret": "stripe_webhook_secret",
     },
+    "twilio": {
+        "account_sid": "twilio_account_sid",
+        "auth_token": "twilio_auth_token",
+        "from_number": "twilio_from_number",
+    },
     "plaid": {
         "client_id": "plaid_client_id",
         "secret": "plaid_secret",
         "environment": "plaid_env",
     },
+    "google": {
+        "client_id": "google_client_id",
+        "client_secret": "google_client_secret",
+    },
+    "livekit": {
+        "api_key": "livekit_api_key",
+        "api_secret": "livekit_api_secret",
+        "url": "livekit_url",
+    },
+    "smtp": {
+        "host": "smtp_host",
+        "port": "smtp_port",
+        "username": "smtp_username",
+        "password": "smtp_password",
+        "from_email": "smtp_from_email",
+    },
+    "cloudflare_r2": {
+        "access_key_id": "r2_access_key_id",
+        "secret_access_key": "r2_secret_access_key",
+        "bucket_name": "r2_bucket_name",
+        "endpoint": "r2_endpoint",
+        "account_id": "cloudflare_account_id",
+    },
+    "assemblyai": {
+        "api_key": "assemblyai_api_key",
+    },
+}
+
+# Fields that are NOT secrets (shown unmasked and not encrypted)
+NON_SECRET_FIELDS = {
+    "smtp": {"host", "port", "from_email"},
+    "livekit": {"url"},
+    "cloudflare_r2": {"bucket_name", "endpoint", "account_id"},
+    "plaid": {"environment"},
 }
 
 

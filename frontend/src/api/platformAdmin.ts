@@ -68,6 +68,12 @@ export const platformAdminApi = {
 
   // API keys
   listApiKeys: () => api.get('/platform-admin/api-keys'),
+  saveApiKeys: (integration: string, config: Record<string, string>) =>
+    api.put(`/platform-admin/api-keys/${integration}`, { config }),
+  deleteApiKeys: (integration: string) =>
+    api.delete(`/platform-admin/api-keys/${integration}`),
+  testApiConnection: (integration: string) =>
+    api.post(`/platform-admin/api-keys/${integration}/test`),
 
   // Organizations
   listOrganizations: (params?: { search?: string; plan?: string; is_active?: boolean; page?: number; page_size?: number }) => {
