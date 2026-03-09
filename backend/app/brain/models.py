@@ -74,6 +74,19 @@ class AuditActionType(str, enum.Enum):
     CHAT_QUERY = "chat_query"
 
 
+class PendingActionType(str, enum.Enum):
+    SEND_EMAIL = "send_email"
+    SEND_SMS = "send_sms"
+    CREATE_DOCUMENT = "create_document"
+    SAVE_TO_DRIVE = "save_to_drive"
+
+
+class PendingActionStatus(str, enum.Enum):
+    PENDING = "pending"
+    EXECUTED = "executed"
+    CANCELLED = "cancelled"
+
+
 # ---------------------------------------------------------------------------
 # Brain Embeddings (vector store)
 # ---------------------------------------------------------------------------
@@ -322,3 +335,37 @@ class BrainChatFile(Base):
     mime_type: Mapped[str] = mapped_column(String(200))
     file_size: Mapped[int] = mapped_column()
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+# ---------------------------------------------------------------------------
+# Pending Actions (drafts awaiting user confirmation)
+# ---------------------------------------------------------------------------
+
+class BrainPendingAction(TimestampMixin, Base):
+    """Draft action created by O-Brain tools, awaiting user confirmation."""
+
+    __tablename__ = "brain_pending_actions"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    conversation_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("brain_conversations.id", ondelete="CASCADE", name="fk_bpa_conv"),
+        nullable=False,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE", name="fk_bpa_user"),
+        nullable=False,
+    )
+    action_type: Mapped[PendingActionType] = mapped_column(
+        Enum(PendingActionType), nullable=False,
+    )
+    status: Mapped[PendingActionStatus] = mapped_column(
+        Enum(PendingActionStatus), default=PendingActionStatus.PENDING,
+    )
+    data_json: Mapped[str] = mapped_column(Text, nullable=False)
+    result_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    executed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    __table_args__ = (
+        Index("ix_bpa_user_status", "user_id", "status"),
+        Index("ix_bpa_conv", "conversation_id"),
+    )

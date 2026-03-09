@@ -2,13 +2,20 @@ import { api } from './client'
 
 // ── Chat (SSE streaming) ──────────────────────────────────────────────
 
+export interface PendingAction {
+  id: string
+  action_type: 'send_email' | 'send_sms' | 'create_document' | 'save_to_drive'
+  data: Record<string, unknown>
+}
+
 export interface ChatStreamEvent {
-  type: 'text' | 'tool_use' | 'sources' | 'done' | 'error'
+  type: 'text' | 'tool_use' | 'sources' | 'done' | 'error' | 'action'
   content?: string
   tool?: string
   sources?: Array<{ tool: string; count: number }>
   conversation_id?: string
   message_id?: string
+  action?: PendingAction
 }
 
 export async function* chatStream(
@@ -224,3 +231,18 @@ export const listNewsArticles = (category?: string, limit = 20) =>
 
 export const refreshNews = () =>
   api.post<{ data: { fetched: number } }>('/news/refresh')
+
+// ── Pending Actions ──────────────────────────────────────────────────
+
+export const executeAction = (actionId: string) =>
+  api.post<{ data: { status: string; action_type: string; [key: string]: unknown } }>(
+    `/brain/actions/${actionId}/execute`
+  )
+
+export const cancelAction = (actionId: string) =>
+  api.post<{ data: { status: string } }>(`/brain/actions/${actionId}/cancel`)
+
+export const updateAction = (actionId: string, data: Record<string, unknown>) =>
+  api.put<{ data: { status: string; data: Record<string, unknown> } }>(
+    `/brain/actions/${actionId}`, data
+  )

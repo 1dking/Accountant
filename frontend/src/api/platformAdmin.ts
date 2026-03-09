@@ -20,6 +20,9 @@ export const platformAdminApi = {
   updateSetting: (key: string, data: { value?: string; description?: string }) =>
     api.put(`/platform-admin/settings/${key}`, data),
 
+  // Public pricing (any authenticated user)
+  getPricing: () => api.get<{ data: Record<string, string> }>('/platform-admin/pricing'),
+
   // Health
   getHealth: () => api.get('/platform-admin/health'),
 

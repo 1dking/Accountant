@@ -124,6 +124,47 @@ async def upload_chat_file(
     }
 
 
+# ── Pending Actions (send/create with confirmation) ──────────────────
+
+
+@router.post("/actions/{action_id}/execute")
+async def execute_action(
+    action_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+    body: dict | None = None,
+):
+    """Execute a pending action (send email, SMS, create doc, etc.)."""
+    from app.brain.action_service import execute_pending_action
+    result = await execute_pending_action(db, action_id, user)
+    return {"data": result}
+
+
+@router.post("/actions/{action_id}/cancel")
+async def cancel_action(
+    action_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+):
+    """Cancel a pending action."""
+    from app.brain.action_service import cancel_pending_action
+    result = await cancel_pending_action(db, action_id, user)
+    return {"data": result}
+
+
+@router.put("/actions/{action_id}")
+async def update_action(
+    action_id: uuid.UUID,
+    body: dict,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+):
+    """Update pending action data (edit before sending)."""
+    from app.brain.action_service import update_pending_action
+    result = await update_pending_action(db, action_id, user, body)
+    return {"data": result}
+
+
 # ── Conversations ─────────────────────────────────────────────────────
 
 

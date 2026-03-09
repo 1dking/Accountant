@@ -6,6 +6,7 @@ import remarkGfm from 'remark-gfm'
 import {
   X, Send, Sparkles, Loader2, MessageSquare, Plus, Trash2,
   AlertCircle, ChevronLeft, Database, Maximize2, Newspaper, RefreshCw, ExternalLink,
+  Mail, MessageCircle, FileText, HardDrive, Check, XCircle,
 } from 'lucide-react'
 import { useUiStore } from '@/stores/uiStore'
 import { cn } from '@/lib/utils'
@@ -19,10 +20,14 @@ import {
   listKnowledge,
   listNewsArticles,
   refreshNews,
+  executeAction,
+  cancelAction,
   type Conversation,
   type BrainAlert,
   type NewsArticle,
+  type PendingAction,
 } from '@/api/brain'
+import { toast } from 'sonner'
 
 interface DisplayMessage {
   id: string
@@ -31,6 +36,7 @@ interface DisplayMessage {
   tools?: string[]
   sources?: Array<{ tool: string; count: number }>
   isStreaming?: boolean
+  actions?: PendingAction[]
 }
 
 type PanelView = 'chat' | 'history' | 'alerts' | 'news'
@@ -66,6 +72,113 @@ function SourcesBadge({ sources }: { sources: Array<{ tool: string; count: numbe
     <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">
       Based on {total} record{total !== 1 ? 's' : ''} from {sources.map((s) => s.tool.replace('query_', '')).join(', ')}
     </p>
+  )
+}
+
+const ACTION_ICONS: Record<string, typeof Mail> = {
+  send_email: Mail,
+  send_sms: MessageCircle,
+  create_document: FileText,
+  save_to_drive: HardDrive,
+}
+const ACTION_LABELS: Record<string, string> = {
+  send_email: 'Send Email',
+  send_sms: 'Send SMS',
+  create_document: 'Create Document',
+  save_to_drive: 'Save to Drive',
+}
+
+function ActionCard({ action, onExecute, onCancel }: {
+  action: PendingAction
+  onExecute: (id: string) => void
+  onCancel: (id: string) => void
+}) {
+  const [status, setStatus] = useState<'pending' | 'executing' | 'done' | 'cancelled'>('pending')
+  const Icon = ACTION_ICONS[action.action_type] || FileText
+  const label = ACTION_LABELS[action.action_type] || action.action_type
+  const d = action.data as Record<string, string>
+
+  const handleExecute = async () => {
+    setStatus('executing')
+    try {
+      await onExecute(action.id)
+      setStatus('done')
+    } catch {
+      setStatus('pending')
+    }
+  }
+
+  const handleCancel = async () => {
+    await onCancel(action.id)
+    setStatus('cancelled')
+  }
+
+  if (status === 'done') {
+    return (
+      <div className="mt-2 border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 rounded-lg p-2.5 text-xs">
+        <div className="flex items-center gap-1.5 text-green-700 dark:text-green-400 font-medium">
+          <Check className="w-3.5 h-3.5" /> {label} — Sent
+        </div>
+      </div>
+    )
+  }
+  if (status === 'cancelled') {
+    return (
+      <div className="mt-2 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 rounded-lg p-2.5 text-xs text-gray-400">
+        <div className="flex items-center gap-1.5"><XCircle className="w-3.5 h-3.5" /> {label} — Cancelled</div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mt-2 border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 rounded-lg p-3 text-xs space-y-2">
+      <div className="flex items-center gap-1.5 text-blue-700 dark:text-blue-400 font-medium">
+        <Icon className="w-3.5 h-3.5" /> {label} Preview
+      </div>
+      {action.action_type === 'send_email' && (
+        <div className="space-y-1 text-gray-700 dark:text-gray-300">
+          <p><span className="text-gray-500">To:</span> {d.to}</p>
+          <p><span className="text-gray-500">Subject:</span> {d.subject}</p>
+          <div className="bg-white dark:bg-gray-900 border dark:border-gray-700 rounded p-2 mt-1 max-h-24 overflow-y-auto text-[11px]" dangerouslySetInnerHTML={{ __html: d.body || '' }} />
+        </div>
+      )}
+      {action.action_type === 'send_sms' && (
+        <div className="space-y-1 text-gray-700 dark:text-gray-300">
+          <p><span className="text-gray-500">To:</span> {d.to}</p>
+          <p className="bg-white dark:bg-gray-900 border dark:border-gray-700 rounded p-2">{d.message}</p>
+          <p className="text-gray-400">{(d.message || '').length}/160 chars</p>
+        </div>
+      )}
+      {action.action_type === 'create_document' && (
+        <div className="space-y-1 text-gray-700 dark:text-gray-300">
+          <p><span className="text-gray-500">Title:</span> {d.title}</p>
+          <div className="bg-white dark:bg-gray-900 border dark:border-gray-700 rounded p-2 max-h-24 overflow-y-auto text-[11px]" dangerouslySetInnerHTML={{ __html: (d.content || '').slice(0, 500) }} />
+        </div>
+      )}
+      {action.action_type === 'save_to_drive' && (
+        <div className="space-y-1 text-gray-700 dark:text-gray-300">
+          <p><span className="text-gray-500">File:</span> {d.filename}</p>
+          {d.folder && <p><span className="text-gray-500">Folder:</span> {d.folder}</p>}
+        </div>
+      )}
+      <div className="flex gap-2 pt-1">
+        <button
+          onClick={handleExecute}
+          disabled={status === 'executing'}
+          className="flex items-center gap-1 px-2.5 py-1 bg-blue-600 text-white rounded text-[11px] font-medium hover:bg-blue-700 disabled:opacity-50"
+        >
+          {status === 'executing' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+          {status === 'executing' ? 'Sending...' : 'Confirm'}
+        </button>
+        <button
+          onClick={handleCancel}
+          disabled={status === 'executing'}
+          className="flex items-center gap-1 px-2.5 py-1 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded text-[11px] hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50"
+        >
+          <XCircle className="w-3 h-3" /> Cancel
+        </button>
+      </div>
+    </div>
   )
 }
 
@@ -217,6 +330,13 @@ export default function OBrainPanel() {
             const updated = [...prev]
             const last = updated[updated.length - 1]
             if (last.role === 'assistant') last.sources = event.sources
+            return [...updated]
+          })
+        } else if (event.type === 'action' && event.action) {
+          setMessages((prev) => {
+            const updated = [...prev]
+            const last = updated[updated.length - 1]
+            if (last.role === 'assistant') last.actions = [...(last.actions || []), event.action!]
             return [...updated]
           })
         } else if (event.type === 'done') {
@@ -628,6 +748,27 @@ export default function OBrainPanel() {
                   )}
                   {/* Sources */}
                   {msg.sources && msg.sources.length > 0 && <SourcesBadge sources={msg.sources} />}
+                  {/* Action cards */}
+                  {msg.actions && msg.actions.length > 0 && msg.actions.map((a) => (
+                    <ActionCard
+                      key={a.id}
+                      action={a}
+                      onExecute={async (id) => {
+                        try {
+                          const res = await executeAction(id)
+                          const r = (res as any).data
+                          toast.success(r.navigate_to ? 'Created!' : 'Sent!')
+                        } catch (e: any) {
+                          toast.error(e?.message || 'Failed')
+                          throw e
+                        }
+                      }}
+                      onCancel={async (id) => {
+                        await cancelAction(id)
+                        toast.info('Cancelled')
+                      }}
+                    />
+                  ))}
                 </div>
               </div>
             ))}

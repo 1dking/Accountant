@@ -92,6 +92,18 @@ async def delete_feature_flag(
     return {"data": {"deleted": True}}
 
 
+# ── Public pricing (any authenticated user) ───────────────────────────────
+
+@router.get("/pricing")
+async def get_public_pricing(
+    _user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Return pricing settings visible to any authenticated user."""
+    settings_list = await service.list_platform_settings(db, "pricing")
+    return {"data": {s.key: s.value for s in settings_list}}
+
+
 # ── Platform settings (pricing, limits, etc.) ────────────────────────────
 
 @router.get("/settings")

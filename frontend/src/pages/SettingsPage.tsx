@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router'
-import { User, Mail, Inbox, Landmark, CreditCard, MessageSquare, Bell, Lock, Receipt, Building2, CalendarDays, BellRing, Newspaper } from 'lucide-react'
+import { User, Mail, Inbox, Landmark, CreditCard, MessageSquare, Bell, Lock, Receipt, Building2, CalendarDays, BellRing, Newspaper, Wallet } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/authStore'
 import ProfileSettings from '@/components/settings/ProfileSettings'
@@ -18,8 +18,10 @@ import BrandingSettings from '@/components/settings/BrandingSettings'
 import GoogleCalendarSettings from '@/components/settings/GoogleCalendarSettings'
 import PushNotificationSettings from '@/components/settings/PushNotificationSettings'
 import NewsPreferences from '@/components/settings/NewsPreferences'
+import BillingSettings from '@/components/settings/BillingSettings'
 
 const TABS: { id: string; label: string; icon: typeof User; adminOnly?: boolean }[] = [
+  { id: 'billing', label: 'Plan & Billing', icon: Wallet },
   { id: 'branding', label: 'Branding', icon: Building2 },
   { id: 'profile', label: 'Profile', icon: User },
   { id: 'users', label: 'Users', icon: User, adminOnly: true },
@@ -84,6 +86,7 @@ export default function SettingsPage() {
 
         {/* Tab content */}
         <div className="flex-1 min-w-0">
+          {activeTab === 'billing' && <BillingSettings />}
           {activeTab === 'branding' && <BrandingSettings />}
           {activeTab === 'profile' && <ProfileSettings />}
           {activeTab === 'users' && user?.role === 'admin' && <UserManagement />}

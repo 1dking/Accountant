@@ -90,6 +90,29 @@ DEFAULT_PRICING_SETTINGS = [
      "description": "Max storage for Pro plan (GB)", "value_type": "number"},
     {"key": "max_storage_business_gb", "value": "50", "category": "limits",
      "description": "Max storage for Business plan (GB)", "value_type": "number"},
+    # Annual plan pricing ($/mo billed yearly)
+    {"key": "plan_starter_annual_price", "value": "81", "category": "pricing",
+     "description": "Starter plan annual price ($/mo billed yearly)", "value_type": "number"},
+    {"key": "plan_pro_annual_price", "value": "164", "category": "pricing",
+     "description": "Pro plan annual price ($/mo billed yearly)", "value_type": "number"},
+    {"key": "plan_business_annual_price", "value": "331", "category": "pricing",
+     "description": "Business plan annual price ($/mo billed yearly)", "value_type": "number"},
+    {"key": "plan_enterprise_annual_price", "value": "499", "category": "pricing",
+     "description": "Enterprise plan annual price ($/mo billed yearly)", "value_type": "number"},
+    # O-Brain tier pricing (monthly)
+    {"key": "obrain_essential_price", "value": "49", "category": "pricing",
+     "description": "O-Brain Essential monthly price ($)", "value_type": "number"},
+    {"key": "obrain_pro_price", "value": "99", "category": "pricing",
+     "description": "O-Brain Pro monthly price ($)", "value_type": "number"},
+    {"key": "obrain_coach_price", "value": "199", "category": "pricing",
+     "description": "O-Brain Coach monthly price ($)", "value_type": "number"},
+    # O-Brain tier pricing (annual $/mo billed yearly)
+    {"key": "obrain_essential_annual_price", "value": "41", "category": "pricing",
+     "description": "O-Brain Essential annual price ($/mo billed yearly)", "value_type": "number"},
+    {"key": "obrain_pro_annual_price", "value": "83", "category": "pricing",
+     "description": "O-Brain Pro annual price ($/mo billed yearly)", "value_type": "number"},
+    {"key": "obrain_coach_annual_price", "value": "166", "category": "pricing",
+     "description": "O-Brain Coach annual price ($/mo billed yearly)", "value_type": "number"},
 ]
 
 

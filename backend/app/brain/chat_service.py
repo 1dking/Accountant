@@ -17,7 +17,9 @@ from app.brain.models import (
     BrainChatFile,
     BrainMessage,
     BrainAuditLog,
+    BrainPendingAction,
     AuditActionType,
+    PendingActionStatus,
 )
 from app.brain.tools import TOOL_DEFINITIONS, execute_tool
 from app.config import Settings
@@ -544,6 +546,20 @@ async def chat_stream(
     # Emit sources
     if sources:
         yield f'data: {json.dumps({"type": "sources", "sources": sources})}\n\n'
+
+    # Emit pending actions created during this conversation turn
+    try:
+        action_stmt = select(BrainPendingAction).where(
+            BrainPendingAction.conversation_id == conversation.id,
+            BrainPendingAction.status == PendingActionStatus.PENDING,
+        ).order_by(BrainPendingAction.created_at)
+        action_result = await db.execute(action_stmt)
+        pending_actions = list(action_result.scalars().all())
+        for action in pending_actions:
+            action_data = json.loads(action.data_json) if action.data_json else {}
+            yield f'data: {json.dumps({"type": "action", "action": {"id": str(action.id), "action_type": action.action_type.value, "data": action_data}})}\n\n'
+    except Exception:
+        logger.exception("Failed to emit pending actions")
 
     # Done
     yield f'data: {json.dumps({"type": "done", "conversation_id": str(conversation.id), "message_id": str(assistant_msg.id)})}\n\n'

@@ -486,8 +486,65 @@ WRITE_TOOL_DEFINITIONS = [
     },
 ]
 
+# ---------------------------------------------------------------------------
+# ACTION Tool definitions (require user confirmation before executing)
+# ---------------------------------------------------------------------------
+
+ACTION_TOOL_DEFINITIONS = [
+    {
+        "name": "send_email",
+        "description": "Draft an email for the user to review before sending. This creates a DRAFT that the user must confirm — never claim the email was sent. Tell the user to review the preview below.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "to": {"type": "string", "description": "Recipient email address"},
+                "subject": {"type": "string", "description": "Email subject line"},
+                "body": {"type": "string", "description": "Email body in HTML format. Use <p>, <br>, <strong>, <ul>/<li> for formatting."},
+            },
+            "required": ["to", "subject", "body"],
+        },
+    },
+    {
+        "name": "send_sms",
+        "description": "Draft an SMS message for the user to review before sending. This creates a DRAFT that the user must confirm — never claim the SMS was sent. Tell the user to review the preview below. Keep messages under 160 characters when possible.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "to": {"type": "string", "description": "Recipient phone number (E.164 format preferred, e.g. +15551234567)"},
+                "message": {"type": "string", "description": "SMS message text (aim for ≤160 chars)"},
+            },
+            "required": ["to", "message"],
+        },
+    },
+    {
+        "name": "create_document",
+        "description": "Create a document in the Docs editor. This creates a draft for the user to review before saving. Use for generating reports, letters, memos, proposals, etc.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "title": {"type": "string", "description": "Document title"},
+                "content": {"type": "string", "description": "Document content in HTML format"},
+            },
+            "required": ["title", "content"],
+        },
+    },
+    {
+        "name": "save_to_drive",
+        "description": "Save a file to the Drive. Creates a draft for the user to confirm. Use when the user wants to save generated content (text, notes, summaries) as a file.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "filename": {"type": "string", "description": "Filename with extension (e.g. 'meeting-notes.txt', 'report.html')"},
+                "content": {"type": "string", "description": "File content (plain text or HTML)"},
+                "folder": {"type": "string", "description": "Folder name to save in (optional, saves to root if not specified)"},
+            },
+            "required": ["filename", "content"],
+        },
+    },
+]
+
 # Combined definitions
-TOOL_DEFINITIONS = READ_TOOL_DEFINITIONS + WRITE_TOOL_DEFINITIONS + PAGE_TOOL_DEFINITIONS
+TOOL_DEFINITIONS = READ_TOOL_DEFINITIONS + WRITE_TOOL_DEFINITIONS + PAGE_TOOL_DEFINITIONS + ACTION_TOOL_DEFINITIONS
 
 
 # ---------------------------------------------------------------------------
@@ -531,6 +588,11 @@ async def execute_tool(
         "create_website": _create_website,
         "query_page_analytics": _query_page_analytics,
         "query_website_analytics": _query_website_analytics,
+        # Action tools (create drafts for user confirmation)
+        "send_email": _draft_email,
+        "send_sms": _draft_sms,
+        "create_document": _draft_document,
+        "save_to_drive": _draft_save_to_drive,
     }
 
     handler = handlers.get(tool_name)
@@ -1469,3 +1531,153 @@ async def _query_website_analytics(db: AsyncSession, user_id: uuid.UUID, params:
         "overall_conversion_rate": round(total_submissions / total_views * 100, 2) if total_views else 0,
         "pages": page_breakdown,
     }, default=str)
+
+
+# ---------------------------------------------------------------------------
+# ACTION tools — create drafts that require user confirmation
+# ---------------------------------------------------------------------------
+
+
+async def _create_pending_action(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    action_type: str,
+    data: dict,
+) -> dict:
+    """Create a BrainPendingAction record and return its info."""
+    from app.brain.models import BrainPendingAction, PendingActionType, PendingActionStatus
+
+    # Get the user's most recent conversation
+    from app.brain.models import BrainConversation
+    stmt = select(BrainConversation).where(
+        BrainConversation.user_id == user_id
+    ).order_by(desc(BrainConversation.updated_at)).limit(1)
+    result = await db.execute(stmt)
+    conv = result.scalar_one_or_none()
+
+    if not conv:
+        return {"error": "No active conversation"}
+
+    action = BrainPendingAction(
+        id=uuid.uuid4(),
+        conversation_id=conv.id,
+        user_id=user_id,
+        action_type=PendingActionType(action_type),
+        status=PendingActionStatus.PENDING,
+        data_json=json.dumps(data),
+    )
+    db.add(action)
+    await db.commit()
+
+    return {
+        "action_id": str(action.id),
+        "action_type": action_type,
+        "status": "drafted",
+        "data": data,
+    }
+
+
+async def _draft_email(db: AsyncSession, user_id: uuid.UUID, params: dict) -> str:
+    """Draft an email for user confirmation."""
+    to = params.get("to", "")
+    subject = params.get("subject", "")
+    body = params.get("body", "")
+
+    if not to or not subject:
+        return json.dumps({"error": "Email requires 'to' and 'subject' fields"})
+
+    action = await _create_pending_action(db, user_id, "send_email", {
+        "to": to,
+        "subject": subject,
+        "body": body,
+    })
+
+    if "error" in action:
+        return json.dumps(action)
+
+    logger.info("Drafted email to %s: '%s' (action %s)", to, subject, action["action_id"])
+    return json.dumps({
+        "status": "drafted",
+        "action_id": action["action_id"],
+        "message": f"Email draft created to {to} with subject \"{subject}\". The user must review and confirm before it is sent.",
+        "preview": {"to": to, "subject": subject, "body_preview": body[:200]},
+    })
+
+
+async def _draft_sms(db: AsyncSession, user_id: uuid.UUID, params: dict) -> str:
+    """Draft an SMS for user confirmation."""
+    to = params.get("to", "")
+    message = params.get("message", "")
+
+    if not to or not message:
+        return json.dumps({"error": "SMS requires 'to' and 'message' fields"})
+
+    char_count = len(message)
+    action = await _create_pending_action(db, user_id, "send_sms", {
+        "to": to,
+        "message": message,
+    })
+
+    if "error" in action:
+        return json.dumps(action)
+
+    logger.info("Drafted SMS to %s (%d chars, action %s)", to, char_count, action["action_id"])
+    return json.dumps({
+        "status": "drafted",
+        "action_id": action["action_id"],
+        "message": f"SMS draft created to {to} ({char_count} chars). The user must review and confirm before it is sent.",
+        "preview": {"to": to, "message": message, "char_count": char_count},
+    })
+
+
+async def _draft_document(db: AsyncSession, user_id: uuid.UUID, params: dict) -> str:
+    """Draft a document for user confirmation."""
+    title = params.get("title", "")
+    content = params.get("content", "")
+
+    if not title:
+        return json.dumps({"error": "Document requires a 'title'"})
+
+    action = await _create_pending_action(db, user_id, "create_document", {
+        "title": title,
+        "content": content,
+    })
+
+    if "error" in action:
+        return json.dumps(action)
+
+    logger.info("Drafted document '%s' (action %s)", title, action["action_id"])
+    return json.dumps({
+        "status": "drafted",
+        "action_id": action["action_id"],
+        "message": f"Document \"{title}\" drafted. The user must confirm to create it in the Docs editor.",
+        "preview": {"title": title, "content_preview": content[:300]},
+    })
+
+
+async def _draft_save_to_drive(db: AsyncSession, user_id: uuid.UUID, params: dict) -> str:
+    """Draft a file save for user confirmation."""
+    filename = params.get("filename", "")
+    content = params.get("content", "")
+    folder = params.get("folder", "")
+
+    if not filename:
+        return json.dumps({"error": "Requires a 'filename'"})
+
+    action = await _create_pending_action(db, user_id, "save_to_drive", {
+        "filename": filename,
+        "content": content,
+        "folder": folder,
+    })
+
+    if "error" in action:
+        return json.dumps(action)
+
+    folder_label = f" in '{folder}'" if folder else ""
+    logger.info("Drafted save '%s'%s (action %s)", filename, folder_label, action["action_id"])
+    return json.dumps({
+        "status": "drafted",
+        "action_id": action["action_id"],
+        "message": f"File \"{filename}\" ready to save{folder_label}. The user must confirm.",
+        "preview": {"filename": filename, "folder": folder, "size": len(content)},
+    })
