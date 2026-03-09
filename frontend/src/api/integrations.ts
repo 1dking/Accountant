@@ -153,6 +153,15 @@ export async function getAttachmentPreview(resultId: string, attachmentIndex: nu
   }>>(`/integrations/gmail/results/${resultId}/attachment/${attachmentIndex}`)
 }
 
+export async function fetchAttachmentToServer(resultId: string, attachmentIndex: number) {
+  return api.post<ApiResponse<{
+    filename: string
+    mimeType: string
+    size: number
+    stored: boolean
+  }>>(`/integrations/gmail/results/${resultId}/attachment/${attachmentIndex}/fetch`)
+}
+
 export async function deleteGmailScanResult(resultId: string) {
   return api.delete<ApiResponse<{ detail: string }>>(`/integrations/gmail/results/${resultId}`)
 }

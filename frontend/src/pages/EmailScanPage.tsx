@@ -3,9 +3,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import {
-  Inbox, Download, RefreshCw, FileText, CheckCircle, Trash2, Search,
+  Inbox, RefreshCw, FileText, CheckCircle, Trash2, Search,
   ChevronLeft, ChevronRight, X, ArrowRight, Calendar, Filter, Repeat,
-  Eye, Paperclip,
+  Eye, Paperclip, Loader2, AlertCircle,
 } from 'lucide-react'
 import {
   listGmailAccounts,
@@ -15,6 +15,7 @@ import {
   importEmailFull,
   deleteGmailScanResult,
   bulkDeleteGmailScanResults,
+  fetchAttachmentToServer,
 } from '@/api/integrations'
 import { listCategories } from '@/api/accounting'
 import { listAccounts as listCashbookAccounts } from '@/api/cashbook'
@@ -89,15 +90,41 @@ function ImportModal({
   // Preview state
   const [previewTab, setPreviewTab] = useState<'email' | number>('email')
   const iframeRef = useRef<HTMLIFrameElement>(null)
+  const [fetchingIndex, setFetchingIndex] = useState<number | null>(null)
+  const [fetchedIndices, setFetchedIndices] = useState<Set<number>>(new Set())
+  const [fetchError, setFetchError] = useState<string | null>(null)
 
   const attachments = parsedData?.attachments ?? []
   const authToken = localStorage.getItem('access_token') || ''
 
-  // Build streaming URL for an attachment
+  // Build streaming URL for an attachment (served from O-Brain server storage)
   const getAttachmentUrl = (index: number) =>
     `/api/integrations/gmail/results/${result.id}/attachment/${index}?token=${encodeURIComponent(authToken)}`
 
-  // Auto-switch to first PDF attachment if available
+  // Check if an attachment is ready for preview (has been downloaded to server)
+  const isAttachmentReady = (index: number) => {
+    const att = attachments[index]
+    if (!att) return false
+    // If size > 0 we assume it was downloaded during scan (or manually fetched)
+    return att.size > 0 || fetchedIndices.has(index)
+  }
+
+  // Fetch a legacy attachment to the server, then mark it ready
+  const handleFetchToServer = async (index: number) => {
+    setFetchingIndex(index)
+    setFetchError(null)
+    try {
+      await fetchAttachmentToServer(result.id, index)
+      setFetchedIndices(prev => new Set(prev).add(index))
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to fetch attachment'
+      setFetchError(msg)
+    } finally {
+      setFetchingIndex(null)
+    }
+  }
+
+  // Auto-switch to first PDF attachment if available and ready
   const firstPdfIndex = attachments.findIndex(a => a.mimeType === 'application/pdf')
   useEffect(() => {
     if (firstPdfIndex >= 0 && previewTab === 'email' && !parsedData?.body_html && !parsedData?.body_text) {
@@ -192,7 +219,11 @@ function ImportModal({
                 >
                   {att.mimeType === 'application/pdf' ? <FileText className="w-3.5 h-3.5" /> : att.mimeType.startsWith('image/') ? <Eye className="w-3.5 h-3.5" /> : <Paperclip className="w-3.5 h-3.5" />}
                   <span className="truncate max-w-[120px]">{att.filename}</span>
-                  <span className="text-gray-400">({att.size > 1024 ? `${(att.size / 1024).toFixed(0)}KB` : `${att.size}B`})</span>
+                  {att.size > 0 ? (
+                    <span className="text-gray-400">({att.size > 1024 ? `${(att.size / 1024).toFixed(0)}KB` : `${att.size}B`})</span>
+                  ) : (
+                    <span className="text-amber-500 text-[10px]">needs fetch</span>
+                  )}
                 </button>
               ))}
             </div>
@@ -222,6 +253,41 @@ function ImportModal({
                 (() => {
                   const att = attachments[previewTab]
                   const url = getAttachmentUrl(previewTab)
+                  const ready = isAttachmentReady(previewTab)
+
+                  // Attachment not yet on server — show Load Preview button
+                  if (!ready) {
+                    return (
+                      <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+                        <div className="text-center">
+                          <Paperclip className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                          <p className="font-medium">{att.filename}</p>
+                          <p className="text-xs mt-1">{att.mimeType} — not yet downloaded</p>
+                          {fetchError && previewTab === (fetchingIndex ?? -1) ? null : fetchError ? (
+                            <p className="text-xs text-red-500 mt-2">{fetchError}</p>
+                          ) : null}
+                          <button
+                            onClick={() => handleFetchToServer(previewTab as number)}
+                            disabled={fetchingIndex !== null}
+                            className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                          >
+                            {fetchingIndex === previewTab ? (
+                              <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Fetching from Gmail...</>
+                            ) : (
+                              <><RefreshCw className="w-3.5 h-3.5" /> Load Preview</>
+                            )}
+                          </button>
+                          {fetchError && (
+                            <p className="text-xs text-red-500 mt-2 flex items-center gap-1 justify-center">
+                              <AlertCircle className="w-3 h-3" /> {fetchError}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  }
+
+                  // PDF — native browser viewer in iframe
                   if (att.mimeType === 'application/pdf') {
                     return (
                       <iframe
@@ -231,6 +297,7 @@ function ImportModal({
                       />
                     )
                   }
+                  // Images — inline img tag
                   if (att.mimeType.startsWith('image/')) {
                     return (
                       <div className="flex items-center justify-center h-full p-4">
@@ -238,15 +305,14 @@ function ImportModal({
                       </div>
                     )
                   }
+                  // Other file types — preview not available
                   return (
                     <div className="flex items-center justify-center h-full text-gray-400 text-sm">
                       <div className="text-center">
                         <FileText className="w-8 h-8 mx-auto mb-2 opacity-30" />
                         <p className="font-medium">{att.filename}</p>
                         <p className="text-xs mt-1">{att.mimeType} — {att.size > 1024 ? `${(att.size / 1024).toFixed(0)} KB` : `${att.size} bytes`}</p>
-                        <a href={url} download={att.filename} className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                          <Download className="w-3.5 h-3.5" /> Download
-                        </a>
+                        <p className="mt-3 text-xs text-gray-500">Preview not available for this file type</p>
                       </div>
                     </div>
                   )
@@ -443,7 +509,7 @@ function ImportModal({
                 disabled={isPending || !canImport}
                 className="flex items-center gap-1.5 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Download className="w-4 h-4" />
+                <ArrowRight className="w-4 h-4" />
                 {isPending ? 'Importing...' : 'Import'}
               </button>
             </div>
@@ -927,7 +993,7 @@ export default function EmailScanPage() {
                             className="flex items-center gap-1 px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
                             title="Import as expense or income"
                           >
-                            <Download className="w-3 h-3" />
+                            <ArrowRight className="w-3 h-3" />
                             Import
                           </button>
                         )}

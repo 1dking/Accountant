@@ -316,18 +316,54 @@ def _extract_body_html(payload: dict) -> str:
 
 
 def _extract_attachment_metadata(payload: dict) -> list[dict]:
-    """Extract attachment metadata (filename, mimeType, size) from payload."""
+    """Extract attachment metadata from payload.
+
+    Handles both regular attachments (with attachmentId) and inline/CID
+    attachments (with data embedded directly in the body part).
+    """
     attachments: list[dict] = []
     parts = payload.get("parts", [])
     for part in parts:
         filename = part.get("filename")
-        if filename and part.get("body", {}).get("attachmentId"):
+        body = part.get("body", {})
+        mime = part.get("mimeType", "application/octet-stream")
+        attachment_id = body.get("attachmentId")
+
+        if filename and attachment_id:
+            # Regular attachment — data fetched separately via attachments().get()
             attachments.append({
                 "filename": filename,
-                "mimeType": part.get("mimeType", "application/octet-stream"),
-                "size": part.get("body", {}).get("size", 0),
-                "attachmentId": part["body"]["attachmentId"],
+                "mimeType": mime,
+                "size": body.get("size", 0),
+                "attachmentId": attachment_id,
             })
+        elif filename and body.get("data"):
+            # Inline/embedded attachment — data is right here in base64
+            raw = body["data"]
+            decoded_size = len(base64.urlsafe_b64decode(raw))
+            attachments.append({
+                "filename": filename,
+                "mimeType": mime,
+                "size": decoded_size,
+                "inline_data": raw,  # keep base64 for immediate save
+            })
+        elif not filename and attachment_id and mime not in ("text/plain", "text/html", "multipart/alternative", "multipart/mixed", "multipart/related"):
+            # Some emails attach files without a filename (e.g. inline images via CID)
+            content_id = None
+            for h in part.get("headers", []):
+                if h.get("name", "").lower() == "content-id":
+                    content_id = h.get("value", "").strip("<>")
+                    break
+            ext = mimetypes.guess_extension(mime) or ".bin"
+            generated_name = f"inline_{content_id or uuid.uuid4().hex[:8]}{ext}"
+            attachments.append({
+                "filename": generated_name,
+                "mimeType": mime,
+                "size": body.get("size", 0),
+                "attachmentId": attachment_id,
+            })
+
+        # Recurse into nested parts
         attachments.extend(_extract_attachment_metadata(part))
     return attachments
 
@@ -422,15 +458,24 @@ async def scan_emails(
         body_html = _extract_body_html(payload)
         att_meta = _extract_attachment_metadata(payload)
 
-        # Download PDF/image attachments and save to storage for preview
+        # Download ALL attachments and save to server storage for inline preview
         if att_meta:
+            import logging
+            _log = logging.getLogger(__name__)
             from app.documents.storage import build_storage
             storage = build_storage(settings)
             for att in att_meta:
-                att_id = att.get("attachmentId")
-                mime = att.get("mimeType", "")
-                if att_id and (mime == "application/pdf" or mime.startswith("image/")):
-                    try:
+                try:
+                    file_bytes: bytes | None = None
+
+                    # Case 1: Inline data already present (embedded attachment)
+                    inline_data = att.pop("inline_data", None)
+                    if inline_data:
+                        file_bytes = base64.urlsafe_b64decode(inline_data)
+
+                    # Case 2: Regular attachment — fetch from Gmail API
+                    att_id = att.get("attachmentId")
+                    if not file_bytes and att_id:
                         att_response = (
                             service.users()
                             .messages()
@@ -441,12 +486,24 @@ async def scan_emails(
                         raw_data = att_response.get("data", "")
                         if raw_data:
                             file_bytes = base64.urlsafe_b64decode(raw_data)
-                            ext = att.get("filename", "file").rsplit(".", 1)[-1] or "bin"
-                            storage_path = await storage.save(file_bytes, ext)
-                            att["storage_path"] = storage_path
-                            att["size"] = len(file_bytes)
-                    except Exception:
-                        pass  # Attachment download failed; keep metadata without storage_path
+
+                    # Verify we got actual data before saving
+                    if file_bytes and len(file_bytes) > 0:
+                        filename = att.get("filename", "file")
+                        ext = filename.rsplit(".", 1)[-1] if "." in filename else "bin"
+                        storage_path = await storage.save(file_bytes, ext)
+                        att["storage_path"] = storage_path
+                        att["size"] = len(file_bytes)
+                    else:
+                        _log.warning(
+                            "Attachment download returned empty data: msg=%s att=%s",
+                            msg_id, att.get("filename"),
+                        )
+                except Exception:
+                    _log.exception(
+                        "Failed to download attachment: msg=%s att=%s",
+                        msg_id, att.get("filename"),
+                    )
 
         scan_result = GmailScanResult(
             gmail_account_id=gmail_account_id,

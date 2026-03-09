@@ -330,6 +330,115 @@ async def get_attachment_preview(
 
 
 # ---------------------------------------------------------------------------
+# On-demand attachment fetch (for legacy scan results missing stored files)
+# ---------------------------------------------------------------------------
+
+
+@router.post("/results/{result_id}/attachment/{attachment_index}/fetch")
+async def fetch_attachment_to_server(
+    result_id: uuid.UUID,
+    attachment_index: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role([Role.ACCOUNTANT, Role.ADMIN])),
+):
+    """Download an attachment from Gmail to server storage on demand.
+
+    Used when a legacy scan result doesn't have the attachment pre-downloaded.
+    Returns the updated attachment metadata (with storage_path and real size).
+    """
+    import json as _json
+    import base64 as _b64
+    from .models import GmailScanResult, GmailAccount
+    from app.documents.storage import build_storage
+
+    stmt = (
+        select(GmailScanResult)
+        .join(GmailAccount, GmailScanResult.gmail_account_id == GmailAccount.id)
+        .where(GmailScanResult.id == result_id, GmailAccount.user_id == user.id)
+    )
+    result = await db.execute(stmt)
+    scan_result = result.scalar_one_or_none()
+    if not scan_result:
+        from app.core.exceptions import NotFoundError
+        raise NotFoundError("Scan result", str(result_id))
+
+    if not scan_result.attachment_metadata:
+        from app.core.exceptions import ValidationError
+        raise ValidationError("No attachment metadata available")
+
+    att_list = _json.loads(scan_result.attachment_metadata)
+    if attachment_index < 0 or attachment_index >= len(att_list):
+        from app.core.exceptions import ValidationError
+        raise ValidationError(f"Attachment index {attachment_index} out of range")
+
+    att = att_list[attachment_index]
+
+    # Already downloaded?
+    settings = _get_settings(request)
+    storage = build_storage(settings)
+    existing_path = att.get("storage_path")
+    if existing_path and await storage.exists(existing_path):
+        return {"data": {
+            "filename": att.get("filename", "attachment"),
+            "mimeType": att.get("mimeType", "application/octet-stream"),
+            "size": att.get("size", 0),
+            "stored": True,
+        }}
+
+    # Need to download from Gmail
+    attachment_id = att.get("attachmentId")
+    if not attachment_id:
+        from app.core.exceptions import ValidationError
+        raise ValidationError("No attachment ID available — cannot fetch from Gmail")
+
+    acct_stmt = select(GmailAccount).where(
+        GmailAccount.id == scan_result.gmail_account_id,
+        GmailAccount.user_id == user.id,
+    )
+    acct_result = await db.execute(acct_stmt)
+    gmail_account = acct_result.scalar_one_or_none()
+    if not gmail_account:
+        from app.core.exceptions import NotFoundError
+        raise NotFoundError("Gmail account", "unknown")
+
+    gmail_service = await service._get_gmail_service(gmail_account, settings)
+
+    att_response = (
+        gmail_service.users()
+        .messages()
+        .attachments()
+        .get(userId="me", messageId=scan_result.message_id, id=attachment_id)
+        .execute()
+    )
+    raw_data = att_response.get("data", "")
+    if not raw_data:
+        from app.core.exceptions import ValidationError
+        raise ValidationError("Gmail returned empty attachment data")
+
+    file_bytes = _b64.urlsafe_b64decode(raw_data)
+    if len(file_bytes) == 0:
+        from app.core.exceptions import ValidationError
+        raise ValidationError("Downloaded attachment is empty (0 bytes)")
+
+    filename = att.get("filename", "attachment")
+    ext = filename.rsplit(".", 1)[-1] if "." in filename else "bin"
+    saved_path = await storage.save(file_bytes, ext)
+
+    att["storage_path"] = saved_path
+    att["size"] = len(file_bytes)
+    scan_result.attachment_metadata = _json.dumps(att_list)
+    await db.commit()
+
+    return {"data": {
+        "filename": filename,
+        "mimeType": att.get("mimeType", "application/octet-stream"),
+        "size": len(file_bytes),
+        "stored": True,
+    }}
+
+
+# ---------------------------------------------------------------------------
 # Import (legacy simple + full flow)
 # ---------------------------------------------------------------------------
 
