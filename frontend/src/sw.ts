@@ -40,9 +40,20 @@ registerRoute(
   })
 )
 
-// ── Network-only for API routes ──────────────────────────────────────────
+// ── Network-first for API routes (offline fallback to cached responses) ──
 registerRoute(
-  ({ url }) => url.pathname.startsWith('/api/') || url.pathname.startsWith('/ws'),
+  ({ url }) => url.pathname.startsWith('/api/'),
+  new NetworkFirst({
+    cacheName: 'api-cache',
+    plugins: [
+      new ExpirationPlugin({ maxEntries: 200, maxAgeSeconds: 24 * 60 * 60 }),
+    ],
+  })
+)
+
+// ── Network-only for WebSocket routes ────────────────────────────────────
+registerRoute(
+  ({ url }) => url.pathname.startsWith('/ws'),
   new NetworkOnly()
 )
 
