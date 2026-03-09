@@ -41,12 +41,14 @@ import { useUiStore } from '@/stores/uiStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useBranding } from '@/hooks/useBranding'
 import { cn, getInitials } from '@/lib/utils'
+import { hasFeature } from '@/lib/features'
 import type { LucideIcon } from 'lucide-react'
 
 interface NavItem {
   path: string
   label: string
   icon: LucideIcon
+  featureKey?: string
 }
 
 interface NavSection {
@@ -59,40 +61,40 @@ const NAV_SECTIONS: NavSection[] = [
     title: 'MAIN',
     items: [
       { path: '/', label: 'Dashboard', icon: LayoutDashboard },
-      { path: '/conversations', label: 'Conversations', icon: MessageSquare },
+      { path: '/conversations', label: 'Conversations', icon: MessageSquare, featureKey: 'inbox' },
     ],
   },
   {
     title: 'CRM',
     items: [
-      { path: '/contacts', label: 'Contacts', icon: Users },
-      { path: '/pipelines', label: 'Pipelines', icon: Kanban },
+      { path: '/contacts', label: 'Contacts', icon: Users, featureKey: 'contacts' },
+      { path: '/pipelines', label: 'Pipelines', icon: Kanban, featureKey: 'pipeline' },
     ],
   },
   {
     title: 'SALES',
     items: [
-      { path: '/proposals', label: 'Proposals', icon: FileSignature },
-      { path: '/invoices', label: 'Invoices', icon: FileOutput },
-      { path: '/estimates', label: 'Estimates', icon: ClipboardList },
+      { path: '/proposals', label: 'Proposals', icon: FileSignature, featureKey: 'proposals' },
+      { path: '/invoices', label: 'Invoices', icon: FileOutput, featureKey: 'invoices' },
+      { path: '/estimates', label: 'Estimates', icon: ClipboardList, featureKey: 'invoices' },
     ],
   },
   {
     title: 'ACCOUNTING',
     items: [
-      { path: '/cashbook', label: 'Cashbook', icon: BookOpen },
-      { path: '/cashbook/reconcile', label: 'Reconcile', icon: Scale },
-      { path: '/smart-import', label: 'Smart Import', icon: Zap },
-      { path: '/email-scan', label: 'Email Scanner', icon: MailSearch },
-      { path: '/recurring', label: 'Recurring', icon: RefreshCw },
-      { path: '/reports', label: 'Reports', icon: BarChart3 },
+      { path: '/cashbook', label: 'Cashbook', icon: BookOpen, featureKey: 'cashbook' },
+      { path: '/cashbook/reconcile', label: 'Reconcile', icon: Scale, featureKey: 'cashbook' },
+      { path: '/smart-import', label: 'Smart Import', icon: Zap, featureKey: 'smart_import' },
+      { path: '/email-scan', label: 'Email Scanner', icon: MailSearch, featureKey: 'email_scanner' },
+      { path: '/recurring', label: 'Recurring', icon: RefreshCw, featureKey: 'recurring' },
+      { path: '/reports', label: 'Reports', icon: BarChart3, featureKey: 'reports' },
     ],
   },
   {
     title: 'COMMUNICATION',
     items: [
-      { path: '/communication?tab=phone-numbers', label: 'Phone Numbers', icon: Phone },
-      { path: '/communication?tab=chat', label: 'Live Chat', icon: MessageCircle },
+      { path: '/communication?tab=phone-numbers', label: 'Phone Numbers', icon: Phone, featureKey: 'phone' },
+      { path: '/communication?tab=chat', label: 'Live Chat', icon: MessageCircle, featureKey: 'sms' },
     ],
   },
   {
@@ -105,43 +107,43 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: 'CONTENT',
     items: [
-      { path: '/page-builder', label: 'Pages', icon: Globe },
-      { path: '/docs', label: 'Docs', icon: FileEdit },
-      { path: '/sheets', label: 'Sheets', icon: Table2 },
-      { path: '/slides', label: 'Slides', icon: Presentation },
+      { path: '/page-builder', label: 'Pages', icon: Globe, featureKey: 'pages' },
+      { path: '/docs', label: 'Docs', icon: FileEdit, featureKey: 'docs' },
+      { path: '/sheets', label: 'Sheets', icon: Table2, featureKey: 'sheets' },
+      { path: '/slides', label: 'Slides', icon: Presentation, featureKey: 'slides' },
     ],
   },
   {
     title: 'STORAGE',
     items: [
-      { path: '/drive', label: 'Drive', icon: HardDrive },
+      { path: '/drive', label: 'Drive', icon: HardDrive, featureKey: 'drive' },
     ],
   },
   {
     title: 'MEETINGS',
     items: [
-      { path: '/calendar', label: 'Calendar', icon: Calendar },
-      { path: '/meetings', label: 'Meetings', icon: Video },
-      { path: '/recordings', label: 'Recordings', icon: Film },
-      { path: '/scheduling', label: 'Scheduling', icon: CalendarDays },
+      { path: '/calendar', label: 'Calendar', icon: Calendar, featureKey: 'calendar' },
+      { path: '/meetings', label: 'Meetings', icon: Video, featureKey: 'meeting_rooms' },
+      { path: '/recordings', label: 'Recordings', icon: Film, featureKey: 'meeting_rooms' },
+      { path: '/scheduling', label: 'Scheduling', icon: CalendarDays, featureKey: 'calendar' },
     ],
   },
   {
     title: 'INTELLIGENCE',
     items: [
-      { path: '/intelligence', label: 'Coach Reports', icon: Lightbulb },
+      { path: '/intelligence', label: 'Coach Reports', icon: Lightbulb, featureKey: 'obrain_coach' },
     ],
   },
   {
     title: 'PORTAL MANAGEMENT',
     items: [
-      { path: '/portal-admin', label: 'Portal Admin', icon: UserCog },
+      { path: '/portal-admin', label: 'Portal Admin', icon: UserCog, featureKey: 'portal_admin' },
     ],
   },
   {
     title: 'ADMIN',
     items: [
-      { path: '/platform-admin', label: 'Platform Admin', icon: Settings },
+      { path: '/platform-admin', label: 'Platform Admin', icon: Settings, featureKey: 'platform_admin' },
     ],
   },
 ]
@@ -223,6 +225,11 @@ export default function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 px-2 py-2 overflow-y-auto scrollbar-thin">
         {NAV_SECTIONS.map((section, index) => {
+          // Filter items by feature access
+          const visibleItems = section.items.filter(
+            item => !item.featureKey || hasFeature(user?.feature_access, item.featureKey)
+          )
+          if (visibleItems.length === 0) return null
           const isOpen = openSection === index
           return (
             <div key={section.title} className="mb-0.5">
@@ -238,7 +245,7 @@ export default function Sidebar() {
                 isOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
               )}>
                 <div className="space-y-0.5 pb-1">
-                  {section.items.map((item) => {
+                  {visibleItems.map((item) => {
                     const Icon = item.icon
                     const active = isItemActive(item.path)
                     return (

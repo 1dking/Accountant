@@ -5,11 +5,15 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import json
+
+from app.auth.features import resolve_feature_access
 from app.auth.models import RefreshToken, Role, User
 from app.auth.schemas import AdminUserUpdate, TokenResponse, UserCreate, UserUpdate
 from app.auth.utils import (
     create_access_token,
     create_refresh_token,
+    decode_token,
     hash_password,
     hash_token,
     verify_password,
@@ -60,9 +64,10 @@ async def register_user(
 async def create_user(
     db: AsyncSession,
     email: str,
-    password: str,
+    password: str | None,
     full_name: str,
     role: Role,
+    feature_access: dict[str, bool] | None = None,
 ) -> User:
     result = await db.execute(select(User).where(User.email == email))
     if result.scalar_one_or_none() is not None:
@@ -70,9 +75,10 @@ async def create_user(
 
     user = User(
         email=email,
-        hashed_password=hash_password(password),
+        hashed_password=hash_password(password) if password else None,
         full_name=full_name,
         role=role,
+        feature_access_json=json.dumps(feature_access) if feature_access else None,
     )
     db.add(user)
     await db.commit()
@@ -241,6 +247,12 @@ async def admin_update_user(
         user.full_name = updates.full_name
     if updates.password is not None:
         user.hashed_password = hash_password(updates.password)
+    if updates.role is not None:
+        user.role = updates.role
+    if updates.feature_access is not None:
+        user.feature_access_json = json.dumps(updates.feature_access)
+    if updates.is_active is not None:
+        user.is_active = updates.is_active
     await db.commit()
     await db.refresh(user)
     return user
@@ -335,3 +347,89 @@ async def authenticate_google(
     )
 
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
+
+
+# ---------------------------------------------------------------------------
+# Invite flow
+# ---------------------------------------------------------------------------
+
+def generate_invite_token(user_id: _uuid.UUID, settings: Settings) -> str:
+    """Create a JWT invite token valid for 72 hours."""
+    from jose import jwt as _jwt
+
+    expire = datetime.now(timezone.utc) + timedelta(hours=72)
+    payload = {
+        "sub": str(user_id),
+        "exp": expire,
+        "type": "invite",
+    }
+    return _jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
+
+
+async def validate_invite_token(
+    db: AsyncSession,
+    token: str,
+    settings: Settings,
+) -> User:
+    """Decode an invite token and return the user if valid."""
+    data = decode_token(token, settings)
+    if data is None:
+        raise ValidationError("Invalid or expired invite token.")
+
+    result = await db.execute(select(User).where(User.id == data.sub))
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise NotFoundError("User", str(data.sub))
+    return user
+
+
+async def complete_invite(
+    db: AsyncSession,
+    token: str,
+    password: str,
+    settings: Settings,
+) -> TokenResponse:
+    """Let an invited user set their password and get tokens."""
+    user = await validate_invite_token(db, token, settings)
+
+    user.hashed_password = hash_password(password)
+    user.is_active = True
+
+    access_token = create_access_token(user.id, user.role.value, settings)
+    refresh_token = create_refresh_token(user.id, settings)
+
+    token_record = RefreshToken(
+        user_id=user.id,
+        token_hash=hash_token(refresh_token),
+        expires_at=datetime.now(timezone.utc) + timedelta(days=settings.refresh_token_expire_days),
+    )
+    db.add(token_record)
+    await db.commit()
+
+    await log_activity(
+        db,
+        user_id=user.id,
+        action="invite_completed",
+        resource_type="user",
+        resource_id=str(user.id),
+    )
+
+    return TokenResponse(access_token=access_token, refresh_token=refresh_token)
+
+
+def user_to_response_dict(user: User) -> dict:
+    """Convert a User to a response dict with resolved feature_access."""
+    from app.auth.features import resolve_feature_access
+
+    features = resolve_feature_access(user.role.value, user.feature_access_json)
+    return {
+        "id": user.id,
+        "email": user.email,
+        "full_name": user.full_name,
+        "role": user.role,
+        "is_active": user.is_active,
+        "auth_provider": user.auth_provider,
+        "created_at": user.created_at,
+        "feature_access": features,
+        "org_id": user.org_id,
+    }

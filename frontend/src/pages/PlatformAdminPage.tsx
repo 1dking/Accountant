@@ -34,7 +34,12 @@ import {
   EyeOff,
   Zap,
   Loader2,
+  Power,
+  Copy,
+  Mail,
+  X,
 } from 'lucide-react'
+import { FEATURE_CATEGORIES, ROLE_DEFAULTS, FEATURE_LABELS } from '@/lib/features'
 
 // ── Tab definitions ──────────────────────────────────────────────────────
 
@@ -933,10 +938,246 @@ function OrgDetailView({ org, allFlags, allSettings, allUsers, onBack }: {
 
 // ── Users tab ────────────────────────────────────────────────────────────
 
+const ROLES = [
+  { value: 'admin', label: 'Admin' },
+  { value: 'team_member', label: 'Team Member' },
+  { value: 'accountant', label: 'Accountant' },
+  { value: 'client', label: 'Client' },
+  { value: 'viewer', label: 'Viewer' },
+]
+
+function FeatureAccessEditor({ features, onChange, role }: {
+  features: Record<string, boolean>
+  onChange: (f: Record<string, boolean>) => void
+  role: string
+}) {
+  const defaults = ROLE_DEFAULTS[role] ?? {}
+  const applyDefaults = () => onChange({ ...defaults })
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Feature Access</h4>
+        <button onClick={applyDefaults} className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400">
+          Reset to role defaults
+        </button>
+      </div>
+      {Object.entries(FEATURE_CATEGORIES).map(([category, keys]) => (
+        <div key={category}>
+          <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">{category}</p>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+            {keys.map(key => (
+              <label key={key} className="flex items-center gap-2 text-xs cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={features[key] ?? false}
+                  onChange={e => onChange({ ...features, [key]: e.target.checked })}
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 h-3.5 w-3.5"
+                />
+                <span className="text-gray-700 dark:text-gray-300">{FEATURE_LABELS[key] || key}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function UserModal({ user, onClose, onSaved }: {
+  user?: any  // null = create, object = edit
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const isEdit = !!user
+  const [fullName, setFullName] = useState(user?.full_name || '')
+  const [email, setEmail] = useState(user?.email || '')
+  const [role, setRole] = useState(user?.role || 'viewer')
+  const [password, setPassword] = useState('')
+  const [sendInvite, setSendInvite] = useState(!isEdit)
+  const [features, setFeatures] = useState<Record<string, boolean>>(
+    user?.feature_access ?? { ...(ROLE_DEFAULTS[user?.role || 'viewer'] || {}) }
+  )
+  const [isActive, setIsActive] = useState(user?.is_active ?? true)
+  const [inviteLink, setInviteLink] = useState<string | null>(null)
+
+  // Auto-apply role defaults when role changes (only on create)
+  const handleRoleChange = (newRole: string) => {
+    setRole(newRole)
+    if (!isEdit) {
+      setFeatures({ ...(ROLE_DEFAULTS[newRole] || {}) })
+    }
+  }
+
+  const createMut = useMutation({
+    mutationFn: () => platformAdminApi.createUser({
+      email,
+      full_name: fullName,
+      role,
+      password: sendInvite ? undefined : password,
+      send_invite: sendInvite,
+      feature_access: features,
+    }),
+    onSuccess: (res: any) => {
+      const link = res?.data?.invite_link
+      if (link) {
+        setInviteLink(link)
+      } else {
+        toast.success('User created')
+        onSaved()
+        onClose()
+      }
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.detail || 'Failed to create user'),
+  })
+
+  const updateMut = useMutation({
+    mutationFn: () => platformAdminApi.updateUser(user.id, {
+      email: email !== user.email ? email : undefined,
+      full_name: fullName !== user.full_name ? fullName : undefined,
+      role: role !== user.role ? role : undefined,
+      password: password || undefined,
+      feature_access: features,
+      is_active: isActive,
+    }),
+    onSuccess: () => {
+      toast.success('User updated')
+      onSaved()
+      onClose()
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.detail || 'Failed to update user'),
+  })
+
+  // Show invite link after create
+  if (inviteLink) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+        <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-md p-6 shadow-xl" onClick={e => e.stopPropagation()}>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">User Created — Invite Link</h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+            {sendInvite ? 'An invite email was sent. You can also share this link:' : 'Share this setup link with the user:'}
+          </p>
+          <div className="flex items-center gap-2">
+            <input
+              readOnly
+              value={inviteLink}
+              className="flex-1 px-3 py-2 text-xs font-mono rounded-md border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white"
+            />
+            <button
+              onClick={() => { navigator.clipboard.writeText(inviteLink); toast.success('Copied!') }}
+              className="px-3 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700"
+            >
+              <Copy className="w-4 h-4" />
+            </button>
+          </div>
+          <button onClick={() => { onSaved(); onClose() }} className="mt-4 w-full py-2 rounded-md bg-gray-100 dark:bg-gray-700 text-sm font-medium text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-600">
+            Done
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+      <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 shadow-xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+            {isEdit ? 'Edit User' : 'Add User'}
+          </h2>
+          <button onClick={onClose} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          {/* Basic fields */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Full Name</label>
+              <input value={fullName} onChange={e => setFullName(e.target.value)}
+                className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Email</label>
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+                className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white" />
+            </div>
+          </div>
+
+          {/* Role */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Role</label>
+            <select value={role} onChange={e => handleRoleChange(e.target.value)}
+              className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
+              {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+            </select>
+          </div>
+
+          {/* Invite toggle (create only) */}
+          {!isEdit && (
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={sendInvite} onChange={e => setSendInvite(e.target.checked)}
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+              <span className="text-sm text-gray-700 dark:text-gray-300">
+                <Mail className="w-3.5 h-3.5 inline mr-1" />
+                Send invite email (user sets their own password)
+              </span>
+            </label>
+          )}
+
+          {/* Password */}
+          {(isEdit || !sendInvite) && (
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                {isEdit ? 'New Password (leave blank to keep)' : 'Password'}
+              </label>
+              <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+                placeholder={isEdit ? 'Leave blank to keep current' : 'Min 8 chars, 1 upper, 1 lower, 1 digit'}
+                className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white" />
+            </div>
+          )}
+
+          {/* Active toggle (edit only) */}
+          {isEdit && (
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)}
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+              <span className="text-sm text-gray-700 dark:text-gray-300">Account active</span>
+            </label>
+          )}
+
+          {/* Feature access */}
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-3">
+            <FeatureAccessEditor features={features} onChange={setFeatures} role={role} />
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center gap-2 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <button
+            onClick={() => isEdit ? updateMut.mutate() : createMut.mutate()}
+            disabled={createMut.isPending || updateMut.isPending || !fullName || !email}
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            {(createMut.isPending || updateMut.isPending) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            {isEdit ? 'Save Changes' : (sendInvite ? 'Create & Send Invite' : 'Create User')}
+          </button>
+          <button onClick={onClose}
+            className="px-4 py-2 text-sm font-medium rounded-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function UsersTab() {
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState('')
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
+  const [showModal, setShowModal] = useState<'create' | 'edit' | null>(null)
   const queryClient = useQueryClient()
 
   const { data, isLoading } = useQuery({
@@ -968,12 +1209,37 @@ function UsersTab() {
     },
   })
 
+  const deactivateMut = useMutation({
+    mutationFn: (userId: string) => platformAdminApi.deactivateUser(userId),
+    onSuccess: () => {
+      toast.success('User deactivated')
+      queryClient.invalidateQueries({ queryKey: ['platform-admin'] })
+    },
+  })
+
+  const reactivateMut = useMutation({
+    mutationFn: (userId: string) => platformAdminApi.reactivateUser(userId),
+    onSuccess: () => {
+      toast.success('User reactivated')
+      queryClient.invalidateQueries({ queryKey: ['platform-admin'] })
+    },
+  })
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['platform-admin'] })
   const users = (data as any)?.data ?? []
   const detail = (userDetail as any)?.data
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Users Management</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Users Management</h1>
+        <button
+          onClick={() => setShowModal('create')}
+          className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700"
+        >
+          <UserPlus className="w-4 h-4" /> Add User
+        </button>
+      </div>
 
       <div className="flex gap-3">
         <div className="relative flex-1 max-w-sm">
@@ -1020,7 +1286,7 @@ function UsersTab() {
                 {users.map((u: any) => (
                   <tr
                     key={u.id}
-                    className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer ${selectedUserId === u.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
+                    className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer ${!u.is_active ? 'opacity-50' : ''} ${selectedUserId === u.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
                     onClick={() => setSelectedUserId(u.id)}
                   >
                     <td className="px-4 py-3">
@@ -1049,12 +1315,36 @@ function UsersTab() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
                         <button
+                          onClick={(e) => { e.stopPropagation(); setSelectedUserId(u.id); setShowModal('edit') }}
+                          title="Edit user"
+                          className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 hover:text-blue-600"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
                           onClick={(e) => { e.stopPropagation(); impersonateMut.mutate(u.id) }}
                           title="Impersonate"
                           className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 hover:text-blue-600"
                         >
                           <LogIn className="w-3.5 h-3.5" />
                         </button>
+                        {u.is_active ? (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); if (confirm(`Deactivate ${u.full_name}?`)) deactivateMut.mutate(u.id) }}
+                            title="Deactivate"
+                            className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 hover:text-red-600"
+                          >
+                            <Power className="w-3.5 h-3.5" />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); reactivateMut.mutate(u.id) }}
+                            title="Reactivate"
+                            className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 hover:text-green-600"
+                          >
+                            <Power className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                         <button
                           onClick={(e) => { e.stopPropagation(); revokeSessionsMut.mutate(u.id) }}
                           title="Revoke sessions"
@@ -1074,7 +1364,12 @@ function UsersTab() {
         {/* User detail panel */}
         {selectedUserId && detail && (
           <div className="w-80 shrink-0 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 overflow-y-auto max-h-[calc(100vh-200px)]">
-            <h3 className="font-medium text-gray-900 dark:text-white">{detail.full_name}</h3>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-medium text-gray-900 dark:text-white">{detail.full_name}</h3>
+              <button onClick={() => { setShowModal('edit') }} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500">
+                <Edit3 className="w-4 h-4" />
+              </button>
+            </div>
             <p className="text-sm text-gray-500 dark:text-gray-400">{detail.email}</p>
             <div className="mt-3 space-y-2 text-sm">
               <div className="flex justify-between">
@@ -1127,6 +1422,14 @@ function UsersTab() {
           </div>
         )}
       </div>
+
+      {/* Modals */}
+      {showModal === 'create' && (
+        <UserModal onClose={() => setShowModal(null)} onSaved={invalidate} />
+      )}
+      {showModal === 'edit' && detail && (
+        <UserModal user={detail} onClose={() => setShowModal(null)} onSaved={invalidate} />
+      )}
     </div>
   )
 }

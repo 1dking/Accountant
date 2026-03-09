@@ -48,6 +48,13 @@ export const platformAdminApi = {
     return api.get(`/platform-admin/users?${searchParams.toString()}`)
   },
   getUserDetail: (userId: string) => api.get(`/platform-admin/users/${userId}`),
+  createUser: (data: { email: string; full_name: string; role?: string; password?: string; send_invite?: boolean; feature_access?: Record<string, boolean> }) =>
+    api.post('/platform-admin/users', data),
+  updateUser: (userId: string, data: { email?: string; full_name?: string; role?: string; password?: string; feature_access?: Record<string, boolean>; is_active?: boolean }) =>
+    api.put(`/platform-admin/users/${userId}`, data),
+  deactivateUser: (userId: string) => api.post(`/platform-admin/users/${userId}/deactivate`),
+  reactivateUser: (userId: string) => api.post(`/platform-admin/users/${userId}/reactivate`),
+  getFeatureDefaults: () => api.get('/platform-admin/features/defaults'),
   impersonateUser: (userId: string) => api.post(`/platform-admin/users/${userId}/impersonate`),
 
   // Activity log

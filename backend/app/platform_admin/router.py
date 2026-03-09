@@ -281,6 +281,136 @@ async def revoke_user_sessions(
     return {"data": {"revoked_count": count}}
 
 
+# ── User CRUD ─────────────────────────────────────────────────────────────
+
+
+class PlatformCreateUser(BaseModel):
+    email: str
+    full_name: str
+    role: str = "viewer"
+    password: str | None = None
+    send_invite: bool = False
+    feature_access: dict[str, bool] | None = None
+
+
+class PlatformUpdateUser(BaseModel):
+    email: str | None = None
+    full_name: str | None = None
+    role: str | None = None
+    password: str | None = None
+    feature_access: dict[str, bool] | None = None
+    is_active: bool | None = None
+
+
+@router.post("/users")
+async def platform_create_user(
+    body: PlatformCreateUser,
+    request: Request,
+    admin: Annotated[User, Depends(require_platform_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Create a user from Platform Admin. Optionally send invite email."""
+    import json
+    from app.auth.models import Role as AuthRole
+    from app.auth.service import create_user, generate_invite_token, user_to_response_dict
+    from app.auth.utils import hash_password
+
+    role_map = {r.value: r for r in AuthRole}
+    role = role_map.get(body.role, AuthRole.VIEWER)
+
+    user = await create_user(
+        db,
+        email=body.email,
+        password=body.password,
+        full_name=body.full_name,
+        role=role,
+        feature_access=body.feature_access,
+    )
+
+    invite_link = None
+    if body.send_invite:
+        settings = request.app.state.settings
+        token = generate_invite_token(user.id, settings)
+        base_url = getattr(settings, "frontend_url", "") or f"https://{request.headers.get('host', 'localhost')}"
+        invite_link = f"{base_url}/invite?token={token}"
+
+        # Try to send invite email
+        if settings.smtp_host and settings.smtp_username:
+            try:
+                from app.email.service import send_email, render_template, resolve_smtp_config
+                smtp_config = await resolve_smtp_config(db, admin)
+                if smtp_config:
+                    html = render_template("invite.html", full_name=body.full_name, invite_link=invite_link)
+                    await send_email(smtp_config, body.email, "You're invited to O-Brain", html)
+            except Exception:
+                pass  # Fallback: admin copies the link
+
+    resp = user_to_response_dict(user)
+    if invite_link:
+        resp["invite_link"] = invite_link
+    return {"data": resp}
+
+
+@router.put("/users/{user_id}")
+async def platform_update_user(
+    user_id: uuid.UUID,
+    body: PlatformUpdateUser,
+    admin: Annotated[User, Depends(require_platform_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Update a user from Platform Admin."""
+    from app.auth.schemas import AdminUserUpdate as AuthUpdate
+    from app.auth.service import admin_update_user as auth_update, user_to_response_dict
+    from app.auth.models import Role as AuthRole
+
+    role_map = {r.value: r for r in AuthRole}
+    update = AuthUpdate(
+        email=body.email,
+        full_name=body.full_name,
+        password=body.password,
+        role=role_map.get(body.role) if body.role else None,
+        feature_access=body.feature_access,
+        is_active=body.is_active,
+    )
+    user = await auth_update(db, str(user_id), update)
+    return {"data": user_to_response_dict(user)}
+
+
+@router.post("/users/{user_id}/deactivate")
+async def deactivate_user(
+    user_id: uuid.UUID,
+    admin: Annotated[User, Depends(require_platform_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    from app.auth.service import deactivate_user as deactivate_svc
+    email = await deactivate_svc(db, str(user_id))
+    return {"data": {"message": f"User {email} deactivated"}}
+
+
+@router.post("/users/{user_id}/reactivate")
+async def reactivate_user(
+    user_id: uuid.UUID,
+    admin: Annotated[User, Depends(require_platform_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(404, "User not found")
+    user.is_active = True
+    await db.commit()
+    return {"data": {"message": f"User {user.email} reactivated"}}
+
+
+@router.get("/features/defaults")
+async def get_feature_defaults(
+    admin: Annotated[User, Depends(require_platform_admin)],
+):
+    """Return feature categories and role defaults for the frontend."""
+    from app.auth.features import FEATURE_CATEGORIES, ROLE_DEFAULTS
+    return {"data": {"categories": FEATURE_CATEGORIES, "role_defaults": ROLE_DEFAULTS}}
+
+
 # ── API key management ────────────────────────────────────────────────────
 
 

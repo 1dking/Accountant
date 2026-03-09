@@ -1,13 +1,15 @@
 import { create } from 'zustand'
 import { api } from '@/api/client'
 
-interface User {
+export interface User {
   id: string
   email: string
   full_name: string
-  role: 'admin' | 'accountant' | 'viewer'
+  role: 'admin' | 'team_member' | 'accountant' | 'client' | 'viewer'
   is_active: boolean
   created_at: string
+  feature_access: Record<string, boolean> | null
+  org_id: string | null
 }
 
 interface AuthState {

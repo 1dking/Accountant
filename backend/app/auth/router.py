@@ -14,6 +14,7 @@ from app.auth.schemas import (
     AdminUserCreate,
     AdminUserUpdate,
     GoogleAuthRequest,
+    InviteCompleteRequest,
     TokenRefreshRequest,
     UserCreate,
     UserLogin,
@@ -25,11 +26,14 @@ from app.auth.service import admin_update_user as admin_update_user_svc
 from app.auth.service import (
     authenticate_google,
     authenticate_user,
+    complete_invite,
     create_user,
     refresh_tokens,
     register_user,
     revoke_refresh_token,
     update_user_profile,
+    user_to_response_dict,
+    validate_invite_token,
 )
 from app.auth.service import deactivate_user as deactivate_user_svc
 from app.auth.service import list_users as list_users_svc
@@ -149,7 +153,7 @@ async def logout(
 async def get_me(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict:
-    return {"data": UserResponse.model_validate(current_user)}
+    return {"data": user_to_response_dict(current_user)}
 
 
 @router.put("/me")
@@ -178,8 +182,8 @@ async def admin_create_user(
     _: Annotated[User, Depends(require_role([Role.ADMIN]))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
-    user = await create_user(db, body.email, body.password, body.full_name, body.role)
-    return {"data": UserResponse.model_validate(user)}
+    user = await create_user(db, body.email, body.password, body.full_name, body.role, body.feature_access)
+    return {"data": user_to_response_dict(user)}
 
 
 @router.put("/users/{user_id}")
@@ -190,7 +194,7 @@ async def admin_update_user(
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     user = await admin_update_user_svc(db, user_id, body)
-    return {"data": UserResponse.model_validate(user)}
+    return {"data": user_to_response_dict(user)}
 
 
 @router.put("/users/{user_id}/role")
@@ -212,6 +216,31 @@ async def deactivate_user(
 ) -> dict:
     email = await deactivate_user_svc(db, user_id)
     return {"data": {"message": f"User {email} deactivated"}}
+
+
+# ---------------------------------------------------------------------------
+# Invite flow
+# ---------------------------------------------------------------------------
+
+
+@router.get("/invite/validate/{token}")
+async def validate_invite(
+    token: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
+) -> dict:
+    user = await validate_invite_token(db, token, request.app.state.settings)
+    return {"data": {"valid": True, "email": user.email, "full_name": user.full_name}}
+
+
+@router.post("/invite/complete")
+async def complete_invite_endpoint(
+    body: InviteCompleteRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
+) -> dict:
+    tokens = await complete_invite(db, body.token, body.password, request.app.state.settings)
+    return {"data": tokens}
 
 
 # ---------------------------------------------------------------------------
