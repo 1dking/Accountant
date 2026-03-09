@@ -14,7 +14,7 @@ export async function createUser(data: { email: string; password: string; full_n
   return api.post<ApiResponse<User>>('/auth/users', data)
 }
 
-export async function updateUser(userId: string, data: { email?: string; password?: string; full_name?: string }) {
+export async function updateUser(userId: string, data: { email?: string; password?: string; full_name?: string; cashbook_access?: string }) {
   return api.put<ApiResponse<User>>(`/auth/users/${userId}`, data)
 }
 

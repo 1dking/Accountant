@@ -44,6 +44,48 @@ def apply_ownership_filter(
     return stmt.where(column == user.id)
 
 
+def apply_cashbook_filter(
+    stmt: Select,
+    user_id_col,
+    org_id_col,
+    user: User,
+) -> Select:
+    """Filter cashbook resources by org_id (if user has org access) or user_id.
+
+    - Admin with org access: filter by org_id (sees all org data)
+    - Admin without org access: no filter (sees everything — legacy behavior)
+    - Non-admin with org access + org_id: filter by org_id (shared org cashbook)
+    - Non-admin without org access: filter by user_id (personal cashbook)
+    """
+    if user.cashbook_access == "org" and user.org_id is not None:
+        return stmt.where(org_id_col == user.org_id)
+    if is_admin(user):
+        return stmt
+    return stmt.where(user_id_col == user.id)
+
+
+def authorize_cashbook_owner(
+    resource_user_id: uuid.UUID,
+    resource_org_id: uuid.UUID | None,
+    user: User,
+    resource_name: str = "Resource",
+) -> None:
+    """Check if user can access a cashbook resource (owns it or shares org)."""
+    if is_admin(user):
+        return
+    # Org access: allow if the resource belongs to the same org
+    if (
+        user.cashbook_access == "org"
+        and user.org_id is not None
+        and resource_org_id == user.org_id
+    ):
+        return
+    # Personal access: must own it
+    if resource_user_id == user.id:
+        return
+    raise NotFoundError(resource_name, "requested")
+
+
 async def get_owned_resource(
     db: AsyncSession,
     stmt: Select,

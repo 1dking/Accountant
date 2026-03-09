@@ -21,6 +21,7 @@ export default function UserManagement() {
   const [editEmail, setEditEmail] = useState('')
   const [editFullName, setEditFullName] = useState('')
   const [editPassword, setEditPassword] = useState('')
+  const [editCashbookAccess, setEditCashbookAccess] = useState<'personal' | 'org'>('personal')
   const [editError, setEditError] = useState('')
 
   const { data } = useQuery({
@@ -55,7 +56,7 @@ export default function UserManagement() {
   })
 
   const editMutation = useMutation({
-    mutationFn: ({ userId, data }: { userId: string; data: { email?: string; password?: string; full_name?: string } }) =>
+    mutationFn: ({ userId, data }: { userId: string; data: { email?: string; password?: string; full_name?: string; cashbook_access?: string } }) =>
       updateUser(userId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] })
@@ -78,17 +79,19 @@ export default function UserManagement() {
     setEditEmail(u.email)
     setEditFullName(u.full_name)
     setEditPassword('')
+    setEditCashbookAccess(u.cashbook_access || 'personal')
     setEditError('')
   }
 
   const handleEdit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!editingId) return
-    const data: { email?: string; password?: string; full_name?: string } = {}
+    const data: { email?: string; password?: string; full_name?: string; cashbook_access?: string } = {}
     const currentUser = users.find((u) => u.id === editingId)
     if (editEmail !== currentUser?.email) data.email = editEmail
     if (editFullName !== currentUser?.full_name) data.full_name = editFullName
     if (editPassword) data.password = editPassword
+    if (editCashbookAccess !== (currentUser as any)?.cashbook_access) data.cashbook_access = editCashbookAccess
     if (Object.keys(data).length === 0) {
       setEditingId(null)
       return
@@ -214,6 +217,37 @@ export default function UserManagement() {
               />
             </div>
           </div>
+          {/* Org Cashbook Access toggle */}
+          <div className="flex items-center gap-3">
+            <label className="text-xs text-gray-500 dark:text-gray-400">Org Cashbook Access</label>
+            {(() => {
+              const editTarget = users.find((u) => u.id === editingId)
+              const isAdmin = editTarget?.role === 'admin'
+              return (
+                <button
+                  type="button"
+                  disabled={isAdmin}
+                  onClick={() => setEditCashbookAccess(editCashbookAccess === 'org' ? 'personal' : 'org')}
+                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    editCashbookAccess === 'org' || isAdmin ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
+                  } ${isAdmin ? 'opacity-70 cursor-not-allowed' : ''}`}
+                >
+                  <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    editCashbookAccess === 'org' || isAdmin ? 'translate-x-4' : 'translate-x-0'
+                  }`} />
+                </button>
+              )
+            })()}
+            <span className="text-xs text-gray-400">
+              {editCashbookAccess === 'org' ? 'Sees shared org cashbook' : 'Sees personal cashbook only'}
+            </span>
+            {(() => {
+              const editTarget = users.find((u) => u.id === editingId)
+              return editTarget?.role === 'admin' ? (
+                <span className="text-xs text-amber-500">(Admin always has org access)</span>
+              ) : null
+            })()}
+          </div>
           {editError && (
             <p className="text-sm text-red-600">{editError}</p>
           )}
@@ -243,6 +277,7 @@ export default function UserManagement() {
               <th className="pb-2 font-medium text-gray-500 dark:text-gray-400">Name</th>
               <th className="pb-2 font-medium text-gray-500 dark:text-gray-400">Email</th>
               <th className="pb-2 font-medium text-gray-500 dark:text-gray-400">Role</th>
+              <th className="pb-2 font-medium text-gray-500 dark:text-gray-400">Cashbook</th>
               <th className="pb-2 font-medium text-gray-500 dark:text-gray-400">Joined</th>
               <th className="pb-2 font-medium text-gray-500 dark:text-gray-400">Status</th>
               <th className="pb-2 font-medium text-gray-500 dark:text-gray-400">Actions</th>
@@ -264,6 +299,13 @@ export default function UserManagement() {
                       <option key={r.value} value={r.value}>{r.label}</option>
                     ))}
                   </select>
+                </td>
+                <td className="py-2">
+                  <span className={`px-2 py-0.5 text-xs rounded-full ${
+                    (u as any).cashbook_access === 'org' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                  }`}>
+                    {(u as any).cashbook_access === 'org' ? 'Org' : 'Personal'}
+                  </span>
                 </td>
                 <td className="py-2 text-gray-500 dark:text-gray-400">{formatDate(u.created_at)}</td>
                 <td className="py-2">

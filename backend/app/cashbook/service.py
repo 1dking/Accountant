@@ -31,7 +31,7 @@ from app.cashbook.schemas import (
     SplitLineItem,
 )
 from app.collaboration.service import log_activity
-from app.core.authorization import apply_ownership_filter, authorize_owner
+from app.core.authorization import apply_cashbook_filter, apply_ownership_filter, authorize_cashbook_owner, authorize_owner
 from app.core.exceptions import ConflictError, ForbiddenError, NotFoundError, ValidationError
 from app.core.pagination import PaginationParams, build_pagination_meta
 
@@ -284,8 +284,12 @@ async def create_account(
     data: PaymentAccountCreate,
     user: User,
 ) -> PaymentAccount:
+    # If user has org cashbook access, tag the account with their org_id
+    org_id = user.org_id if user.cashbook_access == "org" and user.org_id else None
+
     account = PaymentAccount(
         user_id=user.id,
+        org_id=org_id,
         name=data.name,
         account_type=data.account_type,
         currency=data.currency,
@@ -298,7 +302,7 @@ async def create_account(
     await db.refresh(account)
 
     # Reassign orphaned entries (NULL account_id) to this new account
-    orphan_count = await reassign_orphan_entries(db, account.id, user.id)
+    orphan_count = await reassign_orphan_entries(db, account.id, user)
 
     await log_activity(
         db,
@@ -317,17 +321,23 @@ async def create_account(
 
 
 async def reassign_orphan_entries(
-    db: AsyncSession, account_id: uuid.UUID, user_id: uuid.UUID,
+    db: AsyncSession, account_id: uuid.UUID, user: User,
 ) -> int:
-    """Assign entries with NULL account_id to the given account."""
-    stmt = (
-        sa_update(CashbookEntry)
-        .where(
+    """Assign entries with NULL account_id to the given account.
+
+    If user has org cashbook access, reassign org orphans; otherwise personal orphans.
+    """
+    if user.cashbook_access == "org" and user.org_id:
+        where_clause = [
             CashbookEntry.account_id.is_(None),
-            CashbookEntry.user_id == user_id,
-        )
-        .values(account_id=account_id)
-    )
+            CashbookEntry.org_id == user.org_id,
+        ]
+    else:
+        where_clause = [
+            CashbookEntry.account_id.is_(None),
+            CashbookEntry.user_id == user.id,
+        ]
+    stmt = sa_update(CashbookEntry).where(*where_clause).values(account_id=account_id)
     result = await db.execute(stmt)
     if result.rowcount > 0:
         await db.commit()
@@ -340,12 +350,12 @@ async def fix_orphan_entries(db: AsyncSession, user: User) -> int:
     accounts = await list_accounts(db, user)
     if not accounts:
         return 0
-    return await reassign_orphan_entries(db, accounts[0].id, user.id)
+    return await reassign_orphan_entries(db, accounts[0].id, user)
 
 
 async def list_accounts(db: AsyncSession, user: User) -> list[PaymentAccount]:
     stmt = select(PaymentAccount).where(PaymentAccount.is_active.is_(True)).order_by(PaymentAccount.created_at)
-    stmt = apply_ownership_filter(stmt, PaymentAccount.user_id, user)
+    stmt = apply_cashbook_filter(stmt, PaymentAccount.user_id, PaymentAccount.org_id, user)
     result = await db.execute(stmt)
     return list(result.scalars().all())
 
@@ -358,7 +368,7 @@ async def get_account(db: AsyncSession, account_id: uuid.UUID, user: User | None
     if account is None:
         raise NotFoundError("PaymentAccount", str(account_id))
     if user is not None:
-        authorize_owner(account.user_id, user, "PaymentAccount")
+        authorize_cashbook_owner(account.user_id, account.org_id, user, "PaymentAccount")
     return account
 
 
@@ -508,6 +518,9 @@ async def create_entry(
     else:
         tax_rate_used = None
 
+    # Tag with org_id if user has org cashbook access
+    org_id = user.org_id if user.cashbook_access == "org" and user.org_id else None
+
     entry = CashbookEntry(
         account_id=data.account_id,
         entry_type=data.entry_type,
@@ -522,6 +535,7 @@ async def create_entry(
         document_id=data.document_id,
         notes=data.notes,
         user_id=user.id,
+        org_id=org_id,
         source=data.source or "manual",
         source_id=data.source_id,
     )
@@ -582,7 +596,7 @@ async def list_entries(
         selectinload(CashbookEntry.category),
         selectinload(CashbookEntry.account),
     )
-    query = apply_ownership_filter(query, CashbookEntry.user_id, user)
+    query = apply_cashbook_filter(query, CashbookEntry.user_id, CashbookEntry.org_id, user)
 
     # Filter out deleted entries by default
     if not filters.include_deleted:
@@ -678,7 +692,7 @@ async def get_entry(db: AsyncSession, entry_id: uuid.UUID, user: User | None = N
     if entry is None:
         raise NotFoundError("CashbookEntry", str(entry_id))
     if user is not None:
-        authorize_owner(entry.user_id, user, "CashbookEntry")
+        authorize_cashbook_owner(entry.user_id, entry.org_id, user, "CashbookEntry")
     return entry
 
 
@@ -758,7 +772,7 @@ async def restore_entry(db: AsyncSession, entry_id: uuid.UUID, user: User) -> Ca
     entry = result.scalar_one_or_none()
     if entry is None:
         raise NotFoundError("CashbookEntry", str(entry_id))
-    authorize_owner(entry.user_id, user, "CashbookEntry")
+    authorize_cashbook_owner(entry.user_id, entry.org_id, user, "CashbookEntry")
 
     entry.is_deleted = False
     entry.deleted_at = None

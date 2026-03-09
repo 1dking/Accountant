@@ -253,6 +253,8 @@ async def admin_update_user(
         user.feature_access_json = json.dumps(updates.feature_access)
     if updates.is_active is not None:
         user.is_active = updates.is_active
+    if updates.cashbook_access is not None:
+        user.cashbook_access = updates.cashbook_access
     await db.commit()
     await db.refresh(user)
     return user
@@ -432,4 +434,5 @@ def user_to_response_dict(user: User) -> dict:
         "created_at": user.created_at,
         "feature_access": features,
         "org_id": user.org_id,
+        "cashbook_access": user.cashbook_access,
     }

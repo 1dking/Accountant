@@ -10,6 +10,7 @@ export interface User {
   created_at: string
   feature_access: Record<string, boolean> | null
   org_id: string | null
+  cashbook_access: 'personal' | 'org'
 }
 
 interface AuthState {

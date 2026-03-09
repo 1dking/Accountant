@@ -49,6 +49,7 @@ class UserResponse(BaseModel):
     created_at: datetime
     feature_access: dict[str, bool] | None = None
     org_id: uuid.UUID | None = None
+    cashbook_access: str = "personal"
 
     model_config = {"from_attributes": True}
 
@@ -97,6 +98,7 @@ class AdminUserUpdate(BaseModel):
     role: Optional[Role] = None
     feature_access: Optional[dict[str, bool]] = None
     is_active: Optional[bool] = None
+    cashbook_access: Optional[str] = Field(None, pattern=r"^(personal|org)$")
 
 
 class InviteCompleteRequest(BaseModel):

@@ -33,6 +33,9 @@ class User(TimestampMixin, Base):
     org_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    cashbook_access: Mapped[str] = mapped_column(
+        String(20), default="personal", server_default="personal", nullable=False
+    )
 
 
 class RefreshToken(Base):

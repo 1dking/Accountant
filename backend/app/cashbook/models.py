@@ -84,6 +84,9 @@ class PaymentAccount(TimestampMixin, Base):
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id"), nullable=False, index=True
     )
+    org_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     account_type: Mapped[AccountType] = mapped_column(
         Enum(AccountType), nullable=False
@@ -150,6 +153,9 @@ class CashbookEntry(TimestampMixin, Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id"), nullable=False, index=True
+    )
+    org_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True, index=True
     )
 
     # Status tracking
