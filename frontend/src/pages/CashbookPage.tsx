@@ -38,6 +38,7 @@ import {
   CheckCircle2,
   XCircle,
   Shield,
+  X,
 } from 'lucide-react'
 import type {
   CashbookEntryFilters,
@@ -107,6 +108,7 @@ export default function CashbookPage() {
   // Add Account form
   const [newAccountName, setNewAccountName] = useState('')
   const [newAccountType, setNewAccountType] = useState<AccountType>('bank')
+  const [newAccountCurrency, setNewAccountCurrency] = useState('CAD')
   const [newAccountBalance, setNewAccountBalance] = useState('')
   const [newAccountDate, setNewAccountDate] = useState(new Date().toISOString().split('T')[0])
 
@@ -166,17 +168,22 @@ export default function CashbookPage() {
       createAccount({
         name: newAccountName,
         account_type: newAccountType,
+        currency: newAccountCurrency,
         opening_balance: parseFloat(newAccountBalance) || 0,
         opening_balance_date: newAccountDate,
       }),
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['cashbook-accounts'] })
+    onSuccess: async (data) => {
+      await queryClient.invalidateQueries({ queryKey: ['cashbook-accounts'] })
+      queryClient.invalidateQueries({ queryKey: ['cashbook-entries'] })
+      queryClient.invalidateQueries({ queryKey: ['cashbook-summary'] })
       setSelectedAccountId(data.data.id)
       setShowAddAccount(false)
       setNewAccountName('')
       setNewAccountType('bank')
+      setNewAccountCurrency('CAD')
       setNewAccountBalance('')
       setNewAccountDate(new Date().toISOString().split('T')[0])
+      toast.success(`Account "${data.data.name}" created`)
     },
   })
 
@@ -264,6 +271,50 @@ export default function CashbookPage() {
   const incomeTotals = categoryTotals.filter((ct: any) => ct.entry_type === 'income')
   const expenseTotals = categoryTotals.filter((ct: any) => ct.entry_type === 'expense')
 
+  const AddAccountModal = () => (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowAddAccount(false)}>
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl border dark:border-gray-700 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4 border-b dark:border-gray-700">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Add Payment Account</h3>
+          <button onClick={() => setShowAddAccount(false)} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="px-6 py-5 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Account Name *</label>
+            <input type="text" value={newAccountName} onChange={e => setNewAccountName(e.target.value)} placeholder="Business Checking" className="w-full px-3 py-2 text-sm border dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" autoFocus />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
+              <select value={newAccountType} onChange={e => setNewAccountType(e.target.value as AccountType)} className="w-full px-3 py-2 text-sm border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 dark:text-gray-100">
+                {ACCOUNT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Currency</label>
+              <select value={newAccountCurrency} onChange={e => setNewAccountCurrency(e.target.value)} className="w-full px-3 py-2 text-sm border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 dark:text-gray-100">
+                <option value="CAD">CAD</option>
+                <option value="USD">USD</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Opening Balance</label>
+            <input type="number" step="0.01" value={newAccountBalance} onChange={e => setNewAccountBalance(e.target.value)} placeholder="0.00" className="w-full px-3 py-2 text-sm border dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 px-6 py-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 rounded-b-xl">
+          <button onClick={() => setShowAddAccount(false)} className="px-4 py-2 text-sm border dark:border-gray-600 rounded-lg dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Cancel</button>
+          <button onClick={() => createAccountMutation.mutate()} disabled={!newAccountName || createAccountMutation.isPending} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">
+            {createAccountMutation.isPending ? 'Creating...' : 'Create Account'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+
   if (accountsLoading) {
     return (
       <div className="p-6">
@@ -275,18 +326,19 @@ export default function CashbookPage() {
     )
   }
 
-  if (accounts.length === 0 && !showAddAccount) {
+  if (accounts.length === 0) {
     return (
       <div className="p-6">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">Cashbook</h1>
         <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-12 text-center">
-          <Wallet className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-          <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">No Payment Accounts</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Create a payment account to start tracking.</p>
+          <Wallet className="h-16 w-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+          <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">Create your first account</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Add a payment account to start tracking income and expenses.</p>
           <button onClick={() => setShowAddAccount(true)} className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">
             <Plus className="h-4 w-4" /> Add Account
           </button>
         </div>
+        {showAddAccount && <AddAccountModal />}
       </div>
     )
   }
@@ -333,38 +385,8 @@ export default function CashbookPage() {
         </div>
       </div>
 
-      {/* Add Account */}
-      {showAddAccount && (
-        <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Add Payment Account</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name *</label>
-              <input type="text" value={newAccountName} onChange={e => setNewAccountName(e.target.value)} placeholder="Business Checking" className="w-full px-3 py-2 text-sm border dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-gray-100" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
-              <select value={newAccountType} onChange={e => setNewAccountType(e.target.value as AccountType)} className="w-full px-3 py-2 text-sm border dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 dark:text-gray-100">
-                {ACCOUNT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Balance</label>
-              <input type="number" step="0.01" value={newAccountBalance} onChange={e => setNewAccountBalance(e.target.value)} placeholder="0.00" className="w-full px-3 py-2 text-sm border dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-gray-100" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date</label>
-              <input type="date" value={newAccountDate} onChange={e => setNewAccountDate(e.target.value)} className="w-full px-3 py-2 text-sm border dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-gray-100" />
-            </div>
-          </div>
-          <div className="flex justify-end gap-2 mt-4">
-            <button onClick={() => setShowAddAccount(false)} className="px-4 py-2 text-sm border dark:border-gray-600 rounded-md dark:text-gray-300">Cancel</button>
-            <button onClick={() => createAccountMutation.mutate()} disabled={!newAccountName || createAccountMutation.isPending} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50">
-              {createAccountMutation.isPending ? 'Creating...' : 'Create'}
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Add Account Modal */}
+      {showAddAccount && <AddAccountModal />}
 
       {/* Account Tabs */}
       <div className="flex items-center gap-1 border-b dark:border-gray-700 overflow-x-auto">
@@ -374,7 +396,7 @@ export default function CashbookPage() {
         {accounts.map(account => (
           <button key={account.id} onClick={() => { setSelectedAccountId(account.id); setPage(1); setSelectedIds(new Set()) }} className={`px-4 py-2 text-sm font-medium border-b-2 whitespace-nowrap ${activeAccountId === account.id ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}>
             {account.name}
-            <span className="ml-2 text-xs text-gray-400">{ACCOUNT_TYPES.find(t => t.value === account.account_type)?.label ?? ''}</span>
+            <span className="ml-2 text-xs text-gray-400">{ACCOUNT_TYPES.find(t => t.value === account.account_type)?.label ?? ''} ({account.currency || 'CAD'})</span>
           </button>
         ))}
         {activeAccountId !== 'all' && (

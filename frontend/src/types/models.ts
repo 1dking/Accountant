@@ -899,6 +899,7 @@ export interface PaymentAccount {
   user_id: string
   name: string
   account_type: AccountType
+  currency: string
   opening_balance: number
   opening_balance_date: string
   default_tax_rate_id: string | null

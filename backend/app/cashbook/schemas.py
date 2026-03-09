@@ -52,6 +52,7 @@ class TransactionCategoryResponse(BaseModel):
 class PaymentAccountCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     account_type: AccountType
+    currency: str = "CAD"
     opening_balance: Decimal = Decimal("0.0")
     opening_balance_date: date
     default_tax_rate_id: str | None = None
@@ -60,6 +61,7 @@ class PaymentAccountCreate(BaseModel):
 class PaymentAccountUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=100)
     account_type: AccountType | None = None
+    currency: str | None = None
     opening_balance: Decimal | None = None
     opening_balance_date: Optional[date] = None
     default_tax_rate_id: str | None = None
@@ -71,6 +73,7 @@ class PaymentAccountResponse(BaseModel):
     user_id: uuid.UUID
     name: str
     account_type: AccountType
+    currency: str
     opening_balance: Decimal
     opening_balance_date: date
     default_tax_rate_id: str | None

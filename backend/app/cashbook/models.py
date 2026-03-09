@@ -88,6 +88,7 @@ class PaymentAccount(TimestampMixin, Base):
     account_type: Mapped[AccountType] = mapped_column(
         Enum(AccountType), nullable=False
     )
+    currency: Mapped[str] = mapped_column(String(3), default="CAD", nullable=False)
     opening_balance: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0, nullable=False)
     opening_balance_date: Mapped[date] = mapped_column(Date, nullable=False)
     default_tax_rate_id: Mapped[str | None] = mapped_column(
@@ -108,9 +109,9 @@ class CashbookEntry(TimestampMixin, Base):
     )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    account_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("payment_accounts.id", ondelete="CASCADE"),
-        nullable=False,
+    account_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("payment_accounts.id", ondelete="SET NULL"),
+        nullable=True,
         index=True,
     )
     entry_type: Mapped[EntryType] = mapped_column(

@@ -288,6 +288,7 @@ async def create_account(
         user_id=user.id,
         name=data.name,
         account_type=data.account_type,
+        currency=data.currency,
         opening_balance=data.opening_balance,
         opening_balance_date=data.opening_balance_date,
         default_tax_rate_id=data.default_tax_rate_id,
@@ -296,16 +297,42 @@ async def create_account(
     await db.commit()
     await db.refresh(account)
 
+    # Reassign orphaned entries (NULL account_id) to this new account
+    orphan_count = await _reassign_orphan_entries(db, account.id, user.id)
+
     await log_activity(
         db,
         user_id=user.id,
         action="account_created",
         resource_type="payment_account",
         resource_id=str(account.id),
-        details={"name": account.name, "account_type": account.account_type.value},
+        details={
+            "name": account.name,
+            "account_type": account.account_type.value,
+            "orphans_reassigned": orphan_count,
+        },
     )
 
     return account
+
+
+async def _reassign_orphan_entries(
+    db: AsyncSession, account_id: uuid.UUID, user_id: uuid.UUID,
+) -> int:
+    """Assign entries with NULL account_id to the given account."""
+    stmt = (
+        sa_update(CashbookEntry)
+        .where(
+            CashbookEntry.account_id.is_(None),
+            CashbookEntry.user_id == user_id,
+        )
+        .values(account_id=account_id)
+    )
+    result = await db.execute(stmt)
+    if result.rowcount > 0:
+        await db.commit()
+        logger.info("Reassigned %d orphan entries to account %s", result.rowcount, account_id)
+    return result.rowcount
 
 
 async def list_accounts(db: AsyncSession, user: User) -> list[PaymentAccount]:
