@@ -73,13 +73,13 @@ def upgrade() -> None:
     # Set admin users to 'org' cashbook access by default
     op.execute("""
         UPDATE users SET cashbook_access = 'org'
-        WHERE role = 'admin'
+        WHERE role = 'ADMIN'
           AND org_id IS NOT NULL
     """)
     # Set accountant users to 'org' cashbook access by default
     op.execute("""
         UPDATE users SET cashbook_access = 'org'
-        WHERE role = 'accountant'
+        WHERE role = 'ACCOUNTANT'
           AND org_id IS NOT NULL
     """)
 
