@@ -160,7 +160,8 @@ class CashbookEntry(TimestampMixin, Base):
 
     # Status tracking
     status: Mapped[EntryStatus] = mapped_column(
-        Enum(EntryStatus), nullable=False, default=EntryStatus.PENDING, server_default="pending"
+        Enum(EntryStatus, values_callable=lambda e: [x.value for x in e]),
+        nullable=False, default=EntryStatus.PENDING, server_default="pending"
     )
 
     # Soft delete
