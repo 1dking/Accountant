@@ -6,6 +6,7 @@ export interface User {
   role: 'admin' | 'accountant' | 'viewer'
   is_active: boolean
   created_at: string
+  cashbook_access?: 'personal' | 'org'
 }
 
 // Documents

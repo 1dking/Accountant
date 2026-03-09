@@ -91,7 +91,7 @@ export default function UserManagement() {
     if (editEmail !== currentUser?.email) data.email = editEmail
     if (editFullName !== currentUser?.full_name) data.full_name = editFullName
     if (editPassword) data.password = editPassword
-    if (editCashbookAccess !== (currentUser as any)?.cashbook_access) data.cashbook_access = editCashbookAccess
+    if (editCashbookAccess !== currentUser?.cashbook_access) data.cashbook_access = editCashbookAccess
     if (Object.keys(data).length === 0) {
       setEditingId(null)
       return
@@ -302,9 +302,9 @@ export default function UserManagement() {
                 </td>
                 <td className="py-2">
                   <span className={`px-2 py-0.5 text-xs rounded-full ${
-                    (u as any).cashbook_access === 'org' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                    u.cashbook_access === 'org' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
                   }`}>
-                    {(u as any).cashbook_access === 'org' ? 'Org' : 'Personal'}
+                    {u.cashbook_access === 'org' ? 'Org' : 'Personal'}
                   </span>
                 </td>
                 <td className="py-2 text-gray-500 dark:text-gray-400">{formatDate(u.created_at)}</td>

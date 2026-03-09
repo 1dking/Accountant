@@ -145,17 +145,10 @@ export default function CashbookPage() {
   // Fetch summary
   const { data: summaryData } = useQuery({
     queryKey: ['cashbook-summary', activeAccountId, dateFrom, dateTo],
-    queryFn: () => getSummary(activeAccountId, dateFrom, dateTo),
-    enabled: !!activeAccountId && activeAccountId !== 'all',
+    queryFn: () => getSummary(activeAccountId !== 'all' ? activeAccountId : null, dateFrom, dateTo),
+    enabled: !!activeAccountId,
   })
   const summary = summaryData?.data
-
-  const allAccountsSummary = activeAccountId === 'all' && entries.length > 0 ? {
-    total_income: entries.filter(e => e.entry_type === 'income').reduce((s, e) => s + e.total_amount, 0),
-    total_expenses: entries.filter(e => e.entry_type === 'expense').reduce((s, e) => s + e.total_amount, 0),
-    opening_balance: 0,
-    closing_balance: 0,
-  } : null
 
   const accountMap = new Map(accounts.map(a => [a.id, a]))
 
@@ -529,33 +522,28 @@ export default function CashbookPage() {
       )}
 
       {/* Stats */}
-      {(summary || allAccountsSummary) && (() => {
-        const s = summary ?? allAccountsSummary!
-        return (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {activeAccountId !== 'all' && (
-              <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-4">
-                <div className="flex items-center gap-2 text-sm text-gray-500 mb-1"><Wallet className="h-4 w-4" /> Opening</div>
-                <p className="text-xl font-bold text-gray-900 dark:text-gray-100">{s.opening_balance < 0 ? '-' : ''}{formatCurrency(s.opening_balance)}</p>
-              </div>
-            )}
-            <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-4">
-              <div className="flex items-center gap-2 text-sm text-green-600 mb-1"><TrendingUp className="h-4 w-4" /> Income</div>
-              <p className="text-xl font-bold text-green-700">{formatCurrency(s.total_income)}</p>
-            </div>
-            <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-4">
-              <div className="flex items-center gap-2 text-sm text-red-600 mb-1"><TrendingDown className="h-4 w-4" /> Expenses</div>
-              <p className="text-xl font-bold text-red-700">{formatCurrency(s.total_expenses)}</p>
-            </div>
-            <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-4">
-              <div className="flex items-center gap-2 text-sm text-gray-500 mb-1"><DollarSign className="h-4 w-4" /> {activeAccountId !== 'all' ? 'Closing' : 'Net'}</div>
-              <p className={`text-xl font-bold ${(activeAccountId !== 'all' ? s.closing_balance : s.total_income - s.total_expenses) >= 0 ? 'text-gray-900 dark:text-gray-100' : 'text-red-700'}`}>
-                {formatCurrency(activeAccountId !== 'all' ? s.closing_balance : s.total_income - s.total_expenses)}
-              </p>
-            </div>
+      {summary && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-4">
+            <div className="flex items-center gap-2 text-sm text-gray-500 mb-1"><Wallet className="h-4 w-4" /> Opening</div>
+            <p className="text-xl font-bold text-gray-900 dark:text-gray-100">{summary.opening_balance < 0 ? '-' : ''}{formatCurrency(summary.opening_balance)}</p>
           </div>
-        )
-      })()}
+          <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-4">
+            <div className="flex items-center gap-2 text-sm text-green-600 mb-1"><TrendingUp className="h-4 w-4" /> Income</div>
+            <p className="text-xl font-bold text-green-700">{formatCurrency(summary.total_income)}</p>
+          </div>
+          <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-4">
+            <div className="flex items-center gap-2 text-sm text-red-600 mb-1"><TrendingDown className="h-4 w-4" /> Expenses</div>
+            <p className="text-xl font-bold text-red-700">{formatCurrency(summary.total_expenses)}</p>
+          </div>
+          <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-4">
+            <div className="flex items-center gap-2 text-sm text-gray-500 mb-1"><DollarSign className="h-4 w-4" /> Closing</div>
+            <p className={`text-xl font-bold ${summary.closing_balance >= 0 ? 'text-gray-900 dark:text-gray-100' : 'text-red-700'}`}>
+              {summary.closing_balance < 0 ? '-' : ''}{formatCurrency(summary.closing_balance)}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Tax Row */}
       {summary && (summary.total_tax_collected > 0 || summary.total_tax_paid > 0) && (

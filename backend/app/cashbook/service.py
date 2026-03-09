@@ -1123,6 +1123,147 @@ async def get_summary(
     }
 
 
+async def get_aggregate_summary(
+    db: AsyncSession,
+    user: User,
+    date_from: date,
+    date_to: date,
+) -> dict:
+    """Get aggregate summary across ALL accounts visible to this user."""
+    # Get user's accounts to sum opening balances
+    accounts = await list_accounts(db, user)
+
+    alive = CashbookEntry.is_deleted.is_(False)
+
+    # Build base filter: all entries this user can see
+    base_stmt = select(CashbookEntry).where(alive)
+    base_stmt = apply_cashbook_filter(base_stmt, CashbookEntry.user_id, CashbookEntry.org_id, user)
+
+    # We need just the WHERE clause from the filtered stmt for sub-queries
+    # Easier: collect account IDs and filter by those
+    account_ids = [a.id for a in accounts]
+    if not account_ids:
+        zero = Decimal("0.00")
+        return {
+            "opening_balance": zero,
+            "closing_balance": zero,
+            "total_income": zero,
+            "total_expenses": zero,
+            "net_change": zero,
+            "total_tax_collected": zero,
+            "total_tax_paid": zero,
+            "category_totals": [],
+            "period_start": date_from,
+            "period_end": date_to,
+        }
+
+    acct_filter = CashbookEntry.account_id.in_(account_ids)
+
+    total_income = await db.scalar(
+        select(func.coalesce(func.sum(CashbookEntry.total_amount), 0.0)).where(
+            acct_filter, CashbookEntry.entry_type == EntryType.INCOME,
+            CashbookEntry.date.between(date_from, date_to), alive,
+        )
+    ) or 0
+
+    total_expenses = await db.scalar(
+        select(func.coalesce(func.sum(CashbookEntry.total_amount), 0.0)).where(
+            acct_filter, CashbookEntry.entry_type == EntryType.EXPENSE,
+            CashbookEntry.date.between(date_from, date_to), alive,
+        )
+    ) or 0
+
+    total_tax_collected = await db.scalar(
+        select(func.coalesce(func.sum(CashbookEntry.tax_amount), 0.0)).where(
+            acct_filter, CashbookEntry.entry_type == EntryType.INCOME,
+            CashbookEntry.date.between(date_from, date_to),
+            CashbookEntry.tax_amount.isnot(None), alive,
+        )
+    ) or 0
+
+    total_tax_paid = await db.scalar(
+        select(func.coalesce(func.sum(CashbookEntry.tax_amount), 0.0)).where(
+            acct_filter, CashbookEntry.entry_type == EntryType.EXPENSE,
+            CashbookEntry.date.between(date_from, date_to),
+            CashbookEntry.tax_amount.isnot(None), alive,
+        )
+    ) or 0
+
+    # Pre-period entries for opening balance
+    pre_income = await db.scalar(
+        select(func.coalesce(func.sum(CashbookEntry.total_amount), 0.0)).where(
+            acct_filter, CashbookEntry.entry_type == EntryType.INCOME,
+            CashbookEntry.date < date_from, alive,
+        )
+    ) or 0
+
+    pre_expense = await db.scalar(
+        select(func.coalesce(func.sum(CashbookEntry.total_amount), 0.0)).where(
+            acct_filter, CashbookEntry.entry_type == EntryType.EXPENSE,
+            CashbookEntry.date < date_from, alive,
+        )
+    ) or 0
+
+    d_total_income = Decimal(str(total_income))
+    d_total_expenses = Decimal(str(total_expenses))
+    d_pre_income = Decimal(str(pre_income))
+    d_pre_expense = Decimal(str(pre_expense))
+
+    # Sum opening balances across all accounts
+    total_opening = sum(Decimal(str(a.opening_balance)) for a in accounts)
+
+    opening_balance = total_opening + d_pre_income - d_pre_expense
+    net_change = d_total_income - d_total_expenses
+    closing_balance = opening_balance + net_change
+
+    # Category totals
+    category_query = (
+        select(
+            TransactionCategory.id.label("category_id"),
+            TransactionCategory.name.label("category_name"),
+            TransactionCategory.category_type.label("cat_type"),
+            CashbookEntry.entry_type,
+            func.sum(CashbookEntry.total_amount).label("total_amount"),
+            func.coalesce(func.sum(CashbookEntry.tax_amount), 0.0).label("total_tax"),
+            func.count(CashbookEntry.id).label("count"),
+        )
+        .outerjoin(TransactionCategory, CashbookEntry.category_id == TransactionCategory.id)
+        .where(acct_filter, CashbookEntry.date.between(date_from, date_to), alive)
+        .group_by(
+            TransactionCategory.id, TransactionCategory.name,
+            TransactionCategory.category_type, CashbookEntry.entry_type,
+        )
+        .order_by(func.sum(CashbookEntry.total_amount).desc())
+    )
+
+    cat_result = await db.execute(category_query)
+    category_totals = [
+        CategoryTotal(
+            category_id=row.category_id,
+            category_name=row.category_name or "Uncategorized",
+            category_type=row.cat_type,
+            entry_type=row.entry_type,
+            total_amount=Decimal(str(row.total_amount)) if row.total_amount else Decimal("0"),
+            total_tax=Decimal(str(row.total_tax)) if row.total_tax else Decimal("0"),
+            count=row.count,
+        )
+        for row in cat_result.all()
+    ]
+
+    return {
+        "opening_balance": opening_balance.quantize(Decimal("0.01")),
+        "closing_balance": closing_balance.quantize(Decimal("0.01")),
+        "total_income": d_total_income.quantize(Decimal("0.01")),
+        "total_expenses": d_total_expenses.quantize(Decimal("0.01")),
+        "net_change": net_change.quantize(Decimal("0.01")),
+        "total_tax_collected": Decimal(str(total_tax_collected)).quantize(Decimal("0.01")),
+        "total_tax_paid": Decimal(str(total_tax_paid)).quantize(Decimal("0.01")),
+        "category_totals": category_totals,
+        "period_start": date_from,
+        "period_end": date_to,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Document Capture → Cashbook Entry
 # ---------------------------------------------------------------------------

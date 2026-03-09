@@ -426,12 +426,15 @@ async def capture_endpoint(
 @router.get("/summary")
 async def get_summary(
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(get_current_user)],
-    account_id: uuid.UUID = ...,
+    current_user: Annotated[User, Depends(get_current_user)],
     date_from: date = ...,
     date_to: date = ...,
+    account_id: Optional[uuid.UUID] = None,
 ) -> dict:
-    summary = await service.get_summary(db, account_id, date_from, date_to)
+    if account_id is not None:
+        summary = await service.get_summary(db, account_id, date_from, date_to)
+    else:
+        summary = await service.get_aggregate_summary(db, current_user, date_from, date_to)
     return {"data": CashbookSummary(**summary).model_dump(mode="json")}
 
 

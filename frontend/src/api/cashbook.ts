@@ -77,9 +77,11 @@ export function deleteEntry(id: string) {
 }
 
 // Summary
-export function getSummary(accountId: string, dateFrom: string, dateTo: string) {
+export function getSummary(accountId: string | null, dateFrom: string, dateTo: string) {
+  const params = new URLSearchParams({ date_from: dateFrom, date_to: dateTo })
+  if (accountId) params.set('account_id', accountId)
   return api.get<ApiResponse<CashbookSummary>>(
-    `/cashbook/summary?account_id=${accountId}&date_from=${dateFrom}&date_to=${dateTo}`
+    `/cashbook/summary?${params.toString()}`
   )
 }
 
