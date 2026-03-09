@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router'
-import { User, Mail, Inbox, Landmark, CreditCard, MessageSquare, Bell, Lock, Receipt, Building2, CalendarDays, BellRing } from 'lucide-react'
+import { User, Mail, Inbox, Landmark, CreditCard, MessageSquare, Bell, Lock, Receipt, Building2, CalendarDays, BellRing, Newspaper } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/authStore'
 import ProfileSettings from '@/components/settings/ProfileSettings'
@@ -17,6 +17,7 @@ import TaxSettings from '@/components/settings/TaxSettings'
 import BrandingSettings from '@/components/settings/BrandingSettings'
 import GoogleCalendarSettings from '@/components/settings/GoogleCalendarSettings'
 import PushNotificationSettings from '@/components/settings/PushNotificationSettings'
+import NewsPreferences from '@/components/settings/NewsPreferences'
 
 const TABS: { id: string; label: string; icon: typeof User; adminOnly?: boolean }[] = [
   { id: 'branding', label: 'Branding', icon: Building2 },
@@ -31,6 +32,7 @@ const TABS: { id: string; label: string; icon: typeof User; adminOnly?: boolean 
   { id: 'tax', label: 'Sales Tax', icon: Receipt },
   { id: 'sms', label: 'SMS', icon: MessageSquare },
   { id: 'reminders', label: 'Reminders', icon: Bell },
+  { id: 'news', label: 'News', icon: Newspaper },
   { id: 'periods', label: 'Periods', icon: Lock, adminOnly: true },
 ]
 
@@ -101,6 +103,7 @@ export default function SettingsPage() {
           {activeTab === 'tax' && <TaxSettings />}
           {activeTab === 'sms' && <SmsSettings />}
           {activeTab === 'reminders' && <ReminderSettings />}
+          {activeTab === 'news' && <NewsPreferences />}
           {activeTab === 'periods' && user?.role === 'admin' && <PeriodSettings />}
         </div>
       </div>

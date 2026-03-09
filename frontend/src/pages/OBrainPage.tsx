@@ -6,6 +6,7 @@ import remarkGfm from 'remark-gfm'
 import {
   ArrowLeft, Send, Sparkles, Loader2, Plus, Trash2,
   Database, PanelLeftClose, PanelLeft, Paperclip, X, FileIcon, Mic, Square,
+  Newspaper, RefreshCw, ExternalLink,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
@@ -14,7 +15,10 @@ import {
   getConversation,
   deleteConversation,
   listKnowledge,
+  listNewsArticles,
+  refreshNews,
   type Conversation,
+  type NewsArticle,
 } from '@/api/brain'
 
 interface DisplayMessage {
@@ -100,6 +104,32 @@ export default function OBrainPage() {
     queryFn: () => listKnowledge(1, 100, 'discovery'),
   })
   const discoveryProgress = Math.min(100, Math.round(((knowledgeData?.data?.items?.length ?? 0) / 28) * 100))
+
+  // News
+  const [showNews, setShowNews] = useState(false)
+  const [newsFilter, setNewsFilter] = useState('all')
+  const [newsRefreshing, setNewsRefreshing] = useState(false)
+  const { data: newsData, refetch: refetchNews } = useQuery({
+    queryKey: ['brain-news-page', newsFilter],
+    queryFn: () => listNewsArticles(newsFilter !== 'all' ? newsFilter : undefined, 20),
+    enabled: showNews,
+  })
+  const newsArticles: NewsArticle[] = newsData?.data ?? []
+
+  const handleRefreshNewsPage = async () => {
+    setNewsRefreshing(true)
+    try {
+      await refreshNews()
+      await refetchNews()
+    } finally {
+      setNewsRefreshing(false)
+    }
+  }
+
+  const handleDiscussArticlePage = (article: NewsArticle) => {
+    setShowNews(false)
+    handleSend(`Tell me more about this news article: "${article.title}" from ${article.source}. ${article.summary || ''}`)
+  }
 
   useEffect(() => {
     scrollToBottom()
@@ -432,6 +462,20 @@ export default function OBrainPage() {
             <Sparkles className="h-5 w-5 text-purple-500" />
             <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">O-Brain</h1>
           </div>
+          <div className="ml-auto">
+            <button
+              onClick={() => setShowNews(!showNews)}
+              className={cn(
+                'p-1.5 rounded-lg transition',
+                showNews
+                  ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+              )}
+              title="News"
+            >
+              <Newspaper className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         {/* Drag overlay */}
@@ -606,6 +650,103 @@ export default function OBrainPage() {
           </div>
         </div>
       </div>
+
+      {/* News Panel */}
+      {showNews && (
+        <div className="w-[320px] bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-700 flex flex-col shrink-0">
+          <div className="p-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Newspaper className="h-4 w-4 text-blue-600" />
+              <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">News</span>
+            </div>
+            <button
+              onClick={handleRefreshNewsPage}
+              disabled={newsRefreshing}
+              className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50"
+              title="Refresh"
+            >
+              <RefreshCw className={cn('h-3.5 w-3.5', newsRefreshing && 'animate-spin')} />
+            </button>
+          </div>
+
+          {/* Filter pills */}
+          <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-700 flex gap-1 overflow-x-auto">
+            {[
+              { key: 'all', label: 'All' },
+              { key: 'industry', label: 'My Industry' },
+              { key: 'local', label: 'Local' },
+              { key: 'topic', label: 'AI & Tech' },
+            ].map((f) => (
+              <button
+                key={f.key}
+                onClick={() => setNewsFilter(f.key)}
+                className={cn(
+                  'px-2.5 py-1 rounded-full text-[11px] font-medium whitespace-nowrap transition-colors',
+                  newsFilter === f.key
+                    ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                )}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Articles */}
+          <div className="flex-1 overflow-y-auto scrollbar-thin">
+            {newsArticles.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
+                <Newspaper className="h-10 w-10 text-gray-300 dark:text-gray-600 mb-3" />
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">No news articles yet</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">Set preferences in Settings &gt; News</p>
+                <button
+                  onClick={handleRefreshNewsPage}
+                  disabled={newsRefreshing}
+                  className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  {newsRefreshing ? 'Fetching...' : 'Fetch articles now'}
+                </button>
+              </div>
+            ) : (
+              newsArticles.map((article) => (
+                <div
+                  key={article.id}
+                  className="px-3 py-3 border-b border-gray-50 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                >
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100 line-clamp-2 leading-snug">
+                    {article.title}
+                  </p>
+                  <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1">
+                    {article.source}
+                    {article.published_at && (
+                      <> &middot; {new Date(article.published_at).toLocaleDateString()}</>
+                    )}
+                  </p>
+                  {article.summary && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">{article.summary}</p>
+                  )}
+                  <div className="flex items-center gap-3 mt-2">
+                    <button
+                      onClick={() => handleDiscussArticlePage(article)}
+                      className="text-[11px] font-medium text-purple-600 dark:text-purple-400 hover:underline"
+                    >
+                      Discuss with O-Brain
+                    </button>
+                    <a
+                      href={article.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-0.5 text-[11px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    >
+                      Read <ExternalLink className="h-2.5 w-2.5" />
+                    </a>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

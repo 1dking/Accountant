@@ -3,7 +3,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, func
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base, TimestampMixin
@@ -28,6 +28,7 @@ class User(TimestampMixin, Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     auth_provider: Mapped[str] = mapped_column(String(20), default="local", server_default="local", nullable=False)
     google_id: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
+    news_preferences_json: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class RefreshToken(Base):

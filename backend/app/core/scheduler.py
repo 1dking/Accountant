@@ -150,6 +150,18 @@ async def _run_monthly_reports() -> None:
         logger.exception("Error running monthly reports")
 
 
+async def _fetch_daily_news() -> None:
+    """Job: fetch news articles for all users with news preferences."""
+    try:
+        from app.news.service import fetch_news_all_users
+
+        count = await fetch_news_all_users(_session_factory)
+        if count > 0:
+            logger.info("Fetched %d news articles", count)
+    except Exception:
+        logger.exception("Error fetching daily news")
+
+
 async def _sync_google_calendars() -> None:
     """Job: sync events with connected Google Calendar accounts."""
     try:
@@ -238,6 +250,13 @@ def setup_scheduler(session_factory: Any, settings: Any = None) -> None:
         _run_monthly_reports,
         CronTrigger(day=1, hour=4, minute=0),
         id="run_monthly_reports",
+        replace_existing=True,
+    )
+
+    scheduler.add_job(
+        _fetch_daily_news,
+        CronTrigger(hour=5, minute=0),
+        id="fetch_daily_news",
         replace_existing=True,
     )
 

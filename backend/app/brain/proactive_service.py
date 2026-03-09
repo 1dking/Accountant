@@ -380,6 +380,14 @@ async def get_daily_briefing(db: AsyncSession, user_id: uuid.UUID) -> dict:
     result = await db.execute(stmt)
     alerts = list(result.scalars().all())
 
+    # Fetch news for briefing
+    news_items = []
+    try:
+        from app.news.service import get_news_for_briefing
+        news_items = await get_news_for_briefing(db, user_id, limit=3)
+    except Exception as e:
+        logger.error(f"Failed to get news for briefing: {e}")
+
     return {
         "date": today.strftime("%Y-%m-%d"),
         "alert_count": len(alerts),
@@ -394,4 +402,5 @@ async def get_daily_briefing(db: AsyncSession, user_id: uuid.UUID) -> dict:
             }
             for a in alerts
         ],
+        "news": news_items,
     }

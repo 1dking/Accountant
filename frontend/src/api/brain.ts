@@ -203,3 +203,24 @@ export const listAuditLogs = (limit = 50) =>
   api.get<{ data: Array<{ id: string; action_type: string; ai_input: string | null; ai_output: string | null; created_at: string }> }>(
     `/brain/audit?limit=${limit}`
   )
+
+// ── News ─────────────────────────────────────────────────────────────
+
+export interface NewsArticle {
+  id: string
+  title: string
+  source: string
+  url: string
+  summary: string | null
+  published_at: string | null
+  category: string
+  fetched_at: string
+}
+
+export const listNewsArticles = (category?: string, limit = 20) =>
+  api.get<{ data: NewsArticle[] }>(
+    `/news/articles?limit=${limit}${category && category !== 'all' ? `&category=${category}` : ''}`
+  )
+
+export const refreshNews = () =>
+  api.post<{ data: { fetched: number } }>('/news/refresh')
