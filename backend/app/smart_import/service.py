@@ -225,6 +225,51 @@ async def update_item(
     return item
 
 
+async def delete_import(
+    db: AsyncSession,
+    import_id: uuid.UUID,
+    user_id: uuid.UUID,
+) -> None:
+    """Delete an import and its associated cashbook entries."""
+    from app.cashbook.models import CashbookEntry
+    from sqlalchemy import delete as sa_delete
+
+    imp = await get_import(db, import_id, user_id)
+
+    # Delete linked cashbook entries
+    entry_ids = [
+        item.cashbook_entry_id for item in imp.items
+        if item.cashbook_entry_id is not None
+    ]
+    if entry_ids:
+        await db.execute(
+            sa_delete(CashbookEntry).where(CashbookEntry.id.in_(entry_ids))
+        )
+
+    # Delete the import (cascade deletes items)
+    await db.delete(imp)
+    await db.commit()
+
+
+async def delete_item(
+    db: AsyncSession,
+    item_id: uuid.UUID,
+    user_id: uuid.UUID,
+) -> None:
+    """Delete a single import item from review."""
+    result = await db.execute(
+        select(SmartImportItem)
+        .join(SmartImport)
+        .where(SmartImportItem.id == item_id, SmartImport.user_id == user_id)
+    )
+    item = result.scalar_one_or_none()
+    if not item:
+        raise NotFoundError("SmartImportItem", str(item_id))
+
+    await db.delete(item)
+    await db.commit()
+
+
 async def confirm_import(
     db: AsyncSession,
     import_id: uuid.UUID,

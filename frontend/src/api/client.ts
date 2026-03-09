@@ -60,6 +60,11 @@ async function handleResponse<T>(response: Response, retryFn?: () => Promise<Res
     window.location.href = '/login'
   }
 
+  // 204 No Content — nothing to parse
+  if (response.status === 204) {
+    return undefined as T
+  }
+
   let body: any
   try {
     body = await response.json()

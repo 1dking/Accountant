@@ -217,3 +217,23 @@ async def confirm_import(
         db, import_id, user.id, uuid.UUID(data.account_id), item_uuids
     )
     return {"data": result}
+
+
+@router.delete("/{import_id}", status_code=204)
+async def delete_import(
+    import_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+):
+    """Delete an import batch and its associated cashbook entries."""
+    await service.delete_import(db, import_id, user.id)
+
+
+@router.delete("/items/{item_id}", status_code=204)
+async def delete_import_item(
+    item_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+):
+    """Delete a single import item from review."""
+    await service.delete_item(db, item_id, user.id)

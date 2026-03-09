@@ -58,3 +58,11 @@ export function confirmImport(importId: string, accountId: string, itemIds?: str
     { account_id: accountId, item_ids: itemIds }
   )
 }
+
+export function deleteImport(importId: string) {
+  return api.delete(`/smart-import/${importId}`)
+}
+
+export function deleteImportItem(itemId: string) {
+  return api.delete(`/smart-import/items/${itemId}`)
+}
