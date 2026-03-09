@@ -94,7 +94,6 @@ function ImportModal({
   const iframeRef = useRef<HTMLIFrameElement>(null)
 
   const attachments = parsedData?.attachments ?? []
-  const hasPdfAttachment = attachments.some(a => a.mimeType === 'application/pdf')
 
   // Load PDF attachment for preview
   const loadAttachment = useCallback(async (index: number) => {
