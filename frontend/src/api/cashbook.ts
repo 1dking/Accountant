@@ -48,9 +48,11 @@ export function listEntries(filters: CashbookEntryFilters = {}) {
   if (filters.account_id) params.set('account_id', filters.account_id)
   if (filters.entry_type) params.set('entry_type', filters.entry_type)
   if (filters.category_id) params.set('category_id', filters.category_id)
+  if (filters.status) params.set('status', filters.status)
   if (filters.date_from) params.set('date_from', filters.date_from)
   if (filters.date_to) params.set('date_to', filters.date_to)
   if (filters.search) params.set('search', filters.search)
+  if (filters.include_deleted) params.set('include_deleted', 'true')
   if (filters.page) params.set('page', String(filters.page))
   if (filters.page_size) params.set('page_size', String(filters.page_size))
   const qs = params.toString()
@@ -135,4 +137,31 @@ export function cashbookCapture(
   formData.append('account_id', accountId)
   if (folderId) formData.append('folder_id', folderId)
   return api.upload<ApiResponse<CashbookCaptureResult>>('/cashbook/capture', formData)
+}
+
+// Restore soft-deleted entry
+export function restoreEntry(id: string) {
+  return api.post<ApiResponse<CashbookEntry>>(`/cashbook/entries/${id}/restore`, {})
+}
+
+// Split transaction
+export function splitEntry(id: string, lines: { description: string; amount: number; category_id?: string; notes?: string }[]) {
+  return api.post<ApiResponse<CashbookEntry[]>>(`/cashbook/entries/${id}/split`, { lines })
+}
+
+// Bulk actions
+export function bulkDeleteEntries(entry_ids: string[]) {
+  return api.post<ApiResponse<{ deleted: number }>>('/cashbook/entries/bulk-delete', { entry_ids })
+}
+
+export function bulkCategorizeEntries(entry_ids: string[], category_id: string) {
+  return api.post<ApiResponse<{ updated: number }>>('/cashbook/entries/bulk-categorize', { entry_ids, category_id })
+}
+
+export function bulkMoveEntries(entry_ids: string[], account_id: string) {
+  return api.post<ApiResponse<{ moved: number }>>('/cashbook/entries/bulk-move', { entry_ids, account_id })
+}
+
+export function bulkUpdateStatus(entry_ids: string[], status: string) {
+  return api.post<ApiResponse<{ updated: number }>>('/cashbook/entries/bulk-status', { entry_ids, status })
 }

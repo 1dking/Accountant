@@ -2,12 +2,13 @@
 
 import enum
 import uuid
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import (
     Boolean,
     Date,
+    DateTime,
     Enum,
     ForeignKey,
     Index,
@@ -39,6 +40,13 @@ class AccountType(str, enum.Enum):
 class EntryType(str, enum.Enum):
     INCOME = "income"
     EXPENSE = "expense"
+
+
+class EntryStatus(str, enum.Enum):
+    PENDING = "pending"
+    CLEARED = "cleared"
+    RECONCILED = "reconciled"
+    VOIDED = "voided"
 
 
 class CategoryType(str, enum.Enum):
@@ -143,10 +151,33 @@ class CashbookEntry(TimestampMixin, Base):
         ForeignKey("users.id"), nullable=False, index=True
     )
 
+    # Status tracking
+    status: Mapped[EntryStatus] = mapped_column(
+        Enum(EntryStatus), nullable=False, default=EntryStatus.PENDING, server_default="pending"
+    )
+
+    # Soft delete
+    is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="0")
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    # Split transaction support
+    split_parent_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("cashbook_entries.id", ondelete="CASCADE"), nullable=True
+    )
+
     # Relationships
     account: Mapped[PaymentAccount] = relationship(
         "PaymentAccount", back_populates="entries", lazy="selectin"
     )
     category: Mapped[TransactionCategory | None] = relationship(
         "TransactionCategory", lazy="selectin"
+    )
+    split_children: Mapped[list["CashbookEntry"]] = relationship(
+        "CashbookEntry", back_populates="split_parent", lazy="selectin",
+        foreign_keys="CashbookEntry.split_parent_id",
+    )
+    split_parent: Mapped["CashbookEntry | None"] = relationship(
+        "CashbookEntry", back_populates="split_children", lazy="selectin",
+        remote_side="CashbookEntry.id",
+        foreign_keys="CashbookEntry.split_parent_id",
     )

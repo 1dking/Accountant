@@ -3,11 +3,11 @@
 import logging
 import time
 import uuid
-from datetime import date
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -16,6 +16,7 @@ from app.cashbook.models import (
     AccountType,
     CashbookEntry,
     CategoryType,
+    EntryStatus,
     EntryType,
     PaymentAccount,
     TransactionCategory,
@@ -27,6 +28,7 @@ from app.cashbook.schemas import (
     CategoryTotal,
     PaymentAccountCreate,
     PaymentAccountUpdate,
+    SplitLineItem,
 )
 from app.collaboration.service import log_activity
 from app.core.authorization import apply_ownership_filter, authorize_owner
@@ -503,6 +505,36 @@ async def create_entry(
     return entry
 
 
+def _entry_to_dict(entry: CashbookEntry, bank_balance: Decimal | None) -> dict:
+    """Convert a CashbookEntry to a dict with extra fields."""
+    return {
+        "id": entry.id,
+        "account_id": entry.account_id,
+        "entry_type": entry.entry_type,
+        "date": entry.date,
+        "description": entry.description,
+        "total_amount": entry.total_amount,
+        "tax_amount": entry.tax_amount,
+        "tax_rate_used": entry.tax_rate_used,
+        "tax_override": entry.tax_override,
+        "category_id": entry.category_id,
+        "contact_id": entry.contact_id,
+        "document_id": entry.document_id,
+        "source": entry.source,
+        "source_id": entry.source_id,
+        "notes": entry.notes,
+        "user_id": entry.user_id,
+        "status": entry.status,
+        "is_deleted": entry.is_deleted,
+        "split_parent_id": entry.split_parent_id,
+        "bank_balance": bank_balance,
+        "category": entry.category,
+        "account_name": entry.account.name if entry.account else None,
+        "created_at": entry.created_at,
+        "updated_at": entry.updated_at,
+    }
+
+
 async def list_entries(
     db: AsyncSession,
     filters: CashbookEntryFilter,
@@ -512,8 +544,16 @@ async def list_entries(
     """List entries with running balance computed per-account."""
     query = select(CashbookEntry).options(
         selectinload(CashbookEntry.category),
+        selectinload(CashbookEntry.account),
     )
     query = apply_ownership_filter(query, CashbookEntry.user_id, user)
+
+    # Filter out deleted entries by default
+    if not filters.include_deleted:
+        query = query.where(CashbookEntry.is_deleted.is_(False))
+
+    # Filter out split children (show parent only)
+    query = query.where(CashbookEntry.split_parent_id.is_(None))
 
     if filters.account_id is not None:
         query = query.where(CashbookEntry.account_id == filters.account_id)
@@ -521,6 +561,8 @@ async def list_entries(
         query = query.where(CashbookEntry.entry_type == filters.entry_type)
     if filters.category_id is not None:
         query = query.where(CashbookEntry.category_id == filters.category_id)
+    if filters.status is not None:
+        query = query.where(CashbookEntry.status == filters.status)
     if filters.date_from is not None:
         query = query.where(CashbookEntry.date >= filters.date_from)
     if filters.date_to is not None:
@@ -579,53 +621,11 @@ async def list_entries(
             else:
                 running -= Decimal(str(entry.total_amount))
 
-            entry_dict = {
-                "id": entry.id,
-                "account_id": entry.account_id,
-                "entry_type": entry.entry_type,
-                "date": entry.date,
-                "description": entry.description,
-                "total_amount": entry.total_amount,
-                "tax_amount": entry.tax_amount,
-                "tax_rate_used": entry.tax_rate_used,
-                "tax_override": entry.tax_override,
-                "category_id": entry.category_id,
-                "contact_id": entry.contact_id,
-                "document_id": entry.document_id,
-                "source": entry.source,
-                "source_id": entry.source_id,
-                "notes": entry.notes,
-                "user_id": entry.user_id,
-                "bank_balance": running.quantize(Decimal('0.01')),
-                "category": entry.category,
-                "created_at": entry.created_at,
-                "updated_at": entry.updated_at,
-            }
+            entry_dict = _entry_to_dict(entry, running.quantize(Decimal('0.01')))
             entries_with_balance.append(entry_dict)
     else:
         for entry in entries:
-            entry_dict = {
-                "id": entry.id,
-                "account_id": entry.account_id,
-                "entry_type": entry.entry_type,
-                "date": entry.date,
-                "description": entry.description,
-                "total_amount": entry.total_amount,
-                "tax_amount": entry.tax_amount,
-                "tax_rate_used": entry.tax_rate_used,
-                "tax_override": entry.tax_override,
-                "category_id": entry.category_id,
-                "contact_id": entry.contact_id,
-                "document_id": entry.document_id,
-                "source": entry.source,
-                "source_id": entry.source_id,
-                "notes": entry.notes,
-                "user_id": entry.user_id,
-                "bank_balance": None,
-                "category": entry.category,
-                "created_at": entry.created_at,
-                "updated_at": entry.updated_at,
-            }
+            entry_dict = _entry_to_dict(entry, None)
             entries_with_balance.append(entry_dict)
 
     meta = build_pagination_meta(total_count, pagination)
@@ -690,12 +690,51 @@ async def update_entry(
 
 
 async def delete_entry(db: AsyncSession, entry_id: uuid.UUID, user: User) -> None:
+    """Soft-delete a cashbook entry."""
     entry = await get_entry(db, entry_id, user)
 
     from app.accounting.period_service import assert_period_open
 
     await assert_period_open(db, entry.date)
 
+    entry.is_deleted = True
+    entry.deleted_at = datetime.now(timezone.utc)
+    entry.status = EntryStatus.VOIDED
+    await db.commit()
+
+    await log_activity(
+        db,
+        user_id=user.id,
+        action="cashbook_entry_deleted",
+        resource_type="cashbook_entry",
+        resource_id=str(entry.id),
+        details={"entry_type": entry.entry_type.value, "amount": entry.total_amount},
+    )
+
+
+async def restore_entry(db: AsyncSession, entry_id: uuid.UUID, user: User) -> CashbookEntry:
+    """Restore a soft-deleted entry."""
+    result = await db.execute(
+        select(CashbookEntry)
+        .options(selectinload(CashbookEntry.category))
+        .where(CashbookEntry.id == entry_id)
+    )
+    entry = result.scalar_one_or_none()
+    if entry is None:
+        raise NotFoundError("CashbookEntry", str(entry_id))
+    authorize_owner(entry.user_id, user, "CashbookEntry")
+
+    entry.is_deleted = False
+    entry.deleted_at = None
+    entry.status = EntryStatus.PENDING
+    await db.commit()
+    await db.refresh(entry)
+    return entry
+
+
+async def hard_delete_entry(db: AsyncSession, entry_id: uuid.UUID, user: User) -> None:
+    """Permanently delete a cashbook entry."""
+    entry = await get_entry(db, entry_id, user)
     await db.delete(entry)
     await db.commit()
 
@@ -746,6 +785,154 @@ async def bulk_create_entries(
 
 
 # ---------------------------------------------------------------------------
+# Bulk actions
+# ---------------------------------------------------------------------------
+
+
+async def bulk_soft_delete(
+    db: AsyncSession,
+    entry_ids: list[uuid.UUID],
+    user: User,
+) -> int:
+    """Soft-delete multiple entries."""
+    now = datetime.now(timezone.utc)
+    result = await db.execute(
+        sa_update(CashbookEntry)
+        .where(
+            CashbookEntry.id.in_(entry_ids),
+            CashbookEntry.user_id == user.id,
+            CashbookEntry.is_deleted.is_(False),
+        )
+        .values(is_deleted=True, deleted_at=now, status=EntryStatus.VOIDED)
+    )
+    await db.commit()
+    return result.rowcount
+
+
+async def bulk_categorize(
+    db: AsyncSession,
+    entry_ids: list[uuid.UUID],
+    category_id: uuid.UUID,
+    user: User,
+) -> int:
+    """Set category on multiple entries."""
+    result = await db.execute(
+        sa_update(CashbookEntry)
+        .where(
+            CashbookEntry.id.in_(entry_ids),
+            CashbookEntry.user_id == user.id,
+            CashbookEntry.is_deleted.is_(False),
+        )
+        .values(category_id=category_id)
+    )
+    await db.commit()
+    return result.rowcount
+
+
+async def bulk_move_account(
+    db: AsyncSession,
+    entry_ids: list[uuid.UUID],
+    account_id: uuid.UUID,
+    user: User,
+) -> int:
+    """Move multiple entries to a different account."""
+    await get_account(db, account_id)
+    result = await db.execute(
+        sa_update(CashbookEntry)
+        .where(
+            CashbookEntry.id.in_(entry_ids),
+            CashbookEntry.user_id == user.id,
+            CashbookEntry.is_deleted.is_(False),
+        )
+        .values(account_id=account_id)
+    )
+    await db.commit()
+    return result.rowcount
+
+
+async def bulk_update_status(
+    db: AsyncSession,
+    entry_ids: list[uuid.UUID],
+    status: EntryStatus,
+    user: User,
+) -> int:
+    """Update status on multiple entries."""
+    result = await db.execute(
+        sa_update(CashbookEntry)
+        .where(
+            CashbookEntry.id.in_(entry_ids),
+            CashbookEntry.user_id == user.id,
+            CashbookEntry.is_deleted.is_(False),
+        )
+        .values(status=status)
+    )
+    await db.commit()
+    return result.rowcount
+
+
+# ---------------------------------------------------------------------------
+# Split transaction
+# ---------------------------------------------------------------------------
+
+
+async def split_entry(
+    db: AsyncSession,
+    entry_id: uuid.UUID,
+    lines: list[SplitLineItem],
+    user: User,
+) -> list[CashbookEntry]:
+    """Split an entry into multiple child entries. The parent keeps its total
+    but is marked as a split parent. Children reference the parent."""
+    parent = await get_entry(db, entry_id, user)
+
+    from app.accounting.period_service import assert_period_open
+    await assert_period_open(db, parent.date)
+
+    # Validate totals match
+    total = sum(line.amount for line in lines)
+    if total != parent.total_amount:
+        raise ValidationError(
+            f"Split amounts ({total}) must equal parent total ({parent.total_amount})"
+        )
+
+    children = []
+    for line in lines:
+        child = CashbookEntry(
+            account_id=parent.account_id,
+            entry_type=parent.entry_type,
+            date=parent.date,
+            description=line.description,
+            total_amount=line.amount,
+            tax_amount=None,
+            tax_override=True,
+            category_id=line.category_id,
+            notes=line.notes,
+            user_id=user.id,
+            source="split",
+            source_id=str(parent.id),
+            split_parent_id=parent.id,
+            status=parent.status,
+        )
+        db.add(child)
+        children.append(child)
+
+    await db.commit()
+    for child in children:
+        await db.refresh(child)
+
+    await log_activity(
+        db,
+        user_id=user.id,
+        action="cashbook_entry_split",
+        resource_type="cashbook_entry",
+        resource_id=str(entry_id),
+        details={"child_count": len(children), "amount": parent.total_amount},
+    )
+
+    return children
+
+
+# ---------------------------------------------------------------------------
 # Summary / Aggregation
 # ---------------------------------------------------------------------------
 
@@ -759,12 +946,16 @@ async def get_summary(
     """Get category totals and balance summary for a date range."""
     account = await get_account(db, account_id)
 
+    # Base filter for non-deleted entries
+    alive = CashbookEntry.is_deleted.is_(False)
+
     # Income total
     total_income = await db.scalar(
         select(func.coalesce(func.sum(CashbookEntry.total_amount), 0.0)).where(
             CashbookEntry.account_id == account_id,
             CashbookEntry.entry_type == EntryType.INCOME,
             CashbookEntry.date.between(date_from, date_to),
+            alive,
         )
     ) or 0
 
@@ -774,6 +965,7 @@ async def get_summary(
             CashbookEntry.account_id == account_id,
             CashbookEntry.entry_type == EntryType.EXPENSE,
             CashbookEntry.date.between(date_from, date_to),
+            alive,
         )
     ) or 0
 
@@ -784,6 +976,7 @@ async def get_summary(
             CashbookEntry.entry_type == EntryType.INCOME,
             CashbookEntry.date.between(date_from, date_to),
             CashbookEntry.tax_amount.isnot(None),
+            alive,
         )
     ) or 0
 
@@ -794,6 +987,7 @@ async def get_summary(
             CashbookEntry.entry_type == EntryType.EXPENSE,
             CashbookEntry.date.between(date_from, date_to),
             CashbookEntry.tax_amount.isnot(None),
+            alive,
         )
     ) or 0
 
@@ -803,6 +997,7 @@ async def get_summary(
             CashbookEntry.account_id == account_id,
             CashbookEntry.entry_type == EntryType.INCOME,
             CashbookEntry.date < date_from,
+            alive,
         )
     ) or 0
 
@@ -811,6 +1006,7 @@ async def get_summary(
             CashbookEntry.account_id == account_id,
             CashbookEntry.entry_type == EntryType.EXPENSE,
             CashbookEntry.date < date_from,
+            alive,
         )
     ) or 0
 
@@ -838,6 +1034,7 @@ async def get_summary(
         .where(
             CashbookEntry.account_id == account_id,
             CashbookEntry.date.between(date_from, date_to),
+            alive,
         )
         .group_by(
             TransactionCategory.id,

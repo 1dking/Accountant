@@ -12,8 +12,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.models import Role, User
 from app.cashbook import service
 from app.cashbook.excel_import import parse_excel_file
-from app.cashbook.models import CategoryType, EntryType
+from app.cashbook.models import CategoryType, EntryStatus, EntryType
 from app.cashbook.schemas import (
+    BulkCategorizeRequest,
+    BulkDeleteRequest,
+    BulkMoveAccountRequest,
+    BulkStatusRequest,
     CashbookCaptureResponse,
     CashbookEntryCreate,
     CashbookEntryFilter,
@@ -25,6 +29,7 @@ from app.cashbook.schemas import (
     PaymentAccountCreate,
     PaymentAccountResponse,
     PaymentAccountUpdate,
+    SplitTransactionRequest,
     TransactionCategoryCreate,
     TransactionCategoryResponse,
     TransactionCategoryUpdate,
@@ -210,17 +215,21 @@ async def list_entries(
     account_id: uuid.UUID | None = None,
     entry_type: EntryType | None = None,
     category_id: uuid.UUID | None = None,
+    status: EntryStatus | None = None,
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
     search: str | None = None,
+    include_deleted: bool = False,
 ) -> dict:
     filters = CashbookEntryFilter(
         account_id=account_id,
         entry_type=entry_type,
         category_id=category_id,
+        status=status,
         date_from=date_from,
         date_to=date_to,
         search=search,
+        include_deleted=include_deleted,
     )
     entries, meta = await service.list_entries(db, filters, pagination, current_user)
     return {
@@ -273,6 +282,72 @@ async def delete_entry(
 ) -> dict:
     await service.delete_entry(db, entry_id, current_user)
     return {"data": {"message": "Entry deleted successfully"}}
+
+
+@router.post("/entries/{entry_id}/restore")
+async def restore_entry(
+    entry_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
+) -> dict:
+    entry = await service.restore_entry(db, entry_id, current_user)
+    return {"data": CashbookEntryResponse.model_validate(entry)}
+
+
+@router.post("/entries/{entry_id}/split")
+async def split_entry(
+    entry_id: uuid.UUID,
+    data: SplitTransactionRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
+) -> dict:
+    children = await service.split_entry(db, entry_id, data.lines, current_user)
+    return {"data": [CashbookEntryResponse.model_validate(c) for c in children]}
+
+
+# ---------------------------------------------------------------------------
+# Bulk action endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.post("/entries/bulk-delete")
+async def bulk_delete_entries(
+    data: BulkDeleteRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
+) -> dict:
+    count = await service.bulk_soft_delete(db, data.entry_ids, current_user)
+    return {"data": {"deleted": count}}
+
+
+@router.post("/entries/bulk-categorize")
+async def bulk_categorize_entries(
+    data: BulkCategorizeRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
+) -> dict:
+    count = await service.bulk_categorize(db, data.entry_ids, data.category_id, current_user)
+    return {"data": {"updated": count}}
+
+
+@router.post("/entries/bulk-move")
+async def bulk_move_entries(
+    data: BulkMoveAccountRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
+) -> dict:
+    count = await service.bulk_move_account(db, data.entry_ids, data.account_id, current_user)
+    return {"data": {"moved": count}}
+
+
+@router.post("/entries/bulk-status")
+async def bulk_update_status(
+    data: BulkStatusRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
+) -> dict:
+    count = await service.bulk_update_status(db, data.entry_ids, data.status, current_user)
+    return {"data": {"updated": count}}
 
 
 # ---------------------------------------------------------------------------

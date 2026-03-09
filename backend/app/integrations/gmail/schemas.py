@@ -77,6 +77,7 @@ class EmailImportRequest(BaseModel):
     category_id: Optional[uuid.UUID] = None
     income_category: Optional[str] = None
     notes: Optional[str] = None
+    account_id: Optional[uuid.UUID] = None
 
 
 class EmailImportResponse(BaseModel):

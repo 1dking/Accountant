@@ -745,6 +745,7 @@ async def import_email_full(
     category_id: uuid.UUID | None = None,
     income_category: str | None = None,
     notes: str | None = None,
+    account_id: uuid.UUID | None = None,
 ) -> dict:
     """Import email: download attachment, create expense or income record.
 
@@ -885,7 +886,39 @@ async def import_email_full(
         scan_result.matched_expense_id = expense.id
         response_data["expense_id"] = str(expense.id)
 
-    # --- Step 3: Mark as processed ---
+    # --- Step 3: Create CashbookEntry if account_id provided ---
+    cashbook_entry_id = None
+    if account_id and use_amount and use_amount > 0:
+        try:
+            from app.cashbook.schemas import CashbookEntryCreate
+            from app.cashbook.service import create_entry
+            from app.cashbook.models import EntryType as CashbookEntryType
+
+            entry_type = (
+                CashbookEntryType.INCOME if record_type == "income"
+                else CashbookEntryType.EXPENSE
+            )
+            entry_data = CashbookEntryCreate(
+                account_id=account_id,
+                entry_type=entry_type,
+                date=use_date,
+                description=use_description[:500],
+                total_amount=use_amount,
+                category_id=category_id if record_type == "expense" else None,
+                notes=notes or f"Email import: {scan_result.sender}",
+            )
+            cashbook_entry = await create_entry(db, entry_data, user)
+            cashbook_entry_id = str(cashbook_entry.id)
+            response_data["cashbook_entry_id"] = cashbook_entry_id
+        except Exception:
+            import logging
+            logging.getLogger(__name__).warning(
+                "Email import: cashbook entry creation failed for %s",
+                result_id,
+                exc_info=True,
+            )
+
+    # --- Step 4: Mark as processed ---
     scan_result.is_processed = True
     if document_id:
         scan_result.matched_document_id = document_id

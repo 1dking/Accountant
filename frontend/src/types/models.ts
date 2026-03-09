@@ -672,6 +672,7 @@ export interface EmailImportRequest {
   category_id?: string | null
   income_category?: string | null
   notes?: string | null
+  account_id?: string | null
 }
 
 // Categorization Rules
@@ -907,6 +908,8 @@ export interface PaymentAccount {
   updated_at: string
 }
 
+export type EntryStatusType = 'pending' | 'cleared' | 'reconciled' | 'voided'
+
 export interface CashbookEntry {
   id: string
   account_id: string
@@ -924,8 +927,12 @@ export interface CashbookEntry {
   source_id: string | null
   notes: string | null
   user_id: string
+  status: EntryStatusType
+  is_deleted: boolean
+  split_parent_id: string | null
   bank_balance: number | null
   category: TransactionCategory | null
+  account_name: string | null
   created_at: string
   updated_at: string
 }
@@ -945,6 +952,7 @@ export interface CashbookEntryCreate {
 }
 
 export interface CashbookEntryUpdate {
+  account_id?: string
   entry_type?: EntryType
   date?: string
   description?: string
@@ -955,15 +963,18 @@ export interface CashbookEntryUpdate {
   contact_id?: string
   document_id?: string
   notes?: string
+  status?: EntryStatusType
 }
 
 export interface CashbookEntryFilters {
   account_id?: string
   entry_type?: EntryType
   category_id?: string
+  status?: EntryStatusType
   date_from?: string
   date_to?: string
   search?: string
+  include_deleted?: boolean
   page?: number
   page_size?: number
 }

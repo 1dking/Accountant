@@ -16,8 +16,9 @@ import {
   bulkDeleteGmailScanResults,
 } from '@/api/integrations'
 import { listCategories } from '@/api/accounting'
+import { listAccounts as listCashbookAccounts } from '@/api/cashbook'
 import { formatDate } from '@/lib/utils'
-import type { GmailScanResult, EmailParsedData, ExpenseCategory } from '@/types/models'
+import type { GmailScanResult, EmailParsedData, ExpenseCategory, PaymentAccount } from '@/types/models'
 
 // ---------------------------------------------------------------------------
 // Import Confirmation Modal
@@ -27,6 +28,7 @@ function ImportModal({
   result,
   parsedData,
   categories,
+  cashbookAccounts,
   onConfirm,
   onCancel,
   isPending,
@@ -34,6 +36,7 @@ function ImportModal({
   result: GmailScanResult
   parsedData: EmailParsedData | null
   categories: ExpenseCategory[]
+  cashbookAccounts: PaymentAccount[]
   onConfirm: (data: {
     record_type: 'expense' | 'income'
     vendor_name: string
@@ -44,6 +47,7 @@ function ImportModal({
     category_id: string
     income_category: string
     notes: string
+    account_id: string
   }) => void
   onCancel: () => void
   isPending: boolean
@@ -63,6 +67,7 @@ function ImportModal({
   const [categoryId, setCategoryId] = useState('')
   const [incomeCategory, setIncomeCategory] = useState('other')
   const [notes, setNotes] = useState('')
+  const [accountId, setAccountId] = useState(cashbookAccounts.length === 1 ? cashbookAccounts[0].id : '')
 
   // Try to match suggested category to an actual category
   const suggestedCat = parsedData?.category_suggestion
@@ -197,6 +202,26 @@ function ImportModal({
             />
           </div>
 
+          {/* Cashbook Account */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Payment Account
+            </label>
+            <select
+              value={accountId}
+              onChange={e => setAccountId(e.target.value)}
+              className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
+            >
+              <option value="">— Don't book to cashbook —</option>
+              {cashbookAccounts.map(acc => (
+                <option key={acc.id} value={acc.id}>{acc.name} ({acc.account_type})</option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-400 mt-1">
+              Select an account to also create a cashbook entry
+            </p>
+          </div>
+
           {/* Category */}
           {recordType === 'expense' ? (
             <div>
@@ -255,12 +280,13 @@ function ImportModal({
               record_type: recordType,
               vendor_name: vendorName,
               description: description || 'Imported from email',
-              amount: amount ? parseFloat(amount) : null,
+              amount: amount ? parseFloat(String(amount)) : null,
               currency,
               date,
               category_id: categoryId,
               income_category: incomeCategory,
               notes,
+              account_id: accountId,
             })}
             disabled={isPending}
             className="flex items-center gap-1.5 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
@@ -377,10 +403,16 @@ export default function EmailScanPage() {
     queryFn: listCategories,
   })
 
+  const { data: cashbookAccountsData } = useQuery({
+    queryKey: ['cashbook-accounts'],
+    queryFn: listCashbookAccounts,
+  })
+
   const accounts = accountsData?.data ?? []
   const results: GmailScanResult[] = resultsData?.data ?? []
   const meta = resultsData?.meta ?? { total: 0, page: 1, page_size: 50, total_pages: 1 }
   const categories: ExpenseCategory[] = (categoriesData as any)?.data ?? []
+  const cashbookAccounts: PaymentAccount[] = (cashbookAccountsData as any)?.data ?? []
 
   // Scan mutation
   const scanMutation = useMutation({
@@ -809,6 +841,7 @@ export default function EmailScanPage() {
           result={importTarget}
           parsedData={parsedData}
           categories={categories}
+          cashbookAccounts={cashbookAccounts}
           onConfirm={handleImportConfirm}
           onCancel={() => { setImportTarget(null); setParsedData(null) }}
           isPending={importMutation.isPending}

@@ -7,7 +7,7 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
-from app.cashbook.models import AccountType, CategoryType, EntryType
+from app.cashbook.models import AccountType, CategoryType, EntryStatus, EntryType
 
 
 # ---------------------------------------------------------------------------
@@ -102,6 +102,7 @@ class CashbookEntryCreate(BaseModel):
 
 
 class CashbookEntryUpdate(BaseModel):
+    account_id: uuid.UUID | None = None
     entry_type: EntryType | None = None
     date: Optional[date] = None
     description: str | None = Field(None, min_length=1, max_length=500)
@@ -112,6 +113,7 @@ class CashbookEntryUpdate(BaseModel):
     contact_id: uuid.UUID | None = None
     document_id: uuid.UUID | None = None
     notes: str | None = None
+    status: EntryStatus | None = None
 
 
 class CashbookEntryResponse(BaseModel):
@@ -131,8 +133,12 @@ class CashbookEntryResponse(BaseModel):
     source_id: str | None
     notes: str | None
     user_id: uuid.UUID
+    status: EntryStatus = EntryStatus.PENDING
+    is_deleted: bool = False
+    split_parent_id: uuid.UUID | None = None
     bank_balance: Decimal | None = None
     category: TransactionCategoryResponse | None = None
+    account_name: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -148,9 +154,11 @@ class CashbookEntryFilter(BaseModel):
     account_id: uuid.UUID | None = None
     entry_type: EntryType | None = None
     category_id: uuid.UUID | None = None
+    status: EntryStatus | None = None
     date_from: Optional[date] = None
     date_to: Optional[date] = None
     search: str | None = None
+    include_deleted: bool = False
 
 
 class CategoryTotal(BaseModel):
@@ -222,3 +230,43 @@ class CashbookCaptureResponse(BaseModel):
     category_name: str | None = None
     extraction: dict | None = None
     processing_time_ms: int
+
+
+# ---------------------------------------------------------------------------
+# Bulk action schemas
+# ---------------------------------------------------------------------------
+
+
+class BulkDeleteRequest(BaseModel):
+    entry_ids: list[uuid.UUID]
+
+
+class BulkCategorizeRequest(BaseModel):
+    entry_ids: list[uuid.UUID]
+    category_id: uuid.UUID
+
+
+class BulkMoveAccountRequest(BaseModel):
+    entry_ids: list[uuid.UUID]
+    account_id: uuid.UUID
+
+
+class BulkStatusRequest(BaseModel):
+    entry_ids: list[uuid.UUID]
+    status: EntryStatus
+
+
+# ---------------------------------------------------------------------------
+# Split transaction schemas
+# ---------------------------------------------------------------------------
+
+
+class SplitLineItem(BaseModel):
+    description: str = Field(min_length=1, max_length=500)
+    amount: Decimal = Field(gt=Decimal(0))
+    category_id: uuid.UUID | None = None
+    notes: str | None = None
+
+
+class SplitTransactionRequest(BaseModel):
+    lines: list[SplitLineItem] = Field(min_length=2)

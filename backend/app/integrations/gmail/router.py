@@ -234,6 +234,7 @@ async def import_email_full(
         category_id=data.category_id,
         income_category=data.income_category,
         notes=data.notes,
+        account_id=data.account_id,
     )
     return {"data": result}
 
