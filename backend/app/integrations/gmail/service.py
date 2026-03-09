@@ -318,49 +318,59 @@ def _extract_body_html(payload: dict) -> str:
 def _extract_attachment_metadata(payload: dict) -> list[dict]:
     """Extract attachment metadata from payload.
 
-    Handles both regular attachments (with attachmentId) and inline/CID
-    attachments (with data embedded directly in the body part).
+    Handles:
+    - Regular attachments (filename + attachmentId)
+    - PDF/image MIME parts with empty-string filename (Stripe receipts etc.)
+    - Inline/embedded attachments (data in body, no attachmentId)
+    - Inline images via CID (no filename, has attachmentId)
     """
+    # Skip non-part MIME types that are structural containers
+    _SKIP_MIMES = {
+        "text/plain", "text/html",
+        "multipart/alternative", "multipart/mixed", "multipart/related",
+    }
+
     attachments: list[dict] = []
     parts = payload.get("parts", [])
     for part in parts:
-        filename = part.get("filename")
+        raw_filename = part.get("filename")  # could be "", None, or actual name
         body = part.get("body", {})
         mime = part.get("mimeType", "application/octet-stream")
         attachment_id = body.get("attachmentId")
+        has_inline_data = bool(body.get("data"))
+        size = body.get("size", 0)
 
+        # Generate a filename for parts that have none but are real attachments
+        filename = raw_filename or ""
+        if not filename and attachment_id and mime not in _SKIP_MIMES:
+            ext = mimetypes.guess_extension(mime) or ".bin"
+            content_id = None
+            for h in part.get("headers", []):
+                if h.get("name", "").lower() == "content-id":
+                    content_id = h.get("value", "").strip("<>")
+                    break
+            filename = f"attachment_{content_id or uuid.uuid4().hex[:8]}{ext}"
+
+        if not filename and has_inline_data and mime not in _SKIP_MIMES:
+            ext = mimetypes.guess_extension(mime) or ".bin"
+            filename = f"embedded_{uuid.uuid4().hex[:8]}{ext}"
+
+        # Now decide how to record this attachment
         if filename and attachment_id:
-            # Regular attachment — data fetched separately via attachments().get()
             attachments.append({
                 "filename": filename,
                 "mimeType": mime,
-                "size": body.get("size", 0),
+                "size": size,
                 "attachmentId": attachment_id,
             })
-        elif filename and body.get("data"):
-            # Inline/embedded attachment — data is right here in base64
+        elif filename and has_inline_data:
             raw = body["data"]
             decoded_size = len(base64.urlsafe_b64decode(raw))
             attachments.append({
                 "filename": filename,
                 "mimeType": mime,
                 "size": decoded_size,
-                "inline_data": raw,  # keep base64 for immediate save
-            })
-        elif not filename and attachment_id and mime not in ("text/plain", "text/html", "multipart/alternative", "multipart/mixed", "multipart/related"):
-            # Some emails attach files without a filename (e.g. inline images via CID)
-            content_id = None
-            for h in part.get("headers", []):
-                if h.get("name", "").lower() == "content-id":
-                    content_id = h.get("value", "").strip("<>")
-                    break
-            ext = mimetypes.guess_extension(mime) or ".bin"
-            generated_name = f"inline_{content_id or uuid.uuid4().hex[:8]}{ext}"
-            attachments.append({
-                "filename": generated_name,
-                "mimeType": mime,
-                "size": body.get("size", 0),
-                "attachmentId": attachment_id,
+                "inline_data": raw,
             })
 
         # Recurse into nested parts
@@ -422,15 +432,20 @@ async def scan_emails(
     next_page_token = response.get("nextPageToken")
     scan_results: list[GmailScanResult] = []
 
+    import logging
+    _log = logging.getLogger(__name__)
+
     for msg_ref in messages:
         msg_id = msg_ref["id"]
 
-        # Skip duplicates
+        # Check for existing record — update if missing attachment metadata
         dup_stmt = select(GmailScanResult).where(
             GmailScanResult.message_id == msg_id
         )
         dup_result = await db.execute(dup_stmt)
-        if dup_result.scalar_one_or_none():
+        existing = dup_result.scalar_one_or_none()
+        if existing and existing.attachment_metadata:
+            # Already have full metadata — skip
             continue
 
         msg = (
@@ -460,8 +475,6 @@ async def scan_emails(
 
         # Download ALL attachments and save to server storage for inline preview
         if att_meta:
-            import logging
-            _log = logging.getLogger(__name__)
             from app.documents.storage import build_storage
             storage = build_storage(settings)
             for att in att_meta:
@@ -505,21 +518,37 @@ async def scan_emails(
                         msg_id, att.get("filename"),
                     )
 
-        scan_result = GmailScanResult(
-            gmail_account_id=gmail_account_id,
-            message_id=msg_id,
-            subject=subject[:500] if subject else None,
-            sender=sender[:255] if sender else None,
-            date=parsed_date,
-            snippet=msg.get("snippet"),
-            body_text=body_text[:5000] if body_text else None,
-            body_html=body_html[:50000] if body_html else None,
-            has_attachments=attachments_found,
-            attachment_metadata=json.dumps(att_meta) if att_meta else None,
-            is_processed=False,
-        )
-        db.add(scan_result)
-        scan_results.append(scan_result)
+        # Strip inline_data from metadata before persisting to DB
+        # (it's base64 content that would bloat the TEXT column)
+        if att_meta:
+            for att in att_meta:
+                att.pop("inline_data", None)
+
+        if existing:
+            # Update existing record with new metadata (rescan backfill)
+            existing.body_text = body_text[:5000] if body_text else existing.body_text
+            existing.body_html = body_html[:50000] if body_html else existing.body_html
+            existing.has_attachments = attachments_found or existing.has_attachments
+            existing.attachment_metadata = json.dumps(att_meta) if att_meta else existing.attachment_metadata
+            scan_results.append(existing)
+            _log.info("Updated existing scan result with attachment metadata: msg=%s", msg_id)
+        else:
+            # Create new record
+            scan_result = GmailScanResult(
+                gmail_account_id=gmail_account_id,
+                message_id=msg_id,
+                subject=subject[:500] if subject else None,
+                sender=sender[:255] if sender else None,
+                date=parsed_date,
+                snippet=msg.get("snippet"),
+                body_text=body_text[:5000] if body_text else None,
+                body_html=body_html[:50000] if body_html else None,
+                has_attachments=attachments_found,
+                attachment_metadata=json.dumps(att_meta) if att_meta else None,
+                is_processed=False,
+            )
+            db.add(scan_result)
+            scan_results.append(scan_result)
 
     # Update last sync timestamp
     gmail_account.last_sync_at = datetime.now(timezone.utc)

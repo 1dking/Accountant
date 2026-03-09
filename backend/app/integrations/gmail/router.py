@@ -242,22 +242,22 @@ async def get_attachment_preview(
         from app.core.exceptions import NotFoundError
         raise NotFoundError("Scan result", str(result_id))
 
-    if not scan_result.attachment_metadata:
-        from app.core.exceptions import ValidationError
-        raise ValidationError("No attachment metadata available")
+    settings = _get_settings(request)
+    storage = build_storage(settings)
 
-    att_list = _json.loads(scan_result.attachment_metadata)
+    # Parse attachment metadata — may be empty for legacy scans
+    att_list = []
+    if scan_result.attachment_metadata:
+        att_list = _json.loads(scan_result.attachment_metadata)
+
     if attachment_index < 0 or attachment_index >= len(att_list):
         from app.core.exceptions import ValidationError
-        raise ValidationError(f"Attachment index {attachment_index} out of range")
+        raise ValidationError(f"Attachment index {attachment_index} out of range (found {len(att_list)})")
 
     att = att_list[attachment_index]
     storage_path = att.get("storage_path")
     filename = att.get("filename", "attachment")
     mime_type = att.get("mimeType", "application/octet-stream")
-
-    settings = _get_settings(request)
-    storage = build_storage(settings)
 
     # Prefer pre-downloaded file from storage
     if storage_path and await storage.exists(storage_path):
@@ -271,7 +271,6 @@ async def get_attachment_preview(
                 headers={"Content-Disposition": f'inline; filename="{filename}"'},
             )
         else:
-            # R2 or other — read bytes and return
             from fastapi.responses import Response
             data = await storage.read(storage_path)
             return Response(
@@ -280,46 +279,55 @@ async def get_attachment_preview(
                 headers={"Content-Disposition": f'inline; filename="{filename}"'},
             )
 
-    # Fallback: download from Gmail API on-demand (for older scan results)
-    attachment_id = att.get("attachmentId")
-    if not attachment_id:
-        from app.core.exceptions import ValidationError
-        raise ValidationError("Attachment not available — re-scan to download")
-
-    acct_stmt = select(GmailAccount).where(
-        GmailAccount.id == scan_result.gmail_account_id,
-        GmailAccount.user_id == user.id,
-    )
-    acct_result = await db.execute(acct_stmt)
-    gmail_account = acct_result.scalar_one_or_none()
-    if not gmail_account:
-        from app.core.exceptions import NotFoundError
-        raise NotFoundError("Gmail account", "unknown")
-
-    gmail_service = await service._get_gmail_service(gmail_account, settings)
-
+    # Fallback: download from Gmail API on-demand
     import base64
-    att_response = (
-        gmail_service.users()
-        .messages()
-        .attachments()
-        .get(userId="me", messageId=scan_result.message_id, id=attachment_id)
-        .execute()
-    )
-    raw_data = att_response.get("data", "")
-    file_bytes = base64.urlsafe_b64decode(raw_data) if raw_data else b""
+    file_bytes: bytes = b""
+
+    # Try inline_data first
+    inline_data = att.get("inline_data")
+    if inline_data:
+        file_bytes = base64.urlsafe_b64decode(inline_data)
+
+    # Otherwise use attachmentId
+    attachment_id = att.get("attachmentId")
+    if not file_bytes and attachment_id:
+        acct_stmt = select(GmailAccount).where(
+            GmailAccount.id == scan_result.gmail_account_id,
+            GmailAccount.user_id == user.id,
+        )
+        acct_result = await db.execute(acct_stmt)
+        gmail_account = acct_result.scalar_one_or_none()
+        if not gmail_account:
+            from app.core.exceptions import NotFoundError
+            raise NotFoundError("Gmail account", "unknown")
+
+        gmail_service = await service._get_gmail_service(gmail_account, settings)
+        att_response = (
+            gmail_service.users()
+            .messages()
+            .attachments()
+            .get(userId="me", messageId=scan_result.message_id, id=attachment_id)
+            .execute()
+        )
+        raw_data = att_response.get("data", "")
+        if raw_data:
+            file_bytes = base64.urlsafe_b64decode(raw_data)
+
+    if not file_bytes:
+        from app.core.exceptions import ValidationError
+        raise ValidationError("Attachment not available — use Load Preview to fetch from Gmail")
 
     # Save to storage for next time
-    if file_bytes:
-        try:
-            ext = filename.rsplit(".", 1)[-1] if "." in filename else "bin"
-            saved_path = await storage.save(file_bytes, ext)
-            att["storage_path"] = saved_path
-            att["size"] = len(file_bytes)
-            scan_result.attachment_metadata = _json.dumps(att_list)
-            await db.commit()
-        except Exception:
-            pass
+    try:
+        ext = filename.rsplit(".", 1)[-1] if "." in filename else "bin"
+        saved_path = await storage.save(file_bytes, ext)
+        att["storage_path"] = saved_path
+        att["size"] = len(file_bytes)
+        att.pop("inline_data", None)
+        scan_result.attachment_metadata = _json.dumps(att_list)
+        await db.commit()
+    except Exception:
+        pass
 
     from fastapi.responses import Response
     return Response(
@@ -363,35 +371,10 @@ async def fetch_attachment_to_server(
         from app.core.exceptions import NotFoundError
         raise NotFoundError("Scan result", str(result_id))
 
-    if not scan_result.attachment_metadata:
-        from app.core.exceptions import ValidationError
-        raise ValidationError("No attachment metadata available")
-
-    att_list = _json.loads(scan_result.attachment_metadata)
-    if attachment_index < 0 or attachment_index >= len(att_list):
-        from app.core.exceptions import ValidationError
-        raise ValidationError(f"Attachment index {attachment_index} out of range")
-
-    att = att_list[attachment_index]
-
-    # Already downloaded?
     settings = _get_settings(request)
     storage = build_storage(settings)
-    existing_path = att.get("storage_path")
-    if existing_path and await storage.exists(existing_path):
-        return {"data": {
-            "filename": att.get("filename", "attachment"),
-            "mimeType": att.get("mimeType", "application/octet-stream"),
-            "size": att.get("size", 0),
-            "stored": True,
-        }}
 
-    # Need to download from Gmail
-    attachment_id = att.get("attachmentId")
-    if not attachment_id:
-        from app.core.exceptions import ValidationError
-        raise ValidationError("No attachment ID available — cannot fetch from Gmail")
-
+    # Get the Gmail account for API access
     acct_stmt = select(GmailAccount).where(
         GmailAccount.id == scan_result.gmail_account_id,
         GmailAccount.user_id == user.id,
@@ -402,24 +385,83 @@ async def fetch_attachment_to_server(
         from app.core.exceptions import NotFoundError
         raise NotFoundError("Gmail account", "unknown")
 
+    # If no metadata at all (legacy scan), re-fetch the full message to extract it
+    att_list = []
+    if scan_result.attachment_metadata:
+        att_list = _json.loads(scan_result.attachment_metadata)
+
+    if not att_list:
+        # Re-read the full message from Gmail to get attachment metadata
+        gmail_service = await service._get_gmail_service(gmail_account, settings)
+        msg = (
+            gmail_service.users()
+            .messages()
+            .get(userId="me", id=scan_result.message_id, format="full")
+            .execute()
+        )
+        payload = msg.get("payload", {})
+        att_list = service._extract_attachment_metadata(payload)
+
+        # Also backfill body content if missing
+        if not scan_result.body_html:
+            html = service._extract_body_html(payload)
+            if html:
+                scan_result.body_html = html[:50000]
+        if not scan_result.body_text:
+            text = service._extract_body_text(payload)
+            if text:
+                scan_result.body_text = text[:5000]
+
+        if not att_list:
+            from app.core.exceptions import ValidationError
+            raise ValidationError("No attachments found in this email")
+
+        # Save the newly extracted metadata
+        scan_result.attachment_metadata = _json.dumps(att_list)
+        await db.commit()
+
+    if attachment_index < 0 or attachment_index >= len(att_list):
+        from app.core.exceptions import ValidationError
+        raise ValidationError(f"Attachment index {attachment_index} out of range (found {len(att_list)} attachments)")
+
+    att = att_list[attachment_index]
+
+    # Already downloaded to server?
+    existing_path = att.get("storage_path")
+    if existing_path and await storage.exists(existing_path):
+        return {"data": {
+            "filename": att.get("filename", "attachment"),
+            "mimeType": att.get("mimeType", "application/octet-stream"),
+            "size": att.get("size", 0),
+            "stored": True,
+        }}
+
+    # Download attachment from Gmail
     gmail_service = await service._get_gmail_service(gmail_account, settings)
+    file_bytes: bytes = b""
 
-    att_response = (
-        gmail_service.users()
-        .messages()
-        .attachments()
-        .get(userId="me", messageId=scan_result.message_id, id=attachment_id)
-        .execute()
-    )
-    raw_data = att_response.get("data", "")
-    if not raw_data:
-        from app.core.exceptions import ValidationError
-        raise ValidationError("Gmail returned empty attachment data")
+    # Case 1: inline_data present (embedded attachment)
+    inline_data = att.get("inline_data")
+    if inline_data:
+        file_bytes = _b64.urlsafe_b64decode(inline_data)
 
-    file_bytes = _b64.urlsafe_b64decode(raw_data)
-    if len(file_bytes) == 0:
+    # Case 2: Has attachmentId — fetch from Gmail API
+    attachment_id = att.get("attachmentId")
+    if not file_bytes and attachment_id:
+        att_response = (
+            gmail_service.users()
+            .messages()
+            .attachments()
+            .get(userId="me", messageId=scan_result.message_id, id=attachment_id)
+            .execute()
+        )
+        raw_data = att_response.get("data", "")
+        if raw_data:
+            file_bytes = _b64.urlsafe_b64decode(raw_data)
+
+    if not file_bytes:
         from app.core.exceptions import ValidationError
-        raise ValidationError("Downloaded attachment is empty (0 bytes)")
+        raise ValidationError("Could not download attachment — Gmail returned empty data")
 
     filename = att.get("filename", "attachment")
     ext = filename.rsplit(".", 1)[-1] if "." in filename else "bin"
@@ -427,6 +469,8 @@ async def fetch_attachment_to_server(
 
     att["storage_path"] = saved_path
     att["size"] = len(file_bytes)
+    # Remove inline_data from stored metadata (no longer needed after saving to disk)
+    att.pop("inline_data", None)
     scan_result.attachment_metadata = _json.dumps(att_list)
     await db.commit()
 
