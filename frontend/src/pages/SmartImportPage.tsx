@@ -106,6 +106,9 @@ export default function SmartImportPage() {
         setItemOverrides({})
       }
     },
+    onError: (err: any) => {
+      toast.error(err?.message || 'Import failed. Please try again.')
+    },
   })
 
   const deleteImportMutation = useMutation({

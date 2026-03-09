@@ -53,10 +53,10 @@ function ImportModal({
     amount: number | null
     currency: string
     date: string
-    category_id: string
+    category_id: string | null
     income_category: string
     notes: string
-    account_id: string
+    account_id: string | null
     is_recurring: boolean
     recurring_frequency: string | null
     recurring_next_date: string | null
@@ -355,10 +355,10 @@ function ImportModal({
               amount: amount ? parseFloat(String(amount)) : null,
               currency,
               date,
-              category_id: categoryId,
+              category_id: categoryId || null,
               income_category: incomeCategory,
               notes,
-              account_id: accountId,
+              account_id: accountId || null,
               is_recurring: isRecurring,
               recurring_frequency: isRecurring ? recurringFrequency : null,
               recurring_next_date: isRecurring ? recurringNextDate : null,
