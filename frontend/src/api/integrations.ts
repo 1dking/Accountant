@@ -139,6 +139,8 @@ export async function importEmailFull(resultId: string, data: EmailImportRequest
     document_id: string | null
     expense_id: string | null
     income_id: string | null
+    cashbook_entry_id: string | null
+    recurring_rule_id: string | null
   }>>(`/integrations/gmail/results/${resultId}/import-full`, data)
 }
 

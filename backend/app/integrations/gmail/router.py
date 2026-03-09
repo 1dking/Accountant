@@ -235,6 +235,9 @@ async def import_email_full(
         income_category=data.income_category,
         notes=data.notes,
         account_id=data.account_id,
+        is_recurring=data.is_recurring,
+        recurring_frequency=data.recurring_frequency,
+        recurring_next_date=data.recurring_next_date,
     )
     return {"data": result}
 

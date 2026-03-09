@@ -746,6 +746,9 @@ async def import_email_full(
     income_category: str | None = None,
     notes: str | None = None,
     account_id: uuid.UUID | None = None,
+    is_recurring: bool = False,
+    recurring_frequency: str | None = None,
+    recurring_next_date: str | None = None,
 ) -> dict:
     """Import email: download attachment, create expense or income record.
 
@@ -918,7 +921,57 @@ async def import_email_full(
                 exc_info=True,
             )
 
-    # --- Step 4: Mark as processed ---
+    # --- Step 4: Create recurring rule if requested ---
+    if is_recurring and recurring_frequency:
+        try:
+            from app.recurring.models import Frequency, RecurringType
+            from app.recurring.schemas import RecurringRuleCreate
+            from app.recurring.service import create_rule, advance_date
+
+            freq = Frequency(recurring_frequency)
+            rule_type = (
+                RecurringType.INCOME if record_type == "income"
+                else RecurringType.EXPENSE
+            )
+
+            # Next date: provided or auto-calculate from current date
+            next_date = use_date
+            if recurring_next_date:
+                try:
+                    next_date = date.fromisoformat(recurring_next_date)
+                except ValueError:
+                    next_date = advance_date(use_date, freq)
+            else:
+                next_date = advance_date(use_date, freq)
+
+            template = {
+                "vendor_name": vendor_name,
+                "description": use_description[:500],
+                "amount": str(use_amount),
+                "currency": currency,
+                "category_id": str(category_id) if category_id else None,
+                "account_id": str(account_id) if account_id else None,
+                "notes": notes,
+            }
+
+            rule_data = RecurringRuleCreate(
+                type=rule_type,
+                name=f"{vendor_name or use_description[:50]} (recurring)",
+                frequency=freq,
+                next_run_date=next_date,
+                template_data=template,
+            )
+            rule = await create_rule(db, rule_data, user)
+            response_data["recurring_rule_id"] = str(rule.id)
+        except Exception:
+            import logging
+            logging.getLogger(__name__).warning(
+                "Email import: recurring rule creation failed for %s",
+                result_id,
+                exc_info=True,
+            )
+
+    # --- Step 5: Mark as processed ---
     scan_result.is_processed = True
     if document_id:
         scan_result.matched_document_id = document_id

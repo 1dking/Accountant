@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import {
   Inbox, Download, RefreshCw, FileText, CheckCircle, Trash2, Search,
-  ChevronLeft, ChevronRight, X, ArrowRight, Calendar, Filter,
+  ChevronLeft, ChevronRight, X, ArrowRight, Calendar, Filter, Repeat,
 } from 'lucide-react'
 import {
   listGmailAccounts,
@@ -23,6 +23,15 @@ import type { GmailScanResult, EmailParsedData, ExpenseCategory, PaymentAccount 
 // ---------------------------------------------------------------------------
 // Import Confirmation Modal
 // ---------------------------------------------------------------------------
+
+function addFrequency(dateStr: string, freq: string): string {
+  const d = new Date(dateStr + 'T00:00:00')
+  if (freq === 'weekly') d.setDate(d.getDate() + 7)
+  else if (freq === 'monthly') d.setMonth(d.getMonth() + 1)
+  else if (freq === 'quarterly') d.setMonth(d.getMonth() + 3)
+  else if (freq === 'yearly') d.setFullYear(d.getFullYear() + 1)
+  return d.toISOString().split('T')[0]
+}
 
 function ImportModal({
   result,
@@ -48,10 +57,14 @@ function ImportModal({
     income_category: string
     notes: string
     account_id: string
+    is_recurring: boolean
+    recurring_frequency: string | null
+    recurring_next_date: string | null
   }) => void
   onCancel: () => void
   isPending: boolean
 }) {
+  const navigate = useNavigate()
   const [recordType, setRecordType] = useState<'expense' | 'income'>(
     parsedData?.record_type || 'expense'
   )
@@ -68,6 +81,9 @@ function ImportModal({
   const [incomeCategory, setIncomeCategory] = useState('other')
   const [notes, setNotes] = useState('')
   const [accountId, setAccountId] = useState(cashbookAccounts.length === 1 ? cashbookAccounts[0].id : '')
+  const [isRecurring, setIsRecurring] = useState(false)
+  const [recurringFrequency, setRecurringFrequency] = useState('monthly')
+  const [recurringNextDate, setRecurringNextDate] = useState('')
 
   // Try to match suggested category to an actual category
   const suggestedCat = parsedData?.category_suggestion
@@ -78,6 +94,25 @@ function ImportModal({
   if (matchedCategory && !categoryId) {
     setCategoryId(matchedCategory.id)
   }
+
+  // Auto-calculate next date when toggling recurring or changing frequency
+  const handleRecurringToggle = (on: boolean) => {
+    setIsRecurring(on)
+    if (on && date && !recurringNextDate) {
+      setRecurringNextDate(addFrequency(date, recurringFrequency))
+    }
+  }
+
+  const handleFrequencyChange = (freq: string) => {
+    setRecurringFrequency(freq)
+    if (date) {
+      setRecurringNextDate(addFrequency(date, freq))
+    }
+  }
+
+  const canImport = !!accountId && cashbookAccounts.length > 0
+
+  const inputCls = "w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onCancel}>
@@ -133,6 +168,35 @@ function ImportModal({
             </div>
           </div>
 
+          {/* Account (REQUIRED) */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Account <span className="text-red-500">*</span>
+            </label>
+            {cashbookAccounts.length === 0 ? (
+              <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+                <span className="text-sm text-amber-700 dark:text-amber-400">No accounts yet.</span>
+                <button
+                  onClick={() => { onCancel(); navigate('/cashbook') }}
+                  className="text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium"
+                >
+                  Create an account first
+                </button>
+              </div>
+            ) : (
+              <select
+                value={accountId}
+                onChange={e => setAccountId(e.target.value)}
+                className={inputCls}
+              >
+                <option value="">Select account...</option>
+                {cashbookAccounts.map(acc => (
+                  <option key={acc.id} value={acc.id}>{acc.name} ({acc.currency})</option>
+                ))}
+              </select>
+            )}
+          </div>
+
           {/* Vendor */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -142,7 +206,7 @@ function ImportModal({
               type="text"
               value={vendorName}
               onChange={e => setVendorName(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
+              className={inputCls}
               placeholder={parsedData?.vendor_name || 'Enter vendor name...'}
             />
             {suggestedCat && (
@@ -150,17 +214,6 @@ function ImportModal({
                 Suggested category: <span className="text-blue-500">{suggestedCat}</span>
               </p>
             )}
-          </div>
-
-          {/* Description */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
-            <input
-              type="text"
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
-            />
           </div>
 
           {/* Amount + Currency */}
@@ -172,21 +225,17 @@ function ImportModal({
                 step="0.01"
                 value={amount}
                 onChange={e => setAmount(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
+                className={inputCls}
                 placeholder="0.00"
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Currency</label>
-              <select
-                value={currency}
-                onChange={e => setCurrency(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
-              >
+              <select value={currency} onChange={e => setCurrency(e.target.value)} className={inputCls}>
+                <option value="CAD">CAD</option>
                 <option value="USD">USD</option>
                 <option value="EUR">EUR</option>
                 <option value="GBP">GBP</option>
-                <option value="CAD">CAD</option>
               </select>
             </div>
           </div>
@@ -194,43 +243,20 @@ function ImportModal({
           {/* Date */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date</label>
-            <input
-              type="date"
-              value={date}
-              onChange={e => setDate(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
-            />
+            <input type="date" value={date} onChange={e => setDate(e.target.value)} className={inputCls} />
           </div>
 
-          {/* Cashbook Account */}
+          {/* Description */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Payment Account
-            </label>
-            <select
-              value={accountId}
-              onChange={e => setAccountId(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
-            >
-              <option value="">— Don't book to cashbook —</option>
-              {cashbookAccounts.map(acc => (
-                <option key={acc.id} value={acc.id}>{acc.name} ({acc.account_type})</option>
-              ))}
-            </select>
-            <p className="text-xs text-gray-400 mt-1">
-              Select an account to also create a cashbook entry
-            </p>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
+            <input type="text" value={description} onChange={e => setDescription(e.target.value)} className={inputCls} />
           </div>
 
           {/* Category */}
           {recordType === 'expense' ? (
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Category</label>
-              <select
-                value={categoryId}
-                onChange={e => setCategoryId(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
-              >
+              <select value={categoryId} onChange={e => setCategoryId(e.target.value)} className={inputCls}>
                 <option value="">Uncategorized</option>
                 {categories.map(cat => (
                   <option key={cat.id} value={cat.id}>{cat.name}</option>
@@ -240,11 +266,7 @@ function ImportModal({
           ) : (
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Income Category</label>
-              <select
-                value={incomeCategory}
-                onChange={e => setIncomeCategory(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
-              >
+              <select value={incomeCategory} onChange={e => setIncomeCategory(e.target.value)} className={inputCls}>
                 <option value="service">Service</option>
                 <option value="product">Product</option>
                 <option value="invoice_payment">Invoice Payment</option>
@@ -255,6 +277,56 @@ function ImportModal({
             </div>
           )}
 
+          {/* Recurring toggle */}
+          <div className="border dark:border-gray-700 rounded-lg p-3 space-y-3">
+            <label className="flex items-center justify-between cursor-pointer">
+              <div className="flex items-center gap-2">
+                <Repeat className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Recurring bill?</span>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={isRecurring}
+                onClick={() => handleRecurringToggle(!isRecurring)}
+                className={`relative w-10 h-5 rounded-full transition-colors ${
+                  isRecurring ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
+                }`}
+              >
+                <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${
+                  isRecurring ? 'translate-x-5' : ''
+                }`} />
+              </button>
+            </label>
+
+            {isRecurring && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Frequency</label>
+                  <select
+                    value={recurringFrequency}
+                    onChange={e => handleFrequencyChange(e.target.value)}
+                    className={inputCls}
+                  >
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="quarterly">Quarterly</option>
+                    <option value="yearly">Yearly</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Next Due Date</label>
+                  <input
+                    type="date"
+                    value={recurringNextDate}
+                    onChange={e => setRecurringNextDate(e.target.value)}
+                    className={inputCls}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Notes */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
@@ -262,7 +334,7 @@ function ImportModal({
               value={notes}
               onChange={e => setNotes(e.target.value)}
               rows={2}
-              className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100 resize-none"
+              className={inputCls + ' resize-none'}
               placeholder="Optional notes..."
             />
           </div>
@@ -287,9 +359,12 @@ function ImportModal({
               income_category: incomeCategory,
               notes,
               account_id: accountId,
+              is_recurring: isRecurring,
+              recurring_frequency: isRecurring ? recurringFrequency : null,
+              recurring_next_date: isRecurring ? recurringNextDate : null,
             })}
-            disabled={isPending}
-            className="flex items-center gap-1.5 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            disabled={isPending || !canImport}
+            className="flex items-center gap-1.5 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Download className="w-4 h-4" />
             {isPending ? 'Importing...' : 'Import'}
@@ -464,17 +539,22 @@ export default function EmailScanPage() {
       setImportTarget(null)
       setParsedData(null)
       queryClient.invalidateQueries({ queryKey: ['gmail-results'] })
+      queryClient.invalidateQueries({ queryKey: ['cashbook-entries'] })
+      queryClient.invalidateQueries({ queryKey: ['cashbook-summary'] })
 
       const result = data.data
+      const hasRecurring = !!(result as any).recurring_rule_id
+      const label = hasRecurring ? 'Imported + recurring rule created' : 'Imported'
+
       if (result.expense_id) {
-        toast.success('Imported as expense', {
+        toast.success(`${label} as expense`, {
           action: {
             label: 'View',
             onClick: () => navigate(`/expenses/${result.expense_id}`),
           },
         })
       } else if (result.income_id) {
-        toast.success('Imported as income', {
+        toast.success(`${label} as income`, {
           action: {
             label: 'View',
             onClick: () => navigate('/income'),

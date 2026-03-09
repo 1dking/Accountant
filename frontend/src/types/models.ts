@@ -673,6 +673,9 @@ export interface EmailImportRequest {
   income_category?: string | null
   notes?: string | null
   account_id?: string | null
+  is_recurring?: boolean
+  recurring_frequency?: string | null
+  recurring_next_date?: string | null
 }
 
 // Categorization Rules

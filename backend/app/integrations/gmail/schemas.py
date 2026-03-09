@@ -78,6 +78,9 @@ class EmailImportRequest(BaseModel):
     income_category: Optional[str] = None
     notes: Optional[str] = None
     account_id: Optional[uuid.UUID] = None
+    is_recurring: bool = False
+    recurring_frequency: Optional[str] = None  # weekly/monthly/quarterly/yearly
+    recurring_next_date: Optional[str] = None
 
 
 class EmailImportResponse(BaseModel):
