@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router'
-import { User, Mail, Inbox, Landmark, CreditCard, MessageSquare, Bell, Lock, Receipt, Building2, CalendarDays, BellRing, Newspaper, Wallet } from 'lucide-react'
+import { User, Mail, Inbox, Landmark, CreditCard, MessageSquare, Bell, Lock, Receipt, Building2, CalendarDays, BellRing, Newspaper, Wallet, Smartphone } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/authStore'
 import ProfileSettings from '@/components/settings/ProfileSettings'
@@ -19,6 +19,7 @@ import GoogleCalendarSettings from '@/components/settings/GoogleCalendarSettings
 import PushNotificationSettings from '@/components/settings/PushNotificationSettings'
 import NewsPreferences from '@/components/settings/NewsPreferences'
 import BillingSettings from '@/components/settings/BillingSettings'
+import MobileAppSettings from '@/components/settings/MobileAppSettings'
 
 const TABS: { id: string; label: string; icon: typeof User; adminOnly?: boolean }[] = [
   { id: 'billing', label: 'Plan & Billing', icon: Wallet },
@@ -35,6 +36,7 @@ const TABS: { id: string; label: string; icon: typeof User; adminOnly?: boolean 
   { id: 'sms', label: 'SMS', icon: MessageSquare },
   { id: 'reminders', label: 'Reminders', icon: Bell },
   { id: 'news', label: 'News', icon: Newspaper },
+  { id: 'mobile', label: 'Mobile App', icon: Smartphone },
   { id: 'periods', label: 'Periods', icon: Lock, adminOnly: true },
 ]
 
@@ -107,6 +109,7 @@ export default function SettingsPage() {
           {activeTab === 'sms' && <SmsSettings />}
           {activeTab === 'reminders' && <ReminderSettings />}
           {activeTab === 'news' && <NewsPreferences />}
+          {activeTab === 'mobile' && <MobileAppSettings />}
           {activeTab === 'periods' && user?.role === 'admin' && <PeriodSettings />}
         </div>
       </div>

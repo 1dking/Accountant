@@ -350,6 +350,12 @@ def create_app() -> FastAPI:
     # Register exception handlers
     register_exception_handlers(fastapi_app)
 
+    # ── .well-known routes (TWA / Digital Asset Links) ──────────────────
+    @fastapi_app.get("/.well-known/assetlinks.json")
+    async def assetlinks():
+        """Digital Asset Links for future TWA (Trusted Web Activity) verification."""
+        return []  # Empty array until Android APK package is configured
+
     # Serve frontend static files in production
     # The built frontend at ../frontend/dist/ is served at /
     frontend_dist = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"

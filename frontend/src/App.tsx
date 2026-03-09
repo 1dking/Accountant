@@ -9,6 +9,7 @@ import { useUiStore } from '@/stores/uiStore'
 import { wsClient } from '@/api/websocket'
 import { useBranding } from '@/hooks/useBranding'
 import AppShell from '@/components/layout/AppShell'
+import InstallBanner from '@/components/layout/InstallBanner'
 import LoginPage from '@/pages/LoginPage'
 import DashboardPage from '@/pages/DashboardPage'
 import DocumentsPage from '@/pages/DocumentsPage'
@@ -228,6 +229,7 @@ export default function App() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <Toaster position="bottom-right" richColors closeButton />
+        <InstallBanner />
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />

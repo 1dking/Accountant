@@ -16,11 +16,11 @@ export default defineConfig({
       includeAssets: ['vite.svg', 'icons/*.png'],
       devOptions: { enabled: false },
       manifest: {
-        name: 'O-Brain',
+        name: 'O-Brain — Your Business, Remembered.',
         short_name: 'O-Brain',
-        description: 'Business management suite',
-        theme_color: '#2563eb',
-        background_color: '#f9fafb',
+        description: 'AI-powered business management suite',
+        theme_color: '#0f172a',
+        background_color: '#0f172a',
         display: 'standalone',
         orientation: 'portrait',
         scope: '/',
@@ -28,7 +28,7 @@ export default defineConfig({
         icons: [
           { src: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
           { src: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png' },
-          { src: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          { src: '/icons/icon-512x512-maskable.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
       injectManifest: {
