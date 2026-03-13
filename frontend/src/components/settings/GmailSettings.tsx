@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react'
+import { useSearchParams } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Mail, Trash2, RefreshCw } from 'lucide-react'
 import { connectGmail, listGmailAccounts, disconnectGmailAccount, scanGmailEmails } from '@/api/integrations'
@@ -6,6 +8,24 @@ import { toast } from 'sonner'
 
 export default function GmailSettings() {
   const queryClient = useQueryClient()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const handledRef = useRef(false)
+
+  useEffect(() => {
+    if (handledRef.current) return
+    const connected = searchParams.get('connected')
+    const error = searchParams.get('error')
+    if (connected === 'true') {
+      handledRef.current = true
+      toast.success('Gmail account connected successfully!')
+      queryClient.invalidateQueries({ queryKey: ['gmail-accounts'] })
+      setSearchParams({ tab: 'gmail' }, { replace: true })
+    } else if (error) {
+      handledRef.current = true
+      toast.error(`Gmail connection failed: ${decodeURIComponent(error)}`)
+      setSearchParams({ tab: 'gmail' }, { replace: true })
+    }
+  }, [searchParams, queryClient, setSearchParams])
 
   const { data } = useQuery({
     queryKey: ['gmail-accounts'],

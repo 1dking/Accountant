@@ -114,7 +114,12 @@ async def handle_oauth_callback(
     db: AsyncSession, code: str, state: str, settings: Settings
 ) -> GmailAccount:
     """Exchange authorization code for tokens, encrypt, and store."""
+    import os
     from googleapiclient.discovery import build as build_service
+
+    # Google returns extra scopes (openid, userinfo.*) that weren't requested.
+    # Without this, oauthlib raises a Warning exception on scope mismatch.
+    os.environ.setdefault("OAUTHLIB_RELAX_TOKEN_SCOPE", "1")
 
     flow = _build_flow(settings)
     flow.fetch_token(code=code)
@@ -179,20 +184,33 @@ async def _get_gmail_service(gmail_account: GmailAccount, settings: Settings):
     access_token = encryption.decrypt(gmail_account.encrypted_access_token)
     refresh_token = encryption.decrypt(gmail_account.encrypted_refresh_token)
 
+    if not refresh_token:
+        raise ValidationError(
+            "Gmail refresh token missing. Please reconnect your Gmail account in Settings."
+        )
+
     credentials = Credentials(
         token=access_token,
         refresh_token=refresh_token,
         token_uri="https://oauth2.googleapis.com/token",
         client_id=settings.google_client_id,
         client_secret=settings.google_client_secret,
+        expiry=gmail_account.token_expiry,
     )
 
-    # Refresh the token if it has expired
-    if credentials.expired and credentials.refresh_token:
+    # Always refresh if expired, no expiry known, or expiry is imminent
+    needs_refresh = (
+        credentials.expired
+        or not credentials.expiry
+        or (credentials.expiry.tzinfo is None
+            and credentials.expiry < datetime.utcnow())
+        or (credentials.expiry.tzinfo is not None
+            and credentials.expiry < datetime.now(timezone.utc))
+    )
+    if needs_refresh and credentials.refresh_token:
         try:
             credentials.refresh(Request())
         except Exception as exc:
-            # google.auth.exceptions.RefreshError when token is expired/revoked
             raise ValidationError(
                 "Gmail token expired or revoked. Please reconnect your Gmail account in Settings."
             ) from exc
@@ -973,13 +991,21 @@ async def import_email_full(
     # --- Step 1: Download attachment if present ---
     document_id = None
     if scan_result.has_attachments:
-        service = await _get_gmail_service(gmail_account, settings)
-        msg = (
-            service.users()
-            .messages()
-            .get(userId="me", id=scan_result.message_id, format="full")
-            .execute()
-        )
+        try:
+            service = await _get_gmail_service(gmail_account, settings)
+            msg = (
+                service.users()
+                .messages()
+                .get(userId="me", id=scan_result.message_id, format="full")
+                .execute()
+            )
+        except ValidationError:
+            raise  # Already a user-friendly message
+        except Exception as exc:
+            raise ValidationError(
+                f"Gmail API error while fetching email: {exc}. "
+                "Please reconnect your Gmail account in Settings."
+            ) from exc
         attachment_parts = _find_attachment_parts(msg.get("payload", {}))
         if attachment_parts:
             part = attachment_parts[0]

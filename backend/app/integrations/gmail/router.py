@@ -54,12 +54,21 @@ async def gmail_callback(
     state: str = Query(...),
     db: AsyncSession = Depends(get_db),
 ):
+    import logging
+    import urllib.parse
     settings = _get_settings(request)
-    await service.handle_oauth_callback(db, code, state, settings)
-    base_url = _get_settings(request).public_base_url.rstrip("/")
-    return RedirectResponse(
-        url=f"{base_url}/settings?tab=gmail&connected=true"
-    )
+    base_url = settings.public_base_url.rstrip("/")
+    try:
+        await service.handle_oauth_callback(db, code, state, settings)
+        return RedirectResponse(
+            url=f"{base_url}/settings?tab=gmail&connected=true"
+        )
+    except Exception as exc:
+        logging.getLogger(__name__).error("Gmail OAuth callback failed: %s", exc, exc_info=True)
+        error_msg = urllib.parse.quote(str(exc)[:200])
+        return RedirectResponse(
+            url=f"{base_url}/settings?tab=gmail&error={error_msg}"
+        )
 
 
 # ---------------------------------------------------------------------------
