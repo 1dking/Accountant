@@ -158,10 +158,9 @@ class CashbookEntry(TimestampMixin, Base):
         ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True, index=True
     )
 
-    # Status tracking
-    status: Mapped[EntryStatus] = mapped_column(
-        Enum(EntryStatus, values_callable=lambda e: [x.value for x in e]),
-        nullable=False, default=EntryStatus.PENDING, server_default="pending"
+    # Status tracking (stored as VARCHAR in DB, not a PG enum)
+    status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default=EntryStatus.PENDING.value, server_default="pending"
     )
 
     # Soft delete

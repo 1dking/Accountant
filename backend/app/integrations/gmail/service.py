@@ -3,6 +3,7 @@ from typing import Optional
 
 import base64
 import json
+import logging
 import mimetypes
 import os
 import re
@@ -24,6 +25,8 @@ from app.core.encryption import get_encryption_service
 from app.core.exceptions import NotFoundError, ValidationError
 
 from .models import GmailAccount, GmailScanResult
+
+_log = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -458,9 +461,6 @@ async def scan_emails(
     messages = response.get("messages", [])
     next_page_token = response.get("nextPageToken")
     scan_results: list[GmailScanResult] = []
-
-    import logging
-    _log = logging.getLogger(__name__)
 
     for msg_ref in messages:
         msg_id = msg_ref["id"]
