@@ -91,8 +91,8 @@ export default function CashbookPage() {
 
   const [selectedAccountId, setSelectedAccountId] = useState<string>('all')
   const [entryTypeFilter, setEntryTypeFilter] = useState<'all' | 'income' | 'expense'>('all')
-  const [dateFrom, setDateFrom] = useState(`${currentYear}-01-01`)
-  const [dateTo, setDateTo] = useState(`${currentYear}-12-31`)
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [searchInput, setSearchInput] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
@@ -172,10 +172,12 @@ export default function CashbookPage() {
   const entries: CashbookEntry[] = entriesData?.data ?? []
   const meta = entriesData?.meta
 
-  // Fetch summary
+  // Fetch summary (use wide range when "All Time")
+  const summaryDateFrom = dateFrom || '2000-01-01'
+  const summaryDateTo = dateTo || '2099-12-31'
   const { data: summaryData } = useQuery({
-    queryKey: ['cashbook-summary', activeAccountId, dateFrom, dateTo],
-    queryFn: () => getSummary(activeAccountId !== 'all' ? activeAccountId : null, dateFrom, dateTo),
+    queryKey: ['cashbook-summary', activeAccountId, summaryDateFrom, summaryDateTo],
+    queryFn: () => getSummary(activeAccountId !== 'all' ? activeAccountId : null, summaryDateFrom, summaryDateTo),
     enabled: !!activeAccountId,
   })
   const summary = summaryData?.data
@@ -473,13 +475,15 @@ export default function CashbookPage() {
               onClick={async (e) => {
                 e.preventDefault()
                 const token = localStorage.getItem('access_token')
-                const res = await fetch(`/api/cashbook/export/csv?account_id=${activeAccountId}&date_from=${dateFrom}&date_to=${dateTo}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+                const csvFrom = dateFrom || '2000-01-01'
+                const csvTo = dateTo || '2099-12-31'
+                const res = await fetch(`/api/cashbook/export/csv?account_id=${activeAccountId}&date_from=${csvFrom}&date_to=${csvTo}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
                 if (!res.ok) return
                 const blob = await res.blob()
                 const url = URL.createObjectURL(blob)
                 const a = document.createElement('a')
                 a.href = url
-                a.download = `cashbook_${dateFrom}_${dateTo}.csv`
+                a.download = `cashbook_${dateFrom || 'all'}_${dateTo || 'all'}.csv`
                 a.click()
                 URL.revokeObjectURL(url)
               }}
@@ -568,6 +572,20 @@ export default function CashbookPage() {
               }`}>
                 {Icon && <Icon className={`h-3.5 w-3.5 ${color}`} />}
                 {st === 'all' ? 'All Status' : st.charAt(0).toUpperCase() + st.slice(1)}
+              </button>
+            )
+          })}
+        </div>
+        <div className="flex items-center gap-1">
+          {[
+            { label: 'All Time', from: '', to: '' },
+            { label: String(currentYear), from: `${currentYear}-01-01`, to: `${currentYear}-12-31` },
+            { label: String(currentYear - 1), from: `${currentYear - 1}-01-01`, to: `${currentYear - 1}-12-31` },
+          ].map(r => {
+            const active = dateFrom === r.from && dateTo === r.to
+            return (
+              <button key={r.label} onClick={() => { setDateFrom(r.from); setDateTo(r.to); setPage(1) }} className={`px-2.5 py-1.5 text-xs font-medium rounded-lg ${active ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
+                {r.label}
               </button>
             )
           })}

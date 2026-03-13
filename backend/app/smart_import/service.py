@@ -95,12 +95,20 @@ async def process_import(
             "type": "text",
             "text": """Analyze this financial document and extract ALL transactions or line items.
 
+IMPORTANT: If this is a multi-line invoice, annual bill, or statement with multiple line items,
+extract EACH line item as a SEPARATE transaction. For example:
+- An annual invoice with 12 monthly charges → 12 separate transactions (one per month)
+- A bill with itemized services (web hosting, domain, SSL, etc.) → one transaction per service
+- A bank/credit card statement → one transaction per line
+- A receipt with multiple distinct items → one transaction per item
+Do NOT collapse multiple line items into a single total. Extract every individual charge.
+
 For each transaction, provide:
 - entry_type: "income" or "expense"
-- date: ISO format (YYYY-MM-DD) if visible
-- description: brief description of the transaction
-- amount: the total amount (positive number)
-- tax_amount: tax amount if separately shown (or null)
+- date: ISO format (YYYY-MM-DD) if visible. For recurring/monthly items, assign the appropriate month date.
+- description: brief description of the transaction (include the vendor/source name)
+- amount: the amount for THIS line item only (positive number)
+- tax_amount: tax amount if separately shown for this item (or null)
 - category_suggestion: suggest a category from: Advertising, Inventory, Shipping, Fuel, Meals, Office Supplies, Professional Fees, Rent, Repairs & Maintenance, Travel, Utilities, Dues & Subscriptions, Education & Training, Insurance, Fees, Grant, Rental Income, Other Income, Other Expense
 
 Also provide:
@@ -109,16 +117,24 @@ Also provide:
 
 Return ONLY valid JSON in this exact format:
 {
-  "document_type": "receipt",
-  "summary": "Receipt from Office Depot for supplies",
+  "document_type": "invoice",
+  "summary": "Annual hosting invoice from GoDaddy with 12 monthly charges",
   "transactions": [
     {
       "entry_type": "expense",
       "date": "2024-01-15",
-      "description": "Office supplies from Office Depot",
-      "amount": 45.99,
-      "tax_amount": 5.98,
-      "category_suggestion": "Office Supplies"
+      "description": "GoDaddy Web Hosting - January 2024",
+      "amount": 29.99,
+      "tax_amount": 3.90,
+      "category_suggestion": "Dues & Subscriptions"
+    },
+    {
+      "entry_type": "expense",
+      "date": "2024-02-15",
+      "description": "GoDaddy Web Hosting - February 2024",
+      "amount": 29.99,
+      "tax_amount": 3.90,
+      "category_suggestion": "Dues & Subscriptions"
     }
   ]
 }""",

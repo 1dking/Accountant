@@ -40,7 +40,7 @@ function ConfidenceBadge({ value }: { value: number }) {
   )
 }
 
-/* ── Preview Modal ─────────────────────────────────────── */
+/* ── Preview Modal (full-screen document only) ────────── */
 function PreviewModal({ importId, filename, mimeType, onClose }: {
   importId: string
   filename: string
@@ -71,6 +71,169 @@ function PreviewModal({ importId, filename, mimeType, onClose }: {
           ) : (
             <p className="text-gray-500 dark:text-gray-400">Preview not available for this file type.</p>
           )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── Split-Screen Edit Modal (PDF left + edit form right) */
+function EditPreviewModal({ importId, filename, mimeType, item, overrides, categories, onClose, onSave }: {
+  importId: string
+  filename: string
+  mimeType?: string
+  item: SmartImportItem
+  overrides?: Partial<SmartImportItem>
+  categories: { id: string; name: string }[]
+  onClose: () => void
+  onSave: (itemId: string, updates: Partial<SmartImportItem>) => void
+}) {
+  const url = getImportPreviewUrl(importId)
+  const isPdf = mimeType?.includes('pdf') || filename.toLowerCase().endsWith('.pdf')
+  const isImage = mimeType?.startsWith('image/') || /\.(png|jpe?g|webp|gif)$/i.test(filename)
+
+  const [draft, setDraft] = useState({
+    entry_type: (overrides?.entry_type ?? item.entry_type) as 'income' | 'expense',
+    date: (overrides?.date ?? item.date) || '',
+    description: overrides?.description ?? item.description,
+    amount: String(overrides?.amount ?? item.amount),
+    category_suggestion: overrides?.category_suggestion ?? item.category_suggestion ?? '',
+  })
+
+  const handleSave = () => {
+    const amount = parseFloat(draft.amount)
+    if (isNaN(amount) || amount <= 0) {
+      return
+    }
+    onSave(item.id, {
+      entry_type: draft.entry_type,
+      date: draft.date || null,
+      description: draft.description,
+      amount,
+      category_suggestion: draft.category_suggestion || null,
+    } as Partial<SmartImportItem>)
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
+      <div
+        className="relative bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-[95vw] max-w-6xl h-[85vh] flex flex-col overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b dark:border-gray-700 shrink-0">
+          <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{filename}</p>
+          <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Split content */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* Left: Document preview (60%) */}
+          <div className="w-[60%] bg-gray-100 dark:bg-gray-950 p-4 overflow-auto flex items-center justify-center border-r dark:border-gray-700">
+            {isPdf ? (
+              <iframe src={url} className="w-full h-full rounded border dark:border-gray-700" title="Preview" />
+            ) : isImage ? (
+              <img src={url} alt={filename} className="max-w-full max-h-full object-contain rounded" />
+            ) : (
+              <p className="text-gray-500 dark:text-gray-400">Preview not available for this file type.</p>
+            )}
+          </div>
+
+          {/* Right: Edit form (40%) */}
+          <div className="w-[40%] p-6 overflow-y-auto">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Edit Transaction</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
+                <div className="flex gap-2">
+                  {(['expense', 'income'] as const).map(t => (
+                    <button
+                      key={t}
+                      onClick={() => setDraft(d => ({ ...d, entry_type: t }))}
+                      className={cn(
+                        'px-4 py-2 text-sm font-medium rounded-lg border transition-colors flex-1',
+                        draft.entry_type === t
+                          ? t === 'income' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-300 dark:border-green-700'
+                            : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-300 dark:border-red-700'
+                          : 'bg-white dark:bg-gray-800 text-gray-500 border-gray-200 dark:border-gray-600 hover:border-gray-400',
+                      )}
+                    >
+                      {t === 'income' ? 'Income' : 'Expense'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date</label>
+                <input
+                  type="date"
+                  value={draft.date}
+                  onChange={(e) => setDraft(d => ({ ...d, date: e.target.value }))}
+                  className="w-full px-3 py-2 text-sm border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
+                <input
+                  type="text"
+                  value={draft.description}
+                  onChange={(e) => setDraft(d => ({ ...d, description: e.target.value }))}
+                  className="w-full px-3 py-2 text-sm border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Amount</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={draft.amount}
+                  onChange={(e) => setDraft(d => ({ ...d, amount: e.target.value }))}
+                  className="w-full px-3 py-2 text-sm border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Category</label>
+                <select
+                  value={draft.category_suggestion}
+                  onChange={(e) => setDraft(d => ({ ...d, category_suggestion: e.target.value }))}
+                  className="w-full px-3 py-2 text-sm border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">No category</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.name}>{cat.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
+                <span>AI Confidence:</span>
+                <ConfidenceBadge value={item.confidence} />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6 pt-4 border-t dark:border-gray-700">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 border dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -159,6 +322,7 @@ export default function SmartImportPage() {
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
   const [editDraft, setEditDraft] = useState<{ description: string; amount: string; date: string }>({ description: '', amount: '', date: '' })
   const [showPreview, setShowPreview] = useState(false)
+  const [editPreviewItem, setEditPreviewItem] = useState<SmartImportItem | null>(null)
   const [splitItem, setSplitItem] = useState<SmartImportItem | null>(null)
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null)
 
@@ -440,6 +604,23 @@ export default function SmartImportPage() {
             filename={activeImport.original_filename}
             mimeType={activeImport.mime_type}
             onClose={() => setShowPreview(false)}
+          />
+        )}
+        {editPreviewItem && (
+          <EditPreviewModal
+            importId={activeImport.id}
+            filename={activeImport.original_filename}
+            mimeType={activeImport.mime_type}
+            item={editPreviewItem}
+            overrides={itemOverrides[editPreviewItem.id]}
+            categories={categories}
+            onClose={() => setEditPreviewItem(null)}
+            onSave={(itemId, updates) => {
+              setItemOverrides((prev) => ({
+                ...prev,
+                [itemId]: { ...prev[itemId], ...updates },
+              }))
+            }}
           />
         )}
         {splitItem && (
@@ -784,9 +965,9 @@ export default function SmartImportPage() {
                       {!isImported && (
                         <div className="flex items-center gap-1">
                           <button
-                            onClick={(e) => { e.stopPropagation(); startEditing(item) }}
+                            onClick={(e) => { e.stopPropagation(); setEditPreviewItem(item) }}
                             className="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
-                            title="Edit"
+                            title="Edit with preview"
                           >
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
