@@ -189,23 +189,26 @@ async def _get_gmail_service(gmail_account: GmailAccount, settings: Settings):
             "Gmail refresh token missing. Please reconnect your Gmail account in Settings."
         )
 
+    # google-auth internally uses naive-UTC datetimes; strip tzinfo to avoid
+    # "can't compare offset-naive and offset-aware datetimes" TypeError
+    token_expiry = gmail_account.token_expiry
+    if token_expiry and token_expiry.tzinfo is not None:
+        token_expiry = token_expiry.replace(tzinfo=None)
+
     credentials = Credentials(
         token=access_token,
         refresh_token=refresh_token,
         token_uri="https://oauth2.googleapis.com/token",
         client_id=settings.google_client_id,
         client_secret=settings.google_client_secret,
-        expiry=gmail_account.token_expiry,
+        expiry=token_expiry,
     )
 
-    # Always refresh if expired, no expiry known, or expiry is imminent
+    # Always refresh if expired or no expiry known
     needs_refresh = (
         credentials.expired
         or not credentials.expiry
-        or (credentials.expiry.tzinfo is None
-            and credentials.expiry < datetime.utcnow())
-        or (credentials.expiry.tzinfo is not None
-            and credentials.expiry < datetime.now(timezone.utc))
+        or credentials.expiry < datetime.utcnow()
     )
     if needs_refresh and credentials.refresh_token:
         try:
