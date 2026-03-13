@@ -164,10 +164,16 @@ async def list_errors(
     db: Annotated[AsyncSession, Depends(get_db)],
     level: Optional[str] = Query(None),
     resolved: Optional[bool] = Query(None),
+    endpoint: Optional[str] = Query(None),
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=100),
 ):
-    errors, total = await service.list_error_logs(db, level, resolved, page, page_size)
+    errors, total = await service.list_error_logs(
+        db, level, resolved, page, page_size,
+        endpoint=endpoint, date_from=date_from, date_to=date_to,
+    )
     return {
         "data": [schemas.ErrorLogResponse.model_validate(e) for e in errors],
         "meta": {"total": total, "page": page, "page_size": page_size},

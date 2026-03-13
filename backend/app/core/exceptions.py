@@ -1,4 +1,6 @@
 import logging
+import traceback
+import uuid
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -42,6 +44,48 @@ class ValidationError(AppError):
         super().__init__(code="VALIDATION_ERROR", message=message, status_code=422)
 
 
+def _extract_user_id(request: Request) -> uuid.UUID | None:
+    """Try to extract user_id from the request's auth token without raising."""
+    try:
+        auth = request.headers.get("authorization", "")
+        if not auth.startswith("Bearer "):
+            return None
+        from app.auth.utils import decode_token
+        token_data = decode_token(auth[7:])
+        return token_data.sub if token_data else None
+    except Exception:
+        return None
+
+
+async def _log_error_to_db(
+    request: Request,
+    error_type: str,
+    message: str,
+    tb: str | None = None,
+    level: str = "error",
+) -> None:
+    """Persist an error to the error_logs table. Fire-and-forget — never raises."""
+    try:
+        session_factory = request.app.state.session_factory
+        async with session_factory() as db:
+            from app.platform_admin.models import ErrorLog
+            user_id = _extract_user_id(request)
+            error = ErrorLog(
+                id=uuid.uuid4(),
+                level=level,
+                source=error_type,
+                message=message[:2000],
+                traceback=tb[:10000] if tb else None,
+                user_id=user_id,
+                request_path=request.url.path,
+                request_method=request.method,
+            )
+            db.add(error)
+            await db.commit()
+    except Exception:
+        logger.warning("Failed to persist error log to DB", exc_info=True)
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppError)
     async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
@@ -71,14 +115,29 @@ def register_exception_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(Exception)
     async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-        logger.exception("Unhandled exception on %s %s", request.method, request.url.path)
+        tb = traceback.format_exception(type(exc), exc, exc.__traceback__)
+        tb_str = "".join(tb)
+        error_type = type(exc).__name__
+        error_message = str(exc) or "Unknown error"
+
+        logger.exception("Unhandled %s on %s %s", error_type, request.method, request.url.path)
+
+        # Persist to error_logs table
+        await _log_error_to_db(
+            request,
+            error_type=error_type,
+            message=error_message,
+            tb=tb_str,
+            level="error",
+        )
+
         return JSONResponse(
             status_code=500,
             content={
                 "error": {
-                    "code": "INTERNAL_ERROR",
-                    "message": "An internal error occurred. Please try again or contact support.",
-                    "details": None,
+                    "code": error_type,
+                    "message": error_message[:500],
+                    "details": tb_str[:500] if tb_str else None,
                 }
             },
         )

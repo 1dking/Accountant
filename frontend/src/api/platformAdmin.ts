@@ -27,10 +27,13 @@ export const platformAdminApi = {
   getHealth: () => api.get('/platform-admin/health'),
 
   // Errors
-  listErrors: (params?: { level?: string; resolved?: boolean; page?: number; page_size?: number }) => {
+  listErrors: (params?: { level?: string; resolved?: boolean; endpoint?: string; date_from?: string; date_to?: string; page?: number; page_size?: number }) => {
     const searchParams = new URLSearchParams()
     if (params?.level) searchParams.set('level', params.level)
     if (params?.resolved !== undefined) searchParams.set('resolved', String(params.resolved))
+    if (params?.endpoint) searchParams.set('endpoint', params.endpoint)
+    if (params?.date_from) searchParams.set('date_from', params.date_from)
+    if (params?.date_to) searchParams.set('date_to', params.date_to)
     if (params?.page) searchParams.set('page', String(params.page))
     if (params?.page_size) searchParams.set('page_size', String(params.page_size))
     return api.get(`/platform-admin/errors?${searchParams.toString()}`)

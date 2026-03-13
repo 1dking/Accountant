@@ -488,6 +488,9 @@ async def list_error_logs(
     resolved: bool | None = None,
     page: int = 1,
     page_size: int = 50,
+    endpoint: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
 ) -> tuple[list[ErrorLog], int]:
     stmt = select(ErrorLog).order_by(ErrorLog.created_at.desc())
     count_stmt = select(func.count(ErrorLog.id))
@@ -498,6 +501,16 @@ async def list_error_logs(
     if resolved is not None:
         stmt = stmt.where(ErrorLog.resolved == resolved)
         count_stmt = count_stmt.where(ErrorLog.resolved == resolved)
+    if endpoint:
+        filt = ErrorLog.request_path.ilike(f"%{endpoint}%")
+        stmt = stmt.where(filt)
+        count_stmt = count_stmt.where(filt)
+    if date_from:
+        stmt = stmt.where(ErrorLog.created_at >= date_from)
+        count_stmt = count_stmt.where(ErrorLog.created_at >= date_from)
+    if date_to:
+        stmt = stmt.where(ErrorLog.created_at <= date_to + " 23:59:59")
+        count_stmt = count_stmt.where(ErrorLog.created_at <= date_to + " 23:59:59")
 
     total = (await db.execute(count_stmt)).scalar() or 0
     stmt = stmt.offset((page - 1) * page_size).limit(page_size)

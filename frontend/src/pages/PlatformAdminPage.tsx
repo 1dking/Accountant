@@ -2035,11 +2035,25 @@ function SecurityTab() {
 
 function ErrorsTab() {
   const queryClient = useQueryClient()
-  const [showResolved, setShowResolved] = useState(false)
+  const [resolvedFilter, setResolvedFilter] = useState<'unresolved' | 'resolved' | 'all'>('unresolved')
+  const [endpointFilter, setEndpointFilter] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [page, setPage] = useState(1)
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['platform-admin', 'errors', showResolved],
-    queryFn: () => platformAdminApi.listErrors({ resolved: showResolved ? undefined : false }),
+  const filterParams = {
+    resolved: resolvedFilter === 'all' ? undefined : resolvedFilter === 'resolved',
+    endpoint: endpointFilter || undefined,
+    date_from: dateFrom || undefined,
+    date_to: dateTo || undefined,
+    page,
+    page_size: 50,
+  }
+
+  const { data, isLoading, dataUpdatedAt } = useQuery({
+    queryKey: ['platform-admin', 'errors', filterParams],
+    queryFn: () => platformAdminApi.listErrors(filterParams),
+    refetchInterval: 30_000,
   })
 
   const resolveMut = useMutation({
@@ -2051,22 +2065,85 @@ function ErrorsTab() {
   })
 
   const errors = (data as any)?.data ?? []
+  const meta = (data as any)?.meta
+  const totalPages = meta ? Math.ceil(meta.total / meta.page_size) : 1
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Error Log</h1>
-        <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-          <input
-            type="checkbox"
-            checked={showResolved}
-            onChange={(e) => setShowResolved(e.target.checked)}
-            className="rounded"
-          />
-          Show resolved
-        </label>
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Error Log</h1>
+          {meta && (
+            <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full">
+              {meta.total} total
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2 text-xs text-gray-400">
+          <RefreshCw className="w-3 h-3" />
+          Auto-refresh 30s
+          {dataUpdatedAt > 0 && (
+            <span>· last {timeAgo(new Date(dataUpdatedAt).toISOString())}</span>
+          )}
+        </div>
       </div>
 
+      {/* Filters */}
+      <div className="flex flex-wrap gap-3 items-end bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 p-4">
+        <div className="flex gap-1">
+          {(['unresolved', 'resolved', 'all'] as const).map(v => (
+            <button
+              key={v}
+              onClick={() => { setResolvedFilter(v); setPage(1) }}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg capitalize ${
+                resolvedFilter === v
+                  ? v === 'unresolved' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                    : v === 'resolved' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100'
+                  : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'
+              }`}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+          <input
+            type="text"
+            value={endpointFilter}
+            onChange={(e) => { setEndpointFilter(e.target.value); setPage(1) }}
+            placeholder="Filter by endpoint..."
+            className="pl-8 pr-3 py-1.5 text-xs border dark:border-gray-600 rounded-lg dark:bg-gray-900 dark:text-gray-100 w-48"
+          />
+        </div>
+        <div className="flex items-center gap-1.5">
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => { setDateFrom(e.target.value); setPage(1) }}
+            className="px-2 py-1.5 text-xs border dark:border-gray-600 rounded-lg dark:bg-gray-900 dark:text-gray-100"
+          />
+          <span className="text-xs text-gray-400">to</span>
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => { setDateTo(e.target.value); setPage(1) }}
+            className="px-2 py-1.5 text-xs border dark:border-gray-600 rounded-lg dark:bg-gray-900 dark:text-gray-100"
+          />
+        </div>
+        {(endpointFilter || dateFrom || dateTo || resolvedFilter !== 'unresolved') && (
+          <button
+            onClick={() => { setEndpointFilter(''); setDateFrom(''); setDateTo(''); setResolvedFilter('unresolved'); setPage(1) }}
+            className="px-2.5 py-1.5 text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 border dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+          >
+            Clear filters
+          </button>
+        )}
+      </div>
+
+      {/* Error list */}
       {isLoading ? (
         <LoadingSpinner />
       ) : errors.length === 0 ? (
@@ -2082,44 +2159,95 @@ function ErrorsTab() {
                 ? 'border-gray-200 dark:border-gray-700 opacity-60'
                 : err.level === 'error'
                   ? 'border-red-200 dark:border-red-900/50'
-                  : 'border-yellow-200 dark:border-yellow-900/50'
+                  : err.level === 'warning'
+                    ? 'border-yellow-200 dark:border-yellow-900/50'
+                    : 'border-blue-200 dark:border-blue-900/50'
             }`}>
-              <div className="flex items-start justify-between">
+              <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium uppercase ${
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
                       err.level === 'error'
                         ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                        : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                        : err.level === 'warning'
+                          ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                          : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
                     }`}>
                       {err.level}
                     </span>
-                    <span className="text-xs font-mono text-gray-500 dark:text-gray-400">{err.source}</span>
+                    <span className="text-xs font-mono text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 px-1.5 py-0.5 rounded">
+                      {err.source}
+                    </span>
                     {err.request_method && (
-                      <span className="text-xs text-gray-400">{err.request_method} {err.request_path}</span>
+                      <span className="text-xs font-mono text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
+                        {err.request_method} {err.request_path}
+                      </span>
+                    )}
+                    {err.user_id && (
+                      <span className="text-[10px] text-gray-400" title={err.user_id}>
+                        user: {err.user_id.slice(0, 8)}...
+                      </span>
+                    )}
+                    {err.resolved && (
+                      <span className="text-[10px] font-medium text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-1.5 py-0.5 rounded">
+                        RESOLVED
+                      </span>
                     )}
                   </div>
-                  <p className="text-sm text-gray-900 dark:text-white break-words">{err.message}</p>
+                  <p className="text-sm text-gray-900 dark:text-white break-words font-medium">{err.message}</p>
                   {err.traceback && (
                     <details className="mt-2">
-                      <summary className="text-xs text-gray-500 cursor-pointer hover:text-gray-700 dark:hover:text-gray-300">Traceback</summary>
-                      <pre className="mt-1 text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900 p-2 rounded overflow-x-auto max-h-40">{err.traceback}</pre>
+                      <summary className="text-xs text-gray-500 cursor-pointer hover:text-gray-700 dark:hover:text-gray-300 select-none">
+                        Traceback ({err.traceback.split('\n').length} lines)
+                      </summary>
+                      <pre className="mt-1 text-[11px] leading-relaxed text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900 p-3 rounded overflow-x-auto max-h-60 whitespace-pre-wrap break-words">
+                        {err.traceback}
+                      </pre>
                     </details>
                   )}
-                  <p className="text-xs text-gray-400 mt-1">{timeAgo(err.created_at)}</p>
+                  <p className="text-xs text-gray-400 mt-1.5">
+                    <Clock className="inline w-3 h-3 mr-0.5 -mt-0.5" />
+                    {timeAgo(err.created_at)}
+                    {' · '}
+                    {new Date(err.created_at).toLocaleString()}
+                  </p>
                 </div>
                 {!err.resolved && (
                   <button
                     onClick={() => resolveMut.mutate(err.id)}
-                    className="ml-3 p-1.5 rounded text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 shrink-0"
-                    title="Mark resolved"
+                    disabled={resolveMut.isPending}
+                    className="px-3 py-1.5 text-xs font-medium text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/40 shrink-0"
+                    title="Mark as resolved"
                   >
-                    <CheckCircle className="w-4 h-4" />
+                    Resolve
                   </button>
                 )}
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 pt-2">
+          <button
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page <= 1}
+            className="px-3 py-1 text-xs border dark:border-gray-600 rounded-lg disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-300"
+          >
+            Prev
+          </button>
+          <span className="text-xs text-gray-500 dark:text-gray-400">
+            Page {page} of {totalPages}
+          </span>
+          <button
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            disabled={page >= totalPages}
+            className="px-3 py-1 text-xs border dark:border-gray-600 rounded-lg disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-300"
+          >
+            Next
+          </button>
         </div>
       )}
     </div>
