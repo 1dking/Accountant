@@ -1141,6 +1141,9 @@ async def import_email_full(
         scan_result.matched_expense_id = expense.id
         response_data["expense_id"] = str(expense.id)
 
+    # Commit document + expense/income so they survive if cashbook entry fails
+    await db.commit()
+
     # --- Step 3: Create CashbookEntry if account_id provided ---
     cashbook_entry_id = None
     if account_id and use_amount and use_amount > 0:
@@ -1168,6 +1171,7 @@ async def import_email_full(
             cashbook_entry_id = str(cashbook_entry.id)
             response_data["cashbook_entry_id"] = cashbook_entry_id
         except Exception as exc:
+            await db.rollback()
             _log.warning(
                 "Email import: cashbook entry creation failed for %s: %s",
                 result_id, exc,
@@ -1218,6 +1222,7 @@ async def import_email_full(
             rule = await create_rule(db, rule_data, user)
             response_data["recurring_rule_id"] = str(rule.id)
         except Exception as exc:
+            await db.rollback()
             _log.warning(
                 "Email import: recurring rule creation failed for %s: %s",
                 result_id, exc,
@@ -1226,6 +1231,8 @@ async def import_email_full(
             response_data["recurring_error"] = str(exc)[:200]
 
     # --- Step 5: Mark as processed ---
+    # Re-fetch scan_result in case a rollback expired the ORM object
+    scan_result = await db.get(GmailScanResult, result_id)
     scan_result.is_processed = True
     if document_id:
         scan_result.matched_document_id = document_id
