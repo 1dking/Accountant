@@ -35,7 +35,10 @@ import {
   Kanban,
   Settings,
   Lightbulb,
+  Trash2,
 } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { getTrashCount } from '@/api/cashbook'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useUiStore } from '@/stores/uiStore'
 import { useAuthStore } from '@/stores/authStore'
@@ -88,6 +91,7 @@ const NAV_SECTIONS: NavSection[] = [
       { path: '/email-scan', label: 'Email Scanner', icon: MailSearch, featureKey: 'email_scanner' },
       { path: '/recurring', label: 'Recurring', icon: RefreshCw, featureKey: 'recurring' },
       { path: '/reports', label: 'Reports', icon: BarChart3, featureKey: 'reports' },
+      { path: '/cashbook/trash', label: 'Trash', icon: Trash2, featureKey: 'cashbook' },
     ],
   },
   {
@@ -159,6 +163,7 @@ export default function Sidebar() {
     const [pathname, query] = path.split('?')
     if (pathname === '/') return location.pathname === '/'
     if (pathname === '/cashbook/reconcile') return location.pathname === '/cashbook/reconcile'
+    if (pathname === '/cashbook/trash') return location.pathname === '/cashbook/trash'
     if (pathname === '/cashbook') return location.pathname === '/cashbook' || location.pathname.startsWith('/cashbook/entries') || location.pathname === '/cashbook/new'
     if (query) {
       return location.pathname.startsWith(pathname) && location.search.includes(query)
@@ -183,6 +188,14 @@ export default function Sidebar() {
       prevActiveSectionRef.current = activeSectionIndex
     }
   }, [activeSectionIndex])
+
+  const { data: trashCountData } = useQuery({
+    queryKey: ['cashbook-trash-count'],
+    queryFn: getTrashCount,
+    refetchInterval: 60_000,
+    enabled: !!user,
+  })
+  const trashCount = trashCountData?.data?.total || 0
 
   if (!sidebarOpen || panelState !== 'sidebar') return null
 
@@ -261,6 +274,11 @@ export default function Sidebar() {
                       >
                         <Icon className="h-4 w-4" />
                         {item.label}
+                        {item.path === '/cashbook/trash' && trashCount > 0 && (
+                          <span className="ml-auto text-[10px] font-semibold bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 rounded-full px-1.5 py-0.5 min-w-[20px] text-center">
+                            {trashCount}
+                          </span>
+                        )}
                       </button>
                     )
                   })}

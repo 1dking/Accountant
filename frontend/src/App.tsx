@@ -80,6 +80,7 @@ import PipelinesPage from '@/pages/PipelinesPage'
 import ConversationsPage from '@/pages/ConversationsPage'
 import OBrainPage from '@/pages/OBrainPage'
 import SmartImportPage from '@/pages/SmartImportPage'
+import TrashPage from '@/pages/TrashPage'
 import PlatformAdminPage from '@/pages/PlatformAdminPage'
 import IntelligencePage from '@/pages/IntelligencePage'
 import ReschedulePage from '@/pages/ReschedulePage'
@@ -152,6 +153,7 @@ function AuthenticatedApp() {
         <Route path="/cashbook/new" element={<NewCashbookEntryPage />} />
         <Route path="/cashbook/entries/:id" element={<CashbookEntryDetailPage />} />
         <Route path="/cashbook/reconcile" element={<ReconciliationPage />} />
+        <Route path="/cashbook/trash" element={<TrashPage />} />
         <Route path="/expenses" element={<ExpensesPage />} />
         <Route path="/expenses/new" element={<NewExpensePage />} />
         <Route path="/expenses/dashboard" element={<ExpenseDashboardPage />} />

@@ -179,3 +179,34 @@ export function bulkUpdateStatus(entry_ids: string[], status: string) {
 export function fixOrphanEntries() {
   return api.post<ApiResponse<{ reassigned: number }>>('/cashbook/entries/fix-orphans')
 }
+
+// Trash
+export function listTrash(page = 1, pageSize = 50) {
+  return api.get<ApiResponse<{ entries: CashbookEntry[]; accounts: PaymentAccount[] }>>(
+    `/cashbook/trash?page=${page}&page_size=${pageSize}`
+  )
+}
+
+export function getTrashCount() {
+  return api.get<ApiResponse<{ entries: number; accounts: number; total: number }>>('/cashbook/trash/count')
+}
+
+export function emptyTrash() {
+  return api.post<ApiResponse<{ deleted_entries: number; deleted_accounts: number }>>('/cashbook/trash/empty')
+}
+
+export function restoreAllTrash() {
+  return api.post<ApiResponse<{ restored_entries: number; restored_accounts: number }>>('/cashbook/trash/restore-all')
+}
+
+export function permanentDeleteEntry(id: string) {
+  return api.post<ApiResponse<{ message: string }>>(`/cashbook/entries/${id}/permanent-delete`)
+}
+
+export function restoreAccount(id: string) {
+  return api.post<ApiResponse<PaymentAccount>>(`/cashbook/accounts/${id}/restore`)
+}
+
+export function permanentDeleteAccount(id: string) {
+  return api.post<ApiResponse<{ message: string }>>(`/cashbook/accounts/${id}/permanent-delete`)
+}

@@ -937,6 +937,7 @@ export interface CashbookEntry {
   user_id: string
   status: EntryStatusType
   is_deleted: boolean
+  deleted_at: string | null
   split_parent_id: string | null
   bank_balance: number | null
   category: TransactionCategory | null

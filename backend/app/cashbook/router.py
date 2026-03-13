@@ -324,6 +324,90 @@ async def split_entry(
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# Trash endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.get("/trash")
+async def list_trash(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    pagination: Annotated[PaginationParams, Depends(get_pagination)],
+) -> dict:
+    """List all soft-deleted entries and deactivated accounts."""
+    entries, accounts, meta = await service.list_trash(db, current_user, pagination)
+    return {
+        "data": {
+            "entries": [CashbookEntryResponse.model_validate(e) for e in entries],
+            "accounts": [PaymentAccountResponse.model_validate(a) for a in accounts],
+        },
+        "meta": meta,
+    }
+
+
+@router.get("/trash/count")
+async def trash_count(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    counts = await service.trash_count(db, current_user)
+    return {"data": counts}
+
+
+@router.post("/trash/empty")
+async def empty_trash(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
+) -> dict:
+    result = await service.empty_trash(db, current_user)
+    return {"data": result}
+
+
+@router.post("/trash/restore-all")
+async def restore_all_trash(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
+) -> dict:
+    result = await service.restore_all_trash(db, current_user)
+    return {"data": result}
+
+
+@router.post("/entries/{entry_id}/permanent-delete")
+async def permanent_delete_entry(
+    entry_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
+) -> dict:
+    await service.permanent_delete_entry(db, entry_id, current_user)
+    return {"data": {"message": "Entry permanently deleted"}}
+
+
+@router.post("/accounts/{account_id}/restore")
+async def restore_account(
+    account_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
+) -> dict:
+    account = await service.restore_account(db, account_id, current_user)
+    return {"data": PaymentAccountResponse.model_validate(account)}
+
+
+@router.post("/accounts/{account_id}/permanent-delete")
+async def permanent_delete_account(
+    account_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
+) -> dict:
+    await service.permanent_delete_account(db, account_id, current_user)
+    return {"data": {"message": "Account permanently deleted"}}
+
+
+# ---------------------------------------------------------------------------
+# Orphan fix
+# ---------------------------------------------------------------------------
+
+
 @router.post("/entries/fix-orphans")
 async def fix_orphan_entries(
     db: Annotated[AsyncSession, Depends(get_db)],

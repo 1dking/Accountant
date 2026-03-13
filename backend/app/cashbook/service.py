@@ -988,6 +988,182 @@ async def bulk_update_status(
 
 
 # ---------------------------------------------------------------------------
+# Trash
+# ---------------------------------------------------------------------------
+
+
+async def list_trash(
+    db: AsyncSession,
+    user: User,
+    pagination: "PaginationParams",
+) -> tuple[list[CashbookEntry], list[PaymentAccount], dict]:
+    """Return all soft-deleted entries and deactivated accounts for the user."""
+    from sqlalchemy import desc
+
+    # Deleted entries
+    entry_stmt = (
+        select(CashbookEntry)
+        .options(selectinload(CashbookEntry.category), selectinload(CashbookEntry.account))
+        .where(CashbookEntry.is_deleted.is_(True))
+    )
+    entry_stmt = apply_cashbook_filter(entry_stmt, CashbookEntry.user_id, CashbookEntry.org_id, user)
+    entry_stmt = entry_stmt.order_by(desc(CashbookEntry.deleted_at))
+
+    # Count
+    count_stmt = select(func.count()).select_from(
+        entry_stmt.with_only_columns(CashbookEntry.id).subquery()
+    )
+    total = (await db.execute(count_stmt)).scalar() or 0
+
+    entry_stmt = entry_stmt.offset(pagination.offset).limit(pagination.page_size)
+    entries = list((await db.execute(entry_stmt)).scalars().all())
+    meta = build_pagination_meta(total, pagination)
+
+    # Deactivated accounts
+    acct_stmt = (
+        select(PaymentAccount)
+        .where(PaymentAccount.is_active.is_(False))
+    )
+    acct_stmt = apply_cashbook_filter(acct_stmt, PaymentAccount.user_id, PaymentAccount.org_id, user)
+    accounts = list((await db.execute(acct_stmt)).scalars().all())
+
+    return entries, accounts, meta
+
+
+async def trash_count(db: AsyncSession, user: User) -> dict:
+    """Return counts of trashed entries and deactivated accounts."""
+    entry_stmt = select(func.count()).where(CashbookEntry.is_deleted.is_(True))
+    entry_stmt = apply_cashbook_filter(entry_stmt, CashbookEntry.user_id, CashbookEntry.org_id, user)
+    entry_count = (await db.execute(entry_stmt)).scalar() or 0
+
+    acct_stmt = select(func.count()).where(PaymentAccount.is_active.is_(False))
+    acct_stmt = apply_cashbook_filter(acct_stmt, PaymentAccount.user_id, PaymentAccount.org_id, user)
+    acct_count = (await db.execute(acct_stmt)).scalar() or 0
+
+    return {"entries": entry_count, "accounts": acct_count, "total": entry_count + acct_count}
+
+
+async def permanent_delete_entry(db: AsyncSession, entry_id: uuid.UUID, user: User) -> None:
+    """Permanently delete a soft-deleted entry."""
+    result = await db.execute(
+        select(CashbookEntry).where(CashbookEntry.id == entry_id)
+    )
+    entry = result.scalar_one_or_none()
+    if entry is None:
+        raise NotFoundError("CashbookEntry", str(entry_id))
+    authorize_cashbook_owner(entry.user_id, entry.org_id, user, "CashbookEntry")
+    if not entry.is_deleted:
+        raise ValidationError("Entry must be in trash before permanent deletion")
+    await db.delete(entry)
+    await db.commit()
+
+
+async def restore_account(db: AsyncSession, account_id: uuid.UUID, user: User) -> PaymentAccount:
+    """Restore a deactivated (soft-deleted) account."""
+    result = await db.execute(
+        select(PaymentAccount).where(PaymentAccount.id == account_id)
+    )
+    account = result.scalar_one_or_none()
+    if account is None:
+        raise NotFoundError("PaymentAccount", str(account_id))
+    authorize_cashbook_owner(account.user_id, account.org_id, user, "PaymentAccount")
+    if account.is_active:
+        raise ValidationError("Account is already active")
+    account.is_active = True
+    await db.commit()
+    await db.refresh(account)
+    return account
+
+
+async def permanent_delete_account(db: AsyncSession, account_id: uuid.UUID, user: User) -> None:
+    """Permanently delete a deactivated account and all its entries."""
+    result = await db.execute(
+        select(PaymentAccount).where(PaymentAccount.id == account_id)
+    )
+    account = result.scalar_one_or_none()
+    if account is None:
+        raise NotFoundError("PaymentAccount", str(account_id))
+    authorize_cashbook_owner(account.user_id, account.org_id, user, "PaymentAccount")
+    if account.is_active:
+        raise ValidationError("Account must be deactivated before permanent deletion")
+    # Delete all entries for this account first
+    from sqlalchemy import delete as sa_delete
+    await db.execute(sa_delete(CashbookEntry).where(CashbookEntry.account_id == account_id))
+    await db.delete(account)
+    await db.commit()
+
+
+async def empty_trash(db: AsyncSession, user: User) -> dict:
+    """Permanently delete ALL trashed entries and deactivated accounts for the user."""
+    from sqlalchemy import delete as sa_delete
+
+    # Get trashed entry IDs
+    entry_stmt = select(CashbookEntry.id).where(CashbookEntry.is_deleted.is_(True))
+    entry_stmt = apply_cashbook_filter(entry_stmt, CashbookEntry.user_id, CashbookEntry.org_id, user)
+    entry_ids = list((await db.execute(entry_stmt)).scalars().all())
+
+    deleted_entries = 0
+    if entry_ids:
+        result = await db.execute(
+            sa_delete(CashbookEntry).where(CashbookEntry.id.in_(entry_ids))
+        )
+        deleted_entries = result.rowcount
+
+    # Get deactivated account IDs
+    acct_stmt = select(PaymentAccount.id).where(PaymentAccount.is_active.is_(False))
+    acct_stmt = apply_cashbook_filter(acct_stmt, PaymentAccount.user_id, PaymentAccount.org_id, user)
+    acct_ids = list((await db.execute(acct_stmt)).scalars().all())
+
+    deleted_accounts = 0
+    if acct_ids:
+        # Delete entries belonging to deactivated accounts first
+        await db.execute(
+            sa_delete(CashbookEntry).where(CashbookEntry.account_id.in_(acct_ids))
+        )
+        result = await db.execute(
+            sa_delete(PaymentAccount).where(PaymentAccount.id.in_(acct_ids))
+        )
+        deleted_accounts = result.rowcount
+
+    await db.commit()
+    return {"deleted_entries": deleted_entries, "deleted_accounts": deleted_accounts}
+
+
+async def restore_all_trash(db: AsyncSession, user: User) -> dict:
+    """Restore ALL trashed entries and deactivated accounts for the user."""
+    # Restore entries
+    entry_stmt = select(CashbookEntry.id).where(CashbookEntry.is_deleted.is_(True))
+    entry_stmt = apply_cashbook_filter(entry_stmt, CashbookEntry.user_id, CashbookEntry.org_id, user)
+    entry_ids = list((await db.execute(entry_stmt)).scalars().all())
+
+    restored_entries = 0
+    if entry_ids:
+        result = await db.execute(
+            sa_update(CashbookEntry)
+            .where(CashbookEntry.id.in_(entry_ids))
+            .values(is_deleted=False, deleted_at=None, status=EntryStatus.PENDING.value)
+        )
+        restored_entries = result.rowcount
+
+    # Restore accounts
+    acct_stmt = select(PaymentAccount.id).where(PaymentAccount.is_active.is_(False))
+    acct_stmt = apply_cashbook_filter(acct_stmt, PaymentAccount.user_id, PaymentAccount.org_id, user)
+    acct_ids = list((await db.execute(acct_stmt)).scalars().all())
+
+    restored_accounts = 0
+    if acct_ids:
+        result = await db.execute(
+            sa_update(PaymentAccount)
+            .where(PaymentAccount.id.in_(acct_ids))
+            .values(is_active=True)
+        )
+        restored_accounts = result.rowcount
+
+    await db.commit()
+    return {"restored_entries": restored_entries, "restored_accounts": restored_accounts}
+
+
+# ---------------------------------------------------------------------------
 # Split transaction
 # ---------------------------------------------------------------------------
 
