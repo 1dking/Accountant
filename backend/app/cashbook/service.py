@@ -443,14 +443,14 @@ async def delete_account_with_entries(
             moved = result.rowcount
             await db.flush()
         elif action == "delete":
-            now = datetime.now(timezone.utc)
+            now = datetime.utcnow()
             result = await db.execute(
                 sa_update(CashbookEntry)
                 .where(
                     CashbookEntry.account_id == account_id,
                     CashbookEntry.is_deleted.is_(False),
                 )
-                .values(is_deleted=True, deleted_at=now, status=EntryStatus.VOIDED)
+                .values(is_deleted=True, deleted_at=now, status=EntryStatus.VOIDED.value)
             )
             deleted = result.rowcount
             await db.flush()
@@ -811,8 +811,8 @@ async def delete_entry(db: AsyncSession, entry_id: uuid.UUID, user: User) -> Non
     await assert_period_open(db, entry.date)
 
     entry.is_deleted = True
-    entry.deleted_at = datetime.now(timezone.utc)
-    entry.status = EntryStatus.VOIDED
+    entry.deleted_at = datetime.utcnow()
+    entry.status = EntryStatus.VOIDED.value
     await db.commit()
 
     await log_activity(
@@ -839,7 +839,7 @@ async def restore_entry(db: AsyncSession, entry_id: uuid.UUID, user: User) -> Ca
 
     entry.is_deleted = False
     entry.deleted_at = None
-    entry.status = EntryStatus.PENDING
+    entry.status = EntryStatus.PENDING.value
     await db.commit()
     await db.refresh(entry)
     return entry
@@ -912,7 +912,7 @@ async def bulk_soft_delete(
     user: User,
 ) -> int:
     """Soft-delete multiple entries."""
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     result = await db.execute(
         sa_update(CashbookEntry)
         .where(
@@ -920,7 +920,7 @@ async def bulk_soft_delete(
             CashbookEntry.user_id == user.id,
             CashbookEntry.is_deleted.is_(False),
         )
-        .values(is_deleted=True, deleted_at=now, status=EntryStatus.VOIDED)
+        .values(is_deleted=True, deleted_at=now, status=EntryStatus.VOIDED.value)
     )
     await db.commit()
     return result.rowcount

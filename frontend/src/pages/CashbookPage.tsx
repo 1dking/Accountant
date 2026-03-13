@@ -8,6 +8,7 @@ import {
   updateAccount,
   deleteAccountWithEntries,
   listEntries,
+  deleteEntry,
   getSummary,
   listCategories,
   bulkDeleteEntries,
@@ -43,6 +44,8 @@ import {
   XCircle,
   Shield,
   ArrowRightLeft,
+  Eye,
+  EyeOff,
   X,
 } from 'lucide-react'
 import type {
@@ -97,6 +100,11 @@ export default function CashbookPage() {
   const [showCategoryTotals, setShowCategoryTotals] = useState(false)
   const [showImportDialog, setShowImportDialog] = useState(false)
   const [showAddAccount, setShowAddAccount] = useState(false)
+  const [showDeleted, setShowDeleted] = useState(false)
+
+  // Delete confirmation
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
 
   // Selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -151,6 +159,7 @@ export default function CashbookPage() {
     date_from: dateFrom,
     date_to: dateTo,
     search: searchTerm || undefined,
+    include_deleted: showDeleted || undefined,
     page,
     page_size: 25,
   }
@@ -242,11 +251,23 @@ export default function CashbookPage() {
     onError: (err: any) => toast.error(err?.message || 'Failed to delete account'),
   })
 
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteEntry(id),
+    onSuccess: () => {
+      toast.success('Entry deleted')
+      setConfirmDeleteId(null)
+      queryClient.invalidateQueries({ queryKey: ['cashbook-entries'] })
+      queryClient.invalidateQueries({ queryKey: ['cashbook-summary'] })
+    },
+    onError: (err: any) => toast.error(err?.message || 'Failed to delete entry'),
+  })
+
   const bulkDeleteMutation = useMutation({
     mutationFn: (ids: string[]) => bulkDeleteEntries(ids),
     onSuccess: (data) => {
       toast.success(`Deleted ${data.data.deleted} entries`)
       setSelectedIds(new Set())
+      setConfirmBulkDelete(false)
       queryClient.invalidateQueries({ queryKey: ['cashbook-entries'] })
       queryClient.invalidateQueries({ queryKey: ['cashbook-summary'] })
     },
@@ -563,6 +584,18 @@ export default function CashbookPage() {
           </div>
           <button onClick={handleSearch} className="px-3 py-1.5 text-sm border dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-300">Go</button>
         </div>
+        <button
+          onClick={() => { setShowDeleted(!showDeleted); setPage(1) }}
+          className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg shrink-0 ${
+            showDeleted
+              ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
+              : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'
+          }`}
+          title={showDeleted ? 'Hide deleted entries' : 'Show deleted entries'}
+        >
+          {showDeleted ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+          {showDeleted ? 'Hide deleted' : 'Show deleted'}
+        </button>
       </div>
 
       {/* Bulk Actions */}
@@ -571,7 +604,7 @@ export default function CashbookPage() {
           <CheckSquare className="w-4 h-4 text-blue-600" />
           <span className="text-sm font-medium text-blue-700 dark:text-blue-300">{selectedIds.size} selected</span>
           <div className="flex gap-1 ml-3 flex-wrap">
-            <button onClick={() => bulkDeleteMutation.mutate(Array.from(selectedIds))} className="px-2.5 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700">Delete</button>
+            <button onClick={() => setConfirmBulkDelete(true)} className="px-2.5 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700">Delete</button>
             <div className="relative">
               <button onClick={() => { setShowBulkCategorize(!showBulkCategorize); setShowBulkMove(false) }} className="px-2.5 py-1 text-xs bg-white dark:bg-gray-800 border rounded hover:bg-gray-50 dark:text-gray-300">Categorize</button>
               {showBulkCategorize && (
@@ -729,13 +762,19 @@ export default function CashbookPage() {
                   </td>
                   <td className="px-2 py-2.5" onClick={e => e.stopPropagation()}>
                     <div className="flex items-center gap-0.5 justify-end">
-                      <button onClick={() => setEditEntry(entry)} className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 rounded" title="Edit">
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                      <button onClick={() => setSplitEntryTarget(entry)} className="p-1 text-gray-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950 rounded" title="Split">
-                        <Scissors className="w-3.5 h-3.5" />
-                      </button>
-                      {entry.is_deleted && (
+                      {!entry.is_deleted ? (
+                        <>
+                          <button onClick={() => setEditEntry(entry)} className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 rounded" title="Edit">
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => setSplitEntryTarget(entry)} className="p-1 text-gray-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950 rounded" title="Split">
+                            <Scissors className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => setConfirmDeleteId(entry.id)} className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950 rounded" title="Delete">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      ) : (
                         <button onClick={() => restoreMutation.mutate(entry.id)} className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-950 rounded" title="Restore">
                           <RotateCcw className="w-3.5 h-3.5" />
                         </button>
@@ -931,6 +970,44 @@ export default function CashbookPage() {
       <ExcelImportDialog isOpen={showImportDialog} onClose={() => setShowImportDialog(false)} accounts={accounts} onImported={() => { queryClient.invalidateQueries({ queryKey: ['cashbook-entries'] }); queryClient.invalidateQueries({ queryKey: ['cashbook-summary'] }) }} />
       {editEntry && <EditEntryModal entry={editEntry} onClose={() => setEditEntry(null)} />}
       {splitEntryTarget && <SplitEntryModal entry={splitEntryTarget} onClose={() => setSplitEntryTarget(null)} />}
+
+      {/* Single Delete Confirmation */}
+      {confirmDeleteId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setConfirmDeleteId(null)}>
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl border dark:border-gray-700 w-full max-w-sm mx-4 p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-red-100 dark:bg-red-950/30 rounded-full"><Trash2 className="h-5 w-5 text-red-600" /></div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Delete Entry</h3>
+            </div>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">Are you sure you want to delete this entry? It can be restored later from the "Show deleted" view.</p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setConfirmDeleteId(null)} className="px-4 py-2 text-sm border dark:border-gray-600 rounded-lg dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Cancel</button>
+              <button onClick={() => deleteMutation.mutate(confirmDeleteId)} disabled={deleteMutation.isPending} className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50">
+                {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Delete Confirmation */}
+      {confirmBulkDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setConfirmBulkDelete(false)}>
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl border dark:border-gray-700 w-full max-w-sm mx-4 p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-red-100 dark:bg-red-950/30 rounded-full"><Trash2 className="h-5 w-5 text-red-600" /></div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Delete {selectedIds.size} Entries</h3>
+            </div>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">Are you sure you want to delete {selectedIds.size} selected entries? They can be restored later from the "Show deleted" view.</p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setConfirmBulkDelete(false)} className="px-4 py-2 text-sm border dark:border-gray-600 rounded-lg dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Cancel</button>
+              <button onClick={() => bulkDeleteMutation.mutate(Array.from(selectedIds))} disabled={bulkDeleteMutation.isPending} className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50">
+                {bulkDeleteMutation.isPending ? 'Deleting...' : `Delete ${selectedIds.size} entries`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
