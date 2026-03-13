@@ -1162,7 +1162,9 @@ async def import_email_full(
                 date=use_date,
                 description=use_description[:500],
                 total_amount=use_amount,
-                category_id=category_id if record_type == "expense" else None,
+                # NOTE: Don't pass category_id — cashbook uses transaction_categories
+                # while expenses use expense_categories (different FK tables)
+                category_id=None,
                 notes=notes or f"Email import: {scan_result.sender}",
                 source="email_scanner",
                 source_id=str(result_id),
