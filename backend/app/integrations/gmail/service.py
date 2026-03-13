@@ -189,7 +189,13 @@ async def _get_gmail_service(gmail_account: GmailAccount, settings: Settings):
 
     # Refresh the token if it has expired
     if credentials.expired and credentials.refresh_token:
-        credentials.refresh(Request())
+        try:
+            credentials.refresh(Request())
+        except Exception as exc:
+            # google.auth.exceptions.RefreshError when token is expired/revoked
+            raise ValidationError(
+                "Gmail token expired or revoked. Please reconnect your Gmail account in Settings."
+            ) from exc
         # Persist the refreshed tokens
         gmail_account.encrypted_access_token = encryption.encrypt(credentials.token)
         gmail_account.token_expiry = credentials.expiry
@@ -1102,13 +1108,13 @@ async def import_email_full(
             cashbook_entry = await create_entry(db, entry_data, user)
             cashbook_entry_id = str(cashbook_entry.id)
             response_data["cashbook_entry_id"] = cashbook_entry_id
-        except Exception:
-            import logging
-            logging.getLogger(__name__).warning(
-                "Email import: cashbook entry creation failed for %s",
-                result_id,
+        except Exception as exc:
+            _log.warning(
+                "Email import: cashbook entry creation failed for %s: %s",
+                result_id, exc,
                 exc_info=True,
             )
+            response_data["cashbook_error"] = str(exc)[:200]
 
     # --- Step 4: Create recurring rule if requested ---
     if is_recurring and recurring_frequency:
@@ -1152,13 +1158,13 @@ async def import_email_full(
             )
             rule = await create_rule(db, rule_data, user)
             response_data["recurring_rule_id"] = str(rule.id)
-        except Exception:
-            import logging
-            logging.getLogger(__name__).warning(
-                "Email import: recurring rule creation failed for %s",
-                result_id,
+        except Exception as exc:
+            _log.warning(
+                "Email import: recurring rule creation failed for %s: %s",
+                result_id, exc,
                 exc_info=True,
             )
+            response_data["recurring_error"] = str(exc)[:200]
 
     # --- Step 5: Mark as processed ---
     scan_result.is_processed = True

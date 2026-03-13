@@ -59,6 +59,11 @@ export function confirmImport(importId: string, accountId: string, itemIds?: str
   )
 }
 
+export function getImportPreviewUrl(importId: string): string {
+  const token = localStorage.getItem('auth_token') || ''
+  return `/api/smart-import/${importId}/preview?token=${encodeURIComponent(token)}`
+}
+
 export function deleteImport(importId: string) {
   return api.delete(`/smart-import/${importId}`)
 }

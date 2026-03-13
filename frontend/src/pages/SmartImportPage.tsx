@@ -1,10 +1,11 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Upload, FileImage, CheckCircle2,
   Loader2, ArrowRight, FileText,
   Pencil, Trash2, X, Check, AlertTriangle,
+  Eye, Scissors,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -16,6 +17,7 @@ import {
   updateImportItem,
   deleteImport,
   deleteImportItem,
+  getImportPreviewUrl,
   type SmartImport,
   type SmartImportItem,
 } from '@/api/smartImport'
@@ -38,9 +40,117 @@ function ConfidenceBadge({ value }: { value: number }) {
   )
 }
 
+/* ── Preview Modal ─────────────────────────────────────── */
+function PreviewModal({ importId, filename, mimeType, onClose }: {
+  importId: string
+  filename: string
+  mimeType?: string
+  onClose: () => void
+}) {
+  const url = getImportPreviewUrl(importId)
+  const isPdf = mimeType?.includes('pdf') || filename.toLowerCase().endsWith('.pdf')
+  const isImage = mimeType?.startsWith('image/') || /\.(png|jpe?g|webp|gif)$/i.test(filename)
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
+      <div
+        className="relative bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-[90vw] h-[85vh] flex flex-col overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b dark:border-gray-700">
+          <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{filename}</p>
+          <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-auto flex items-center justify-center bg-gray-100 dark:bg-gray-950 p-4">
+          {isPdf ? (
+            <iframe src={url} className="w-full h-full rounded border dark:border-gray-700" title="Preview" />
+          ) : isImage ? (
+            <img src={url} alt={filename} className="max-w-full max-h-full object-contain rounded" />
+          ) : (
+            <p className="text-gray-500 dark:text-gray-400">Preview not available for this file type.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── Split Modal ───────────────────────────────────────── */
+function SplitModal({ item, onClose, onSplit }: {
+  item: SmartImportItem & { overrides?: Partial<SmartImportItem> }
+  onClose: () => void
+  onSplit: (months: number) => void
+}) {
+  const [months, setMonths] = useState(12)
+  const amount = item.overrides?.amount ?? item.amount
+  const perMonth = amount / months
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
+      <div
+        className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-md p-6 space-y-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+          Split Into Monthly Entries
+        </h3>
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          Split "{item.overrides?.description ?? item.description}" ({formatCurrency(amount)}) into equal monthly entries.
+        </p>
+
+        <div className="grid grid-cols-5 gap-2">
+          {[2, 3, 4, 6, 12].map((n) => (
+            <button
+              key={n}
+              onClick={() => setMonths(n)}
+              className={cn(
+                'px-3 py-2 text-sm font-medium rounded-lg border transition-colors',
+                months === n
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-blue-400',
+              )}
+            >
+              {n}mo
+            </button>
+          ))}
+        </div>
+
+        <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
+          <p className="text-sm text-gray-700 dark:text-gray-300">
+            <span className="font-medium">{months} entries</span> × {formatCurrency(perMonth)} each
+          </p>
+          {amount !== perMonth * months && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Rounding difference of {formatCurrency(Math.abs(amount - perMonth * months))} added to first entry.
+            </p>
+          )}
+        </div>
+
+        <div className="flex items-center justify-end gap-3 pt-2">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 border dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => onSplit(months)}
+            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+          >
+            Split into {months} Entries
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function SmartImportPage() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [activeImport, setActiveImport] = useState<(SmartImport & { items: SmartImportItem[] }) | null>(null)
   const [selectedAccountId, setSelectedAccountId] = useState('')
   const [isDragging, setIsDragging] = useState(false)
@@ -48,6 +158,9 @@ export default function SmartImportPage() {
   const [itemOverrides, setItemOverrides] = useState<Record<string, Partial<SmartImportItem>>>({})
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
   const [editDraft, setEditDraft] = useState<{ description: string; amount: string; date: string }>({ description: '', amount: '', date: '' })
+  const [showPreview, setShowPreview] = useState(false)
+  const [splitItem, setSplitItem] = useState<SmartImportItem | null>(null)
+  const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null)
 
   const { data: importsData } = useQuery({
     queryKey: ['smart-imports'],
@@ -74,6 +187,33 @@ export default function SmartImportPage() {
       setSelectedItems(new Set())
       setItemOverrides({})
       queryClient.invalidateQueries({ queryKey: ['smart-imports'] })
+    },
+  })
+
+  const batchUploadMutation = useMutation({
+    mutationFn: async (files: File[]) => {
+      const results: Array<SmartImport & { items: SmartImportItem[] }> = []
+      for (let i = 0; i < files.length; i++) {
+        setBatchProgress({ current: i + 1, total: files.length })
+        try {
+          const resp = await uploadForImport(files[i])
+          results.push(resp.data)
+        } catch (err: any) {
+          toast.error(`Failed: ${files[i].name} — ${err?.message || 'Unknown error'}`)
+        }
+      }
+      setBatchProgress(null)
+      return results
+    },
+    onSuccess: (results) => {
+      queryClient.invalidateQueries({ queryKey: ['smart-imports'] })
+      if (results.length === 1) {
+        setActiveImport(results[0])
+        setSelectedItems(new Set())
+        setItemOverrides({})
+      } else if (results.length > 1) {
+        toast.success(`Processed ${results.length} files. Check recent imports below.`)
+      }
     },
   })
 
@@ -121,16 +261,21 @@ export default function SmartImportPage() {
     },
   })
 
-  const handleFile = useCallback((file: File) => {
-    uploadMutation.mutate(file)
-  }, [uploadMutation])
+  const handleFiles = useCallback((files: FileList | File[]) => {
+    const arr = Array.from(files)
+    if (arr.length === 0) return
+    if (arr.length === 1) {
+      uploadMutation.mutate(arr[0])
+    } else {
+      batchUploadMutation.mutate(arr)
+    }
+  }, [uploadMutation, batchUploadMutation])
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     setIsDragging(false)
-    const file = e.dataTransfer.files[0]
-    if (file) handleFile(file)
-  }, [handleFile])
+    if (e.dataTransfer.files.length > 0) handleFiles(e.dataTransfer.files)
+  }, [handleFiles])
 
   const handleLoadImport = async (imp: SmartImport) => {
     try {
@@ -147,11 +292,10 @@ export default function SmartImportPage() {
     if (!activeImport) return
     try {
       await deleteImportItem(itemId)
-      // Remove from local state
       setActiveImport((prev) => {
         if (!prev) return prev
         const updatedItems = prev.items.filter((i) => i.id !== itemId)
-        if (updatedItems.length === 0) return null // go back to upload view
+        if (updatedItems.length === 0) return null
         return { ...prev, items: updatedItems, item_count: updatedItems.length }
       })
       setSelectedItems((prev) => {
@@ -164,6 +308,67 @@ export default function SmartImportPage() {
     } catch {
       toast.error('Failed to delete item')
     }
+  }
+
+  const handleSplit = (item: SmartImportItem, months: number) => {
+    if (!activeImport) return
+    const baseAmount = itemOverrides[item.id]?.amount ?? item.amount
+    const baseDesc = itemOverrides[item.id]?.description ?? item.description
+    const baseDate = itemOverrides[item.id]?.date ?? item.date
+    const perMonth = Math.round((baseAmount / months) * 100) / 100
+    const remainder = Math.round((baseAmount - perMonth * months) * 100) / 100
+
+    // Override the original item as month 1
+    setItemOverrides((prev) => ({
+      ...prev,
+      [item.id]: {
+        ...prev[item.id],
+        description: `${baseDesc} (1/${months})`,
+        amount: perMonth + remainder,
+        date: baseDate,
+      },
+    }))
+
+    // Create virtual split entries for months 2+
+    const newItems: SmartImportItem[] = []
+    for (let i = 1; i < months; i++) {
+      let splitDate = baseDate
+      if (baseDate) {
+        const d = new Date(baseDate + 'T00:00:00')
+        d.setMonth(d.getMonth() + i)
+        splitDate = d.toISOString().slice(0, 10)
+      }
+      const splitId = `${item.id}_split_${i}`
+      newItems.push({
+        ...item,
+        id: splitId,
+        description: `${baseDesc} (${i + 1}/${months})`,
+        amount: perMonth,
+        date: splitDate,
+        status: 'pending' as any,
+        confidence: item.confidence,
+      })
+    }
+
+    setActiveImport((prev) => {
+      if (!prev) return prev
+      // Insert new items right after the original
+      const idx = prev.items.findIndex((i) => i.id === item.id)
+      const items = [...prev.items]
+      items.splice(idx + 1, 0, ...newItems)
+      return { ...prev, items, item_count: items.length }
+    })
+
+    // Auto-select all new split items
+    setSelectedItems((prev) => {
+      const next = new Set(prev)
+      next.add(item.id)
+      newItems.forEach((ni) => next.add(ni.id))
+      return next
+    })
+
+    setSplitItem(null)
+    toast.success(`Split into ${months} monthly entries.`)
   }
 
   const startEditing = (item: SmartImportItem) => {
@@ -229,6 +434,22 @@ export default function SmartImportPage() {
 
     return (
       <div className="p-6 space-y-4">
+        {showPreview && (
+          <PreviewModal
+            importId={activeImport.id}
+            filename={activeImport.original_filename}
+            mimeType={activeImport.mime_type}
+            onClose={() => setShowPreview(false)}
+          />
+        )}
+        {splitItem && (
+          <SplitModal
+            item={{ ...splitItem, overrides: itemOverrides[splitItem.id] }}
+            onClose={() => setSplitItem(null)}
+            onSplit={(months) => handleSplit(splitItem, months)}
+          />
+        )}
+
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Review Import</h1>
@@ -236,12 +457,22 @@ export default function SmartImportPage() {
               {activeImport.original_filename} · {activeImport.ai_summary}
             </p>
           </div>
-          <button
-            onClick={() => { setActiveImport(null); setSelectedItems(new Set()); setEditingItemId(null) }}
-            className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 border dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
-          >
-            Back
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowPreview(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 border dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
+              title="Preview source document"
+            >
+              <Eye className="h-4 w-4" />
+              Preview
+            </button>
+            <button
+              onClick={() => { setActiveImport(null); setSelectedItems(new Set()); setEditingItemId(null) }}
+              className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 border dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
+            >
+              Back
+            </button>
+          </div>
         </div>
 
         {/* Import controls */}
@@ -364,7 +595,7 @@ export default function SmartImportPage() {
                 <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Amount</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Category</th>
                 <th className="text-center px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Confidence</th>
-                <th className="px-4 py-3 w-20"></th>
+                <th className="px-4 py-3 w-24"></th>
               </tr>
             </thead>
             <tbody className="divide-y dark:divide-gray-700">
@@ -560,6 +791,13 @@ export default function SmartImportPage() {
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
                           <button
+                            onClick={(e) => { e.stopPropagation(); setSplitItem(item) }}
+                            className="p-1 text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
+                            title="Split into monthly entries"
+                          >
+                            <Scissors className="h-3.5 w-3.5" />
+                          </button>
+                          <button
                             onClick={(e) => { e.stopPropagation(); handleDeleteItem(item.id) }}
                             className="p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400"
                             title="Remove"
@@ -580,6 +818,8 @@ export default function SmartImportPage() {
   }
 
   // Upload / processing / history view
+  const isUploading = uploadMutation.isPending || batchUploadMutation.isPending
+
   return (
     <div className="p-6 space-y-6">
       <div>
@@ -599,11 +839,15 @@ export default function SmartImportPage() {
           isDragging ? 'border-blue-400 bg-blue-50/50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-700',
         )}
       >
-        {uploadMutation.isPending ? (
+        {isUploading ? (
           <div className="flex flex-col items-center gap-4">
             <Loader2 className="h-12 w-12 text-blue-500 animate-spin" />
             <div>
-              <p className="text-lg font-medium text-gray-900 dark:text-gray-100">Analyzing document...</p>
+              <p className="text-lg font-medium text-gray-900 dark:text-gray-100">
+                {batchProgress
+                  ? `Processing file ${batchProgress.current} of ${batchProgress.total}...`
+                  : 'Analyzing document...'}
+              </p>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">AI is extracting transactions. This may take a moment.</p>
             </div>
           </div>
@@ -614,26 +858,28 @@ export default function SmartImportPage() {
             </div>
             <div>
               <p className="text-lg font-medium text-gray-900 dark:text-gray-100">
-                Drop a file here or click to browse
+                Drop files here or click to browse
               </p>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                Supports images (PNG, JPEG, WebP) and PDF files up to 20MB
+                Supports images (PNG, JPEG, WebP) and PDF files up to 20MB. Select multiple files for batch upload.
               </p>
             </div>
             <label className="cursor-pointer">
               <input
+                ref={fileInputRef}
                 type="file"
                 className="hidden"
                 accept="image/*,.pdf"
+                multiple
                 onChange={(e) => {
-                  const file = e.target.files?.[0]
-                  if (file) handleFile(file)
+                  const files = e.target.files
+                  if (files && files.length > 0) handleFiles(files)
                   e.target.value = ''
                 }}
               />
               <span className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition">
                 <FileImage className="h-4 w-4" />
-                Choose File
+                Choose Files
               </span>
             </label>
           </div>

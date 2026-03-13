@@ -985,6 +985,9 @@ async def _create_expense(db: AsyncSession, user_id: uuid.UUID, params: dict) ->
     amount = Decimal(str(params["amount"]))
     description = params.get("description") or f"Payment to {params['vendor']}"
 
+    # Tag with org_id if user has org cashbook access
+    org_id = user.org_id if user.cashbook_access == "org" and user.org_id else None
+
     entry = CashbookEntry(
         id=uuid.uuid4(),
         account_id=account.id,
@@ -993,6 +996,7 @@ async def _create_expense(db: AsyncSession, user_id: uuid.UUID, params: dict) ->
         description=description,
         total_amount=amount,
         user_id=user_id,
+        org_id=org_id,
         notes=f"Created by O-Brain. Vendor: {params['vendor']}",
     )
     db.add(entry)
@@ -1022,6 +1026,9 @@ async def _create_income_entry(db: AsyncSession, user_id: uuid.UUID, params: dic
     amount = Decimal(str(params["amount"]))
     description = params.get("description") or f"Income from {params['source']}"
 
+    # Tag with org_id if user has org cashbook access
+    org_id = user.org_id if user.cashbook_access == "org" and user.org_id else None
+
     entry = CashbookEntry(
         id=uuid.uuid4(),
         account_id=account.id,
@@ -1030,6 +1037,7 @@ async def _create_income_entry(db: AsyncSession, user_id: uuid.UUID, params: dic
         description=description,
         total_amount=amount,
         user_id=user_id,
+        org_id=org_id,
         notes=f"Created by O-Brain. Source: {params['source']}",
     )
     db.add(entry)

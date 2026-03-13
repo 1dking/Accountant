@@ -4,11 +4,12 @@ import os
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Request, UploadFile
+from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import User
-from app.dependencies import get_current_user, get_db
+from app.dependencies import get_current_user, get_current_user_or_token, get_db
 from app.smart_import import service
 from app.smart_import.schemas import (
     ImportConfirmRequest,
@@ -174,6 +175,26 @@ async def get_import(
             ],
         )
     }
+
+
+@router.get("/{import_id}/preview")
+async def preview_import_file(
+    import_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user_or_token)],
+):
+    """Serve the uploaded file for inline preview (PDF iframe / image tag)."""
+    imp = await service.get_import(db, import_id, user.id)
+    full_path = os.path.join(settings.storage_path, imp.storage_path)
+    if not os.path.exists(full_path):
+        from app.core.exceptions import NotFoundError
+        raise NotFoundError("Import file", str(import_id))
+    return FileResponse(
+        path=full_path,
+        media_type=imp.mime_type,
+        filename=imp.original_filename,
+        headers={"Content-Disposition": f'inline; filename="{imp.original_filename}"'},
+    )
 
 
 @router.put("/items/{item_id}")

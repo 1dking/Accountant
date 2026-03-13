@@ -687,9 +687,17 @@ export default function EmailScanPage() {
       queryClient.invalidateQueries({ queryKey: ['cashbook-entries'] })
       queryClient.invalidateQueries({ queryKey: ['cashbook-summary'] })
 
-      const result = data.data
-      const hasRecurring = !!(result as any).recurring_rule_id
+      const result = data.data as Record<string, any>
+      const hasRecurring = !!result.recurring_rule_id
       const label = hasRecurring ? 'Imported + recurring rule created' : 'Imported'
+
+      // Surface partial errors from backend
+      if (result.cashbook_error) {
+        toast.warning(`Imported but cashbook entry failed: ${result.cashbook_error}`)
+      }
+      if (result.recurring_error) {
+        toast.warning(`Imported but recurring rule failed: ${result.recurring_error}`)
+      }
 
       if (result.expense_id) {
         toast.success(`${label} as expense`, {

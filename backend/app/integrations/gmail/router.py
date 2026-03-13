@@ -302,13 +302,17 @@ async def get_attachment_preview(
             raise NotFoundError("Gmail account", "unknown")
 
         gmail_service = await service._get_gmail_service(gmail_account, settings)
-        att_response = (
-            gmail_service.users()
-            .messages()
-            .attachments()
-            .get(userId="me", messageId=scan_result.message_id, id=attachment_id)
-            .execute()
-        )
+        try:
+            att_response = (
+                gmail_service.users()
+                .messages()
+                .attachments()
+                .get(userId="me", messageId=scan_result.message_id, id=attachment_id)
+                .execute()
+            )
+        except Exception as exc:
+            from app.core.exceptions import ValidationError as VErr
+            raise VErr(f"Gmail API error: {exc}") from exc
         raw_data = att_response.get("data", "")
         if raw_data:
             file_bytes = base64.urlsafe_b64decode(raw_data)
@@ -393,12 +397,16 @@ async def fetch_attachment_to_server(
     if not att_list:
         # Re-read the full message from Gmail to get attachment metadata
         gmail_service = await service._get_gmail_service(gmail_account, settings)
-        msg = (
-            gmail_service.users()
-            .messages()
-            .get(userId="me", id=scan_result.message_id, format="full")
-            .execute()
-        )
+        try:
+            msg = (
+                gmail_service.users()
+                .messages()
+                .get(userId="me", id=scan_result.message_id, format="full")
+                .execute()
+            )
+        except Exception as exc:
+            from app.core.exceptions import ValidationError as VErr
+            raise VErr(f"Gmail API error: {exc}") from exc
         payload = msg.get("payload", {})
         att_list = service._extract_attachment_metadata(payload)
 
@@ -448,13 +456,17 @@ async def fetch_attachment_to_server(
     # Case 2: Has attachmentId — fetch from Gmail API
     attachment_id = att.get("attachmentId")
     if not file_bytes and attachment_id:
-        att_response = (
-            gmail_service.users()
-            .messages()
-            .attachments()
-            .get(userId="me", messageId=scan_result.message_id, id=attachment_id)
-            .execute()
-        )
+        try:
+            att_response = (
+                gmail_service.users()
+                .messages()
+                .attachments()
+                .get(userId="me", messageId=scan_result.message_id, id=attachment_id)
+                .execute()
+            )
+        except Exception as exc:
+            from app.core.exceptions import ValidationError as VErr
+            raise VErr(f"Gmail API error: {exc}") from exc
         raw_data = att_response.get("data", "")
         if raw_data:
             file_bytes = _b64.urlsafe_b64decode(raw_data)

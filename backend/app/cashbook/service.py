@@ -861,6 +861,9 @@ async def bulk_create_entries(
     """Bulk create entries (for Excel import)."""
     await get_account(db, account_id)
 
+    # Tag with org_id if user has org cashbook access
+    org_id = user.org_id if user.cashbook_access == "org" and user.org_id else None
+
     created = []
     for row in entries_data:
         entry = CashbookEntry(
@@ -875,6 +878,7 @@ async def bulk_create_entries(
             category_id=row.get("category_id"),
             notes=row.get("notes"),
             user_id=user.id,
+            org_id=org_id,
             source="excel_import",
             source_id=row.get("source_id"),
         )
@@ -1021,6 +1025,7 @@ async def split_entry(
             category_id=line.category_id,
             notes=line.notes,
             user_id=user.id,
+            org_id=parent.org_id,
             source="split",
             source_id=str(parent.id),
             split_parent_id=parent.id,
