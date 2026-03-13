@@ -645,6 +645,7 @@ export interface GmailScanResult {
   body_text: string | null
   has_attachments: boolean
   is_processed: boolean
+  is_skipped: boolean
   matched_invoice_id: string | null
   matched_document_id: string | null
   matched_expense_id: string | null

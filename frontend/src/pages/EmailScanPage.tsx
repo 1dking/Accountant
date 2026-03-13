@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import {
   Inbox, RefreshCw, FileText, CheckCircle, Trash2, Search,
   ChevronLeft, ChevronRight, X, ArrowRight, Calendar, Filter, Repeat,
-  Eye, Paperclip, Loader2, AlertCircle,
+  Eye, Paperclip, Loader2, AlertCircle, SkipForward,
 } from 'lucide-react'
 import {
   listGmailAccounts,
@@ -13,6 +13,7 @@ import {
   scanGmailEmails,
   parseEmailForImport,
   importEmailFull,
+  toggleSkipGmailScanResult,
   deleteGmailScanResult,
   bulkDeleteGmailScanResults,
   fetchAttachmentToServer,
@@ -581,7 +582,7 @@ export default function EmailScanPage() {
   const [selectedAccount, setSelectedAccount] = useState<string>('')
   const [searchQuery, setSearchQuery] = useState('has:attachment (invoice OR receipt OR payment)')
   const [searchFilter, setSearchFilter] = useState('')
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'imported'>('all')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'imported' | 'skipped'>('all')
   const [afterDate, setAfterDate] = useState('')
   const [beforeDate, setBeforeDate] = useState('')
   const [page, setPage] = useState(1)
@@ -608,6 +609,7 @@ export default function EmailScanPage() {
   const resultFilters = {
     gmail_account_id: selectedAccount || undefined,
     is_processed: statusFilter === 'pending' ? false : statusFilter === 'imported' ? true : undefined,
+    is_skipped: statusFilter === 'skipped' ? true : statusFilter === 'pending' ? false : undefined,
     search: searchFilter || undefined,
     page,
     page_size: 50,
@@ -737,6 +739,16 @@ export default function EmailScanPage() {
       setSelectedIds(new Set())
       queryClient.invalidateQueries({ queryKey: ['gmail-results'] })
       toast.success(`Removed ${data.data.deleted} emails from inbox`)
+    },
+  })
+
+  // Skip mutation
+  const skipMutation = useMutation({
+    mutationFn: toggleSkipGmailScanResult,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['gmail-results'] })
+      const skipped = data.data.is_skipped
+      toast.success(skipped ? 'Email skipped' : 'Email restored to pending')
     },
   })
 
@@ -883,6 +895,7 @@ export default function EmailScanPage() {
                 <option value="all">All status</option>
                 <option value="pending">Pending</option>
                 <option value="imported">Imported</option>
+                <option value="skipped">Skipped</option>
               </select>
             </div>
           </div>
@@ -988,13 +1001,17 @@ export default function EmailScanPage() {
                         <span className="flex items-center gap-1 text-xs text-green-600">
                           <CheckCircle className="w-3.5 h-3.5" /> Imported
                         </span>
+                      ) : result.is_skipped ? (
+                        <span className="flex items-center gap-1 text-xs text-amber-600">
+                          <SkipForward className="w-3.5 h-3.5" /> Skipped
+                        </span>
                       ) : (
                         <span className="text-xs text-gray-400 dark:text-gray-500">Pending</span>
                       )}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1 justify-end">
-                        {!result.is_processed && (
+                        {!result.is_processed && !result.is_skipped && (
                           <button
                             onClick={() => handleImportClick(result)}
                             disabled={parseMutation.isPending}
@@ -1015,6 +1032,21 @@ export default function EmailScanPage() {
                           >
                             <ArrowRight className="w-3 h-3" />
                             View
+                          </button>
+                        )}
+                        {!result.is_processed && (
+                          <button
+                            onClick={() => skipMutation.mutate(result.id)}
+                            disabled={skipMutation.isPending}
+                            className={`flex items-center gap-1 px-2 py-1 text-xs border rounded ${
+                              result.is_skipped
+                                ? 'text-blue-600 border-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950'
+                                : 'text-amber-600 border-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950'
+                            } disabled:opacity-50`}
+                            title={result.is_skipped ? 'Restore to pending' : 'Skip this email'}
+                          >
+                            <SkipForward className="w-3 h-3" />
+                            {result.is_skipped ? 'Unskip' : 'Skip'}
                           </button>
                         )}
                         <button

@@ -110,6 +110,7 @@ export async function scanGmailEmails(data: {
 export async function listGmailScanResults(filters: {
   gmail_account_id?: string
   is_processed?: boolean
+  is_skipped?: boolean
   has_attachments?: boolean
   search?: string
   page?: number
@@ -160,6 +161,10 @@ export async function fetchAttachmentToServer(resultId: string, attachmentIndex:
     size: number
     stored: boolean
   }>>(`/integrations/gmail/results/${resultId}/attachment/${attachmentIndex}/fetch`)
+}
+
+export async function toggleSkipGmailScanResult(resultId: string) {
+  return api.patch<ApiResponse<GmailScanResult>>(`/integrations/gmail/results/${resultId}/skip`)
 }
 
 export async function deleteGmailScanResult(resultId: string) {

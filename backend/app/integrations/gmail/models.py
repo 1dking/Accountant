@@ -2,7 +2,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base, TimestampMixin
@@ -31,12 +31,15 @@ class GmailAccount(TimestampMixin, Base):
 
 class GmailScanResult(TimestampMixin, Base):
     __tablename__ = "gmail_scan_results"
+    __table_args__ = (
+        UniqueConstraint("gmail_account_id", "message_id", name="uq_gmail_scan_results_account_message"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     gmail_account_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("gmail_accounts.id", ondelete="CASCADE"), index=True
     )
-    message_id: Mapped[str] = mapped_column(String(255), unique=True)
+    message_id: Mapped[str] = mapped_column(String(255))
     subject: Mapped[str | None] = mapped_column(String(500), nullable=True)
     sender: Mapped[str | None] = mapped_column(String(255), nullable=True)
     date: Mapped[datetime | None] = mapped_column(
@@ -48,6 +51,7 @@ class GmailScanResult(TimestampMixin, Base):
     has_attachments: Mapped[bool] = mapped_column(Boolean, default=False)
     attachment_metadata: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_processed: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_skipped: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     matched_invoice_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("invoices.id", ondelete="SET NULL"), nullable=True
     )

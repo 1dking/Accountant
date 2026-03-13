@@ -43,6 +43,7 @@ class GmailScanResultResponse(BaseModel):
     body_text: Optional[str] = None
     has_attachments: bool
     is_processed: bool
+    is_skipped: bool = False
     matched_invoice_id: Optional[uuid.UUID] = None
     matched_document_id: Optional[uuid.UUID] = None
     matched_expense_id: Optional[uuid.UUID] = None

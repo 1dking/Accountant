@@ -128,6 +128,19 @@ export const api = {
     return handleResponse<T>(response, doFetch)
   },
 
+  async patch<T = unknown>(path: string, body?: unknown): Promise<T> {
+    const doFetch = async () => {
+      const headers = await getAuthHeaders()
+      return fetch(`${BASE_URL}${path}`, {
+        method: 'PATCH',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: body ? JSON.stringify(body) : undefined,
+      })
+    }
+    const response = await doFetch()
+    return handleResponse<T>(response, doFetch)
+  },
+
   async delete<T = unknown>(path: string): Promise<T> {
     const doFetch = async () => {
       return fetch(`${BASE_URL}${path}`, {

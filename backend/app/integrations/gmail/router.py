@@ -131,6 +131,7 @@ async def scan_emails(
 async def list_scan_results(
     gmail_account_id: uuid.UUID | None = Query(None),
     is_processed: bool | None = Query(None),
+    is_skipped: bool | None = Query(None),
     has_attachments: bool | None = Query(None),
     search: str | None = Query(None),
     page: int = Query(1, ge=1),
@@ -143,6 +144,7 @@ async def list_scan_results(
         user_id=user.id,
         gmail_account_id=gmail_account_id,
         is_processed=is_processed,
+        is_skipped=is_skipped,
         has_attachments=has_attachments,
         search=search,
         page=page,
@@ -551,6 +553,35 @@ async def import_email_full(
         recurring_next_date=data.recurring_next_date,
     )
     return {"data": result}
+
+
+# ---------------------------------------------------------------------------
+# Skip / unskip scan results
+# ---------------------------------------------------------------------------
+
+
+@router.patch("/results/{result_id}/skip", response_model=dict)
+async def toggle_skip_scan_result(
+    result_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role([Role.ACCOUNTANT, Role.ADMIN])),
+):
+    """Toggle skip status on a scan result."""
+    from .models import GmailScanResult, GmailAccount
+    # Read current state
+    stmt = (
+        select(GmailScanResult)
+        .join(GmailAccount, GmailScanResult.gmail_account_id == GmailAccount.id)
+        .where(GmailScanResult.id == result_id, GmailAccount.user_id == user.id)
+    )
+    result = await db.execute(stmt)
+    scan_result = result.scalar_one_or_none()
+    if not scan_result:
+        from app.core.exceptions import NotFoundError
+        raise NotFoundError("Scan result", str(result_id))
+
+    updated = await service.toggle_skip_result(db, result_id, user.id, skip=not scan_result.is_skipped)
+    return {"data": GmailScanResultResponse.model_validate(updated)}
 
 
 # ---------------------------------------------------------------------------

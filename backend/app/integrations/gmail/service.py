@@ -467,7 +467,8 @@ async def scan_emails(
 
         # Check for existing record — update if missing attachment metadata
         dup_stmt = select(GmailScanResult).where(
-            GmailScanResult.message_id == msg_id
+            GmailScanResult.gmail_account_id == gmail_account_id,
+            GmailScanResult.message_id == msg_id,
         )
         dup_result = await db.execute(dup_stmt)
         existing = dup_result.scalar_one_or_none()
@@ -593,11 +594,35 @@ async def scan_emails(
 # ---------------------------------------------------------------------------
 
 
+async def toggle_skip_result(
+    db: AsyncSession,
+    result_id: uuid.UUID,
+    user_id: uuid.UUID,
+    skip: bool,
+) -> GmailScanResult:
+    """Mark a scan result as skipped or unskipped."""
+    stmt = (
+        select(GmailScanResult)
+        .join(GmailAccount, GmailScanResult.gmail_account_id == GmailAccount.id)
+        .where(GmailScanResult.id == result_id, GmailAccount.user_id == user_id)
+    )
+    result = await db.execute(stmt)
+    scan_result = result.scalar_one_or_none()
+    if not scan_result:
+        from app.core.exceptions import NotFoundError
+        raise NotFoundError("Scan result", str(result_id))
+    scan_result.is_skipped = skip
+    await db.commit()
+    await db.refresh(scan_result)
+    return scan_result
+
+
 async def list_results_paginated(
     db: AsyncSession,
     user_id: uuid.UUID,
     gmail_account_id: uuid.UUID | None = None,
     is_processed: bool | None = None,
+    is_skipped: bool | None = None,
     has_attachments: bool | None = None,
     search: str | None = None,
     page: int = 1,
@@ -614,6 +639,8 @@ async def list_results_paginated(
         base_stmt = base_stmt.where(GmailScanResult.gmail_account_id == gmail_account_id)
     if is_processed is not None:
         base_stmt = base_stmt.where(GmailScanResult.is_processed == is_processed)
+    if is_skipped is not None:
+        base_stmt = base_stmt.where(GmailScanResult.is_skipped == is_skipped)
     if has_attachments is not None:
         base_stmt = base_stmt.where(GmailScanResult.has_attachments == has_attachments)
     if search:
