@@ -1037,13 +1037,16 @@ async def import_email_full(
                 or "application/octet-stream"
             )
 
+            import hashlib
+            file_hash = hashlib.sha256(file_data).hexdigest()
             document = Document(
-                user_id=user.id,
+                uploaded_by=user.id,
                 filename=filename,
-                file_path=file_path,
+                original_filename=filename,
+                storage_path=file_path,
                 file_size=len(file_data),
+                file_hash=file_hash,
                 mime_type=mime_type,
-                source="gmail",
             )
             db.add(document)
             await db.flush()
