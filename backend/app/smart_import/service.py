@@ -156,6 +156,15 @@ Return ONLY valid JSON in this exact format:
         else:
             raise ValueError("No JSON found in response")
 
+        # Re-fetch imp in a clean transaction to avoid stale-state UPDATE failures
+        await db.rollback()
+        result = await db.execute(
+            select(SmartImport).where(SmartImport.id == import_id)
+        )
+        imp = result.scalar_one_or_none()
+        if not imp:
+            raise NotFoundError("SmartImport", str(import_id))
+
         imp.document_type = data.get("document_type", "other")
         imp.ai_summary = data.get("summary", "")
 
@@ -182,11 +191,24 @@ Return ONLY valid JSON in this exact format:
 
     except Exception as e:
         logger.exception("Smart import processing failed for %s", import_id)
-        imp.status = ImportStatus.FAILED.value
-        imp.error_message = str(e)[:500]
-        imp.processing_time_ms = int((time.monotonic() - start) * 1000)
-        await db.commit()
-        await db.refresh(imp)
+        # Rollback to clear any pending flush errors before saving error state
+        try:
+            await db.rollback()
+        except Exception:
+            pass
+        try:
+            result = await db.execute(
+                select(SmartImport).where(SmartImport.id == import_id)
+            )
+            imp = result.scalar_one_or_none()
+            if imp:
+                imp.status = ImportStatus.FAILED.value
+                imp.error_message = str(e)[:500]
+                imp.processing_time_ms = int((time.monotonic() - start) * 1000)
+                await db.commit()
+                await db.refresh(imp)
+        except Exception:
+            logger.warning("Failed to save error state for import %s", import_id, exc_info=True)
 
     return imp
 
@@ -345,6 +367,10 @@ async def confirm_import(
         except Exception as e:
             errors.append(f"{item.description}: {str(e)[:100]}")
             logger.warning("Failed to import item %s: %s", item.id, e)
+            try:
+                await db.rollback()
+            except Exception:
+                pass
 
     # Update import status
     all_imported = all(
