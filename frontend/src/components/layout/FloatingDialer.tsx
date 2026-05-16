@@ -10,6 +10,7 @@ import {
   MicOff,
   AlertCircle,
 } from 'lucide-react'
+import { Device } from '@twilio/voice-sdk'
 import { cn } from '@/lib/utils'
 import { getCapabilityToken } from '@/api/communication'
 import { useAuthStore } from '@/stores/authStore'
@@ -32,10 +33,8 @@ type Mode =
   | 'incoming-ringing'  // incoming call event, awaiting user Accept/Reject
   | 'error'             // init/token/device error — show retry
 
-// Twilio Voice SDK types via dynamic import — we don't want to pull the
-// SDK into the static bundle. Use `any` here; SDK methods are stable enough.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Device = any
+// Twilio Voice SDK types — using `any` for Call to keep our code resilient
+// to minor SDK type evolutions while still benefiting from Device typing.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Call = any
 
@@ -112,8 +111,6 @@ export default function FloatingDialer() {
     setMode('initializing')
     setErrorMsg(null)
     try {
-      // Dynamic import — Vite emits this as a separate chunk
-      const { Device } = await import('@twilio/voice-sdk')
       const token = await fetchToken()
 
       const device = new Device(token, {

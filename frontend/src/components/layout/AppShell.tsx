@@ -3,6 +3,7 @@ import Header from './Header'
 import Sidebar from './Sidebar'
 import MobileNav from './MobileNav'
 import OBrainPanel from './OBrainPanel'
+import FloatingDialer from './FloatingDialer'
 import { useUiStore } from '@/stores/uiStore'
 
 interface AppShellProps {
@@ -40,6 +41,10 @@ export default function AppShell({ children }: AppShellProps) {
 
       {/* Mobile bottom nav */}
       <MobileNav />
+
+      {/* Floating dialer — mounts on every authenticated page so inbound
+          Twilio calls can ring the browser whenever the user is logged in. */}
+      <FloatingDialer />
     </div>
   )
 }
