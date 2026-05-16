@@ -37,6 +37,15 @@ class User(TimestampMixin, Base):
         String(20), default="personal", server_default="personal", nullable=False
     )
     fallback_phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    voicemail_greeting_type: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    voicemail_greeting_storage_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    voicemail_greeting_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    voicemail_mode: Mapped[str] = mapped_column(
+        String(30),
+        default="cell_then_voicemail",
+        server_default="cell_then_voicemail",
+        nullable=False,
+    )
 
 
 class RefreshToken(Base):

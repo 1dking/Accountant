@@ -5,7 +5,7 @@ import time
 from typing import Annotated
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,6 +21,7 @@ from app.auth.schemas import (
     UserResponse,
     UserRoleUpdate,
     UserUpdate,
+    VoicemailGreetingPreview,
 )
 from app.auth.service import admin_update_user as admin_update_user_svc
 from app.auth.service import (
@@ -164,6 +165,128 @@ async def update_me(
 ) -> dict:
     user = await update_user_profile(db, current_user, updates)
     return {"data": UserResponse.model_validate(user)}
+
+
+@router.get("/me/voicemail-greeting")
+async def get_my_voicemail_greeting(
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    """Return the current user's voicemail-greeting config for in-place editing.
+
+    Shape:
+        { type: 'text', text: '<full text>' }              if text
+        { type: 'audio', storage_key: '<key>' }           if audio
+        { type: None }                                     if no custom
+    """
+    if current_user.voicemail_greeting_type == "text":
+        payload = VoicemailGreetingPreview(
+            type="text", text=current_user.voicemail_greeting_text
+        )
+    elif current_user.voicemail_greeting_type == "audio":
+        payload = VoicemailGreetingPreview(
+            type="audio", storage_key=current_user.voicemail_greeting_storage_key
+        )
+    else:
+        payload = VoicemailGreetingPreview(type=None)
+    return {"data": payload}
+
+
+@router.post("/me/voicemail-greeting")
+async def upload_my_voicemail_greeting(
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    greeting_type: Annotated[str, Form()],
+    text: Annotated[str | None, Form()] = None,
+    audio_file: Annotated[UploadFile | None, File()] = None,
+) -> dict:
+    """Save voicemail greeting. Text path is direct DB write; audio path
+    transcodes to mp3 via ffmpeg + uploads to R2 + replaces any prior audio."""
+    from app.communication.voicemail_storage import (
+        ALLOWED_AUDIO_MIME_TYPES,
+        MAX_GREETING_SIZE_BYTES,
+        delete_greeting,
+        save_greeting,
+        transcode_to_mp3,
+    )
+    settings = request.app.state.settings
+
+    if greeting_type == "text":
+        if not text or not text.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="text is required"
+            )
+        if len(text) > 500:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="text exceeds 500 chars",
+            )
+        old_key = current_user.voicemail_greeting_storage_key
+        current_user.voicemail_greeting_type = "text"
+        current_user.voicemail_greeting_text = text.strip()
+        current_user.voicemail_greeting_storage_key = None
+        await db.commit()
+        if old_key:
+            await delete_greeting(settings, old_key)
+        return {"data": {"type": "text", "text": text.strip()}}
+
+    if greeting_type == "audio":
+        if audio_file is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="audio_file is required",
+            )
+        if audio_file.content_type not in ALLOWED_AUDIO_MIME_TYPES:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Unsupported content type: {audio_file.content_type}",
+            )
+        raw = await audio_file.read()
+        if len(raw) > MAX_GREETING_SIZE_BYTES:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail="Audio exceeds 5MB limit",
+            )
+        try:
+            mp3_bytes = await transcode_to_mp3(raw, audio_file.content_type)
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Audio rejected: {str(e)[:120]}",
+            )
+        new_key = await save_greeting(settings, current_user.id, mp3_bytes)
+        old_key = current_user.voicemail_greeting_storage_key
+        current_user.voicemail_greeting_type = "audio"
+        current_user.voicemail_greeting_storage_key = new_key
+        current_user.voicemail_greeting_text = None
+        await db.commit()
+        if old_key and old_key != new_key:
+            await delete_greeting(settings, old_key)
+        return {"data": {"type": "audio", "storage_key": new_key}}
+
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="greeting_type must be 'audio' or 'text'",
+    )
+
+
+@router.delete("/me/voicemail-greeting")
+async def delete_my_voicemail_greeting(
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    """Revert to default Polly.Joanna greeting. Cleans up R2 if audio existed."""
+    from app.communication.voicemail_storage import delete_greeting
+    settings = request.app.state.settings
+    old_key = current_user.voicemail_greeting_storage_key
+    current_user.voicemail_greeting_type = None
+    current_user.voicemail_greeting_text = None
+    current_user.voicemail_greeting_storage_key = None
+    await db.commit()
+    if old_key:
+        await delete_greeting(settings, old_key)
+    return {"data": {"type": None}}
 
 
 @router.get("/users")

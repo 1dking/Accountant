@@ -246,33 +246,66 @@ def _xml_response(twiml_body: str) -> Response:
     return Response(content=twiml_body, media_type="application/xml")
 
 
-def _voicemail_response(user_name: str | None) -> Response:
+def _voicemail_response(user: "User | None") -> Response:
     """TwiML for the voicemail capture flow.
 
-    Reused from BOTH the no-fallback branch of /voice/incoming-fallback AND
-    /voice/voicemail (cell-failed). Total prompt under ~6s by design — strip
-    ceremony, get to beep. AssemblyAI transcription (transcribe=false → no
-    poor-quality Twilio transcription).
+    Branches on the user's voicemail_greeting_type:
+      - 'audio' + storage_key → <Play> the user's R2-stored greeting via
+        our proxy endpoint
+      - 'text' + text → <Say> the user's wording (Polly.Joanna), then
+        auto-append the mechanical "leave a message after the beep" line
+      - else / type='audio' but key NULL → fall back to default Polly.Joanna
+        first-name prompt (defensive: better than silence)
 
-    "Leave a message after the beep" is sufficient implicit recording
-    notification — don't stack another compliance line.
+    Total custom-greeting + record + close should stay under ~8s of
+    spoken content. Reused from BOTH /voice/incoming-fallback (no-cell
+    branch) AND /voice/voicemail (cell-failed branch).
     """
     from twilio.twiml.voice_response import VoiceResponse, Record
 
     response = VoiceResponse()
-    if user_name and user_name.strip():
-        first = user_name.strip().split()[0]
-        response.say(
-            f"{first} is unavailable. Please leave a message after the beep. "
-            "Press the pound key when finished.",
-            voice="Polly.Joanna",
-        )
-    else:
-        response.say(
-            "The person you're calling is unavailable. Please leave a message "
-            "after the beep. Press the pound key when finished.",
-            voice="Polly.Joanna",
-        )
+    used_custom = False
+    if user is not None:
+        gtype = getattr(user, "voicemail_greeting_type", None)
+        if gtype == "audio":
+            key = getattr(user, "voicemail_greeting_storage_key", None)
+            if key:
+                response.play(
+                    f"https://accountant.ocidm.io/api/communication/voicemail-greeting/{user.id}.mp3"
+                )
+                used_custom = True
+            else:
+                logger.warning(
+                    "voicemail: type='audio' but storage_key is NULL for "
+                    "user_id=%s — falling back to default prompt",
+                    user.id,
+                )
+        elif gtype == "text":
+            text = (getattr(user, "voicemail_greeting_text", None) or "").strip()
+            if text:
+                response.say(
+                    f"{text} Please leave a message after the beep. "
+                    "Press the pound key when finished.",
+                    voice="Polly.Joanna",
+                )
+                used_custom = True
+
+    if not used_custom:
+        name = (getattr(user, "full_name", None) if user else None) or ""
+        if name.strip():
+            first = name.strip().split()[0]
+            response.say(
+                f"{first} is unavailable. Please leave a message after the beep. "
+                "Press the pound key when finished.",
+                voice="Polly.Joanna",
+            )
+        else:
+            response.say(
+                "The person you're calling is unavailable. Please leave a message "
+                "after the beep. Press the pound key when finished.",
+                voice="Polly.Joanna",
+            )
+
     response.append(
         Record(
             action="https://accountant.ocidm.io/api/communication/voice/voicemail-complete",
@@ -512,7 +545,7 @@ async def voice_incoming_fallback(
     )
     phone = result.scalar_one_or_none()
 
-    user_name: str | None = None
+    assigned_user: User | None = None
     fallback: str | None = None
     if phone is not None and phone.assigned_user_id is not None:
         user_result = await db.execute(
@@ -520,16 +553,40 @@ async def voice_incoming_fallback(
         )
         assigned_user = user_result.scalar_one_or_none()
         if assigned_user is not None:
-            user_name = getattr(assigned_user, "full_name", None)
             fallback = getattr(assigned_user, "fallback_phone", None)
 
     parent_call_sid = form.get("CallSid", "")
+    mode = (getattr(assigned_user, "voicemail_mode", None) if assigned_user
+            else None) or "cell_then_voicemail"
 
+    # cell_only: ring cell with NO voicemail action — if cell fails, hang up.
+    if mode == "cell_only":
+        if not fallback:
+            response = VoiceResponse()
+            response.say("Sorry, no one is available to take your call.")
+            return _xml_response(str(response))
+        response = VoiceResponse()
+        dial = Dial(timeout=20, caller_id=called)  # no action= → silent hangup
+        dial.number(
+            fallback,
+            status_callback="https://accountant.ocidm.io/api/communication/voice/call-status",
+            status_callback_method="POST",
+            status_callback_event="initiated ringing answered completed",
+        )
+        response.append(dial)
+        return _xml_response(str(response))
+
+    # voicemail_only: skip cell entirely, go straight to voicemail.
+    if mode == "voicemail_only":
+        await _mark_kind_voicemail(db, parent_call_sid)
+        return _voicemail_response(assigned_user)
+
+    # cell_then_voicemail (default):
     if not fallback:
         # No cell (no user, deleted phone, or user has no fallback_phone)
         # → voicemail directly. Caller still gets options.
         await _mark_kind_voicemail(db, parent_call_sid)
-        return _voicemail_response(user_name)
+        return _voicemail_response(assigned_user)
 
     # Cell dial. On no-answer/fail, Twilio POSTs to action=/voice/voicemail.
     # statusCallback belongs on <Number>, NOT on <Dial> (Bug 1 lesson).
@@ -579,17 +636,15 @@ async def voice_voicemail(
     )
     phone = result.scalar_one_or_none()
 
-    user_name: str | None = None
+    assigned_user: User | None = None
     if phone is not None and phone.assigned_user_id is not None:
         user_result = await db.execute(
             select(User).where(User.id == phone.assigned_user_id)
         )
         assigned_user = user_result.scalar_one_or_none()
-        if assigned_user is not None:
-            user_name = getattr(assigned_user, "full_name", None)
 
     await _mark_kind_voicemail(db, parent_call_sid)
-    return _voicemail_response(user_name)
+    return _voicemail_response(assigned_user)
 
 
 @router.post("/voice/voicemail-complete")
@@ -673,6 +728,61 @@ async def voice_voicemail_status(
         await db.commit()
 
     return _xml_response("<Response/>")
+
+
+@router.get("/voicemail-greeting/{user_id}.mp3")
+async def stream_voicemail_greeting(
+    user_id: uuid.UUID,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> Response:
+    """Stream a user's voicemail greeting audio. PUBLIC — no auth.
+
+    Twilio's <Play> verb fetches this at call time. Greetings are inherently
+    public (anyone who calls the user's Twilio number hears them), so adding
+    auth here would just block Twilio. 404 if user has no audio greeting or
+    if R2 read fails.
+
+    Cache-Control: no-store on ALL responses. Cloudflare in front of us will
+    cache 404s and stale 200s by default; that would break greeting updates
+    AND prevent any audio from playing if Twilio's first probe (before upload)
+    cached a 404. Twilio's call volume is too low for CDN caching to matter.
+    """
+    no_cache = {"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0"}
+
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if user is None or user.voicemail_greeting_type != "audio":
+        return Response(
+            content='{"detail":"No audio greeting"}',
+            status_code=404,
+            media_type="application/json",
+            headers=no_cache,
+        )
+    if not user.voicemail_greeting_storage_key:
+        return Response(
+            content='{"detail":"No audio greeting"}',
+            status_code=404,
+            media_type="application/json",
+            headers=no_cache,
+        )
+
+    from app.communication.voicemail_storage import read_greeting
+    settings: Settings = request.app.state.settings
+    mp3_bytes = await read_greeting(settings, user.voicemail_greeting_storage_key)
+    if mp3_bytes is None:
+        return Response(
+            content='{"detail":"Greeting unavailable"}',
+            status_code=404,
+            media_type="application/json",
+            headers=no_cache,
+        )
+
+    return Response(
+        content=mp3_bytes,
+        media_type="audio/mpeg",
+        headers=no_cache,
+    )
 
 
 @router.post("/voice/call-status")

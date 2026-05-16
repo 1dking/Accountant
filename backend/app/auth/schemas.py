@@ -51,14 +51,31 @@ class UserResponse(BaseModel):
     org_id: uuid.UUID | None = None
     cashbook_access: str = "personal"
     fallback_phone: str | None = None
+    voicemail_mode: str = "cell_then_voicemail"
+    # API-facing name is 'status' (derived state) but underlying column is
+    # 'voicemail_greeting_type'. validation_alias lets model_validate(user)
+    # pull from the SA attribute named voicemail_greeting_type.
+    voicemail_greeting_status: str | None = Field(
+        None, validation_alias="voicemail_greeting_type"
+    )
 
-    model_config = {"from_attributes": True}
+    model_config = {"from_attributes": True, "populate_by_name": True}
 
 
 class UserUpdate(BaseModel):
     full_name: str | None = Field(None, min_length=1, max_length=255)
     password: str | None = Field(None, min_length=8, max_length=128)
     fallback_phone: str | None = Field(None, max_length=20)
+    voicemail_mode: str | None = Field(
+        None, pattern="^(cell_then_voicemail|voicemail_only|cell_only)$"
+    )
+
+
+class VoicemailGreetingPreview(BaseModel):
+    """Returned by GET /auth/me/voicemail-greeting for in-place editing."""
+    type: str | None = None        # 'audio' | 'text' | None
+    text: str | None = None        # populated when type='text'
+    storage_key: str | None = None # populated when type='audio'
 
 
 class UserRoleUpdate(BaseModel):

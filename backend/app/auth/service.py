@@ -201,6 +201,8 @@ async def update_user_profile(
     if updates.fallback_phone is not None:
         # Empty string clears the fallback; non-empty sets it
         user.fallback_phone = updates.fallback_phone or None
+    if updates.voicemail_mode is not None:
+        user.voicemail_mode = updates.voicemail_mode
     await db.commit()
     await db.refresh(user)
 
@@ -439,4 +441,6 @@ def user_to_response_dict(user: User) -> dict:
         "org_id": user.org_id,
         "cashbook_access": user.cashbook_access,
         "fallback_phone": user.fallback_phone,
+        "voicemail_mode": user.voicemail_mode or "cell_then_voicemail",
+        "voicemail_greeting_status": user.voicemail_greeting_type,
     }
