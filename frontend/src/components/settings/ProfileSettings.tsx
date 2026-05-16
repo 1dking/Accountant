@@ -3,6 +3,7 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { updateProfile } from '@/api/auth'
 import { getMyNumber } from '@/api/communication'
 import { useAuthStore } from '@/stores/authStore'
+import VoicemailGreetingEditor from './VoicemailGreetingEditor'
 
 export default function ProfileSettings() {
   const { user, fetchMe } = useAuthStore()
@@ -126,6 +127,8 @@ export default function ProfileSettings() {
           </div>
         )}
       </section>
+
+      <VoicemailGreetingEditor />
     </div>
   )
 }

@@ -26,6 +26,42 @@ export async function updateProfile(data: { full_name?: string; password?: strin
   return api.put<ApiResponse<User>>('/auth/me', data)
 }
 
+export type VoicemailMode = 'cell_then_voicemail' | 'voicemail_only' | 'cell_only'
+
+export async function updateVoicemailMode(mode: VoicemailMode) {
+  return api.put<ApiResponse<User>>('/auth/me', { voicemail_mode: mode })
+}
+
+export type VoicemailGreetingPreview = {
+  type: 'audio' | 'text' | null
+  text?: string | null
+  storage_key?: string | null
+}
+
+export async function getVoicemailGreeting() {
+  return api.get<ApiResponse<VoicemailGreetingPreview>>('/auth/me/voicemail-greeting')
+}
+
+export async function uploadVoicemailGreeting(formData: FormData) {
+  // Raw fetch — the api helper assumes JSON body
+  const token = localStorage.getItem('access_token')
+  const res = await fetch('/api/auth/me/voicemail-greeting', {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  })
+  const json = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const detail = (json as any)?.error?.message || (json as any)?.detail || `HTTP ${res.status}`
+    throw new Error(detail)
+  }
+  return json
+}
+
+export async function deleteVoicemailGreeting() {
+  return api.delete<ApiResponse<{ type: null }>>('/auth/me/voicemail-greeting')
+}
+
 export async function getSystemStats() {
   return api.get<ApiResponse<{
     document_count: number
