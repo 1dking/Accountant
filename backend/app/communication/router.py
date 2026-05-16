@@ -215,10 +215,21 @@ async def verified_twilio_form(request: Request) -> dict:
 
     validator = RequestValidator(settings.twilio_auth_token)
     signature = request.headers.get("X-Twilio-Signature", "")
-    # When Cloudflare proxies HTTPS, the URL FastAPI reconstructs depends on
-    # X-Forwarded-Proto. uvicorn + nginx/Apache reverse proxy normally honor
-    # the header; if signature validation fails we'll see it in tests.
-    url = str(request.url)
+    # Reconstruct the URL Twilio actually signed (public HTTPS), NOT the
+    # internal URL uvicorn sees (http://0.0.0.0:8000/...). Twilio signs the
+    # exact public URL it POSTs to; the HMAC fails if either scheme or host
+    # differs by even one character. Cloudflare/Apache set X-Forwarded-Proto
+    # and X-Forwarded-Host; fall back to the raw request only for local dev.
+    forwarded_proto = request.headers.get("x-forwarded-proto", request.url.scheme)
+    forwarded_host = (
+        request.headers.get("x-forwarded-host")
+        or request.headers.get("host")
+        or request.url.hostname
+        or ""
+    )
+    url = f"{forwarded_proto}://{forwarded_host}{request.url.path}"
+    if request.url.query:
+        url += f"?{request.url.query}"
 
     if not validator.validate(url, params, signature):
         raise HTTPException(status_code=403, detail="Invalid Twilio signature")
