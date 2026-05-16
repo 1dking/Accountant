@@ -297,14 +297,19 @@ async def voice_twiml(
         "recording_status_callback": "https://accountant.ocidm.io/api/communication/voice/recording-status",
         "recording_status_callback_method": "POST",
         "recording_status_callback_event": "completed",
-        "status_callback": "https://accountant.ocidm.io/api/communication/voice/call-status",
-        "status_callback_method": "POST",
-        "status_callback_event": "initiated ringing answered completed",
     }
     if caller_id:
         dial_kwargs["caller_id"] = caller_id
     dial = Dial(**dial_kwargs)
-    dial.number(to_number)
+    # statusCallback belongs on the <Number>/<Client> noun, NOT on <Dial>.
+    # Twilio silently ignores statusCallback attrs on <Dial> — only the nested
+    # dialed-noun fires lifecycle webhooks.
+    dial.number(
+        to_number,
+        status_callback="https://accountant.ocidm.io/api/communication/voice/call-status",
+        status_callback_method="POST",
+        status_callback_event="initiated ringing answered completed",
+    )
     response.append(dial)
 
     # Create call_logs row synchronously so call-status + recording-status
@@ -371,7 +376,10 @@ async def voice_incoming(
         "This call may be recorded for quality and training purposes.",
         voice="Polly.Joanna",
     )
-    # Dial the browser client; on timeout/no-answer, Twilio POSTs to action URL
+    # Dial the browser client; on timeout/no-answer, Twilio POSTs to action URL.
+    # statusCallback belongs on the <Client> noun, NOT on <Dial> — Twilio
+    # silently ignores it at the <Dial> level. recordingStatusCallback DOES
+    # belong on <Dial> (the recording is a property of the bridge).
     dial = Dial(
         timeout=10,
         action="https://accountant.ocidm.io/api/communication/voice/incoming-fallback",
@@ -379,11 +387,13 @@ async def voice_incoming(
         recording_status_callback="https://accountant.ocidm.io/api/communication/voice/recording-status",
         recording_status_callback_method="POST",
         recording_status_callback_event="completed",
+    )
+    dial.client(
+        str(phone.assigned_user_id),
         status_callback="https://accountant.ocidm.io/api/communication/voice/call-status",
         status_callback_method="POST",
         status_callback_event="initiated ringing answered completed",
     )
-    dial.client(str(phone.assigned_user_id))
     response.append(dial)
 
     # Create call_logs row synchronously. Parent CallSid is the canonical
