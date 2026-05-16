@@ -8,6 +8,47 @@ import type {
   ChatMessage,
 } from '@/types/models'
 
+// Twilio inventory (response shape from GET /twilio/available-numbers)
+export interface AvailableNumber {
+  phone_number: string
+  friendly_name: string
+  locality: string | null
+  region: string | null
+  capabilities: {
+    voice: boolean
+    sms: boolean
+    mms: boolean
+  }
+}
+
+export interface AvailableNumberSearch {
+  area_code?: string
+  country?: string
+  contains?: string
+  sms_enabled?: boolean
+}
+
+export async function searchAvailableNumbers(params: AvailableNumberSearch = {}) {
+  const search = new URLSearchParams()
+  if (params.country) search.set('country', params.country)
+  if (params.area_code) search.set('area_code', params.area_code)
+  if (params.contains) search.set('contains', params.contains)
+  if (params.sms_enabled !== undefined) search.set('sms_enabled', String(params.sms_enabled))
+  const query = search.toString()
+  return api.get<ApiResponse<AvailableNumber[]>>(
+    `/communication/twilio/available-numbers${query ? `?${query}` : ''}`
+  )
+}
+
+export async function purchaseNumber(phone_number: string) {
+  return api.post<ApiResponse<{
+    id: string
+    phone_number: string
+    friendly_name: string
+    sid: string
+  }>>('/communication/twilio/purchase', { phone_number })
+}
+
 // Phone Numbers
 export async function listPhoneNumbers() {
   return api.get<ApiResponse<TwilioPhoneNumber[]>>('/communication/phone-numbers')
