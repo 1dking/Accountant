@@ -68,6 +68,14 @@ export async function deletePhoneNumber(id: string) {
   return api.delete<ApiResponse<{ message: string }>>(`/communication/phone-numbers/${id}`)
 }
 
+export async function getMyNumber() {
+  return api.get<ApiResponse<{
+    id: string
+    phone_number: string
+    friendly_name: string | null
+  } | null>>('/communication/my-number')
+}
+
 // Call Log
 export interface CallLogFilters {
   direction?: string

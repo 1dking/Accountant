@@ -184,6 +184,7 @@ function PhoneNumbersTab() {
       assignPhoneNumber(phoneId, userId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['phone-numbers'] })
+      queryClient.invalidateQueries({ queryKey: ['my-number'] })
       toast.success('Assignment updated')
       setAssignTarget(null)
       setAssignUserId('')
