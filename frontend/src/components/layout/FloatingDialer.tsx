@@ -60,6 +60,7 @@ export default function FloatingDialer() {
   const intervalRef = useRef<number | null>(null)
   const initOnceRef = useRef(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const containerRef = useRef<HTMLDivElement | null>(null)
 
   // ------------------------------------------------------------------
   // Token helpers
@@ -307,117 +308,187 @@ export default function FloatingDialer() {
   }
 
   // ------------------------------------------------------------------
+  // Click-outside (manual dismissal during incoming/in-call still works
+  // via the trigger button; this only blocks AUTO-dismissal)
+  // ------------------------------------------------------------------
+  useEffect(() => {
+    if (!isOpen) return
+    if (mode === 'incoming-ringing' || mode === 'in-call') return
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isOpen, mode])
+
+  // ------------------------------------------------------------------
+  // Escape key — always allowed as manual user action, even during call
+  // ------------------------------------------------------------------
+  useEffect(() => {
+    if (!isOpen) return
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsOpen(false)
+    }
+    document.addEventListener('keydown', handleKey)
+    return () => document.removeEventListener('keydown', handleKey)
+  }, [isOpen])
+
+  // ------------------------------------------------------------------
   // Render
   // ------------------------------------------------------------------
   if (!isAuthenticated) return null
 
-  // Collapsed bubble — visible whenever logged in, even during init
-  if (!isOpen) {
-    const isRinging = mode === 'incoming-ringing'
-    return (
-      <button
-        onClick={() => setIsOpen(true)}
-        className={cn(
-          'fixed bottom-6 right-6 z-40 h-14 w-14 rounded-full text-white shadow-lg flex items-center justify-center transition-all hover:scale-105',
-          isRinging
-            ? 'bg-blue-600 hover:bg-blue-700 animate-pulse'
-            : mode === 'in-call'
-              ? 'bg-emerald-600 hover:bg-emerald-700'
-              : mode === 'error'
-                ? 'bg-red-600 hover:bg-red-700'
-                : 'bg-green-600 hover:bg-green-700'
-        )}
-        title={isRinging ? `Incoming call from ${incomingNumber}` : 'Open dialer'}
-      >
-        {isRinging ? <PhoneIncoming className="h-6 w-6" /> : <Phone className="h-6 w-6" />}
-      </button>
-    )
-  }
+  const tooltip = tooltipForMode(mode, incomingNumber, errorMsg)
 
   return (
-    <div className="fixed bottom-6 right-6 z-40 w-[300px] bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-700">
-        <div className="flex items-center gap-2">
-          <Phone className="h-4 w-4 text-green-600" />
-          <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">Dialer</span>
-          <DeviceStatus mode={mode} />
+    <div ref={containerRef} className="relative">
+      {/* Trigger — sits inline in the header icon cluster */}
+      <button
+        onClick={() => setIsOpen((o) => !o)}
+        title={tooltip}
+        aria-label={tooltip}
+        className={cn(
+          'relative p-2 rounded-lg transition-colors',
+          isOpen
+            ? 'bg-gray-100 dark:bg-gray-800'
+            : 'hover:bg-gray-50 dark:hover:bg-gray-800'
+        )}
+      >
+        <Phone className={cn('h-5 w-5', iconColorClass(mode))} />
+        {mode === 'incoming-ringing' && (
+          <span className="absolute inset-0 rounded-lg animate-ping bg-blue-400/20 pointer-events-none" />
+        )}
+      </button>
+
+      {/* Anchored dropdown — glassmorphic, fade + slide */}
+      <div
+        className={cn(
+          'absolute right-0 top-full mt-1.5 w-[360px] z-50',
+          'bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl',
+          'border border-gray-200/50 dark:border-gray-700/50',
+          'rounded-2xl shadow-2xl overflow-hidden',
+          'transition-all duration-150 ease-out',
+          isOpen
+            ? 'opacity-100 translate-y-0'
+            : 'opacity-0 -translate-y-1 pointer-events-none'
+        )}
+      >
+        {/* Panel header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100/70 dark:border-gray-700/70">
+          <div className="flex items-center gap-2">
+            <Phone className={cn('h-4 w-4', iconColorClass(mode))} />
+            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">Dialer</span>
+          </div>
+          <button
+            onClick={() => setIsOpen(false)}
+            className="p-1 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
-        <button
-          onClick={() => setIsOpen(false)}
-          className="p-1 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
-        >
-          <X className="h-4 w-4" />
-        </button>
+
+        {errorMsg && mode !== 'error' && (
+          <div className="px-4 py-2 bg-red-50 dark:bg-red-900/30 text-xs text-red-700 dark:text-red-300 flex items-center gap-2">
+            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+            <span className="flex-1 truncate" title={errorMsg}>{errorMsg}</span>
+          </div>
+        )}
+
+        {/* Body — switches on mode */}
+        {mode === 'incoming-ringing' && (
+          <IncomingPanel
+            fromNumber={incomingNumber}
+            onAccept={handleAcceptIncoming}
+            onReject={handleRejectIncoming}
+          />
+        )}
+
+        {mode === 'in-call' && (
+          <InCallPanel
+            remoteNumber={incomingNumber || number}
+            durationSeconds={durationSeconds}
+            isMuted={isMuted}
+            onMute={handleToggleMute}
+            onHangup={handleHangup}
+          />
+        )}
+
+        {(mode === 'outgoing-connecting' || mode === 'requesting-mic') && (
+          <CallingPanel target={number} mode={mode} onHangup={handleHangup} />
+        )}
+
+        {mode === 'permission-denied' && <PermissionDeniedPanel />}
+
+        {mode === 'error' && (
+          <ErrorPanel message={errorMsg} onRetry={handleRetryInit} />
+        )}
+
+        {(mode === 'idle' || mode === 'initializing' || mode === 'ready') && (
+          <DialPanel
+            number={number}
+            setNumber={setNumber}
+            onDigit={handleDigit}
+            onBackspace={handleBackspace}
+            onCall={handleCall}
+            inputRef={inputRef}
+            disabled={mode !== 'ready'}
+          />
+        )}
       </div>
-
-      {errorMsg && mode !== 'error' && (
-        <div className="px-4 py-2 bg-red-50 dark:bg-red-900/30 text-xs text-red-700 dark:text-red-300 flex items-center gap-2">
-          <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-          <span className="flex-1 truncate" title={errorMsg}>{errorMsg}</span>
-        </div>
-      )}
-
-      {/* Body — switches on mode */}
-      {mode === 'incoming-ringing' && (
-        <IncomingPanel
-          fromNumber={incomingNumber}
-          onAccept={handleAcceptIncoming}
-          onReject={handleRejectIncoming}
-        />
-      )}
-
-      {mode === 'in-call' && (
-        <InCallPanel
-          remoteNumber={incomingNumber || number}
-          durationSeconds={durationSeconds}
-          isMuted={isMuted}
-          onMute={handleToggleMute}
-          onHangup={handleHangup}
-        />
-      )}
-
-      {(mode === 'outgoing-connecting' || mode === 'requesting-mic') && (
-        <CallingPanel target={number} mode={mode} onHangup={handleHangup} />
-      )}
-
-      {mode === 'permission-denied' && <PermissionDeniedPanel />}
-
-      {mode === 'error' && (
-        <ErrorPanel message={errorMsg} onRetry={handleRetryInit} />
-      )}
-
-      {(mode === 'idle' || mode === 'initializing' || mode === 'ready') && (
-        <DialPanel
-          number={number}
-          setNumber={setNumber}
-          onDigit={handleDigit}
-          onBackspace={handleBackspace}
-          onCall={handleCall}
-          inputRef={inputRef}
-          disabled={mode !== 'ready'}
-        />
-      )}
     </div>
   )
 }
 
 // ------------------------------------------------------------------
-// Sub-panels
+// Trigger-icon state helpers
 // ------------------------------------------------------------------
 
-function DeviceStatus({ mode }: { mode: Mode }) {
-  if (mode === 'ready' || mode === 'in-call') {
-    return <span className="ml-1 h-2 w-2 rounded-full bg-green-500" title="Connected" />
+function iconColorClass(mode: Mode): string {
+  switch (mode) {
+    case 'ready':
+      return 'text-green-500'
+    case 'incoming-ringing':
+      return 'text-blue-500'
+    case 'in-call':
+      return 'text-emerald-500'
+    case 'permission-denied':
+    case 'error':
+      return 'text-red-500'
+    default:
+      return 'text-gray-400 dark:text-gray-500'
   }
-  if (mode === 'initializing' || mode === 'requesting-mic' || mode === 'outgoing-connecting') {
-    return <span className="ml-1 h-2 w-2 rounded-full bg-yellow-500 animate-pulse" title="Connecting" />
-  }
-  if (mode === 'error' || mode === 'permission-denied') {
-    return <span className="ml-1 h-2 w-2 rounded-full bg-red-500" title="Error" />
-  }
-  return <span className="ml-1 h-2 w-2 rounded-full bg-gray-300" />
 }
+
+function tooltipForMode(
+  mode: Mode,
+  incomingNumber: string | null,
+  errorMsg: string | null
+): string {
+  switch (mode) {
+    case 'idle':
+    case 'initializing':
+      return 'Phone (initializing…)'
+    case 'ready':
+      return 'Phone (ready)'
+    case 'incoming-ringing':
+      return incomingNumber ? `Incoming call from ${incomingNumber}` : 'Incoming call'
+    case 'outgoing-connecting':
+    case 'requesting-mic':
+      return 'Calling…'
+    case 'in-call':
+      return 'Call in progress'
+    case 'permission-denied':
+      return 'Microphone access needed'
+    case 'error':
+      return errorMsg || 'Phone error'
+  }
+}
+
+// ------------------------------------------------------------------
+// Sub-panels
+// ------------------------------------------------------------------
 
 function DialPanel({
   number,
