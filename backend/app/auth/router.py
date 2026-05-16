@@ -236,7 +236,12 @@ async def upload_my_voicemail_greeting(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="audio_file is required",
             )
-        if audio_file.content_type not in ALLOWED_AUDIO_MIME_TYPES:
+        # Strip codec parameters before whitelist check. MediaRecorder
+        # blobs come through as e.g. 'audio/webm;codecs=opus' — the bare
+        # 'audio/webm' is in our set but the full string isn't, so an
+        # exact-membership check rejects valid recordings.
+        base_mime = (audio_file.content_type or "").split(";")[0].strip().lower()
+        if base_mime not in ALLOWED_AUDIO_MIME_TYPES:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Unsupported content type: {audio_file.content_type}",
@@ -248,7 +253,7 @@ async def upload_my_voicemail_greeting(
                 detail="Audio exceeds 5MB limit",
             )
         try:
-            mp3_bytes = await transcode_to_mp3(raw, audio_file.content_type)
+            mp3_bytes = await transcode_to_mp3(raw, base_mime)
         except ValueError as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
