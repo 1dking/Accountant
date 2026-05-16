@@ -709,6 +709,9 @@ function CallLogTab() {
                     Status
                   </th>
                   <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">
+                    Recording
+                  </th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">
                     Outcome
                   </th>
                   <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">
@@ -750,6 +753,31 @@ function CallLogTab() {
                       >
                         {call.status}
                       </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {call.recording_url ? (
+                        <div className="flex items-center gap-2">
+                          <audio
+                            controls
+                            controlsList="nodownload"
+                            preload="metadata"
+                            className="h-8"
+                            style={{ maxWidth: '200px' }}
+                          >
+                            <source
+                              src={`/api/communication/calls/${call.id}/recording`}
+                              type="audio/mpeg"
+                            />
+                          </audio>
+                          {call.recording_duration_seconds != null && (
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                              {formatDuration(call.recording_duration_seconds)}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs">
                       {call.outcome || '--'}

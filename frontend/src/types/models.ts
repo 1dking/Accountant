@@ -1404,11 +1404,15 @@ export interface CallLogEntry {
   from_number: string
   to_number: string
   duration_seconds: number
-  recording_url?: string
+  recording_url?: string | null
   status: string
   notes?: string
   outcome?: string
   created_at: string
+  twilio_call_sid?: string | null
+  recording_sid?: string | null
+  recording_duration_seconds?: number | null
+  recording_status?: string | null
 }
 
 export interface SmsMessageEntry {
