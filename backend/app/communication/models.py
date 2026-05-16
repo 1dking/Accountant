@@ -47,6 +47,11 @@ class CallLog(Base):
     recording_sid: Mapped[str | None] = mapped_column(String(50), nullable=True)
     recording_duration_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
     recording_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    kind: Mapped[str] = mapped_column(
+        String(20), default="call", server_default="call", nullable=False
+    )
+    voicemail_transcript: Mapped[str | None] = mapped_column(Text, nullable=True)
+    voicemail_transcript_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
 
 class SmsMessage(Base):

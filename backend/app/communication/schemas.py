@@ -68,6 +68,9 @@ class CallLogResponse(BaseModel):
     recording_sid: Optional[str] = None
     recording_duration_seconds: Optional[int] = None
     recording_status: Optional[str] = None
+    kind: str = "call"
+    voicemail_transcript: Optional[str] = None
+    voicemail_transcript_status: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

@@ -5,7 +5,7 @@ import math
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import Response, StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -246,6 +246,68 @@ def _xml_response(twiml_body: str) -> Response:
     return Response(content=twiml_body, media_type="application/xml")
 
 
+def _voicemail_response(user_name: str | None) -> Response:
+    """TwiML for the voicemail capture flow.
+
+    Reused from BOTH the no-fallback branch of /voice/incoming-fallback AND
+    /voice/voicemail (cell-failed). Total prompt under ~6s by design — strip
+    ceremony, get to beep. AssemblyAI transcription (transcribe=false → no
+    poor-quality Twilio transcription).
+
+    "Leave a message after the beep" is sufficient implicit recording
+    notification — don't stack another compliance line.
+    """
+    from twilio.twiml.voice_response import VoiceResponse, Record
+
+    response = VoiceResponse()
+    if user_name and user_name.strip():
+        first = user_name.strip().split()[0]
+        response.say(
+            f"{first} is unavailable. Please leave a message after the beep. "
+            "Press the pound key when finished.",
+            voice="Polly.Joanna",
+        )
+    else:
+        response.say(
+            "The person you're calling is unavailable. Please leave a message "
+            "after the beep. Press the pound key when finished.",
+            voice="Polly.Joanna",
+        )
+    response.append(
+        Record(
+            action="https://accountant.ocidm.io/api/communication/voice/voicemail-complete",
+            recording_status_callback="https://accountant.ocidm.io/api/communication/voice/voicemail-status",
+            recording_status_callback_method="POST",
+            recording_status_callback_event="completed",
+            max_length=120,
+            play_beep=True,
+            finish_on_key="#",
+            transcribe=False,
+            timeout=5,
+        )
+    )
+    response.say("Sorry, we didn't hear anything. Goodbye.", voice="Polly.Joanna")
+    response.hangup()
+    return _xml_response(str(response))
+
+
+async def _mark_kind_voicemail(db: AsyncSession, parent_call_sid: str) -> None:
+    """Flip the call_logs row to kind='voicemail' once we know the call is
+    routing to voicemail. Idempotent — safe to call multiple times for the
+    same SID. Status stays 'pending' until the AssemblyAI task lands.
+    """
+    if not parent_call_sid:
+        return
+    result = await db.execute(
+        select(CallLog).where(CallLog.twilio_call_sid == parent_call_sid)
+    )
+    call_log = result.scalar_one_or_none()
+    if call_log is not None and call_log.kind != "voicemail":
+        call_log.kind = "voicemail"
+        call_log.voicemail_transcript_status = "pending"
+        await db.commit()
+
+
 @router.post("/voice/twiml")
 async def voice_twiml(
     form: Annotated[dict, Depends(verified_twilio_form)],
@@ -433,7 +495,8 @@ async def voice_incoming_fallback(
 
     If DialCallStatus == 'completed', the browser answered — return empty so
     Twilio hangs up cleanly. Otherwise, ring the assigned user's fallback_phone
-    (cell) using the called Twilio number as callerId.
+    (cell). If no cell is set, OR if the cell dial fails too, the caller
+    lands in voicemail via the cell <Dial>'s action= target.
     """
     from twilio.twiml.voice_response import VoiceResponse, Dial
 
@@ -443,29 +506,173 @@ async def voice_incoming_fallback(
     if dial_status == "completed":
         return _xml_response("<Response/>")
 
-    # Look up the assigned user and their fallback_phone
+    # Look up phone + assigned user + fallback in one pass
     result = await db.execute(
         select(TwilioPhoneNumber).where(TwilioPhoneNumber.phone_number == called)
     )
     phone = result.scalar_one_or_none()
 
-    response = VoiceResponse()
-    if phone is None or phone.assigned_user_id is None:
-        response.say("Sorry, no one is available to take your call. Please try again later.")
-        return _xml_response(str(response))
+    user_name: str | None = None
+    fallback: str | None = None
+    if phone is not None and phone.assigned_user_id is not None:
+        user_result = await db.execute(
+            select(User).where(User.id == phone.assigned_user_id)
+        )
+        assigned_user = user_result.scalar_one_or_none()
+        if assigned_user is not None:
+            user_name = getattr(assigned_user, "full_name", None)
+            fallback = getattr(assigned_user, "fallback_phone", None)
 
-    user_result = await db.execute(select(User).where(User.id == phone.assigned_user_id))
-    assigned_user = user_result.scalar_one_or_none()
-    fallback = getattr(assigned_user, "fallback_phone", None) if assigned_user else None
+    parent_call_sid = form.get("CallSid", "")
 
     if not fallback:
-        response.say("Sorry, no one is available to take your call. Please try again later.")
-        return _xml_response(str(response))
+        # No cell (no user, deleted phone, or user has no fallback_phone)
+        # → voicemail directly. Caller still gets options.
+        await _mark_kind_voicemail(db, parent_call_sid)
+        return _voicemail_response(user_name)
 
-    dial = Dial(timeout=20, caller_id=called)
-    dial.number(fallback)
+    # Cell dial. On no-answer/fail, Twilio POSTs to action=/voice/voicemail.
+    # statusCallback belongs on <Number>, NOT on <Dial> (Bug 1 lesson).
+    response = VoiceResponse()
+    dial = Dial(
+        timeout=20,
+        caller_id=called,
+        action="https://accountant.ocidm.io/api/communication/voice/voicemail",
+    )
+    dial.number(
+        fallback,
+        status_callback="https://accountant.ocidm.io/api/communication/voice/call-status",
+        status_callback_method="POST",
+        status_callback_event="initiated ringing answered completed",
+    )
     response.append(dial)
     return _xml_response(str(response))
+
+
+@router.post("/voice/voicemail")
+async def voice_voicemail(
+    form: Annotated[dict, Depends(verified_twilio_form)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> Response:
+    """Fires when the cell-fallback <Dial> finishes without 'completed'.
+
+    Plays voicemail prompt + opens <Record> for the caller. If the cell
+    DID answer and the call completed naturally, short-circuit with an
+    empty response — the call is already done, no voicemail needed.
+    """
+    dial_call_status = form.get("DialCallStatus", "")
+    parent_call_sid = form.get("CallSid", "")
+
+    if dial_call_status == "completed":
+        logger.info(
+            "voice/voicemail: short-circuit on completed call "
+            "(ParentCallSid=%s, DialCallStatus=%s)",
+            parent_call_sid,
+            dial_call_status,
+        )
+        return _xml_response("<Response/>")
+
+    called = form.get("Called", "") or form.get("To", "")
+
+    result = await db.execute(
+        select(TwilioPhoneNumber).where(TwilioPhoneNumber.phone_number == called)
+    )
+    phone = result.scalar_one_or_none()
+
+    user_name: str | None = None
+    if phone is not None and phone.assigned_user_id is not None:
+        user_result = await db.execute(
+            select(User).where(User.id == phone.assigned_user_id)
+        )
+        assigned_user = user_result.scalar_one_or_none()
+        if assigned_user is not None:
+            user_name = getattr(assigned_user, "full_name", None)
+
+    await _mark_kind_voicemail(db, parent_call_sid)
+    return _voicemail_response(user_name)
+
+
+@router.post("/voice/voicemail-complete")
+async def voice_voicemail_complete(
+    _form: Annotated[dict, Depends(verified_twilio_form)],
+) -> Response:
+    """Fires when <Record> ends (caller hangup, # press, or maxLength reached).
+
+    Close the call cleanly. The actual recording-row update happens in
+    /voice/voicemail-status when Twilio finishes processing the audio.
+
+    _form is required for the signature-verification Depends; we don't read
+    the body here (the recording metadata arrives via voicemail-status).
+    """
+    from twilio.twiml.voice_response import VoiceResponse
+
+    response = VoiceResponse()
+    response.say("Thank you. Goodbye.", voice="Polly.Joanna")
+    response.hangup()
+    return _xml_response(str(response))
+
+
+@router.post("/voice/voicemail-status")
+async def voice_voicemail_status(
+    form: Annotated[dict, Depends(verified_twilio_form)],
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    background_tasks: BackgroundTasks,
+) -> Response:
+    """Fires when the voicemail recording is processed + durable.
+
+    Persists recording metadata onto the call_logs row, then schedules
+    fire-and-forget AssemblyAI transcription via BackgroundTasks.
+    """
+    call_sid = form.get("CallSid", "")
+    recording_sid = form.get("RecordingSid", "")
+    recording_url = form.get("RecordingUrl", "")
+    recording_duration = form.get("RecordingDuration", "0")
+
+    if not call_sid or not recording_sid:
+        return _xml_response("<Response/>")
+
+    result = await db.execute(
+        select(CallLog).where(CallLog.twilio_call_sid == call_sid)
+    )
+    call_log = result.scalar_one_or_none()
+    if call_log is None:
+        logger.warning(
+            "voice/voicemail-status: no call_logs row for CallSid=%s "
+            "(unmatched parent — likely race condition with incoming)",
+            call_sid,
+        )
+        return _xml_response("<Response/>")
+
+    call_log.kind = "voicemail"
+    call_log.recording_sid = recording_sid
+    call_log.recording_url = recording_url
+    try:
+        call_log.recording_duration_seconds = int(recording_duration)
+    except (ValueError, TypeError):
+        call_log.recording_duration_seconds = 0
+    call_log.recording_status = "completed"
+
+    # Only transcribe if there's actual content. 0-duration recordings
+    # would waste an AssemblyAI API call.
+    if call_log.recording_duration_seconds and call_log.recording_duration_seconds > 0:
+        call_log.voicemail_transcript_status = "pending"
+        call_log_id = call_log.id
+        await db.commit()
+        settings: Settings = request.app.state.settings
+        from app.communication.voicemail import transcribe_voicemail_task
+        background_tasks.add_task(
+            transcribe_voicemail_task,
+            call_log_id=call_log_id,
+            recording_sid=recording_sid,
+            account_sid=settings.twilio_account_sid,
+            auth_token=settings.twilio_auth_token,
+            session_factory=request.app.state.session_factory,
+        )
+    else:
+        await db.commit()
+
+    return _xml_response("<Response/>")
 
 
 @router.post("/voice/call-status")
