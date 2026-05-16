@@ -161,6 +161,27 @@ async def delete_phone_number(
     return {"data": {"message": "Phone number deleted"}}
 
 
+@router.get("/my-number")
+async def get_my_number(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    """Get the current user's assigned Twilio number, or null if unassigned."""
+    result = await db.execute(
+        select(TwilioPhoneNumber).where(TwilioPhoneNumber.assigned_user_id == user.id)
+    )
+    phone = result.scalar_one_or_none()
+    if phone is None:
+        return {"data": None}
+    return {
+        "data": {
+            "id": str(phone.id),
+            "phone_number": phone.phone_number,
+            "friendly_name": phone.friendly_name,
+        }
+    }
+
+
 # ---------------------------------------------------------------------------
 # Twilio Number Search & Purchase (requires KYC approval)
 # ---------------------------------------------------------------------------

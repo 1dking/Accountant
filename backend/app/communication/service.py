@@ -254,9 +254,22 @@ async def send_sms(
     """Send an SMS via Twilio and log it."""
     client = _get_twilio_client(settings)
 
-    if not settings.twilio_from_number:
+    # Determine FROM: prefer the user's assigned Twilio number; fall back to the global.
+    user_phone_result = await db.execute(
+        select(TwilioPhoneNumber).where(TwilioPhoneNumber.assigned_user_id == user.id)
+    )
+    user_phone = user_phone_result.scalar_one_or_none()
+    from_number = user_phone.phone_number if user_phone else settings.twilio_from_number
+
+    if not from_number:
+        logger.warning(
+            "send_sms: no FROM available for user %s — no assigned number and "
+            "global twilio_from_number is empty. SMS send will fail.",
+            user.id,
+        )
         raise ValidationError(
-            "No Twilio phone number configured. Set TWILIO_FROM_NUMBER."
+            "No Twilio phone number available. Ask an admin to assign a number to your "
+            "user, or set TWILIO_FROM_NUMBER as a global fallback."
         )
 
     # Try to match contact by phone number
@@ -266,7 +279,7 @@ async def send_sms(
     try:
         twilio_message = client.messages.create(
             body=body,
-            from_=settings.twilio_from_number,
+            from_=from_number,
             to=to_number,
         )
         status = "sent"
@@ -280,7 +293,7 @@ async def send_sms(
         user_id=user.id,
         contact_id=contact_id,
         direction="outbound",
-        from_number=settings.twilio_from_number,
+        from_number=from_number,
         to_number=to_number,
         body=body[:1600],
         status=status,
