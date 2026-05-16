@@ -16,6 +16,8 @@ import {
   X,
   XCircle,
   Hash,
+  Search,
+  ShoppingCart,
 } from 'lucide-react'
 import {
   listPhoneNumbers,
@@ -29,15 +31,20 @@ import {
   sendChatMessage,
   getChatMessages,
   closeChatSession,
+  searchAvailableNumbers,
+  purchaseNumber,
+  type AvailableNumber,
   type CallLogFilters,
   type SmsFilters,
 } from '@/api/communication'
+import { listUsers } from '@/api/auth'
 import type {
   TwilioPhoneNumber,
   CallLogEntry,
   SmsMessageEntry,
   ChatSession,
   ChatMessage,
+  User as AppUser,
 } from '@/types/models'
 
 type TabKey = 'phone-numbers' | 'calls' | 'sms' | 'chat'
@@ -97,11 +104,32 @@ function PhoneNumbersTab() {
   const [newNumber, setNewNumber] = useState('')
   const [newFriendlyName, setNewFriendlyName] = useState('')
 
+  // Buy a Number modal state
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchCountry, setSearchCountry] = useState('US')
+  const [searchAreaCode, setSearchAreaCode] = useState('')
+  const [searchContains, setSearchContains] = useState('')
+  const [searchResults, setSearchResults] = useState<AvailableNumber[]>([])
+
   const { data, isLoading } = useQuery({
     queryKey: ['phone-numbers'],
     queryFn: () => listPhoneNumbers(),
   })
   const numbers: TwilioPhoneNumber[] = data?.data ?? []
+
+  // User lookup for assigned-user-name resolution
+  const { data: usersData } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => listUsers(),
+  })
+  const usersById = new Map<string, AppUser>(
+    (usersData?.data ?? []).map((u: AppUser) => [u.id, u])
+  )
+  function resolveAssignedName(uid: string | undefined): string {
+    if (!uid) return ''
+    const u = usersById.get(uid)
+    return u?.full_name ?? `${uid.slice(0, 8)}...`
+  }
 
   const addMutation = useMutation({
     mutationFn: () =>
@@ -119,7 +147,30 @@ function PhoneNumbersTab() {
     onError: (err: any) => toast.error(err.message || 'Failed to add number'),
   })
 
+  const searchMutation = useMutation({
+    mutationFn: () =>
+      searchAvailableNumbers({
+        country: searchCountry || 'US',
+        area_code: searchAreaCode.trim() || undefined,
+        contains: searchContains.trim() || undefined,
+        sms_enabled: true,
+      }),
+    onSuccess: (resp) => setSearchResults(resp.data ?? []),
+    onError: (err: any) => toast.error(err.message || 'Search failed'),
+  })
 
+  const purchaseMutation = useMutation({
+    mutationFn: (phone: string) => purchaseNumber(phone),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['phone-numbers'] })
+      toast.success('Number purchased')
+      setSearchOpen(false)
+      setSearchResults([])
+      setSearchAreaCode('')
+      setSearchContains('')
+    },
+    onError: (err: any) => toast.error(err.message || 'Purchase failed'),
+  })
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deletePhoneNumber(id),
@@ -142,13 +193,22 @@ function PhoneNumbersTab() {
         <p className="text-sm text-gray-500 dark:text-gray-400">
           Manage Twilio phone numbers and user assignments.
         </p>
-        <button
-          onClick={() => setAddOpen(true)}
-          className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="h-4 w-4" />
-          Add Number
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setSearchOpen(true)}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <ShoppingCart className="h-4 w-4" />
+            Buy a Number
+          </button>
+          <button
+            onClick={() => setAddOpen(true)}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            Add Manually
+          </button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -195,7 +255,7 @@ function PhoneNumbersTab() {
                     {num.assigned_user_id ? (
                       <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400">
                         <User className="h-3 w-3" />
-                        {num.assigned_user_id.slice(0, 8)}...
+                        {resolveAssignedName(num.assigned_user_id)}
                       </span>
                     ) : (
                       <span className="text-xs text-gray-400">Unassigned</span>
@@ -272,6 +332,145 @@ function PhoneNumbersTab() {
               >
                 {addMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
                 Add Number
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Buy a Number Dialog */}
+      {searchOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-2xl flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                Buy a Phone Number
+              </h2>
+              <button
+                onClick={() => setSearchOpen(false)}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="px-6 py-4 space-y-4 border-b border-gray-100 dark:border-gray-700">
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Country
+                  </label>
+                  <select
+                    value={searchCountry}
+                    onChange={(e) => setSearchCountry(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100"
+                  >
+                    <option value="US">US</option>
+                    <option value="CA">CA</option>
+                    <option value="GB">GB</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Area Code
+                  </label>
+                  <input
+                    type="text"
+                    value={searchAreaCode}
+                    onChange={(e) => setSearchAreaCode(e.target.value)}
+                    placeholder="e.g. 415"
+                    className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Contains
+                  </label>
+                  <input
+                    type="text"
+                    value={searchContains}
+                    onChange={(e) => setSearchContains(e.target.value)}
+                    placeholder="e.g. CAT"
+                    className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100"
+                  />
+                </div>
+              </div>
+              <button
+                onClick={() => searchMutation.mutate()}
+                disabled={searchMutation.isPending}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              >
+                {searchMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Search className="h-4 w-4" />
+                )}
+                Search
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 py-4">
+              {searchResults.length === 0 && !searchMutation.isPending && (
+                <div className="text-center text-sm text-gray-400 py-8">
+                  Enter search criteria above and click Search.
+                </div>
+              )}
+              {searchResults.length > 0 && (
+                <div className="space-y-2">
+                  {searchResults.map((r) => (
+                    <div
+                      key={r.phone_number}
+                      className="flex items-center justify-between p-3 border border-gray-100 dark:border-gray-700 rounded-lg"
+                    >
+                      <div>
+                        <div className="font-mono text-sm text-gray-900 dark:text-gray-100">
+                          {r.phone_number}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          {r.locality || '—'}
+                          {r.region ? `, ${r.region}` : ''}
+                        </div>
+                        <div className="flex gap-1 mt-1">
+                          {r.capabilities.sms && (
+                            <span className="text-[10px] uppercase px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded">
+                              SMS
+                            </span>
+                          )}
+                          {r.capabilities.voice && (
+                            <span className="text-[10px] uppercase px-1.5 py-0.5 bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 rounded">
+                              Voice
+                            </span>
+                          )}
+                          {r.capabilities.mms && (
+                            <span className="text-[10px] uppercase px-1.5 py-0.5 bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 rounded">
+                              MMS
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => purchaseMutation.mutate(r.phone_number)}
+                        disabled={purchaseMutation.isPending}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+                      >
+                        {purchaseMutation.isPending &&
+                          purchaseMutation.variables === r.phone_number && (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          )}
+                        Buy
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end px-6 py-4 border-t border-gray-100 dark:border-gray-700">
+              <button
+                onClick={() => setSearchOpen(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              >
+                Close
               </button>
             </div>
           </div>
