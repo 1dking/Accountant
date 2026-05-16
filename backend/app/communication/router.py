@@ -217,8 +217,10 @@ async def search_available_numbers(
                 "region": n.region,
                 "capabilities": {
                     "voice": n.capabilities.get("voice", False),
-                    "sms": n.capabilities.get("sms", False),
-                    "mms": n.capabilities.get("mms", False),
+                    # Twilio REST API returns "SMS"/"MMS" uppercase, "voice" lowercase.
+                    # Fall back to lowercase to defend against a future casing change.
+                    "sms": n.capabilities.get("SMS", n.capabilities.get("sms", False)),
+                    "mms": n.capabilities.get("MMS", n.capabilities.get("mms", False)),
                 },
             }
             for n in numbers
