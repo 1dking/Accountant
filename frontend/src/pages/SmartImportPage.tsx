@@ -535,15 +535,6 @@ export default function SmartImportPage() {
     toast.success(`Split into ${months} monthly entries.`)
   }
 
-  const startEditing = (item: SmartImportItem) => {
-    setEditingItemId(item.id)
-    setEditDraft({
-      description: itemOverrides[item.id]?.description ?? item.description,
-      amount: String(itemOverrides[item.id]?.amount ?? item.amount),
-      date: (itemOverrides[item.id]?.date ?? item.date) || '',
-    })
-  }
-
   const saveEditing = () => {
     if (!editingItemId) return
     const amount = parseFloat(editDraft.amount)
