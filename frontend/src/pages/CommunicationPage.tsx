@@ -6,6 +6,7 @@ import {
   PhoneCall,
   PhoneIncoming,
   PhoneOutgoing,
+  Voicemail,
   MessageSquare,
   MessageCircle,
   Plus,
@@ -592,6 +593,40 @@ function PhoneNumbersTab() {
 
 /* ===================== Call Log Tab ===================== */
 
+function VoicemailTranscript({
+  status,
+  transcript,
+}: {
+  status?: 'pending' | 'completed' | 'failed' | null
+  transcript?: string | null
+}) {
+  const [isExpanded, setIsExpanded] = useState(false)
+  if (status === 'pending') {
+    return (
+      <span className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400 italic">
+        <Loader2 className="h-3 w-3 animate-spin" />
+        Transcribing…
+      </span>
+    )
+  }
+  if (status === 'failed') {
+    return <span className="text-xs text-gray-400 italic">Transcript unavailable</span>
+  }
+  if (status === 'completed' && transcript) {
+    return (
+      <button
+        type="button"
+        onClick={() => setIsExpanded((v) => !v)}
+        className="text-left text-xs text-gray-600 dark:text-gray-400 italic hover:text-gray-900 dark:hover:text-gray-100 cursor-pointer max-w-xs"
+        title={isExpanded ? 'Click to collapse' : 'Click to expand'}
+      >
+        <span className={isExpanded ? '' : 'line-clamp-2'}>"{transcript}"</span>
+      </button>
+    )
+  }
+  return null
+}
+
 function CallLogTab() {
   const queryClient = useQueryClient()
   const [filters, setFilters] = useState<CallLogFilters>({ page: 1, page_size: 25 })
@@ -728,7 +763,9 @@ function CallLogTab() {
                     className="border-b border-gray-50 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/30"
                   >
                     <td className="px-4 py-3">
-                      {call.direction === 'inbound' ? (
+                      {call.kind === 'voicemail' ? (
+                        <Voicemail className="h-4 w-4 text-purple-500" />
+                      ) : call.direction === 'inbound' ? (
                         <PhoneIncoming className="h-4 w-4 text-green-500" />
                       ) : (
                         <PhoneOutgoing className="h-4 w-4 text-blue-500" />
@@ -758,23 +795,31 @@ function CallLogTab() {
                     </td>
                     <td className="px-4 py-3">
                       {call.recording_url ? (
-                        <div className="flex items-center gap-2">
-                          <audio
-                            controls
-                            controlsList="nodownload"
-                            preload="metadata"
-                            className="h-8"
-                            style={{ maxWidth: '200px' }}
-                          >
-                            <source
-                              src={`/api/communication/calls/${call.id}/recording?token=${encodeURIComponent(token ?? '')}`}
-                              type="audio/mpeg"
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-2">
+                            <audio
+                              controls
+                              controlsList="nodownload"
+                              preload="metadata"
+                              className="h-8"
+                              style={{ maxWidth: '200px' }}
+                            >
+                              <source
+                                src={`/api/communication/calls/${call.id}/recording?token=${encodeURIComponent(token ?? '')}`}
+                                type="audio/mpeg"
+                              />
+                            </audio>
+                            {call.recording_duration_seconds != null && (
+                              <span className="text-xs text-gray-500 dark:text-gray-400">
+                                {formatDuration(call.recording_duration_seconds)}
+                              </span>
+                            )}
+                          </div>
+                          {call.kind === 'voicemail' && (
+                            <VoicemailTranscript
+                              status={call.voicemail_transcript_status}
+                              transcript={call.voicemail_transcript}
                             />
-                          </audio>
-                          {call.recording_duration_seconds != null && (
-                            <span className="text-xs text-gray-500 dark:text-gray-400">
-                              {formatDuration(call.recording_duration_seconds)}
-                            </span>
                           )}
                         </div>
                       ) : (

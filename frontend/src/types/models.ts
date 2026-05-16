@@ -1413,6 +1413,9 @@ export interface CallLogEntry {
   recording_sid?: string | null
   recording_duration_seconds?: number | null
   recording_status?: string | null
+  kind?: 'call' | 'voicemail'
+  voicemail_transcript?: string | null
+  voicemail_transcript_status?: 'pending' | 'completed' | 'failed' | null
 }
 
 export interface SmsMessageEntry {
