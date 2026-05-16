@@ -110,7 +110,9 @@ export async function listCalls(filters: CallLogFilters = {}) {
 }
 
 export async function getCapabilityToken() {
-  return api.get<ApiResponse<{ token: string }>>('/communication/calls/capability-token')
+  return api.get<ApiResponse<{ token: string; identity?: string | null }>>(
+    '/communication/calls/capability-token'
+  )
 }
 
 // SMS
