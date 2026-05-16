@@ -176,17 +176,20 @@ async def search_available_numbers(
     """Search for available Twilio phone numbers to purchase."""
     from app.kyc.models import KycStatus, KycVerification
 
+    settings: Settings = request.app.state.settings
+
     # Check KYC status
     result = await db.execute(
         select(KycVerification).where(KycVerification.user_id == user.id)
     )
     kyc = result.scalar_one_or_none()
-    if not kyc or kyc.status != KycStatus.APPROVED.value:
+    if settings.twilio_kyc_required and (
+        not kyc or kyc.status != KycStatus.APPROVED.value
+    ):
         raise ForbiddenError(
             "KYC verification must be approved before purchasing phone numbers."
         )
 
-    settings: Settings = request.app.state.settings
     if not settings.twilio_account_sid or not settings.twilio_auth_token:
         raise ForbiddenError("Twilio is not configured.")
 
@@ -227,15 +230,19 @@ async def purchase_number(
     user: Annotated[User, Depends(require_role([Role.ADMIN]))],
     body: dict,
 ):
-    """Purchase a Twilio phone number. Requires admin role and approved KYC."""
+    """Purchase a Twilio phone number. Requires admin role; KYC gate behind TWILIO_KYC_REQUIRED."""
     from app.kyc.models import KycStatus, KycVerification
+
+    settings: Settings = request.app.state.settings
 
     # Check KYC
     result = await db.execute(
         select(KycVerification).where(KycVerification.user_id == user.id)
     )
     kyc = result.scalar_one_or_none()
-    if not kyc or kyc.status != KycStatus.APPROVED.value:
+    if settings.twilio_kyc_required and (
+        not kyc or kyc.status != KycStatus.APPROVED.value
+    ):
         raise ForbiddenError(
             "KYC verification must be approved before purchasing."
         )
@@ -244,7 +251,6 @@ async def purchase_number(
     if not phone_number:
         raise ValidationError("phone_number is required.")
 
-    settings: Settings = request.app.state.settings
     if not settings.twilio_account_sid or not settings.twilio_auth_token:
         raise ForbiddenError("Twilio is not configured.")
 

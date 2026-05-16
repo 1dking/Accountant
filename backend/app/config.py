@@ -65,6 +65,7 @@ class Settings(BaseSettings):
     twilio_account_sid: str = ""
     twilio_auth_token: str = ""
     twilio_from_number: str = ""
+    twilio_kyc_required: bool = False  # V1: bypass KYC for internal use; enable for SaaS launch
 
     # GoHighLevel
     ghl_api_key: str = ""
