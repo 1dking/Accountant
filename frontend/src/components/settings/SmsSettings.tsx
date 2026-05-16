@@ -21,6 +21,9 @@ export default function SmsSettings() {
     account_sid: '',
     auth_token: '',
     from_number: '',
+    api_key_sid: '',
+    api_key_secret: '',
+    twiml_app_sid: '',
   })
   const [configLoaded, setConfigLoaded] = useState(false)
 
@@ -35,6 +38,9 @@ export default function SmsSettings() {
       account_sid: configData.data?.account_sid || '',
       auth_token: configData.data?.auth_token || '',
       from_number: configData.data?.from_number || '',
+      api_key_sid: configData.data?.api_key_sid || '',
+      api_key_secret: configData.data?.api_key_secret || '',
+      twiml_app_sid: configData.data?.twiml_app_sid || '',
     })
     setConfigLoaded(true)
   }
@@ -116,7 +122,7 @@ export default function SmsSettings() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">From Number</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">From Number (legacy fallback)</label>
             <input
               type="tel"
               value={configForm.from_number}
@@ -126,6 +132,45 @@ export default function SmsSettings() {
             />
           </div>
         </div>
+
+        <div className="pt-3 border-t border-gray-100 dark:border-gray-800">
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">
+            Voice (AccessToken / TwiML App)
+          </h4>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">API Key SID</label>
+              <input
+                type="text"
+                value={configForm.api_key_sid}
+                onChange={(e) => setConfigForm({ ...configForm, api_key_sid: e.target.value })}
+                placeholder="SKxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                className="w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">API Key Secret</label>
+              <input
+                type="password"
+                value={configForm.api_key_secret}
+                onChange={(e) => setConfigForm({ ...configForm, api_key_secret: e.target.value })}
+                placeholder="(shown once at creation)"
+                className="w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">TwiML App SID</label>
+              <input
+                type="text"
+                value={configForm.twiml_app_sid}
+                onChange={(e) => setConfigForm({ ...configForm, twiml_app_sid: e.target.value })}
+                placeholder="APxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                className="w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+        </div>
+
         <button
           type="submit"
           disabled={saveMutation.isPending}

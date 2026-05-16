@@ -36,6 +36,7 @@ class User(TimestampMixin, Base):
     cashbook_access: Mapped[str] = mapped_column(
         String(20), default="personal", server_default="personal", nullable=False
     )
+    fallback_phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
 
 class RefreshToken(Base):

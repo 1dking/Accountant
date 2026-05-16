@@ -8,6 +8,7 @@ export default function ProfileSettings() {
   const { user, fetchMe } = useAuthStore()
   const [fullName, setFullName] = useState(user?.full_name || '')
   const [newPassword, setNewPassword] = useState('')
+  const [fallbackPhone, setFallbackPhone] = useState(user?.fallback_phone || '')
   const [msg, setMsg] = useState('')
 
   const { data: myNumberData, isLoading: myNumberLoading } = useQuery({
@@ -17,7 +18,8 @@ export default function ProfileSettings() {
   const myNumber = myNumberData?.data ?? null
 
   const mutation = useMutation({
-    mutationFn: (data: { full_name?: string; password?: string }) => updateProfile(data),
+    mutationFn: (data: { full_name?: string; password?: string; fallback_phone?: string }) =>
+      updateProfile(data),
     onSuccess: () => {
       fetchMe()
       setMsg('Profile updated')
@@ -31,6 +33,7 @@ export default function ProfileSettings() {
     const updates: Record<string, string> = {}
     if (fullName !== user?.full_name) updates.full_name = fullName
     if (newPassword) updates.password = newPassword
+    if (fallbackPhone !== (user?.fallback_phone || '')) updates.fallback_phone = fallbackPhone
     if (Object.keys(updates).length > 0) mutation.mutate(updates)
   }
 
@@ -67,6 +70,21 @@ export default function ProfileSettings() {
             minLength={8}
             className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Fallback Phone (cell)
+          </label>
+          <input
+            type="tel"
+            value={fallbackPhone}
+            onChange={(e) => setFallbackPhone(e.target.value)}
+            placeholder="+12895551234"
+            className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            E.164 format. When someone calls your assigned Twilio number and your browser doesn't answer within 10 seconds, the call rings this number instead.
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <button

@@ -50,6 +50,7 @@ class UserResponse(BaseModel):
     feature_access: dict[str, bool] | None = None
     org_id: uuid.UUID | None = None
     cashbook_access: str = "personal"
+    fallback_phone: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -57,6 +58,7 @@ class UserResponse(BaseModel):
 class UserUpdate(BaseModel):
     full_name: str | None = Field(None, min_length=1, max_length=255)
     password: str | None = Field(None, min_length=8, max_length=128)
+    fallback_phone: str | None = Field(None, max_length=20)
 
 
 class UserRoleUpdate(BaseModel):

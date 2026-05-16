@@ -198,6 +198,9 @@ async def update_user_profile(
         user.full_name = updates.full_name
     if updates.password is not None:
         user.hashed_password = hash_password(updates.password)
+    if updates.fallback_phone is not None:
+        # Empty string clears the fallback; non-empty sets it
+        user.fallback_phone = updates.fallback_phone or None
     await db.commit()
     await db.refresh(user)
 

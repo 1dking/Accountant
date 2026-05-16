@@ -11,6 +11,7 @@ export interface User {
   feature_access: Record<string, boolean> | null
   org_id: string | null
   cashbook_access: 'personal' | 'org'
+  fallback_phone: string | null
 }
 
 interface AuthState {

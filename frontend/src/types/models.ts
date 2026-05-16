@@ -7,6 +7,7 @@ export interface User {
   is_active: boolean
   created_at: string
   cashbook_access?: 'personal' | 'org'
+  fallback_phone?: string | null
 }
 
 // Documents

@@ -22,7 +22,7 @@ INTEGRATION_FIELDS = {
     "gemini": ["api_key"],
     "openai": ["api_key"],
     "stripe": ["secret_key", "publishable_key", "webhook_secret"],
-    "twilio": ["account_sid", "auth_token", "from_number"],
+    "twilio": ["account_sid", "auth_token", "from_number", "api_key_sid", "api_key_secret", "twiml_app_sid"],
     "plaid": ["client_id", "secret", "environment"],
     "google": ["client_id", "client_secret"],
     "livekit": ["api_key", "api_secret", "url"],
@@ -50,6 +50,9 @@ SETTINGS_MAP = {
         "account_sid": "twilio_account_sid",
         "auth_token": "twilio_auth_token",
         "from_number": "twilio_from_number",
+        "api_key_sid": "twilio_api_key_sid",
+        "api_key_secret": "twilio_api_key_secret",
+        "twiml_app_sid": "twilio_twiml_app_sid",
     },
     "plaid": {
         "client_id": "plaid_client_id",
