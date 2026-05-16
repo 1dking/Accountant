@@ -30,7 +30,7 @@ from app.communication.schemas import (
 )
 from app.config import Settings
 from app.core.exceptions import ForbiddenError, ValidationError
-from app.dependencies import get_current_user, get_db, require_role
+from app.dependencies import get_current_user, get_current_user_or_token, get_db, require_role
 
 logger = logging.getLogger(__name__)
 
@@ -556,13 +556,19 @@ async def stream_call_recording(
     call_id: uuid.UUID,
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user_or_token)],
 ) -> StreamingResponse:
     """Proxy a Twilio recording through our auth gate.
 
     Twilio recording URLs require Account-SID Basic Auth — we can't expose
     them directly to the browser. This streams audio/mpeg bytes from Twilio
     with our credentials, gated by user-owns-the-call (or admin).
+
+    Uses get_current_user_or_token so the native <audio> element can pass
+    the JWT via ?token= query string — it has no API for Authorization
+    headers. Same convention as document preview / meeting media / Gmail
+    attachments. Token leaks via uvicorn access logs are acceptable for
+    this internal admin platform; revisit when going multi-tenant.
     """
     settings: Settings = request.app.state.settings
 

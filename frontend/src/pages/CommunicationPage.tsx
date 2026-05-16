@@ -720,7 +720,9 @@ function CallLogTab() {
                 </tr>
               </thead>
               <tbody>
-                {calls.map((call) => (
+                {calls.map((call) => {
+                  const token = localStorage.getItem('access_token')
+                  return (
                   <tr
                     key={call.id}
                     className="border-b border-gray-50 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/30"
@@ -765,7 +767,7 @@ function CallLogTab() {
                             style={{ maxWidth: '200px' }}
                           >
                             <source
-                              src={`/api/communication/calls/${call.id}/recording`}
+                              src={`/api/communication/calls/${call.id}/recording?token=${encodeURIComponent(token ?? '')}`}
                               type="audio/mpeg"
                             />
                           </audio>
@@ -791,7 +793,8 @@ function CallLogTab() {
                       })}
                     </td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>
