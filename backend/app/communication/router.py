@@ -4,7 +4,8 @@ import math
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Form, Query, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
+from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -180,6 +181,187 @@ async def get_my_number(
             "friendly_name": phone.friendly_name,
         }
     }
+
+
+# ---------------------------------------------------------------------------
+# Voice — Twilio webhooks (signed by Twilio, NOT by our JWT auth)
+# ---------------------------------------------------------------------------
+
+
+async def verified_twilio_form(request: Request) -> dict:
+    """Verify Twilio webhook signature and return the parsed form params.
+
+    Twilio signs every webhook with HMAC-SHA1 of the full URL + sorted form
+    params, keyed by our account auth_token. If signature is missing or
+    invalid → 403. If auth_token isn't configured server-side, we can't
+    validate, so also reject (we'd rather refuse to serve than accept
+    unsigned webhooks).
+
+    Returns a plain {name: str} dict of the form body — handlers downstream
+    can't call request.form() again (starlette won't let you read the body
+    twice), so we hand the parsed params over.
+    """
+    form_data = await request.form()
+    params = {k: str(v) for k, v in form_data.items()}
+
+    settings: Settings = request.app.state.settings
+    if not settings.twilio_auth_token:
+        raise HTTPException(
+            status_code=403,
+            detail="Twilio webhook signature verification unavailable — server misconfigured",
+        )
+
+    from twilio.request_validator import RequestValidator
+
+    validator = RequestValidator(settings.twilio_auth_token)
+    signature = request.headers.get("X-Twilio-Signature", "")
+    # When Cloudflare proxies HTTPS, the URL FastAPI reconstructs depends on
+    # X-Forwarded-Proto. uvicorn + nginx/Apache reverse proxy normally honor
+    # the header; if signature validation fails we'll see it in tests.
+    url = str(request.url)
+
+    if not validator.validate(url, params, signature):
+        raise HTTPException(status_code=403, detail="Invalid Twilio signature")
+
+    return params
+
+
+def _xml_response(twiml_body: str) -> Response:
+    """Wrap a TwiML XML body in a FastAPI Response with the right content type."""
+    return Response(content=twiml_body, media_type="application/xml")
+
+
+@router.post("/voice/twiml")
+async def voice_twiml(
+    form: Annotated[dict, Depends(verified_twilio_form)],
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> Response:
+    """Outbound webhook: Twilio hits this when a browser Client places a call.
+
+    The browser SDK passes `params: { To: '+1...' }` to device.connect(); that
+    gets forwarded to this webhook. We look up the dialing user's assigned
+    Twilio number (from the `client:<uuid>` From identity) and use it as
+    callerId so the called party sees the right number, not "Twilio default".
+    """
+    from twilio.twiml.voice_response import VoiceResponse, Dial
+
+    to_number = form.get("To", "")
+    from_identity = form.get("From", "")  # "client:<user_uuid>" when initiated from browser
+
+    # Strip "client:" prefix if present, parse UUID, look up assigned number
+    caller_id: str | None = None
+    if from_identity.startswith("client:"):
+        identity_str = from_identity[len("client:") :]
+        try:
+            user_uuid = uuid.UUID(identity_str)
+            result = await db.execute(
+                select(TwilioPhoneNumber).where(
+                    TwilioPhoneNumber.assigned_user_id == user_uuid
+                )
+            )
+            phone = result.scalar_one_or_none()
+            if phone:
+                caller_id = phone.phone_number
+        except ValueError:
+            pass  # malformed UUID, fall through to global
+
+    # Fall back to the global TWILIO_FROM_NUMBER if user has no assigned number
+    if not caller_id:
+        settings: Settings = request.app.state.settings
+        caller_id = settings.twilio_from_number or None
+
+    response = VoiceResponse()
+    dial_kwargs: dict = {"record": "record-from-answer-dual"}
+    if caller_id:
+        dial_kwargs["caller_id"] = caller_id
+    dial = Dial(**dial_kwargs)
+    dial.number(to_number)
+    response.append(dial)
+    return _xml_response(str(response))
+
+
+@router.post("/voice/incoming")
+async def voice_incoming(
+    form: Annotated[dict, Depends(verified_twilio_form)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> Response:
+    """Inbound webhook: Twilio hits this when one of our owned numbers is called.
+
+    Looks up the TwilioPhoneNumber by `Called` (the digit the caller dialed),
+    finds the assigned user, and rings their browser Client identity for 10s.
+    If the browser doesn't pick up, the `action` URL fires the fallback handler
+    which rings the user's cell.
+    """
+    from twilio.twiml.voice_response import VoiceResponse, Dial
+
+    called = form.get("Called", "")
+
+    # Find owner of this number
+    result = await db.execute(
+        select(TwilioPhoneNumber).where(TwilioPhoneNumber.phone_number == called)
+    )
+    phone = result.scalar_one_or_none()
+
+    response = VoiceResponse()
+    if phone is None or phone.assigned_user_id is None:
+        # No assigned recipient — say goodbye gracefully
+        response.say("Sorry, this number is not currently assigned. Please try again later.")
+        return _xml_response(str(response))
+
+    # Dial the browser client; on timeout/no-answer, Twilio POSTs to action URL
+    dial = Dial(
+        timeout=10,
+        action="https://accountant.ocidm.io/api/communication/voice/incoming-fallback",
+        record="record-from-answer-dual",
+    )
+    dial.client(str(phone.assigned_user_id))
+    response.append(dial)
+    return _xml_response(str(response))
+
+
+@router.post("/voice/incoming-fallback")
+async def voice_incoming_fallback(
+    form: Annotated[dict, Depends(verified_twilio_form)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> Response:
+    """Fires after the browser-Dial finishes (success or timeout).
+
+    If DialCallStatus == 'completed', the browser answered — return empty so
+    Twilio hangs up cleanly. Otherwise, ring the assigned user's fallback_phone
+    (cell) using the called Twilio number as callerId.
+    """
+    from twilio.twiml.voice_response import VoiceResponse, Dial
+
+    dial_status = form.get("DialCallStatus", "")
+    called = form.get("Called", "") or form.get("To", "")  # 'Called' on incoming; 'To' on the fallback POST
+
+    if dial_status == "completed":
+        return _xml_response("<Response/>")
+
+    # Look up the assigned user and their fallback_phone
+    result = await db.execute(
+        select(TwilioPhoneNumber).where(TwilioPhoneNumber.phone_number == called)
+    )
+    phone = result.scalar_one_or_none()
+
+    response = VoiceResponse()
+    if phone is None or phone.assigned_user_id is None:
+        response.say("Sorry, no one is available to take your call. Please try again later.")
+        return _xml_response(str(response))
+
+    user_result = await db.execute(select(User).where(User.id == phone.assigned_user_id))
+    assigned_user = user_result.scalar_one_or_none()
+    fallback = getattr(assigned_user, "fallback_phone", None) if assigned_user else None
+
+    if not fallback:
+        response.say("Sorry, no one is available to take your call. Please try again later.")
+        return _xml_response(str(response))
+
+    dial = Dial(timeout=20, caller_id=called)
+    dial.number(fallback)
+    response.append(dial)
+    return _xml_response(str(response))
 
 
 # ---------------------------------------------------------------------------
@@ -360,8 +542,21 @@ async def get_capability_token(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict:
     settings = request.app.state.settings
-    token = await service.get_capability_token(db, current_user, settings)
-    return {"data": CapabilityTokenResponse(token=token)}
+    result = await service.get_capability_token(db, current_user, settings)
+    return {"data": CapabilityTokenResponse(token=result["token"], identity=result["identity"])}
+
+
+# Also expose as GET — frontend SDK initialization fetches via GET by convention,
+# and we want clients with React Query to be able to use a simple GET hook.
+@router.get("/calls/capability-token")
+async def get_capability_token_get(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    settings = request.app.state.settings
+    result = await service.get_capability_token(db, current_user, settings)
+    return {"data": CapabilityTokenResponse(token=result["token"], identity=result["identity"])}
 
 
 # ---------------------------------------------------------------------------

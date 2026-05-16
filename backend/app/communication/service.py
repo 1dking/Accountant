@@ -222,25 +222,44 @@ async def list_call_logs(
     return list(result.scalars().all()), total
 
 
-async def get_capability_token(db: AsyncSession, user: User, settings: Settings) -> str:
-    """Generate a Twilio capability token for browser-based calling."""
-    if not settings.twilio_account_sid or not settings.twilio_auth_token:
+async def get_capability_token(db: AsyncSession, user: User, settings: Settings) -> dict:
+    """Generate a Twilio AccessToken with VoiceGrant for browser-based calling.
+
+    Returns {"token": "...", "identity": "<user_uuid>"}. The identity is needed
+    on the frontend to know which Twilio Client identity inbound calls will
+    address (so we can match an incoming notification to "this is me").
+    """
+    missing = []
+    if not settings.twilio_account_sid:
+        missing.append("TWILIO_ACCOUNT_SID")
+    if not settings.twilio_api_key_sid:
+        missing.append("TWILIO_API_KEY_SID")
+    if not settings.twilio_api_key_secret:
+        missing.append("TWILIO_API_KEY_SECRET")
+    if not settings.twilio_twiml_app_sid:
+        missing.append("TWILIO_TWIML_APP_SID")
+    if missing:
         raise ValidationError(
-            "Twilio is not configured. Set TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN."
+            "Twilio Voice is not configured. Missing: " + ", ".join(missing)
         )
 
-    from twilio.jwt.client import ClientCapabilityToken
+    from twilio.jwt.access_token import AccessToken
+    from twilio.jwt.access_token.grants import VoiceGrant
 
-    capability = ClientCapabilityToken(
+    identity = str(user.id)
+    token = AccessToken(
         settings.twilio_account_sid,
-        settings.twilio_auth_token,
+        settings.twilio_api_key_sid,
+        settings.twilio_api_key_secret,
+        identity=identity,
+        ttl=3600,
     )
-    # Allow outgoing calls via TwiML app if configured
-    capability.allow_client_outgoing(settings.twilio_account_sid)
-    # Allow incoming calls to this user's identity
-    capability.allow_client_incoming(str(user.id))
-
-    return capability.to_jwt()
+    grant = VoiceGrant(
+        outgoing_application_sid=settings.twilio_twiml_app_sid,
+        incoming_allow=True,  # required so this identity can receive Twilio Client calls
+    )
+    token.add_grant(grant)
+    return {"token": token.to_jwt(), "identity": identity}
 
 
 # ---------------------------------------------------------------------------

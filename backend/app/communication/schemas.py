@@ -144,3 +144,4 @@ class MissedCallConfig(BaseModel):
 
 class CapabilityTokenResponse(BaseModel):
     token: str
+    identity: str | None = None

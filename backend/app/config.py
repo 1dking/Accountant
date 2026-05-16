@@ -61,11 +61,15 @@ class Settings(BaseSettings):
     smtp_from_name: str = "Accountant"
     smtp_use_tls: bool = True
 
-    # Twilio SMS
+    # Twilio SMS + Voice
     twilio_account_sid: str = ""
     twilio_auth_token: str = ""
     twilio_from_number: str = ""
     twilio_kyc_required: bool = False  # V1: bypass KYC for internal use; enable for SaaS launch
+    # Voice (AccessToken-based — distinct from account_sid/auth_token)
+    twilio_api_key_sid: str = ""
+    twilio_api_key_secret: str = ""
+    twilio_twiml_app_sid: str = ""
 
     # GoHighLevel
     ghl_api_key: str = ""
