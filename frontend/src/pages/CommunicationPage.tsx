@@ -18,6 +18,7 @@ import {
   Hash,
   Search,
   ShoppingCart,
+  UserCog,
 } from 'lucide-react'
 import {
   listPhoneNumbers,
@@ -33,6 +34,7 @@ import {
   closeChatSession,
   searchAvailableNumbers,
   purchaseNumber,
+  assignPhoneNumber,
   type AvailableNumber,
   type CallLogFilters,
   type SmsFilters,
@@ -111,6 +113,11 @@ function PhoneNumbersTab() {
   const [searchContains, setSearchContains] = useState('')
   const [searchResults, setSearchResults] = useState<AvailableNumber[]>([])
 
+  // Assign-to-User modal state
+  // assignTarget non-null = modal open; assignUserId '' = "Unassigned" (sent as null to API)
+  const [assignTarget, setAssignTarget] = useState<TwilioPhoneNumber | null>(null)
+  const [assignUserId, setAssignUserId] = useState<string>('')
+
   const { data, isLoading } = useQuery({
     queryKey: ['phone-numbers'],
     queryFn: () => listPhoneNumbers(),
@@ -170,6 +177,18 @@ function PhoneNumbersTab() {
       setSearchContains('')
     },
     onError: (err: any) => toast.error(err.message || 'Purchase failed'),
+  })
+
+  const assignMutation = useMutation({
+    mutationFn: ({ phoneId, userId }: { phoneId: string; userId: string | null }) =>
+      assignPhoneNumber(phoneId, userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['phone-numbers'] })
+      toast.success('Assignment updated')
+      setAssignTarget(null)
+      setAssignUserId('')
+    },
+    onError: (err: any) => toast.error(err.message || 'Assignment failed'),
   })
 
   const deleteMutation = useMutation({
@@ -262,13 +281,25 @@ function PhoneNumbersTab() {
                     )}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={() => handleDelete(num.id)}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-                      title="Remove"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    <div className="inline-flex items-center gap-1">
+                      <button
+                        onClick={() => {
+                          setAssignTarget(num)
+                          setAssignUserId(num.assigned_user_id ?? '')
+                        }}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                        title="Assign"
+                      >
+                        <UserCog className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(num.id)}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                        title="Remove"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -471,6 +502,84 @@ function PhoneNumbersTab() {
                 className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assign Modal */}
+      {assignTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-md flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                Assign Phone Number
+              </h2>
+              <button
+                onClick={() => {
+                  setAssignTarget(null)
+                  setAssignUserId('')
+                }}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="px-6 py-4 space-y-4">
+              <div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Phone Number</div>
+                <div className="font-mono text-sm text-gray-900 dark:text-gray-100">
+                  {assignTarget.phone_number}
+                  {assignTarget.friendly_name && (
+                    <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                      ({assignTarget.friendly_name})
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Assign to
+                </label>
+                <select
+                  value={assignUserId}
+                  onChange={(e) => setAssignUserId(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100"
+                >
+                  <option value="">Unassigned</option>
+                  {(usersData?.data ?? []).map((u: AppUser) => (
+                    <option key={u.id} value={u.id}>
+                      {u.full_name} ({u.email})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 dark:border-gray-700">
+              <button
+                onClick={() => {
+                  setAssignTarget(null)
+                  setAssignUserId('')
+                }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() =>
+                  assignMutation.mutate({
+                    phoneId: assignTarget!.id,
+                    userId: assignUserId || null,
+                  })
+                }
+                disabled={assignMutation.isPending}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >
+                {assignMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                Save
               </button>
             </div>
           </div>
