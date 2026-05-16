@@ -152,10 +152,12 @@ async def assign_phone_number(
 @router.delete("/phone-numbers/{phone_id}")
 async def delete_phone_number(
     phone_id: uuid.UUID,
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
     _: Annotated[User, Depends(require_role([Role.ADMIN]))],
 ) -> dict:
-    await service.delete_phone_number(db, phone_id)
+    settings: Settings = request.app.state.settings
+    await service.delete_phone_number(db, phone_id, settings)
     return {"data": {"message": "Phone number deleted"}}
 
 
@@ -172,6 +174,7 @@ async def search_available_numbers(
     area_code: str | None = None,
     country: str = "US",
     contains: str | None = None,
+    sms_enabled: bool = True,
 ):
     """Search for available Twilio phone numbers to purchase."""
     from app.kyc.models import KycStatus, KycVerification
@@ -197,7 +200,7 @@ async def search_available_numbers(
 
     client = Client(settings.twilio_account_sid, settings.twilio_auth_token)
 
-    kwargs: dict = {"limit": 10}
+    kwargs: dict = {"limit": 10, "sms_enabled": sms_enabled}
     if area_code:
         kwargs["area_code"] = area_code
     if contains:

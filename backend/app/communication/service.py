@@ -1,5 +1,6 @@
 
 import json
+import logging
 import re
 import uuid
 from datetime import datetime
@@ -25,6 +26,8 @@ from app.config import Settings
 from app.contacts.models import ActivityType, Contact
 from app.contacts.service import log_contact_activity
 from app.core.exceptions import NotFoundError, ValidationError
+
+logger = logging.getLogger(__name__)
 
 
 def _strip_non_digits(phone: str) -> str:
@@ -99,13 +102,45 @@ async def assign_phone_number(
     return phone
 
 
-async def delete_phone_number(db: AsyncSession, phone_id: uuid.UUID) -> None:
+async def delete_phone_number(
+    db: AsyncSession,
+    phone_id: uuid.UUID,
+    settings: Settings | None = None,
+) -> None:
     result = await db.execute(
         select(TwilioPhoneNumber).where(TwilioPhoneNumber.id == phone_id)
     )
     phone = result.scalar_one_or_none()
     if phone is None:
         raise NotFoundError("TwilioPhoneNumber", str(phone_id))
+
+    # Release at Twilio first (if we have a sid + working creds).
+    # Order matters: Twilio release → DB delete. If Twilio fails,
+    # abort and keep the DB row to avoid losing track of a still-billing number.
+    twilio_sid: str | None = None
+    if phone.capabilities_json:
+        try:
+            sid = json.loads(phone.capabilities_json).get("sid")
+            if isinstance(sid, str) and sid.startswith("PN"):
+                twilio_sid = sid
+        except (json.JSONDecodeError, AttributeError):
+            pass
+
+    if twilio_sid:
+        if settings and settings.twilio_account_sid and settings.twilio_auth_token:
+            from twilio.rest import Client
+            client = Client(settings.twilio_account_sid, settings.twilio_auth_token)
+            try:
+                client.incoming_phone_numbers(twilio_sid).delete()
+            except Exception as e:
+                raise ValidationError(f"Failed to release at Twilio: {str(e)[:200]}")
+        else:
+            logger.warning(
+                "Deleting phone %s (sid=%s) without Twilio release — credentials missing. "
+                "Number may continue billing.",
+                phone_id, twilio_sid,
+            )
+
     await db.delete(phone)
     await db.commit()
 
