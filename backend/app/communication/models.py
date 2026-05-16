@@ -41,6 +41,12 @@ class CallLog(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+    twilio_call_sid: Mapped[str | None] = mapped_column(
+        String(50), unique=True, index=True, nullable=True
+    )
+    recording_sid: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    recording_duration_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    recording_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
 
 class SmsMessage(Base):

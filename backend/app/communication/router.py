@@ -1,17 +1,19 @@
 
 import json
+import logging
 import math
 import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import Role, User
 from app.communication import service
-from app.communication.models import TwilioPhoneNumber
+from app.communication.models import CallLog, TwilioPhoneNumber
 from app.communication.schemas import (
     CallLogCreate,
     CallLogResponse,
@@ -29,6 +31,8 @@ from app.communication.schemas import (
 from app.config import Settings
 from app.core.exceptions import ForbiddenError, ValidationError
 from app.dependencies import get_current_user, get_db, require_role
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -262,6 +266,7 @@ async def voice_twiml(
 
     # Strip "client:" prefix if present, parse UUID, look up assigned number
     caller_id: str | None = None
+    user_uuid: uuid.UUID | None = None
     if from_identity.startswith("client:"):
         identity_str = from_identity[len("client:") :]
         try:
@@ -275,7 +280,7 @@ async def voice_twiml(
             if phone:
                 caller_id = phone.phone_number
         except ValueError:
-            pass  # malformed UUID, fall through to global
+            user_uuid = None  # malformed UUID, fall through to global
 
     # Fall back to the global TWILIO_FROM_NUMBER if user has no assigned number
     if not caller_id:
@@ -283,12 +288,53 @@ async def voice_twiml(
         caller_id = settings.twilio_from_number or None
 
     response = VoiceResponse()
-    dial_kwargs: dict = {"record": "record-from-answer-dual"}
+    response.say(
+        "This call may be recorded for quality and training purposes.",
+        voice="Polly.Joanna",
+    )
+    dial_kwargs: dict = {
+        "record": "record-from-answer-dual",
+        "recording_status_callback": "https://accountant.ocidm.io/api/communication/voice/recording-status",
+        "recording_status_callback_method": "POST",
+        "recording_status_callback_event": "completed",
+        "status_callback": "https://accountant.ocidm.io/api/communication/voice/call-status",
+        "status_callback_method": "POST",
+        "status_callback_event": "initiated ringing answered completed",
+    }
     if caller_id:
         dial_kwargs["caller_id"] = caller_id
     dial = Dial(**dial_kwargs)
     dial.number(to_number)
     response.append(dial)
+
+    # Create call_logs row synchronously so call-status + recording-status
+    # webhooks have a row to update. Parent CallSid (from THIS TwiML POST)
+    # is the canonical conversation ID. Guard on user_uuid + sid presence.
+    parent_call_sid = form.get("CallSid", "")
+    if parent_call_sid and user_uuid:
+        call_log = CallLog(
+            id=uuid.uuid4(),
+            user_id=user_uuid,
+            direction="outbound",
+            from_number=caller_id or "",
+            to_number=to_number,
+            duration_seconds=0,
+            status="initiated",
+            twilio_call_sid=parent_call_sid,
+        )
+        db.add(call_log)
+        try:
+            await db.commit()
+        except IntegrityError:
+            # Duplicate twilio_call_sid — status webhook beat us here.
+            # Rare but possible; benign.
+            await db.rollback()
+    else:
+        if not parent_call_sid:
+            logger.warning("voice_twiml: no CallSid in form; skipping call_log row creation")
+        if not user_uuid:
+            logger.warning("voice_twiml: no user resolved; skipping call_log row creation")
+
     return _xml_response(str(response))
 
 
@@ -307,6 +353,7 @@ async def voice_incoming(
     from twilio.twiml.voice_response import VoiceResponse, Dial
 
     called = form.get("Called", "")
+    caller_from = form.get("From", "")
 
     # Find owner of this number
     result = await db.execute(
@@ -320,14 +367,50 @@ async def voice_incoming(
         response.say("Sorry, this number is not currently assigned. Please try again later.")
         return _xml_response(str(response))
 
+    response.say(
+        "This call may be recorded for quality and training purposes.",
+        voice="Polly.Joanna",
+    )
     # Dial the browser client; on timeout/no-answer, Twilio POSTs to action URL
     dial = Dial(
         timeout=10,
         action="https://accountant.ocidm.io/api/communication/voice/incoming-fallback",
         record="record-from-answer-dual",
+        recording_status_callback="https://accountant.ocidm.io/api/communication/voice/recording-status",
+        recording_status_callback_method="POST",
+        recording_status_callback_event="completed",
+        status_callback="https://accountant.ocidm.io/api/communication/voice/call-status",
+        status_callback_method="POST",
+        status_callback_event="initiated ringing answered completed",
     )
     dial.client(str(phone.assigned_user_id))
     response.append(dial)
+
+    # Create call_logs row synchronously. Parent CallSid is the canonical
+    # conversation ID. Guard on assigned_user + sid presence.
+    parent_call_sid = form.get("CallSid", "")
+    if parent_call_sid and phone.assigned_user_id is not None:
+        call_log = CallLog(
+            id=uuid.uuid4(),
+            user_id=phone.assigned_user_id,
+            direction="inbound",
+            from_number=caller_from,
+            to_number=phone.phone_number,
+            duration_seconds=0,
+            status="ringing",
+            twilio_call_sid=parent_call_sid,
+        )
+        db.add(call_log)
+        try:
+            await db.commit()
+        except IntegrityError:
+            await db.rollback()
+    else:
+        if not parent_call_sid:
+            logger.warning("voice_incoming: no CallSid in form; skipping call_log row creation")
+        if phone.assigned_user_id is None:
+            logger.warning("voice_incoming: no assigned_user; skipping call_log row creation")
+
     return _xml_response(str(response))
 
 
@@ -373,6 +456,147 @@ async def voice_incoming_fallback(
     dial.number(fallback)
     response.append(dial)
     return _xml_response(str(response))
+
+
+@router.post("/voice/call-status")
+async def voice_call_status(
+    form: Annotated[dict, Depends(verified_twilio_form)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> Response:
+    """Twilio fires this on Dial-leg lifecycle events.
+
+    The status callback runs against the CHILD call leg (the one created by
+    <Dial>), but we key call_logs by the PARENT/conversation SID — recording
+    is on the parent. Twilio passes ParentCallSid for correlation.
+    """
+    parent_call_sid = form.get("ParentCallSid", "")
+    if not parent_call_sid:
+        # Some lifecycle events lack ParentCallSid; nothing to correlate.
+        return _xml_response("<Response/>")
+
+    call_status = form.get("CallStatus", "")
+    call_duration = form.get("CallDuration", "0")
+
+    result = await db.execute(
+        select(CallLog).where(CallLog.twilio_call_sid == parent_call_sid)
+    )
+    call_log = result.scalar_one_or_none()
+    if call_log is None:
+        logger.warning(
+            "voice/call-status: no call_logs row for ParentCallSid=%s (race or unseen call)",
+            parent_call_sid,
+        )
+        return _xml_response("<Response/>")
+
+    if call_status == "completed":
+        call_log.status = "completed"
+        try:
+            call_log.duration_seconds = int(call_duration)
+        except (ValueError, TypeError):
+            pass
+    elif call_status in ("ringing", "in-progress", "busy", "failed", "no-answer", "canceled"):
+        call_log.status = call_status
+
+    await db.commit()
+    return _xml_response("<Response/>")
+
+
+@router.post("/voice/recording-status")
+async def voice_recording_status(
+    form: Annotated[dict, Depends(verified_twilio_form)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> Response:
+    """Twilio fires this when recording finishes processing.
+
+    CallSid here IS the parent SID — recordings are on the parent leg.
+    """
+    call_sid = form.get("CallSid", "")
+    recording_sid = form.get("RecordingSid", "")
+    recording_url = form.get("RecordingUrl", "")
+    recording_duration = form.get("RecordingDuration", "0")
+    recording_status = form.get("RecordingStatus", "")
+
+    if not call_sid or not recording_sid:
+        return _xml_response("<Response/>")
+
+    result = await db.execute(
+        select(CallLog).where(CallLog.twilio_call_sid == call_sid)
+    )
+    call_log = result.scalar_one_or_none()
+    if call_log is None:
+        logger.warning(
+            "voice/recording-status: no call_logs row for CallSid=%s (race or unseen call)",
+            call_sid,
+        )
+        return _xml_response("<Response/>")
+
+    call_log.recording_sid = recording_sid
+    call_log.recording_url = recording_url
+    try:
+        call_log.recording_duration_seconds = int(recording_duration)
+    except (ValueError, TypeError):
+        pass
+    call_log.recording_status = recording_status or "completed"
+    await db.commit()
+    return _xml_response("<Response/>")
+
+
+@router.get("/calls/{call_id}/recording")
+async def stream_call_recording(
+    call_id: uuid.UUID,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> StreamingResponse:
+    """Proxy a Twilio recording through our auth gate.
+
+    Twilio recording URLs require Account-SID Basic Auth — we can't expose
+    them directly to the browser. This streams audio/mpeg bytes from Twilio
+    with our credentials, gated by user-owns-the-call (or admin).
+    """
+    settings: Settings = request.app.state.settings
+
+    result = await db.execute(select(CallLog).where(CallLog.id == call_id))
+    call_log = result.scalar_one_or_none()
+    if call_log is None:
+        raise HTTPException(status_code=404, detail="Call not found")
+
+    if (
+        call_log.user_id is not None
+        and call_log.user_id != current_user.id
+        and current_user.role != Role.ADMIN
+    ):
+        raise HTTPException(status_code=403, detail="Not authorized for this recording")
+
+    if not call_log.recording_sid:
+        raise HTTPException(status_code=404, detail="No recording available for this call")
+
+    if not settings.twilio_account_sid or not settings.twilio_auth_token:
+        raise HTTPException(status_code=500, detail="Twilio is not configured")
+
+    import httpx
+
+    twilio_url = (
+        f"https://api.twilio.com/2010-04-01/Accounts/{settings.twilio_account_sid}"
+        f"/Recordings/{call_log.recording_sid}.mp3"
+    )
+    client = httpx.AsyncClient(timeout=60.0)
+
+    async def stream_bytes():
+        try:
+            async with client.stream(
+                "GET",
+                twilio_url,
+                auth=(settings.twilio_account_sid, settings.twilio_auth_token),
+            ) as upstream:
+                if upstream.status_code >= 400:
+                    return
+                async for chunk in upstream.aiter_bytes(chunk_size=8192):
+                    yield chunk
+        finally:
+            await client.aclose()
+
+    return StreamingResponse(stream_bytes(), media_type="audio/mpeg")
 
 
 # ---------------------------------------------------------------------------

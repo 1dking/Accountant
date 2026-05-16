@@ -64,6 +64,10 @@ class CallLogResponse(BaseModel):
     notes: Optional[str]
     outcome: Optional[str]
     created_at: datetime
+    twilio_call_sid: Optional[str] = None
+    recording_sid: Optional[str] = None
+    recording_duration_seconds: Optional[int] = None
+    recording_status: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
