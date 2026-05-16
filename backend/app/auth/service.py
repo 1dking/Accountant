@@ -438,4 +438,5 @@ def user_to_response_dict(user: User) -> dict:
         "feature_access": features,
         "org_id": user.org_id,
         "cashbook_access": user.cashbook_access,
+        "fallback_phone": user.fallback_phone,
     }
