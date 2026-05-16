@@ -59,7 +59,7 @@ export async function addPhoneNumber(data: { phone_number: string; friendly_name
 }
 
 export async function assignPhoneNumber(id: string, userId: string | null) {
-  return api.put<ApiResponse<TwilioPhoneNumber>>(`/communication/phone-numbers/${id}`, {
+  return api.put<ApiResponse<TwilioPhoneNumber>>(`/communication/phone-numbers/${id}/assign`, {
     assigned_user_id: userId,
   })
 }
