@@ -31,8 +31,20 @@ logger = logging.getLogger(__name__)
 
 
 def _strip_non_digits(phone: str) -> str:
-    """Strip all non-digit characters from a phone number for comparison."""
-    return re.sub(r"\D", "", phone)
+    """Strip all non-digit characters for phone-number comparison.
+
+    NANP normalization: drop a leading 1 from 11-digit results so
+    '+12896984168' compares equal to '2896984168'.
+
+    WARNING: This is North American (NANP) specific. International
+    numbers (UK +44, AU +61, etc.) won't normalize correctly with
+    this rule. When/if Accountant goes international, switch to a
+    proper E.164 parser like the phonenumbers library.
+    """
+    digits = re.sub(r"\D", "", phone)
+    if len(digits) == 11 and digits.startswith("1"):
+        digits = digits[1:]
+    return digits
 
 
 async def _find_contact_by_phone(db: AsyncSession, phone: str) -> Contact | None:
@@ -46,7 +58,12 @@ async def _find_contact_by_phone(db: AsyncSession, phone: str) -> Contact | None
     )
     for contact in result.scalars().all():
         if contact.phone and _strip_non_digits(contact.phone) == stripped:
+            logger.info(
+                "contact_match.resolved phone=%s contact_id=%s",
+                phone, contact.id,
+            )
             return contact
+    logger.info("contact_match.not_found phone=%s normalized=%s", phone, stripped)
     return None
 
 
