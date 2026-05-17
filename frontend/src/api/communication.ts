@@ -127,6 +127,24 @@ export async function sendSms(data: { to_number: string; body: string; contact_i
   return api.post<ApiResponse<SmsMessageEntry>>('/communication/sms/send', data)
 }
 
+export type SyncWebhooksResponse = {
+  id: string
+  webhooks_configured_at: string
+  webhook_urls: {
+    voice_url: string
+    voice_fallback_url: string
+    sms_url: string
+    status_callback: string
+  }
+}
+
+export async function syncWebhooks(phoneId: string) {
+  return api.post<ApiResponse<SyncWebhooksResponse>>(
+    `/communication/phone-numbers/${phoneId}/sync-webhooks`,
+    {},
+  )
+}
+
 export async function listSms(filters: SmsFilters = {}) {
   const params = new URLSearchParams()
   Object.entries(filters).forEach(([key, val]) => {

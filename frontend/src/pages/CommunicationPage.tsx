@@ -7,6 +7,8 @@ import {
   PhoneIncoming,
   PhoneOutgoing,
   Voicemail,
+  Zap,
+  CircleAlert,
   MessageSquare,
   MessageCircle,
   Plus,
@@ -36,6 +38,7 @@ import {
   searchAvailableNumbers,
   purchaseNumber,
   assignPhoneNumber,
+  syncWebhooks,
   type AvailableNumber,
   type CallLogFilters,
   type SmsFilters,
@@ -169,15 +172,35 @@ function PhoneNumbersTab() {
 
   const purchaseMutation = useMutation({
     mutationFn: (phone: string) => purchaseNumber(phone),
-    onSuccess: () => {
+    onSuccess: (resp: any) => {
       queryClient.invalidateQueries({ queryKey: ['phone-numbers'] })
-      toast.success('Number purchased')
+      const wh = resp?.data?.webhooks_configured_at
+      const err = resp?.data?.webhook_config_error
+      if (wh) {
+        toast.success('Number purchased and webhooks configured automatically')
+      } else if (err) {
+        toast.success(
+          `Number purchased — webhook config failed: ${err}. Use Sync Webhooks to retry.`,
+        )
+      } else {
+        toast.success('Number purchased')
+      }
       setSearchOpen(false)
       setSearchResults([])
       setSearchAreaCode('')
       setSearchContains('')
     },
     onError: (err: any) => toast.error(err.message || 'Purchase failed'),
+  })
+
+  const syncMutation = useMutation({
+    mutationFn: (phoneId: string) => syncWebhooks(phoneId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['phone-numbers'] })
+      toast.success('Webhooks synced')
+    },
+    onError: (err: any) =>
+      toast.error(err.message || 'Webhook sync failed'),
   })
 
   const assignMutation = useMutation({
@@ -255,6 +278,9 @@ function PhoneNumbersTab() {
                 <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">
                   Assigned User
                 </th>
+                <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">
+                  Webhooks
+                </th>
                 <th className="text-right px-4 py-3 font-medium text-gray-500 dark:text-gray-400">
                   Actions
                 </th>
@@ -280,6 +306,36 @@ function PhoneNumbersTab() {
                       </span>
                     ) : (
                       <span className="text-xs text-gray-400">Unassigned</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {num.webhooks_configured_at ? (
+                      <span
+                        className="inline-flex items-center gap-1 text-xs text-green-700 dark:text-green-400"
+                        title={`Configured ${new Date(num.webhooks_configured_at).toLocaleString()}`}
+                      >
+                        <Zap className="h-3 w-3" />
+                        Configured
+                      </span>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
+                          <CircleAlert className="h-3 w-3" />
+                          Not configured
+                        </span>
+                        <button
+                          onClick={() => syncMutation.mutate(num.id)}
+                          disabled={
+                            syncMutation.isPending && syncMutation.variables === num.id
+                          }
+                          className="px-2 py-0.5 text-xs font-medium text-blue-600 hover:text-blue-700 border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded disabled:opacity-50"
+                          title="Push platform webhook URLs to Twilio"
+                        >
+                          {syncMutation.isPending && syncMutation.variables === num.id
+                            ? 'Syncing…'
+                            : 'Sync Webhooks'}
+                        </button>
+                      </div>
                     )}
                   </td>
                   <td className="px-4 py-3 text-right">

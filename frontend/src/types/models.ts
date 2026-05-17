@@ -1397,6 +1397,7 @@ export interface TwilioPhoneNumber {
   assigned_user_id?: string
   friendly_name?: string
   capabilities_json?: string
+  webhooks_configured_at?: string | null
 }
 
 export interface CallLogEntry {
