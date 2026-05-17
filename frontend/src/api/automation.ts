@@ -88,3 +88,22 @@ export async function deleteContactMemory(contactId: string, memoryId: string) {
     `/contacts/${contactId}/memories/${memoryId}`,
   )
 }
+
+// ─── AI Brief ───
+
+export interface ContactBrief {
+  brief: string | null
+  generated_at: string | null
+  is_fresh: boolean
+}
+
+export async function getContactBrief(contactId: string) {
+  return api.get<ApiResponse<ContactBrief>>(`/contacts/${contactId}/brief`)
+}
+
+export async function regenerateContactBrief(contactId: string) {
+  return api.post<ApiResponse<ContactBrief>>(
+    `/contacts/${contactId}/brief/regenerate`,
+    {},
+  )
+}

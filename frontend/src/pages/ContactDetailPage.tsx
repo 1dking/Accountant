@@ -25,6 +25,7 @@ import { listEstimates } from '@/api/estimates'
 import { listMeetings } from '@/api/meetings'
 import { listEntries } from '@/api/cashbook'
 import ContactConversationThread from '@/components/contacts/ContactConversationThread'
+import ContactAIBrief from '@/components/contacts/ContactAIBrief'
 import {
   listContactMemories,
   createContactMemory,
@@ -1187,6 +1188,9 @@ export default function ContactDetailPage() {
 
       {/* SMS composer is now inside the Messages tab — clicking the SMS
           quick-action button switches to that tab below. */}
+
+      {/* AI Brief panel */}
+      {id && <ContactAIBrief contactId={id} />}
 
       {/* =============================================================== */}
       {/* TWO COLUMN LAYOUT */}
