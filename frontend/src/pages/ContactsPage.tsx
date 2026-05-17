@@ -79,7 +79,6 @@ export default function ContactsPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-100 dark:border-gray-700 text-left">
-              <th className="px-5 py-3 font-medium text-gray-500 dark:text-gray-400">Company</th>
               <th className="px-5 py-3 font-medium text-gray-500 dark:text-gray-400">Contact</th>
               <th className="px-5 py-3 font-medium text-gray-500 dark:text-gray-400">Type</th>
               <th className="px-5 py-3 font-medium text-gray-500 dark:text-gray-400">Email</th>
@@ -90,36 +89,53 @@ export default function ContactsPage() {
           <tbody>
             {contacts.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-5 py-12 text-center text-gray-400 dark:text-gray-500">
+                <td colSpan={5} className="px-5 py-12 text-center text-gray-400 dark:text-gray-500">
                   <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
                   No contacts found
                 </td>
               </tr>
             ) : (
-              contacts.map((c) => (
-                <tr
-                  key={c.id}
-                  onClick={() => navigate(`/contacts/${c.id}`)}
-                  className="border-b border-gray-50 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/50 cursor-pointer transition-colors"
-                >
-                  <td className="px-5 py-3 font-medium text-gray-900 dark:text-gray-100">{c.company_name}</td>
-                  <td className="px-5 py-3 text-gray-600 dark:text-gray-400">{c.contact_name || '—'}</td>
-                  <td className="px-5 py-3">
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                      c.type === 'client' ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700' :
-                      c.type === 'vendor' ? 'bg-purple-100 text-purple-700' :
-                      'bg-emerald-100 text-emerald-700'
-                    }`}>
-                      {c.type === 'both' ? 'Client & Vendor' : c.type.charAt(0).toUpperCase() + c.type.slice(1)}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3 text-gray-600 dark:text-gray-400">{c.email || '—'}</td>
-                  <td className="px-5 py-3 text-gray-600 dark:text-gray-400">{c.phone || '—'}</td>
-                  <td className="px-5 py-3 text-gray-600 dark:text-gray-400">
-                    {[c.city, c.state].filter(Boolean).join(', ') || '—'}
-                  </td>
-                </tr>
-              ))
+              contacts.map((c) => {
+                // Primary name: prefer contact_name (person); fall back to company_name
+                // when there's no person on record (sole-proprietor / DBA cases).
+                const primary = c.contact_name || c.company_name
+                const secondary =
+                  c.contact_name && c.company_name && c.contact_name !== c.company_name
+                    ? c.company_name
+                    : null
+                return (
+                  <tr
+                    key={c.id}
+                    onClick={() => navigate(`/contacts/${c.id}`)}
+                    className="border-b border-gray-50 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/50 cursor-pointer transition-colors"
+                  >
+                    <td className="px-5 py-3">
+                      <div className="font-semibold text-gray-900 dark:text-gray-100 leading-tight">
+                        {primary}
+                      </div>
+                      {secondary && (
+                        <div className="text-xs text-gray-400 dark:text-gray-500 leading-tight mt-0.5">
+                          {secondary}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-5 py-3">
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                        c.type === 'client' ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700' :
+                        c.type === 'vendor' ? 'bg-purple-100 text-purple-700' :
+                        'bg-emerald-100 text-emerald-700'
+                      }`}>
+                        {c.type === 'both' ? 'Client & Vendor' : c.type.charAt(0).toUpperCase() + c.type.slice(1)}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-gray-600 dark:text-gray-400">{c.email || '—'}</td>
+                    <td className="px-5 py-3 text-gray-600 dark:text-gray-400">{c.phone || '—'}</td>
+                    <td className="px-5 py-3 text-gray-600 dark:text-gray-400">
+                      {[c.city, c.state].filter(Boolean).join(', ') || '—'}
+                    </td>
+                  </tr>
+                )
+              })
             )}
           </tbody>
         </table>
