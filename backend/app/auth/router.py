@@ -167,6 +167,48 @@ async def update_me(
     return {"data": UserResponse.model_validate(user)}
 
 
+@router.get("/me/onboarding")
+async def get_my_onboarding(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    """Return the live onboarding checklist for the current user."""
+    from app.auth.onboarding import compute_items, compute_progress
+
+    items = await compute_items(db, current_user)
+    return {
+        "data": {
+            "items": items,
+            "overall_progress": compute_progress(items),
+        }
+    }
+
+
+@router.post("/me/onboarding/{item_key}/dismiss")
+async def dismiss_my_onboarding_item(
+    item_key: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    """Mark an onboarding item as dismissed."""
+    from app.auth.onboarding import compute_items, dismiss_item
+
+    # Validate the item_key against the live checklist
+    items = await compute_items(db, current_user)
+    known_keys = {i["key"] for i in items}
+    if item_key not in known_keys:
+        raise HTTPException(status_code=400, detail="Unknown onboarding item")
+    # Some items aren't dismissible (e.g., phone_configured is required)
+    target = next((i for i in items if i["key"] == item_key), None)
+    if target and not target.get("can_dismiss", True):
+        raise HTTPException(
+            status_code=400, detail="This item cannot be dismissed"
+        )
+
+    new_state = await dismiss_item(db, current_user, item_key)
+    return {"data": {"onboarding_state": new_state}}
+
+
 @router.get("/me/voicemail-greeting")
 async def get_my_voicemail_greeting(
     current_user: Annotated[User, Depends(get_current_user)],
