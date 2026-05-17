@@ -96,7 +96,9 @@ async def transcribe_with_assemblyai(file_bytes: bytes) -> dict:
             data = poll_resp.json()
             if data["status"] == "completed":
                 segments = []
-                for utt in data.get("utterances", []):
+                # AssemblyAI returns "utterances": null when there's no speech
+                # (silent audio, beep-only, etc.) — guard against the None.
+                for utt in (data.get("utterances") or []):
                     segments.append({
                         "start": utt["start"] / 1000,
                         "end": utt["end"] / 1000,
