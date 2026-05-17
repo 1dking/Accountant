@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Send, Voicemail, AlertCircle, Check, Phone, Bot } from 'lucide-react'
+import { Send, Voicemail, AlertCircle, Check, Phone, Bot, Pause } from 'lucide-react'
 import {
   listContactConversations,
   sendSms,
@@ -14,6 +14,20 @@ interface Props {
   contactId: string
   contactPhone: string | null | undefined
   contactEngineEnabled?: boolean | null
+  contactEnginePausedUntil?: string | null
+}
+
+function pauseRelativeLabel(iso: string | null | undefined): string | null {
+  if (!iso) return null
+  const t = new Date(iso).getTime()
+  const diffMs = t - Date.now()
+  if (diffMs <= 0) return null
+  const min = Math.floor(diffMs / 60000)
+  if (min < 60) return `${min}m`
+  const hr = Math.floor(min / 60)
+  if (hr < 24) return `${hr}h`
+  const day = Math.floor(hr / 24)
+  return `${day}d`
 }
 
 function relativeTime(iso: string | null): string {
@@ -50,6 +64,7 @@ export default function ContactConversationThread({
   contactId,
   contactPhone,
   contactEngineEnabled,
+  contactEnginePausedUntil,
 }: Props) {
   const { user } = useAuthStore()
   const queryClient = useQueryClient()
@@ -73,11 +88,16 @@ export default function ContactConversationThread({
     onSuccess: (_resp, vars) => {
       setEngineEnabled(vars as boolean | null)
       queryClient.invalidateQueries({ queryKey: ['contact', contactId] })
-      toast.success(
-        vars === true ? 'AI auto-reply: ON for this contact'
-          : vars === false ? 'AI auto-reply: OFF for this contact'
-            : 'AI auto-reply: using default',
-      )
+      const wasPaused = !!pauseRelativeLabel(contactEnginePausedUntil)
+      if (vars === true && wasPaused) {
+        toast.success('Pause cleared — AI will respond to next inbound')
+      } else {
+        toast.success(
+          vars === true ? 'AI auto-reply: ON for this contact'
+            : vars === false ? 'AI auto-reply: OFF for this contact'
+              : 'AI auto-reply: using default',
+        )
+      }
     },
     onError: (e: any) => toast.error(`Toggle failed: ${e.message || ''}`),
   })
@@ -123,54 +143,77 @@ export default function ContactConversationThread({
 
   return (
     <div className="flex flex-col h-full min-h-[400px]">
-      {/* AI auto-reply toggle bar */}
-      <div className="flex items-center justify-between px-3 py-2 bg-indigo-50/50 dark:bg-indigo-900/10 border-b border-indigo-100 dark:border-indigo-900/30 text-xs">
-        <span className="flex items-center gap-1.5 text-indigo-700 dark:text-indigo-300">
-          <Bot className="h-3.5 w-3.5" />
-          AI auto-reply:{' '}
-          <span className={effectiveEngineOn ? 'font-semibold' : ''}>
-            {effectiveEngineOn ? 'ON' : 'OFF'}
-          </span>
-          {engineEnabled === null && (
-            <span className="text-indigo-400">(using default)</span>
-          )}
-        </span>
-        <div className="flex gap-1">
-          <button
-            onClick={() => toggleEngineMut.mutate(true)}
-            disabled={toggleEngineMut.isPending}
-            className={`px-2 py-0.5 rounded text-[11px] ${
-              engineEnabled === true
-                ? 'bg-indigo-600 text-white'
-                : 'text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/30'
-            }`}
-          >
-            On
-          </button>
-          <button
-            onClick={() => toggleEngineMut.mutate(false)}
-            disabled={toggleEngineMut.isPending}
-            className={`px-2 py-0.5 rounded text-[11px] ${
-              engineEnabled === false
-                ? 'bg-gray-600 text-white'
-                : 'text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/30'
-            }`}
-          >
-            Off
-          </button>
-          <button
-            onClick={() => toggleEngineMut.mutate(null)}
-            disabled={toggleEngineMut.isPending}
-            className={`px-2 py-0.5 rounded text-[11px] ${
-              engineEnabled === null
-                ? 'bg-blue-500 text-white'
-                : 'text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/30'
-            }`}
-          >
-            Default
-          </button>
-        </div>
-      </div>
+      {/* AI auto-reply toggle bar — shows pause state when active */}
+      {(() => {
+        const pauseLabel = pauseRelativeLabel(contactEnginePausedUntil)
+        const isPaused = !!pauseLabel
+        return (
+          <div className="flex items-center justify-between px-3 py-2 bg-indigo-50/50 dark:bg-indigo-900/10 border-b border-indigo-100 dark:border-indigo-900/30 text-xs">
+            <span className="flex items-center gap-1.5 text-indigo-700 dark:text-indigo-300">
+              <Bot className="h-3.5 w-3.5" />
+              AI auto-reply:{' '}
+              <span className={effectiveEngineOn ? 'font-semibold' : ''}>
+                {effectiveEngineOn ? 'ON' : 'OFF'}
+              </span>
+              {engineEnabled === null && (
+                <span className="text-indigo-400">(using default)</span>
+              )}
+              {isPaused && (
+                <span className="flex items-center gap-1 ml-2 text-amber-600 dark:text-amber-400">
+                  <Pause className="h-3 w-3" />
+                  Paused for {pauseLabel}
+                </span>
+              )}
+            </span>
+            {isPaused ? (
+              <button
+                onClick={() => toggleEngineMut.mutate(true)}
+                disabled={toggleEngineMut.isPending}
+                className="px-2 py-0.5 rounded text-[11px] bg-amber-500 hover:bg-amber-600 text-white disabled:opacity-50"
+                title="Clear the manual-reply pause so AI responds to the next inbound"
+              >
+                {toggleEngineMut.isPending ? 'Resuming…' : 'Resume now'}
+              </button>
+            ) : (
+              <div className="flex gap-1">
+                <button
+                  onClick={() => toggleEngineMut.mutate(true)}
+                  disabled={toggleEngineMut.isPending}
+                  className={`px-2 py-0.5 rounded text-[11px] ${
+                    engineEnabled === true
+                      ? 'bg-indigo-600 text-white'
+                      : 'text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/30'
+                  }`}
+                >
+                  On
+                </button>
+                <button
+                  onClick={() => toggleEngineMut.mutate(false)}
+                  disabled={toggleEngineMut.isPending}
+                  className={`px-2 py-0.5 rounded text-[11px] ${
+                    engineEnabled === false
+                      ? 'bg-gray-600 text-white'
+                      : 'text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/30'
+                  }`}
+                >
+                  Off
+                </button>
+                <button
+                  onClick={() => toggleEngineMut.mutate(null)}
+                  disabled={toggleEngineMut.isPending}
+                  className={`px-2 py-0.5 rounded text-[11px] ${
+                    engineEnabled === null
+                      ? 'bg-blue-500 text-white'
+                      : 'text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/30'
+                  }`}
+                >
+                  Default
+                </button>
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       <div
         ref={scrollRef}

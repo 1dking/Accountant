@@ -191,6 +191,10 @@ export interface Contact {
   custom_fields_data: Record<string, unknown> | null
   created_at: string
   updated_at: string
+  ai_brief?: string | null
+  ai_brief_generated_at?: string | null
+  conversation_engine_enabled?: boolean | null
+  conversation_engine_paused_until?: string | null
 }
 
 export interface ContactListItem {
