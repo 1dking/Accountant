@@ -24,6 +24,8 @@ import { listProposals } from '@/api/proposals'
 import { listEstimates } from '@/api/estimates'
 import { listMeetings } from '@/api/meetings'
 import { listEntries } from '@/api/cashbook'
+import { sendSms } from '@/api/communication'
+import { toast } from 'sonner'
 import {
   listContactMemories,
   createContactMemory,
@@ -291,6 +293,22 @@ export default function ContactDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contact-memories', id] })
     },
+  })
+
+  const sendSmsMutation = useMutation({
+    mutationFn: () =>
+      sendSms({
+        to_number: data!.data.phone!,
+        body: smsText.trim(),
+        contact_id: id,
+      }),
+    onSuccess: () => {
+      toast.success('SMS sent')
+      setSmsText('')
+      setActiveComposer(null)
+      queryClient.invalidateQueries({ queryKey: ['contact-activities', id] })
+    },
+    onError: (e: any) => toast.error(`Failed: ${e.message || 'SMS send failed'}`),
   })
 
   const invoicesQuery = useQuery({
@@ -1214,17 +1232,29 @@ export default function ContactDetailPage() {
                   Cancel
                 </button>
                 <button
-                  disabled
-                  className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium text-white bg-purple-600 rounded-lg opacity-50 cursor-not-allowed"
-                  title="Configure Twilio to enable SMS"
+                  onClick={() => sendSmsMutation.mutate()}
+                  disabled={
+                    !smsText.trim() ||
+                    !contact?.phone ||
+                    sendSmsMutation.isPending
+                  }
+                  className={cn(
+                    'flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium text-white bg-purple-600 rounded-lg transition-colors',
+                    !smsText.trim() || !contact?.phone || sendSmsMutation.isPending
+                      ? 'opacity-50 cursor-not-allowed'
+                      : 'hover:bg-purple-700',
+                  )}
+                  title={
+                    !contact?.phone
+                      ? 'Add a phone number to send SMS'
+                      : undefined
+                  }
                 >
-                  <Send className="h-3.5 w-3.5" /> Send
+                  <Send className="h-3.5 w-3.5" />
+                  {sendSmsMutation.isPending ? 'Sending…' : 'Send'}
                 </button>
               </div>
             </div>
-            <p className="text-xs text-purple-500 dark:text-purple-400 bg-purple-100 dark:bg-purple-900/30 rounded px-2 py-1">
-              SMS sending requires Twilio configuration. Contact your administrator to set up SMS.
-            </p>
           </div>
         </div>
       )}
