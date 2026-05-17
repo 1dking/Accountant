@@ -24,8 +24,7 @@ import { listProposals } from '@/api/proposals'
 import { listEstimates } from '@/api/estimates'
 import { listMeetings } from '@/api/meetings'
 import { listEntries } from '@/api/cashbook'
-import { sendSms } from '@/api/communication'
-import { toast } from 'sonner'
+import ContactConversationThread from '@/components/contacts/ContactConversationThread'
 import {
   listContactMemories,
   createContactMemory,
@@ -260,7 +259,6 @@ export default function ContactDetailPage() {
   const [noteText, setNoteText] = useState('')
   const [emailSubject, setEmailSubject] = useState('')
   const [emailBody, setEmailBody] = useState('')
-  const [smsText, setSmsText] = useState('')
 
   // Tag state
   const [tagInput, setTagInput] = useState('')
@@ -295,21 +293,8 @@ export default function ContactDetailPage() {
     },
   })
 
-  const sendSmsMutation = useMutation({
-    mutationFn: () =>
-      sendSms({
-        to_number: data!.data.phone!,
-        body: smsText.trim(),
-        contact_id: id,
-      }),
-    onSuccess: () => {
-      toast.success('SMS sent')
-      setSmsText('')
-      setActiveComposer(null)
-      queryClient.invalidateQueries({ queryKey: ['contact-activities', id] })
-    },
-    onError: (e: any) => toast.error(`Failed: ${e.message || 'SMS send failed'}`),
-  })
+  // sendSmsMutation removed — SMS sending now lives inside
+  // ContactConversationThread (Messages tab composer).
 
   const invoicesQuery = useQuery({
     queryKey: ['contact-invoices', id],
@@ -981,7 +966,12 @@ export default function ContactDetailPage() {
   const tabContent: Record<TabKey, () => React.ReactNode> = {
     activity: renderActivity,
     memory: renderMemory,
-    messages: () => renderPlaceholder('Messages'),
+    messages: () => (
+      <ContactConversationThread
+        contactId={id!}
+        contactPhone={contact?.phone}
+      />
+    ),
     invoices: renderInvoices,
     proposals: renderProposals,
     estimates: renderEstimates,
@@ -1088,10 +1078,10 @@ export default function ContactDetailPage() {
             <StickyNote className="h-4 w-4" /> Note
           </button>
           <button
-            onClick={() => toggleComposer('sms')}
+            onClick={() => setActiveTab('messages')}
             className={cn(
               'flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg transition-colors',
-              activeComposer === 'sms'
+              activeTab === 'messages'
                 ? 'bg-purple-600 text-white shadow-md'
                 : 'bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/40'
             )}
@@ -1195,69 +1185,8 @@ export default function ContactDetailPage() {
         </div>
       )}
 
-      {activeComposer === 'sms' && (
-        <div className="mx-6 mt-4 bg-purple-50 dark:bg-purple-900/10 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-purple-700 dark:text-purple-400">Send SMS</h3>
-            <button onClick={() => setActiveComposer(null)} className="text-purple-400 hover:text-purple-600">
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-xs text-purple-600 dark:text-purple-400">
-              <Phone className="h-3 w-3" />
-              <span>To: {contact.phone || 'No phone number'}</span>
-            </div>
-            <textarea
-              value={smsText}
-              onChange={e => setSmsText(e.target.value)}
-              placeholder="Type your message..."
-              rows={2}
-              maxLength={160}
-              className="w-full px-3 py-2 text-sm rounded border border-purple-200 dark:border-purple-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
-              autoFocus
-            />
-            <div className="flex items-center justify-between">
-              <span className={cn(
-                'text-xs',
-                smsText.length > 140 ? 'text-red-500' : 'text-gray-400 dark:text-gray-500'
-              )}>
-                {smsText.length}/160
-              </span>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setActiveComposer(null)}
-                  className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => sendSmsMutation.mutate()}
-                  disabled={
-                    !smsText.trim() ||
-                    !contact?.phone ||
-                    sendSmsMutation.isPending
-                  }
-                  className={cn(
-                    'flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium text-white bg-purple-600 rounded-lg transition-colors',
-                    !smsText.trim() || !contact?.phone || sendSmsMutation.isPending
-                      ? 'opacity-50 cursor-not-allowed'
-                      : 'hover:bg-purple-700',
-                  )}
-                  title={
-                    !contact?.phone
-                      ? 'Add a phone number to send SMS'
-                      : undefined
-                  }
-                >
-                  <Send className="h-3.5 w-3.5" />
-                  {sendSmsMutation.isPending ? 'Sending…' : 'Send'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* SMS composer is now inside the Messages tab — clicking the SMS
+          quick-action button switches to that tab below. */}
 
       {/* =============================================================== */}
       {/* TWO COLUMN LAYOUT */}

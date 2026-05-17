@@ -145,6 +145,26 @@ export async function syncWebhooks(phoneId: string) {
   )
 }
 
+export type ConversationEvent = {
+  id: string
+  type: 'sms_in' | 'sms_out' | 'voicemail'
+  timestamp: string | null
+  body: string
+  direction: string
+  status: string | null
+  from_number?: string
+  to_number?: string
+  recording_url_path?: string | null
+  recording_duration_seconds?: number | null
+  ref_id: string
+}
+
+export async function listContactConversations(contactId: string) {
+  return api.get<ApiResponse<ConversationEvent[]>>(
+    `/contacts/${contactId}/conversations`,
+  )
+}
+
 export async function listSms(filters: SmsFilters = {}) {
   const params = new URLSearchParams()
   Object.entries(filters).forEach(([key, val]) => {
