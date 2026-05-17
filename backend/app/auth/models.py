@@ -47,6 +47,11 @@ class User(TimestampMixin, Base):
         nullable=False,
     )
     booking_link: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    conversation_reply_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="0", nullable=False
+    )
+    conversation_template: Mapped[str | None] = mapped_column(Text, nullable=True)
+    conversation_ai_instructions: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class RefreshToken(Base):

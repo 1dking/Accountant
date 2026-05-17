@@ -47,6 +47,15 @@ class Contact(TimestampMixin, Base):
     ai_brief_generated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # Conversation engine per-contact toggle (NULL = inherit user default).
+    # paused_until is set when the user manually replies — AI steps back
+    # for this contact until the timestamp.
+    conversation_engine_enabled: Mapped[bool | None] = mapped_column(
+        Boolean, nullable=True
+    )
+    conversation_engine_paused_until: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
 
 class ContactMemory(Base):

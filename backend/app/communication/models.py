@@ -79,6 +79,9 @@ class SmsMessage(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+    is_auto_reply: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="0", nullable=False
+    )
 
 
 class LiveChatSession(TimestampMixin, Base):
