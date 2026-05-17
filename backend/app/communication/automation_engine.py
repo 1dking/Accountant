@@ -244,6 +244,43 @@ async def trigger_flow_for_call(
             "automation_flow.completed call_log_id=%s steps=%d",
             call_log_id, len(snapshotted_steps),
         )
+
+        # In-app notification: flow completed
+        try:
+            async with session_factory() as db:
+                from app.contacts.models import Contact
+                from app.notifications.service import create_notification
+                sender_label = to_number
+                if contact_id is not None:
+                    contact_row = await db.execute(
+                        select(Contact).where(Contact.id == contact_id)
+                    )
+                    c = contact_row.scalar_one_or_none()
+                    if c:
+                        sender_label = c.contact_name or c.company_name or to_number
+                # Re-load flow name from snapshot — use the first snapshot
+                # step's flow lookup, OR fall back to a generic label.
+                flow_row = await db.execute(
+                    select(SmsAutomationFlow).where(SmsAutomationFlow.id == flow_id)
+                )
+                fl = flow_row.scalar_one_or_none()
+                flow_name = fl.name if fl else "Automation"
+                await create_notification(
+                    db,
+                    user_id=user_id,
+                    type="automation_flow_completed",
+                    title=f'"{flow_name}" completed',
+                    message=f"{len(snapshotted_steps)} messages sent to {sender_label}",
+                    resource_type="sms_automation_flow",
+                    resource_id=str(flow_id),
+                    link_path=f"/contacts/{contact_id}?tab=messages" if contact_id else "/settings?tab=automation",
+                    contact_id=contact_id,
+                )
+        except Exception as nerr:
+            logger.warning(
+                "notify.automation_completed_failed call_log_id=%s error=%s",
+                call_log_id, str(nerr)[:200],
+            )
     except Exception as e:
         logger.error(
             "automation_flow.task_failure call_log_id=%s error=%s",

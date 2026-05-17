@@ -36,6 +36,11 @@ class Notification(Base):
     resource_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
     resource_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     is_read: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Frontend route to navigate on click (e.g. /contacts/{id}?tab=messages)
+    link_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # Logical reference to contacts.id for filtering + UI nav. No DB FK
+    # because SQLite can't ALTER TABLE ADD CONSTRAINT — app-level validation.
+    contact_id: Mapped[uuid.UUID | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

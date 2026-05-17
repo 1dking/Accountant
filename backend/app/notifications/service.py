@@ -22,8 +22,15 @@ async def create_notification(
     message: str,
     resource_type: str | None = None,
     resource_id: str | None = None,
+    link_path: str | None = None,
+    contact_id: uuid.UUID | None = None,
 ) -> Notification:
-    """Create a notification record and push it via WebSocket."""
+    """Create a notification record and push it via WebSocket.
+
+    link_path: frontend route to navigate when the user clicks the
+      notification (e.g. /contacts/{id}?tab=messages).
+    contact_id: direct FK for filtering and contact-detail nav.
+    """
     notification = Notification(
         user_id=user_id,
         type=type,
@@ -31,6 +38,8 @@ async def create_notification(
         message=message,
         resource_type=resource_type,
         resource_id=resource_id,
+        link_path=link_path,
+        contact_id=contact_id,
     )
     db.add(notification)
     await db.commit()
@@ -48,11 +57,23 @@ async def create_notification(
                 "message": message,
                 "resource_type": resource_type,
                 "resource_id": resource_id,
+                "link_path": link_path,
+                "contact_id": str(contact_id) if contact_id else None,
             },
         },
     )
 
     return notification
+
+
+async def get_unread_count(db: AsyncSession, user_id: uuid.UUID) -> int:
+    """Lightweight count-only endpoint for bell-badge polling."""
+    return await db.scalar(
+        select(func.count()).select_from(Notification).where(
+            Notification.user_id == user_id,
+            Notification.is_read == False,  # noqa: E712
+        )
+    ) or 0
 
 
 async def list_notifications(

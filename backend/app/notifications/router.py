@@ -12,6 +12,7 @@ from app.dependencies import get_current_user, get_db
 from app.notifications.schemas import NotificationResponse
 from app.notifications.service import (
     delete_notification,
+    get_unread_count,
     list_notifications,
     mark_all_read,
     mark_read,
@@ -47,6 +48,16 @@ async def get_notifications(
         "data": [NotificationResponse.model_validate(n) for n in notifications],
         "meta": meta,
     }
+
+
+@router.get("/unread-count")
+async def get_notifications_unread_count(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    """Lightweight endpoint for bell-badge polling. Returns { count: N }."""
+    count = await get_unread_count(db, current_user.id)
+    return {"data": {"count": count}}
 
 
 @router.put("/{notification_id}/read")

@@ -14,6 +14,8 @@ class NotificationResponse(BaseModel):
     resource_type: str | None = None
     resource_id: str | None = None
     is_read: bool
+    link_path: str | None = None
+    contact_id: uuid.UUID | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

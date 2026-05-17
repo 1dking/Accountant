@@ -299,6 +299,34 @@ async def classify_and_respond(
             from app.contacts.ai_brief import invalidate_brief_cache
             await invalidate_brief_cache(db, contact_id_snap)
 
+            # In-app notification: AI replied on your behalf
+            try:
+                from app.contacts.models import Contact
+                from app.notifications.service import create_notification
+                contact_row = await db.execute(
+                    select(Contact).where(Contact.id == contact_id_snap)
+                )
+                c = contact_row.scalar_one_or_none()
+                sender_label = (
+                    (c.contact_name or c.company_name) if c else str(contact_id_snap)
+                )
+                await create_notification(
+                    db,
+                    user_id=user_id_snap,
+                    type="ai_reply_sent",
+                    title=f"AI replied to {sender_label}",
+                    message=f"AI: {draft[:120]}",
+                    resource_type="sms_message",
+                    resource_id=str(sms_row.id),
+                    link_path=f"/contacts/{contact_id_snap}?tab=messages",
+                    contact_id=contact_id_snap,
+                )
+            except Exception as nerr:
+                logger.warning(
+                    "notify.ai_reply_sent_failed contact_id=%s error=%s",
+                    contact_id, str(nerr)[:200],
+                )
+
         logger.info(
             "conversation_engine.replied contact_id=%s action=%s chars=%d",
             contact_id, action, len(draft),

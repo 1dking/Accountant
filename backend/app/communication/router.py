@@ -758,6 +758,41 @@ async def voice_voicemail_status(
             session_factory=request.app.state.session_factory,
         )
 
+    # In-app notification — voicemail captured. Wrapped in try/except.
+    if call_log.user_id is not None:
+        try:
+            from app.contacts.models import Contact
+            from app.notifications.service import create_notification
+            duration = call_log.recording_duration_seconds or 0
+            sender = call_log.from_number
+            if call_log.contact_id is not None:
+                # Resolve contact label
+                contact_row = await db.execute(
+                    select(Contact).where(Contact.id == call_log.contact_id)
+                )
+                c = contact_row.scalar_one_or_none()
+                if c:
+                    sender = c.contact_name or c.company_name or sender
+            await create_notification(
+                db,
+                user_id=call_log.user_id,
+                type="voicemail_received",
+                title=f"New voicemail from {sender}",
+                message=f"Duration: {duration}s — transcript follows shortly",
+                resource_type="call_log",
+                resource_id=str(call_log.id),
+                link_path=(
+                    f"/contacts/{call_log.contact_id}?tab=messages"
+                    if call_log.contact_id else "/communication?tab=call-log"
+                ),
+                contact_id=call_log.contact_id,
+            )
+        except Exception as e:
+            logger.warning(
+                "notify.voicemail_received_failed call_log_id=%s error=%s",
+                call_log.id, str(e)[:200],
+            )
+
     return _xml_response("<Response/>")
 
 

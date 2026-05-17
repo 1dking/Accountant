@@ -479,6 +479,37 @@ async def receive_sms(
             reference_id=sms.id,
         )
 
+    # In-app notification for the user who owns this Twilio number.
+    # Wrapped in try/except — notification failure must NOT break the
+    # underlying inbound SMS flow.
+    if owner_user_id is not None:
+        try:
+            from app.notifications.service import create_notification
+            sender_label = (
+                contact.contact_name or contact.company_name
+                if contact else from_number
+            )
+            link_path = (
+                f"/contacts/{contact_id}?tab=messages"
+                if contact_id else "/communication?tab=sms"
+            )
+            await create_notification(
+                db,
+                user_id=owner_user_id,
+                type="sms_inbound",
+                title=f"New message from {sender_label}",
+                message=(body or "")[:300],
+                resource_type="sms_message",
+                resource_id=str(sms.id),
+                link_path=link_path,
+                contact_id=contact_id,
+            )
+        except Exception as e:
+            logger.warning(
+                "notify.sms_inbound_failed sms_id=%s error=%s",
+                sms.id, str(e)[:200],
+            )
+
     return sms
 
 
