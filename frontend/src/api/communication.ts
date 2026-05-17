@@ -124,7 +124,7 @@ export interface SmsFilters {
 }
 
 export async function sendSms(data: { to_number: string; body: string; contact_id?: string }) {
-  return api.post<ApiResponse<SmsMessageEntry>>('/communication/sms', data)
+  return api.post<ApiResponse<SmsMessageEntry>>('/communication/sms/send', data)
 }
 
 export async function listSms(filters: SmsFilters = {}) {
