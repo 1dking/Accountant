@@ -11,6 +11,9 @@ export interface User {
   voicemail_mode?: 'cell_then_voicemail' | 'voicemail_only' | 'cell_only'
   voicemail_greeting_status?: 'audio' | 'text' | null
   booking_link?: string | null
+  conversation_reply_enabled?: boolean
+  conversation_template?: string | null
+  conversation_ai_instructions?: string | null
 }
 
 // Documents

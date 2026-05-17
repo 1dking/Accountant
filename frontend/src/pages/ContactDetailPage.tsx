@@ -971,6 +971,7 @@ export default function ContactDetailPage() {
       <ContactConversationThread
         contactId={id!}
         contactPhone={contact?.phone}
+        contactEngineEnabled={(contact as any)?.conversation_engine_enabled}
       />
     ),
     invoices: renderInvoices,

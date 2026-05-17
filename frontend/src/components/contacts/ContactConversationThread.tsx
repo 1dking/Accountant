@@ -1,16 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Send, Voicemail, AlertCircle, Check, Phone } from 'lucide-react'
+import { Send, Voicemail, AlertCircle, Check, Phone, Bot } from 'lucide-react'
 import {
   listContactConversations,
   sendSms,
   type ConversationEvent,
 } from '@/api/communication'
+import { api } from '@/api/client'
+import { useAuthStore } from '@/stores/authStore'
 
 interface Props {
   contactId: string
   contactPhone: string | null | undefined
+  contactEngineEnabled?: boolean | null
 }
 
 function relativeTime(iso: string | null): string {
@@ -43,10 +46,41 @@ function StatusIcon({ status }: { status: string | null }) {
   return null
 }
 
-export default function ContactConversationThread({ contactId, contactPhone }: Props) {
+export default function ContactConversationThread({
+  contactId,
+  contactPhone,
+  contactEngineEnabled,
+}: Props) {
+  const { user } = useAuthStore()
   const queryClient = useQueryClient()
   const [smsText, setSmsText] = useState('')
   const scrollRef = useRef<HTMLDivElement | null>(null)
+  const [engineEnabled, setEngineEnabled] = useState<boolean | null>(
+    contactEngineEnabled ?? null,
+  )
+
+  useEffect(() => {
+    setEngineEnabled(contactEngineEnabled ?? null)
+  }, [contactEngineEnabled])
+
+  const engineDefault = !!user?.conversation_reply_enabled
+  const effectiveEngineOn =
+    engineEnabled === null ? engineDefault : engineEnabled
+
+  const toggleEngineMut = useMutation({
+    mutationFn: (newVal: boolean | null) =>
+      api.put(`/contacts/${contactId}/conversation-engine`, { enabled: newVal }),
+    onSuccess: (_resp, vars) => {
+      setEngineEnabled(vars as boolean | null)
+      queryClient.invalidateQueries({ queryKey: ['contact', contactId] })
+      toast.success(
+        vars === true ? 'AI auto-reply: ON for this contact'
+          : vars === false ? 'AI auto-reply: OFF for this contact'
+            : 'AI auto-reply: using default',
+      )
+    },
+    onError: (e: any) => toast.error(`Toggle failed: ${e.message || ''}`),
+  })
   const [isTabVisible, setIsTabVisible] = useState(
     typeof document !== 'undefined' ? document.visibilityState === 'visible' : true,
   )
@@ -89,6 +123,55 @@ export default function ContactConversationThread({ contactId, contactPhone }: P
 
   return (
     <div className="flex flex-col h-full min-h-[400px]">
+      {/* AI auto-reply toggle bar */}
+      <div className="flex items-center justify-between px-3 py-2 bg-indigo-50/50 dark:bg-indigo-900/10 border-b border-indigo-100 dark:border-indigo-900/30 text-xs">
+        <span className="flex items-center gap-1.5 text-indigo-700 dark:text-indigo-300">
+          <Bot className="h-3.5 w-3.5" />
+          AI auto-reply:{' '}
+          <span className={effectiveEngineOn ? 'font-semibold' : ''}>
+            {effectiveEngineOn ? 'ON' : 'OFF'}
+          </span>
+          {engineEnabled === null && (
+            <span className="text-indigo-400">(using default)</span>
+          )}
+        </span>
+        <div className="flex gap-1">
+          <button
+            onClick={() => toggleEngineMut.mutate(true)}
+            disabled={toggleEngineMut.isPending}
+            className={`px-2 py-0.5 rounded text-[11px] ${
+              engineEnabled === true
+                ? 'bg-indigo-600 text-white'
+                : 'text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/30'
+            }`}
+          >
+            On
+          </button>
+          <button
+            onClick={() => toggleEngineMut.mutate(false)}
+            disabled={toggleEngineMut.isPending}
+            className={`px-2 py-0.5 rounded text-[11px] ${
+              engineEnabled === false
+                ? 'bg-gray-600 text-white'
+                : 'text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/30'
+            }`}
+          >
+            Off
+          </button>
+          <button
+            onClick={() => toggleEngineMut.mutate(null)}
+            disabled={toggleEngineMut.isPending}
+            className={`px-2 py-0.5 rounded text-[11px] ${
+              engineEnabled === null
+                ? 'bg-blue-500 text-white'
+                : 'text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/30'
+            }`}
+          >
+            Default
+          </button>
+        </div>
+      </div>
+
       <div
         ref={scrollRef}
         className="flex-1 overflow-y-auto px-2 py-4 space-y-3"

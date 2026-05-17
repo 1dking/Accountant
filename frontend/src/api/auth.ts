@@ -27,6 +27,9 @@ export async function updateProfile(data: {
   password?: string
   fallback_phone?: string
   booking_link?: string
+  conversation_reply_enabled?: boolean
+  conversation_template?: string
+  conversation_ai_instructions?: string
 }) {
   return api.put<ApiResponse<User>>('/auth/me', data)
 }

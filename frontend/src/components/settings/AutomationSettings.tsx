@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Plus, Trash2, Pencil, GripVertical, Zap, Power } from 'lucide-react'
+import { Plus, Trash2, Pencil, GripVertical, Zap, Power, Bot } from 'lucide-react'
 import {
   listAutomationFlows,
   createAutomationFlow,
@@ -351,6 +351,8 @@ export default function AutomationSettings() {
         </div>
       </section>
 
+      <ConversationEnginePanel />
+
       <section className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
         <div className="flex items-start justify-between mb-4">
           <div>
@@ -465,5 +467,129 @@ export default function AutomationSettings() {
         )}
       </section>
     </div>
+  )
+}
+
+
+function ConversationEnginePanel() {
+  const { user, fetchMe } = useAuthStore()
+  const [enabled, setEnabled] = useState(!!user?.conversation_reply_enabled)
+  const [template, setTemplate] = useState(user?.conversation_template ?? '')
+  const [instructions, setInstructions] = useState(
+    user?.conversation_ai_instructions ?? '',
+  )
+
+  useEffect(() => {
+    setEnabled(!!user?.conversation_reply_enabled)
+    setTemplate(user?.conversation_template ?? '')
+    setInstructions(user?.conversation_ai_instructions ?? '')
+  }, [user])
+
+  const saveMut = useMutation({
+    mutationFn: () =>
+      updateProfile({
+        conversation_reply_enabled: enabled,
+        conversation_template: template,
+        conversation_ai_instructions: instructions,
+      } as any),
+    onSuccess: () => {
+      toast.success('Conversation engine settings saved')
+      fetchMe()
+    },
+    onError: (e: any) => toast.error(`Save failed: ${e.message || ''}`),
+  })
+
+  const dirty =
+    enabled !== !!user?.conversation_reply_enabled ||
+    template !== (user?.conversation_template ?? '') ||
+    instructions !== (user?.conversation_ai_instructions ?? '')
+
+  return (
+    <section className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
+      <div className="flex items-start justify-between mb-4">
+        <div>
+          <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2">
+            <Bot className="h-5 w-5 text-indigo-500" />
+            AI Conversation Engine
+          </h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 max-w-lg">
+            When an inbound SMS arrives from a known contact, AI classifies
+            the message and either replies, sends a brief sign-off, or stays
+            silent. Capped at 6 auto-replies per conversation. Paused for
+            24h on any manual outbound from you.
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <label className="flex items-start gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={enabled}
+            onChange={(e) => setEnabled(e.target.checked)}
+            className="mt-1"
+          />
+          <span className="text-sm">
+            <span className="font-medium">AI continues SMS conversations on my behalf</span>
+            <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+              Requires the template field below. Send any manual SMS yourself
+              to pause AI for that contact.
+            </span>
+          </span>
+        </label>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">
+            How you'd typically respond
+          </label>
+          <textarea
+            value={template}
+            onChange={(e) => setTemplate(e.target.value.slice(0, 2000))}
+            placeholder="Hey — appreciate the message. I'll get back to you with details shortly."
+            rows={3}
+            className="w-full px-3 py-2 text-sm border rounded resize-none dark:bg-gray-900 dark:border-gray-600"
+          />
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            The AI uses this as the voice/cadence to mirror. Be conversational.
+          </p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">
+            Tone & style instructions <span className="text-gray-400 font-normal">(optional)</span>
+          </label>
+          <textarea
+            value={instructions}
+            onChange={(e) => setInstructions(e.target.value.slice(0, 2000))}
+            placeholder="Keep it friendly and brief. Canadian English. No emojis."
+            rows={2}
+            className="w-full px-3 py-2 text-sm border rounded resize-none dark:bg-gray-900 dark:border-gray-600"
+          />
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => saveMut.mutate()}
+            disabled={!dirty || saveMut.isPending}
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-sm disabled:opacity-50"
+          >
+            {saveMut.isPending ? 'Saving…' : 'Save'}
+          </button>
+          {dirty && (
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              Unsaved changes
+            </span>
+          )}
+        </div>
+
+        <div className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded p-2">
+          ⚠ The AI will reply up to 6 times per conversation. Close-out
+          detection ends the loop. You can stop a conversation anytime by
+          sending a manual reply (24h pause), or disable per-contact from
+          their detail page.
+        </div>
+      </div>
+    </section>
   )
 }
