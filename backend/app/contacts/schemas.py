@@ -74,6 +74,12 @@ class ContactResponse(BaseModel):
     custom_fields_data: Optional[dict]
     created_at: datetime
     updated_at: datetime
+    # AI brief snapshot (cached server-side, may be stale)
+    ai_brief: Optional[str] = None
+    ai_brief_generated_at: Optional[datetime] = None
+    # Conversation engine per-contact state
+    conversation_engine_enabled: Optional[bool] = None
+    conversation_engine_paused_until: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
 

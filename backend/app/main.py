@@ -2,6 +2,26 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+# Configure app-level logging BEFORE anything else.
+# uvicorn's default config installs handlers ONLY for the uvicorn.*
+# namespace, so app-module `logger.info(...)` calls were being dropped
+# silently. force=True overrides any handlers already attached to the
+# root by lazy imports.
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    force=True,
+)
+# Quiet noisy libraries to keep signal-to-noise high
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+logging.getLogger("boto3").setLevel(logging.WARNING)
+logging.getLogger("botocore").setLevel(logging.WARNING)
+logging.getLogger("s3transfer").setLevel(logging.WARNING)
+logging.getLogger("urllib3").setLevel(logging.WARNING)
+logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+logging.getLogger("watchfiles").setLevel(logging.WARNING)
+
 logger = logging.getLogger(__name__)
 
 from typing import Annotated
