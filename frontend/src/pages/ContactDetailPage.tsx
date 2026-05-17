@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, Pencil, Trash2, X, Check,
   FileText, FileSignature, Calculator,
-  BookOpen, FolderOpen, Video, Activity,
+  BookOpen, FolderOpen, Video, Activity, Brain,
   Mail, MessageSquare, Phone, StickyNote, Send,
   Plus, Tag, MapPin, User, Building2, Briefcase,
   Clock, Calendar, BellOff, Bell,
@@ -24,13 +24,19 @@ import { listProposals } from '@/api/proposals'
 import { listEstimates } from '@/api/estimates'
 import { listMeetings } from '@/api/meetings'
 import { listEntries } from '@/api/cashbook'
+import {
+  listContactMemories,
+  createContactMemory,
+  deleteContactMemory,
+  type ContactMemory,
+} from '@/api/automation'
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
 type TabKey =
-  | 'activity' | 'messages' | 'invoices' | 'proposals'
+  | 'activity' | 'memory' | 'messages' | 'invoices' | 'proposals'
   | 'estimates' | 'files' | 'meetings' | 'expenses'
   | 'tasks' | 'payments'
 
@@ -38,6 +44,7 @@ type ComposerKey = 'email' | 'call' | 'note' | 'sms'
 
 const TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
   { key: 'activity', label: 'Activity', icon: Activity },
+  { key: 'memory', label: 'Memory', icon: Brain },
   { key: 'messages', label: 'Messages', icon: MessageSquare },
   { key: 'invoices', label: 'Invoices', icon: FileText },
   { key: 'proposals', label: 'Proposals', icon: FileSignature },
@@ -243,6 +250,9 @@ export default function ContactDetailPage() {
   const [activeComposer, setActiveComposer] = useState<ComposerKey | null>(null)
   const [savedToast, setSavedToast] = useState(false)
   const [activityFilter, setActivityFilter] = useState<string>('all')
+  const [showMemoryModal, setShowMemoryModal] = useState(false)
+  const [memoryDraft, setMemoryDraft] = useState('')
+  const [expandedMemoryId, setExpandedMemoryId] = useState<string | null>(null)
 
   // Composer state
   const [noteText, setNoteText] = useState('')
@@ -259,6 +269,28 @@ export default function ContactDetailPage() {
     queryKey: ['contact', id],
     queryFn: () => getContact(id!),
     enabled: !!id,
+  })
+
+  const memoriesQuery = useQuery({
+    queryKey: ['contact-memories', id],
+    queryFn: () => listContactMemories(id!),
+    enabled: !!id && activeTab === 'memory',
+  })
+
+  const createMemoryMut = useMutation({
+    mutationFn: (raw: string) => createContactMemory(id!, raw),
+    onSuccess: () => {
+      setShowMemoryModal(false)
+      setMemoryDraft('')
+      queryClient.invalidateQueries({ queryKey: ['contact-memories', id] })
+    },
+  })
+
+  const deleteMemoryMut = useMutation({
+    mutationFn: (memoryId: string) => deleteContactMemory(id!, memoryId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contact-memories', id] })
+    },
   })
 
   const invoicesQuery = useQuery({
@@ -772,8 +804,165 @@ export default function ContactDetailPage() {
     <EmptyState icon={Clock} title={`${title} coming soon`} description={`The ${title.toLowerCase()} tab will be available in a future update.`} />
   )
 
+  const renderMemory = () => {
+    const memories: ContactMemory[] = (memoriesQuery.data?.data || []) as ContactMemory[]
+    const sourceIcon = (src: string) => {
+      if (src === 'voicemail') return '🎙'
+      if (src === 'sms_thread') return '💬'
+      if (src === 'voice_call') return '📞'
+      return '📝'
+    }
+    return (
+      <div className="space-y-3">
+        <div className="flex justify-between items-center">
+          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            Contact memory (AI-extracted)
+          </h3>
+          <button
+            onClick={() => setShowMemoryModal(true)}
+            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-md flex items-center gap-1"
+          >
+            <Plus className="h-3 w-3" /> Add manual memory
+          </button>
+        </div>
+
+        {memoriesQuery.isLoading ? (
+          <div className="text-sm text-gray-500">Loading…</div>
+        ) : memories.length === 0 ? (
+          <EmptyState
+            icon={Brain}
+            title="No memory yet"
+            description="Voicemails and conversations with this contact will appear here as AI-extracted summaries."
+          />
+        ) : (
+          <div className="space-y-2">
+            {memories.map((m) => {
+              const isExpanded = expandedMemoryId === m.id
+              return (
+                <div
+                  key={m.id}
+                  className="border border-gray-200 dark:border-gray-700 rounded-md p-3 bg-white dark:bg-gray-900"
+                >
+                  <div className="flex items-start gap-2">
+                    <span className="text-base">{sourceIcon(m.source_type)}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mb-1">
+                        <span className="font-medium capitalize">
+                          {m.source_type.replace('_', ' ')}
+                        </span>
+                        <span>·</span>
+                        <span>{m.created_at ? formatDateTime(m.created_at) : ''}</span>
+                      </div>
+                      <div className="text-sm text-gray-900 dark:text-gray-100">
+                        {m.summary || <span className="italic text-gray-400">No summary</span>}
+                      </div>
+                      {isExpanded && (
+                        <div className="mt-2 space-y-1.5 text-xs">
+                          {m.commitments && (
+                            <div>
+                              <span className="font-semibold text-gray-700 dark:text-gray-300">Commitments:</span>{' '}
+                              <span className="text-gray-600 dark:text-gray-400">{m.commitments}</span>
+                            </div>
+                          )}
+                          {m.cares_about && (
+                            <div>
+                              <span className="font-semibold text-gray-700 dark:text-gray-300">Cares about:</span>{' '}
+                              <span className="text-gray-600 dark:text-gray-400">{m.cares_about}</span>
+                            </div>
+                          )}
+                          {m.talking_points && (
+                            <div>
+                              <span className="font-semibold text-gray-700 dark:text-gray-300">Next time:</span>{' '}
+                              <span className="text-gray-600 dark:text-gray-400">{m.talking_points}</span>
+                            </div>
+                          )}
+                          {m.raw_input && (
+                            <details className="mt-2">
+                              <summary className="cursor-pointer text-gray-500 hover:text-gray-700">
+                                Raw input
+                              </summary>
+                              <pre className="mt-1 whitespace-pre-wrap text-gray-500 dark:text-gray-400 text-xs">
+                                {m.raw_input}
+                              </pre>
+                            </details>
+                          )}
+                        </div>
+                      )}
+                      <div className="flex gap-3 mt-2 text-xs">
+                        <button
+                          onClick={() => setExpandedMemoryId(isExpanded ? null : m.id)}
+                          className="text-blue-600 hover:underline"
+                        >
+                          {isExpanded ? 'Collapse' : 'Show details'}
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (confirm('Delete this memory entry?')) {
+                              deleteMemoryMut.mutate(m.id)
+                            }
+                          }}
+                          className="text-red-600 hover:underline"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {showMemoryModal && (
+          <div
+            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            onClick={() => setShowMemoryModal(false)}
+          >
+            <div
+              className="bg-white dark:bg-gray-900 rounded-lg p-5 max-w-lg w-full"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 className="text-lg font-medium mb-3">Add memory</h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                Paste a meeting note, call summary, or any conversation snippet.
+                AI will extract structured fields.
+              </p>
+              <textarea
+                value={memoryDraft}
+                onChange={(e) => setMemoryDraft(e.target.value.slice(0, 10000))}
+                rows={6}
+                placeholder="What was discussed?"
+                className="w-full px-3 py-2 border rounded-md text-sm resize-none dark:bg-gray-900 dark:border-gray-600"
+              />
+              <div className="flex justify-between items-center mt-3">
+                <span className="text-xs text-gray-500">{memoryDraft.length}/10000</span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowMemoryModal(false)}
+                    className="px-3 py-1.5 border rounded-md text-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => memoryDraft.trim() && createMemoryMut.mutate(memoryDraft.trim())}
+                    disabled={!memoryDraft.trim() || createMemoryMut.isPending}
+                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm disabled:opacity-50"
+                  >
+                    {createMemoryMut.isPending ? 'Extracting…' : 'Save'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   const tabContent: Record<TabKey, () => React.ReactNode> = {
     activity: renderActivity,
+    memory: renderMemory,
     messages: () => renderPlaceholder('Messages'),
     invoices: renderInvoices,
     proposals: renderProposals,

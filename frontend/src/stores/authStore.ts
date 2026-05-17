@@ -14,6 +14,7 @@ export interface User {
   fallback_phone: string | null
   voicemail_mode?: 'cell_then_voicemail' | 'voicemail_only' | 'cell_only'
   voicemail_greeting_status?: 'audio' | 'text' | null
+  booking_link?: string | null
 }
 
 interface AuthState {

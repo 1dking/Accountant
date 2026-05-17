@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router'
-import { User, Mail, Inbox, Landmark, CreditCard, MessageSquare, Bell, Lock, Receipt, Building2, CalendarDays, BellRing, Newspaper, Wallet, Smartphone } from 'lucide-react'
+import { User, Mail, Inbox, Landmark, CreditCard, MessageSquare, Bell, Lock, Receipt, Building2, CalendarDays, BellRing, Newspaper, Wallet, Smartphone, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/authStore'
 import ProfileSettings from '@/components/settings/ProfileSettings'
@@ -20,6 +20,7 @@ import PushNotificationSettings from '@/components/settings/PushNotificationSett
 import NewsPreferences from '@/components/settings/NewsPreferences'
 import BillingSettings from '@/components/settings/BillingSettings'
 import MobileAppSettings from '@/components/settings/MobileAppSettings'
+import AutomationSettings from '@/components/settings/AutomationSettings'
 
 const TABS: { id: string; label: string; icon: typeof User; adminOnly?: boolean }[] = [
   { id: 'billing', label: 'Plan & Billing', icon: Wallet },
@@ -34,6 +35,7 @@ const TABS: { id: string; label: string; icon: typeof User; adminOnly?: boolean 
   { id: 'payments', label: 'Payments', icon: CreditCard },
   { id: 'tax', label: 'Sales Tax', icon: Receipt },
   { id: 'sms', label: 'SMS', icon: MessageSquare },
+  { id: 'automation', label: 'Automation', icon: Zap },
   { id: 'reminders', label: 'Reminders', icon: Bell },
   { id: 'news', label: 'News', icon: Newspaper },
   { id: 'mobile', label: 'Mobile App', icon: Smartphone },
@@ -107,6 +109,7 @@ export default function SettingsPage() {
           {activeTab === 'payments' && <StripeSettings />}
           {activeTab === 'tax' && <TaxSettings />}
           {activeTab === 'sms' && <SmsSettings />}
+          {activeTab === 'automation' && <AutomationSettings />}
           {activeTab === 'reminders' && <ReminderSettings />}
           {activeTab === 'news' && <NewsPreferences />}
           {activeTab === 'mobile' && <MobileAppSettings />}

@@ -22,7 +22,12 @@ export async function deactivateUser(userId: string) {
   return api.delete<ApiResponse<{ message: string }>>(`/auth/users/${userId}`)
 }
 
-export async function updateProfile(data: { full_name?: string; password?: string; fallback_phone?: string }) {
+export async function updateProfile(data: {
+  full_name?: string
+  password?: string
+  fallback_phone?: string
+  booking_link?: string
+}) {
   return api.put<ApiResponse<User>>('/auth/me', data)
 }
 
