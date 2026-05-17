@@ -305,6 +305,75 @@ async def list_file_shares(
 
 
 # ---------------------------------------------------------------------------
+# Unified Conversations Thread (SMS + voicemails)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{contact_id}/conversations")
+async def list_contact_conversations(
+    contact_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    """Return SMS messages + voicemail entries for a contact, sorted
+    chronologically (oldest first — frontend renders newest-at-bottom
+    for typical SMS-thread feel)."""
+    from sqlalchemy import select
+    from app.communication.models import CallLog, SmsMessage
+
+    sms_rows = await db.execute(
+        select(SmsMessage)
+        .where(SmsMessage.contact_id == contact_id)
+        .order_by(SmsMessage.created_at.desc())
+        .limit(100)
+    )
+    voicemail_rows = await db.execute(
+        select(CallLog)
+        .where(
+            CallLog.contact_id == contact_id,
+            CallLog.kind == "voicemail",
+        )
+        .order_by(CallLog.created_at.desc())
+        .limit(50)
+    )
+
+    events: list[dict] = []
+    for sms in sms_rows.scalars().all():
+        events.append({
+            "id": str(sms.id),
+            "type": "sms_in" if sms.direction == "inbound" else "sms_out",
+            "timestamp": sms.created_at.isoformat() if sms.created_at else None,
+            "body": sms.body,
+            "direction": sms.direction,
+            "status": sms.status,
+            "from_number": sms.from_number,
+            "to_number": sms.to_number,
+            "ref_id": str(sms.id),
+        })
+    for vm in voicemail_rows.scalars().all():
+        events.append({
+            "id": f"vm:{vm.id}",
+            "type": "voicemail",
+            "timestamp": vm.created_at.isoformat() if vm.created_at else None,
+            "body": vm.voicemail_transcript or "",
+            "direction": "inbound",
+            "status": vm.voicemail_transcript_status,
+            "from_number": vm.from_number,
+            "to_number": vm.to_number,
+            "recording_url_path": (
+                f"/api/communication/calls/{vm.id}/recording" if vm.recording_sid else None
+            ),
+            "recording_duration_seconds": vm.recording_duration_seconds,
+            "ref_id": str(vm.id),
+        })
+
+    # Sort by timestamp ascending (oldest first) so the frontend can render
+    # in the natural SMS direction. None-timestamps sort to start.
+    events.sort(key=lambda e: e["timestamp"] or "")
+    return {"data": events}
+
+
+# ---------------------------------------------------------------------------
 # Contact Memories (AI-extracted)
 # ---------------------------------------------------------------------------
 
