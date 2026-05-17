@@ -567,6 +567,47 @@ async def create_contact_memory(
     }
 
 
+@router.put("/{contact_id}/conversation-engine")
+async def update_contact_conversation_engine(
+    contact_id: uuid.UUID,
+    body: dict,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    """Per-contact override for the conversation engine toggle.
+
+    body.enabled: true | false | null (null = inherit user default)
+    """
+    from fastapi import HTTPException
+    from sqlalchemy import select
+    from app.contacts.models import Contact
+
+    enabled = body.get("enabled")
+    if enabled is not None and not isinstance(enabled, bool):
+        raise HTTPException(status_code=400, detail="'enabled' must be bool or null")
+
+    row = await db.execute(select(Contact).where(Contact.id == contact_id))
+    contact = row.scalar_one_or_none()
+    if contact is None:
+        raise HTTPException(status_code=404, detail="Contact not found")
+
+    contact.conversation_engine_enabled = enabled
+    # When re-enabling, clear the manual-reply pause so AI can resume
+    if enabled is True:
+        contact.conversation_engine_paused_until = None
+    await db.commit()
+    return {
+        "data": {
+            "contact_id": str(contact.id),
+            "conversation_engine_enabled": contact.conversation_engine_enabled,
+            "paused_until": (
+                contact.conversation_engine_paused_until.isoformat()
+                if contact.conversation_engine_paused_until else None
+            ),
+        }
+    }
+
+
 @router.delete("/{contact_id}/memories/{memory_id}")
 async def delete_contact_memory(
     contact_id: uuid.UUID,

@@ -59,6 +59,9 @@ class UserResponse(BaseModel):
         None, validation_alias="voicemail_greeting_type"
     )
     booking_link: str | None = None
+    conversation_reply_enabled: bool = False
+    conversation_template: str | None = None
+    conversation_ai_instructions: str | None = None
 
     model_config = {"from_attributes": True, "populate_by_name": True}
 
@@ -71,6 +74,9 @@ class UserUpdate(BaseModel):
         None, pattern="^(cell_then_voicemail|voicemail_only|cell_only)$"
     )
     booking_link: str | None = Field(None, max_length=500)
+    conversation_reply_enabled: bool | None = None
+    conversation_template: str | None = Field(None, max_length=2000)
+    conversation_ai_instructions: str | None = Field(None, max_length=2000)
 
 
 class VoicemailGreetingPreview(BaseModel):

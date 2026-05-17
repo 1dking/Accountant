@@ -46,8 +46,14 @@ router = APIRouter()
 async def sms_webhook(
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
+    background_tasks: BackgroundTasks,
 ) -> dict:
-    """Twilio SMS webhook - no auth required. Receives incoming SMS."""
+    """Twilio SMS webhook - no auth required. Receives incoming SMS.
+
+    After persisting the message, if the recipient user has the
+    conversation engine enabled AND the inbound came from a known
+    contact, schedule classify_and_respond as a background task.
+    """
     form_data = await request.form()
     from_number = str(form_data.get("From", ""))
     to_number = str(form_data.get("To", ""))
@@ -55,7 +61,18 @@ async def sms_webhook(
     twilio_sid = str(form_data.get("MessageSid", ""))
 
     sms = await service.receive_sms(db, from_number, to_number, body, twilio_sid)
-    # Return TwiML empty response (Twilio expects XML)
+
+    # Conversation engine trigger — only when we matched a contact AND a user
+    if sms is not None and sms.contact_id is not None and sms.user_id is not None:
+        from app.communication.conversation_engine import classify_and_respond
+        background_tasks.add_task(
+            classify_and_respond,
+            contact_id=sms.contact_id,
+            user_id=sms.user_id,
+            latest_inbound_sms_id=sms.id,
+            session_factory=request.app.state.session_factory,
+        )
+
     return {"data": {"message": "OK"}}
 
 

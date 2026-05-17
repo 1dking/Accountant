@@ -374,6 +374,14 @@ async def send_sms(
             await invalidate_brief_cache(db, contact_id)
         except Exception:
             pass
+        # Manual user-initiated SMS → pause conversation engine for this
+        # contact (user is talking, AI steps back). Safe no-op when not
+        # otherwise active.
+        try:
+            from app.communication.conversation_engine import pause_for_manual_reply
+            await pause_for_manual_reply(db, contact_id)
+        except Exception:
+            pass
 
     sms = SmsMessage(
         id=uuid.uuid4(),
@@ -418,9 +426,18 @@ async def receive_sms(
     contact = await _find_contact_by_phone(db, from_number)
     contact_id = contact.id if contact else None
 
+    # Resolve the owning user via the Twilio number that was dialed.
+    # This is what the conversation engine + auto-reply features need to
+    # identify "whose conversation is this".
+    phone_row = await db.execute(
+        select(TwilioPhoneNumber).where(TwilioPhoneNumber.phone_number == to_number)
+    )
+    phone = phone_row.scalar_one_or_none()
+    owner_user_id = phone.assigned_user_id if phone else None
+
     sms = SmsMessage(
         id=uuid.uuid4(),
-        user_id=None,
+        user_id=owner_user_id,
         contact_id=contact_id,
         direction="inbound",
         from_number=from_number,

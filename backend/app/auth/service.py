@@ -205,6 +205,12 @@ async def update_user_profile(
         user.voicemail_mode = updates.voicemail_mode
     if updates.booking_link is not None:
         user.booking_link = updates.booking_link or None
+    if updates.conversation_reply_enabled is not None:
+        user.conversation_reply_enabled = updates.conversation_reply_enabled
+    if updates.conversation_template is not None:
+        user.conversation_template = updates.conversation_template or None
+    if updates.conversation_ai_instructions is not None:
+        user.conversation_ai_instructions = updates.conversation_ai_instructions or None
     await db.commit()
     await db.refresh(user)
 
@@ -446,4 +452,7 @@ def user_to_response_dict(user: User) -> dict:
         "voicemail_mode": user.voicemail_mode or "cell_then_voicemail",
         "voicemail_greeting_status": user.voicemail_greeting_type,
         "booking_link": user.booking_link,
+        "conversation_reply_enabled": bool(user.conversation_reply_enabled),
+        "conversation_template": user.conversation_template,
+        "conversation_ai_instructions": user.conversation_ai_instructions,
     }
