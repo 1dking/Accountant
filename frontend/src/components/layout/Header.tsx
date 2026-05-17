@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Menu, Bell, Search, Sparkles } from 'lucide-react'
 import { useNotificationStore } from '@/stores/notificationStore'
@@ -8,10 +8,64 @@ import FloatingDialer from './FloatingDialer'
 
 export default function Header() {
   const navigate = useNavigate()
-  const { unreadCount, notifications, markRead, markAllRead } = useNotificationStore()
+  const {
+    unreadCount,
+    notifications,
+    markRead,
+    markAllRead,
+    fetchNotifications,
+    fetchUnreadCount,
+  } = useNotificationStore()
   const { panelState, openSidebar, openOBrain, closePanel } = useUiStore()
   const [showNotifications, setShowNotifications] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+
+  // Initial fetch + 15s polling for unread count while tab is visible.
+  // Switches to full fetch when the dropdown opens (load freshest list).
+  useEffect(() => {
+    let mounted = true
+    fetchNotifications().catch(() => {})
+
+    let timer: number | null = null
+    const startPolling = () => {
+      if (timer !== null) return
+      timer = window.setInterval(() => {
+        if (mounted && document.visibilityState === 'visible') {
+          fetchUnreadCount().catch(() => {})
+        }
+      }, 15_000)
+    }
+    const stopPolling = () => {
+      if (timer !== null) {
+        window.clearInterval(timer)
+        timer = null
+      }
+    }
+    const onVisChange = () => {
+      if (document.visibilityState === 'visible') {
+        // Fire one immediate refresh when the tab regains focus
+        fetchUnreadCount().catch(() => {})
+        startPolling()
+      } else {
+        stopPolling()
+      }
+    }
+    startPolling()
+    document.addEventListener('visibilitychange', onVisChange)
+    return () => {
+      mounted = false
+      stopPolling()
+      document.removeEventListener('visibilitychange', onVisChange)
+    }
+  }, [fetchNotifications, fetchUnreadCount])
+
+  // When the user opens the dropdown, refresh the full list so they see
+  // newest items even if polling was off-window for a while.
+  useEffect(() => {
+    if (showNotifications) {
+      fetchNotifications().catch(() => {})
+    }
+  }, [showNotifications, fetchNotifications])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -117,8 +171,16 @@ export default function Header() {
                       key={n.id}
                       onClick={() => {
                         if (!n.is_read) markRead(n.id)
-                        if (n.resource_type === 'document' && n.resource_id) {
+                        // Prefer the explicit link_path set by the
+                        // notification creator (new pattern). Fall back to
+                        // legacy resource-type routing only when link_path
+                        // is empty (older rows / push notifications).
+                        if (n.link_path) {
+                          navigate(n.link_path)
+                        } else if (n.resource_type === 'document' && n.resource_id) {
                           navigate(`/documents/${n.resource_id}`)
+                        } else if (n.contact_id) {
+                          navigate(`/contacts/${n.contact_id}`)
                         }
                         setShowNotifications(false)
                       }}

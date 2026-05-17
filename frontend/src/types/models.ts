@@ -143,6 +143,8 @@ export interface Notification {
   resource_type: string | null
   resource_id: string | null
   is_read: boolean
+  link_path?: string | null
+  contact_id?: string | null
   created_at: string
 }
 

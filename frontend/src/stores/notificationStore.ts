@@ -7,6 +7,7 @@ interface NotificationState {
   unreadCount: number
   isLoading: boolean
   fetchNotifications: () => Promise<void>
+  fetchUnreadCount: () => Promise<void>
   markRead: (id: string) => Promise<void>
   markAllRead: () => Promise<void>
   deleteNotification: (id: string) => Promise<void>
@@ -29,6 +30,20 @@ export const useNotificationStore = create<NotificationState>((set) => ({
       })
     } catch {
       set({ isLoading: false })
+    }
+  },
+
+  // Lightweight count-only endpoint for polling. Degrades silently if
+  // the backend is unreachable (no toast, no crash).
+  fetchUnreadCount: async () => {
+    try {
+      const response: any = await api.get('/notifications/unread-count')
+      const count = response?.data?.count
+      if (typeof count === 'number') {
+        set({ unreadCount: count })
+      }
+    } catch {
+      // silent degrade
     }
   },
 
