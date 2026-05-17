@@ -60,6 +60,66 @@ def _get_twilio_client(settings: Settings):
     return Client(settings.twilio_account_sid, settings.twilio_auth_token)
 
 
+# Webhook path constants — kept in lockstep with the @router decorators in
+# router.py. If you rename a route there, update here too. These are
+# CONCATENATED with settings.public_base_url + the /api/communication prefix
+# (set in main.py) to produce the absolute URLs Twilio posts to.
+WEBHOOK_PATH_VOICE_INCOMING = "/voice/incoming"
+WEBHOOK_PATH_VOICE_FALLBACK = "/voice/incoming-fallback"
+WEBHOOK_PATH_SMS = "/sms/webhook"
+WEBHOOK_PATH_CALL_STATUS = "/voice/call-status"
+
+
+def build_webhook_urls(settings: Settings) -> dict[str, str]:
+    """Return absolute URLs for the webhooks Twilio needs to call on our
+    behalf for each phone number. Driven by settings.public_base_url so the
+    config follows the deployment environment.
+
+    Returned dict keys match the kwargs Twilio's IncomingPhoneNumber.update
+    accepts: voice_url, voice_fallback_url, sms_url, status_callback.
+    """
+    base = (settings.public_base_url or "").rstrip("/")
+    api_prefix = f"{base}/api/communication"
+    return {
+        "voice_url": f"{api_prefix}{WEBHOOK_PATH_VOICE_INCOMING}",
+        "voice_fallback_url": f"{api_prefix}{WEBHOOK_PATH_VOICE_FALLBACK}",
+        "sms_url": f"{api_prefix}{WEBHOOK_PATH_SMS}",
+        "status_callback": f"{api_prefix}{WEBHOOK_PATH_CALL_STATUS}",
+    }
+
+
+async def configure_twilio_webhooks(
+    settings: Settings, twilio_sid: str
+) -> dict[str, str]:
+    """Push our webhook URLs onto an existing Twilio IncomingPhoneNumber.
+
+    Returns the urls dict on success. Raises ValueError on failure — caller
+    decides whether to swallow (purchase flow keeps the number even if
+    webhook config fails) or surface (sync endpoint).
+    """
+    urls = build_webhook_urls(settings)
+    client = _get_twilio_client(settings)
+    try:
+        client.incoming_phone_numbers(twilio_sid).update(
+            voice_url=urls["voice_url"],
+            voice_method="POST",
+            voice_fallback_url=urls["voice_fallback_url"],
+            voice_fallback_method="POST",
+            sms_url=urls["sms_url"],
+            sms_method="POST",
+            status_callback=urls["status_callback"],
+            status_callback_method="POST",
+        )
+    except Exception as e:
+        logger.error(
+            "twilio_webhooks.configure_failed sid=%s error=%s",
+            twilio_sid, str(e)[:200],
+        )
+        raise ValueError(f"Twilio webhook configuration failed: {str(e)[:200]}")
+    logger.info("twilio_webhooks.configured sid=%s", twilio_sid)
+    return urls
+
+
 # ---------------------------------------------------------------------------
 # Phone Numbers
 # ---------------------------------------------------------------------------

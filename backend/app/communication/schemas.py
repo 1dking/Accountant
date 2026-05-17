@@ -30,6 +30,7 @@ class TwilioPhoneNumberResponse(BaseModel):
     capabilities_json: Optional[str]
     created_at: datetime
     updated_at: datetime
+    webhooks_configured_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
 

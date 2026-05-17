@@ -1089,11 +1089,29 @@ async def purchase_number(
     # Store the Twilio SID and capabilities in the capabilities_json column.
     capabilities_data = json.dumps({"sid": purchased.sid})
 
+    # Auto-configure webhooks. Wrapped in try/except — if webhook config
+    # fails, the number is still purchased (don't lose it). UI surfaces
+    # the "Not configured" state and offers a Sync Webhooks button.
+    from datetime import datetime, timezone
+    webhooks_configured_at = None
+    webhook_config_error: str | None = None
+    try:
+        await service.configure_twilio_webhooks(settings, purchased.sid)
+        webhooks_configured_at = datetime.now(timezone.utc)
+    except Exception as e:
+        webhook_config_error = str(e)[:200]
+        logger.warning(
+            "purchase: webhook auto-config failed for sid=%s — number kept, "
+            "Sync Webhooks button will retry. error=%s",
+            purchased.sid, webhook_config_error,
+        )
+
     phone = TwilioPhoneNumber(
         id=uuid.uuid4(),
         phone_number=purchased.phone_number,
         friendly_name=purchased.friendly_name or phone_number,
         capabilities_json=capabilities_data,
+        webhooks_configured_at=webhooks_configured_at,
     )
     db.add(phone)
     await db.commit()
@@ -1105,6 +1123,71 @@ async def purchase_number(
             "phone_number": phone.phone_number,
             "friendly_name": phone.friendly_name,
             "sid": purchased.sid,
+            "webhooks_configured_at": (
+                webhooks_configured_at.isoformat() if webhooks_configured_at else None
+            ),
+            "webhook_config_error": webhook_config_error,
+        }
+    }
+
+
+@router.post("/phone-numbers/{phone_id}/sync-webhooks")
+async def sync_phone_number_webhooks(
+    phone_id: uuid.UUID,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(require_role([Role.ADMIN]))],
+) -> dict:
+    """Push our webhook URLs onto an existing Twilio number.
+
+    Used for numbers bought outside the platform (or for whom auto-config
+    on purchase failed). Idempotent — safe to re-run.
+    """
+    from datetime import datetime, timezone
+
+    settings: Settings = request.app.state.settings
+
+    result = await db.execute(
+        select(TwilioPhoneNumber).where(TwilioPhoneNumber.id == phone_id)
+    )
+    phone = result.scalar_one_or_none()
+    if phone is None:
+        raise HTTPException(status_code=404, detail="Phone number not found")
+
+    # Extract the Twilio SID from capabilities_json. We store it there at
+    # purchase time. For numbers added via the legacy admin form (pre-API
+    # integration), capabilities_json may not have a sid — those rows can't
+    # be synced and need to be re-added.
+    twilio_sid: str | None = None
+    if phone.capabilities_json:
+        try:
+            blob = json.loads(phone.capabilities_json)
+            twilio_sid = blob.get("sid")
+        except (ValueError, TypeError):
+            pass
+    if not twilio_sid:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "No Twilio SID on record for this number. Add it via Buy "
+                "Number, or update the row's capabilities_json manually."
+            ),
+        )
+
+    try:
+        urls = await service.configure_twilio_webhooks(settings, twilio_sid)
+    except ValueError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+    phone.webhooks_configured_at = datetime.now(timezone.utc)
+    await db.commit()
+    await db.refresh(phone)
+
+    return {
+        "data": {
+            "id": str(phone.id),
+            "webhooks_configured_at": phone.webhooks_configured_at.isoformat(),
+            "webhook_urls": urls,
         }
     }
 

@@ -18,6 +18,9 @@ class TwilioPhoneNumber(TimestampMixin, Base):
     )
     friendly_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     capabilities_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    webhooks_configured_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
 
 class CallLog(Base):
