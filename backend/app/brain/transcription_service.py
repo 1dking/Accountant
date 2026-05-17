@@ -69,14 +69,17 @@ async def transcribe_with_assemblyai(file_bytes: bytes) -> dict:
         upload_resp.raise_for_status()
         upload_url = upload_resp.json()["upload_url"]
 
-        # Transcribe
+        # Transcribe. AssemblyAI now requires speech_models (list);
+        # the old speech_model is deprecated, and language_detection was
+        # rolled into Universal models. universal-3-pro is the highest
+        # accuracy tier as of 2026.
         transcript_resp = await client.post(
             "https://api.assemblyai.com/v2/transcript",
             headers=headers,
             json={
                 "audio_url": upload_url,
+                "speech_models": ["universal-3-pro"],
                 "speaker_labels": True,
-                "language_detection": True,
             },
         )
         transcript_resp.raise_for_status()

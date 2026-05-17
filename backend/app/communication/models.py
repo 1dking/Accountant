@@ -52,6 +52,9 @@ class CallLog(Base):
     )
     voicemail_transcript: Mapped[str | None] = mapped_column(Text, nullable=True)
     voicemail_transcript_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    automation_flow_triggered_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
 
 class SmsMessage(Base):
@@ -106,4 +109,43 @@ class LiveChatMessage(Base):
     message: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class SmsAutomationFlow(TimestampMixin, Base):
+    """A user-defined multi-step SMS sequence fired on a trigger event."""
+    __tablename__ = "sms_automation_flows"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    # 'missed_call' | 'voicemail' | 'inbound_sms_unknown'
+    trigger_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default="1", nullable=False
+    )
+
+
+class SmsAutomationStep(Base):
+    """A single step (message + delay) within an SmsAutomationFlow."""
+    __tablename__ = "sms_automation_steps"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    flow_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("sms_automation_flows.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    step_order: Mapped[int] = mapped_column(Integer, nullable=False)
+    message_body: Mapped[str] = mapped_column(Text, nullable=False)
+    # Delay BEFORE sending this step. 0 = immediate.
+    delay_minutes: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0", nullable=False
+    )
+    include_booking_link: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="0", nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
     )

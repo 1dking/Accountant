@@ -46,6 +46,7 @@ class User(TimestampMixin, Base):
         server_default="cell_then_voicemail",
         nullable=False,
     )
+    booking_link: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
 
 class RefreshToken(Base):

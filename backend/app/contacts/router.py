@@ -302,3 +302,132 @@ async def list_file_shares(
 ) -> dict:
     shares = await service.list_file_shares(db, contact_id, user=current_user)
     return {"data": [FileShareResponse.model_validate(s) for s in shares]}
+
+
+# ---------------------------------------------------------------------------
+# Contact Memories (AI-extracted)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{contact_id}/memories")
+async def list_contact_memories(
+    contact_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    from sqlalchemy import select
+    from app.contacts.models import ContactMemory
+
+    result = await db.execute(
+        select(ContactMemory)
+        .where(ContactMemory.contact_id == contact_id)
+        .order_by(ContactMemory.created_at.desc())
+        .limit(100)
+    )
+    memories = list(result.scalars().all())
+    return {
+        "data": [
+            {
+                "id": str(m.id),
+                "contact_id": str(m.contact_id),
+                "source_type": m.source_type,
+                "source_id": str(m.source_id) if m.source_id else None,
+                "summary": m.summary,
+                "commitments": m.commitments,
+                "cares_about": m.cares_about,
+                "talking_points": m.talking_points,
+                "raw_input": m.raw_input,
+                "created_at": m.created_at.isoformat() if m.created_at else None,
+            }
+            for m in memories
+        ]
+    }
+
+
+@router.post("/{contact_id}/memories", status_code=201)
+async def create_contact_memory(
+    contact_id: uuid.UUID,
+    body: dict,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    """Create a manual memory entry. Runs AI extraction on raw_input."""
+    from fastapi import HTTPException
+    from app.communication.memory_extraction import extract_memory
+    from app.contacts.models import Contact, ContactMemory
+
+    raw_input = (body.get("raw_input") or "").strip()
+    if not raw_input:
+        raise HTTPException(status_code=400, detail="raw_input is required")
+    if len(raw_input) > 10000:
+        raise HTTPException(status_code=400, detail="raw_input exceeds 10000 chars")
+
+    # Confirm contact exists
+    from sqlalchemy import select
+    contact_row = await db.execute(select(Contact).where(Contact.id == contact_id))
+    if contact_row.scalar_one_or_none() is None:
+        raise HTTPException(status_code=404, detail="Contact not found")
+
+    try:
+        extracted = await extract_memory(
+            raw_text=raw_input,
+            source_type=body.get("source_type", "manual"),
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=502, detail=f"Memory extraction failed: {str(e)[:120]}"
+        )
+
+    memory = ContactMemory(
+        id=uuid.uuid4(),
+        contact_id=contact_id,
+        user_id=current_user.id,
+        source_type=body.get("source_type", "manual"),
+        source_id=None,
+        summary=extracted["summary"],
+        commitments=extracted["commitments"],
+        cares_about=extracted["cares_about"],
+        talking_points=extracted["talking_points"],
+        raw_input=raw_input,
+    )
+    db.add(memory)
+    await db.commit()
+    await db.refresh(memory)
+    return {
+        "data": {
+            "id": str(memory.id),
+            "contact_id": str(memory.contact_id),
+            "source_type": memory.source_type,
+            "summary": memory.summary,
+            "commitments": memory.commitments,
+            "cares_about": memory.cares_about,
+            "talking_points": memory.talking_points,
+            "raw_input": memory.raw_input,
+            "created_at": memory.created_at.isoformat() if memory.created_at else None,
+        }
+    }
+
+
+@router.delete("/{contact_id}/memories/{memory_id}")
+async def delete_contact_memory(
+    contact_id: uuid.UUID,
+    memory_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    from fastapi import HTTPException
+    from sqlalchemy import select
+    from app.contacts.models import ContactMemory
+
+    result = await db.execute(
+        select(ContactMemory).where(
+            ContactMemory.id == memory_id,
+            ContactMemory.contact_id == contact_id,
+        )
+    )
+    memory = result.scalar_one_or_none()
+    if memory is None:
+        raise HTTPException(status_code=404, detail="Memory not found")
+    await db.delete(memory)
+    await db.commit()
+    return {"data": {"deleted": True}}

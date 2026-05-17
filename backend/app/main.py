@@ -223,6 +223,7 @@ def create_app() -> FastAPI:
     from app.portal.router import router as portal_router
     from app.forms.router import router as forms_router
     from app.communication.router import router as communication_router
+    from app.communication.automation_router import router as automation_router
     from app.workflows.router import router as workflows_router
     from app.pages.router import router as pages_router, analytics_router
     from app.scheduling.router import router as scheduling_router
@@ -272,6 +273,7 @@ def create_app() -> FastAPI:
     fastapi_app.include_router(portal_router, prefix="/api/portal", tags=["portal"])
     fastapi_app.include_router(forms_router, prefix="/api/forms", tags=["forms"])
     fastapi_app.include_router(communication_router, prefix="/api/communication", tags=["communication"])
+    fastapi_app.include_router(automation_router, prefix="/api/communication", tags=["automation"])
     fastapi_app.include_router(workflows_router, prefix="/api/workflows", tags=["workflows"])
     fastapi_app.include_router(pages_router, prefix="/api/pages", tags=["pages"])
     fastapi_app.include_router(analytics_router, prefix="/api/analytics", tags=["analytics"])

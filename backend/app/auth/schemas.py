@@ -58,6 +58,7 @@ class UserResponse(BaseModel):
     voicemail_greeting_status: str | None = Field(
         None, validation_alias="voicemail_greeting_type"
     )
+    booking_link: str | None = None
 
     model_config = {"from_attributes": True, "populate_by_name": True}
 
@@ -69,6 +70,7 @@ class UserUpdate(BaseModel):
     voicemail_mode: str | None = Field(
         None, pattern="^(cell_then_voicemail|voicemail_only|cell_only)$"
     )
+    booking_link: str | None = Field(None, max_length=500)
 
 
 class VoicemailGreetingPreview(BaseModel):

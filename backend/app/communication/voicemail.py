@@ -73,6 +73,20 @@ async def transcribe_voicemail_task(
             "voicemail_transcribe.task_success call_log_id=%s chars=%d",
             call_log_id, len(transcript_text),
         )
+
+        # Chain memory extraction after transcript lands. Fire-and-forget.
+        # write_memory_from_voicemail_task skips internally if contact_id is NULL.
+        try:
+            from app.communication.memory_writer import write_memory_from_voicemail_task
+            import asyncio
+            asyncio.create_task(
+                write_memory_from_voicemail_task(call_log_id, session_factory)
+            )
+        except Exception as e:
+            logger.warning(
+                "voicemail_transcribe.memory_chain_failed call_log_id=%s error=%s",
+                call_log_id, str(e)[:200],
+            )
     except Exception as e:
         logger.error(
             "voicemail_transcribe.task_failure call_log_id=%s error=%s",

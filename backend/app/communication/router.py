@@ -725,7 +725,21 @@ async def voice_voicemail_status(
             session_factory=request.app.state.session_factory,
         )
     else:
+        call_log_id = call_log.id
         await db.commit()
+
+    # Trigger the 'voicemail' automation flow regardless of transcription
+    # outcome. If user has no flow for this trigger, the engine skips.
+    if call_log.automation_flow_triggered_at is None and call_log.user_id is not None:
+        from app.communication.automation_engine import trigger_flow_for_call
+        import asyncio
+        asyncio.create_task(
+            trigger_flow_for_call(
+                call_log_id=call_log_id,
+                trigger_type="voicemail",
+                session_factory=request.app.state.session_factory,
+            )
+        )
 
     return _xml_response("<Response/>")
 
@@ -788,6 +802,7 @@ async def stream_voicemail_greeting(
 @router.post("/voice/call-status")
 async def voice_call_status(
     form: Annotated[dict, Depends(verified_twilio_form)],
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> Response:
     """Twilio fires this on Dial-leg lifecycle events.
@@ -795,6 +810,11 @@ async def voice_call_status(
     The status callback runs against the CHILD call leg (the one created by
     <Dial>), but we key call_logs by the PARENT/conversation SID — recording
     is on the parent. Twilio passes ParentCallSid for correlation.
+
+    Additionally: when the user's voicemail_mode is 'cell_only' and the call
+    ends missed (no-answer/busy/failed), trigger their 'missed_call' automation
+    flow. Voicemail-mode users get their flow fired from voicemail-status
+    instead (after the transcript lands).
     """
     parent_call_sid = form.get("ParentCallSid", "")
     if not parent_call_sid:
@@ -825,6 +845,29 @@ async def voice_call_status(
         call_log.status = call_status
 
     await db.commit()
+
+    # Trigger missed_call automation for cell_only users
+    if (
+        call_status in ("no-answer", "busy", "failed")
+        and call_log.kind != "voicemail"
+        and call_log.user_id is not None
+        and call_log.automation_flow_triggered_at is None
+    ):
+        user_row = await db.execute(
+            select(User).where(User.id == call_log.user_id)
+        )
+        user = user_row.scalar_one_or_none()
+        if user is not None and user.voicemail_mode == "cell_only":
+            from app.communication.automation_engine import trigger_flow_for_call
+            import asyncio
+            asyncio.create_task(
+                trigger_flow_for_call(
+                    call_log_id=call_log.id,
+                    trigger_type="missed_call",
+                    session_factory=request.app.state.session_factory,
+                )
+            )
+
     return _xml_response("<Response/>")
 
 

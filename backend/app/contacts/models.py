@@ -45,6 +45,34 @@ class Contact(TimestampMixin, Base):
     custom_fields_data: Mapped[dict | None] = mapped_column(JSON, nullable=True, server_default="{}")
 
 
+class ContactMemory(Base):
+    """AI-extracted memory entries for a contact.
+
+    Source can be a voicemail transcript, an SMS thread, a call, or a manual
+    paste. Each row captures 4 structured fields (summary / commitments /
+    cares_about / talking_points) plus the raw_input for re-extraction.
+    """
+    __tablename__ = "contact_memories"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    contact_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("contacts.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    source_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    source_id: Mapped[uuid.UUID | None] = mapped_column(nullable=True)
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    commitments: Mapped[str | None] = mapped_column(Text, nullable=True)
+    cares_about: Mapped[str | None] = mapped_column(Text, nullable=True)
+    talking_points: Mapped[str | None] = mapped_column(Text, nullable=True)
+    raw_input: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
 class ContactTag(TimestampMixin, Base):
     __tablename__ = "contact_tags"
 
