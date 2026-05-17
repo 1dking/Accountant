@@ -367,6 +367,14 @@ async def send_sms(
         status = "failed"
         sid = None
 
+    # Invalidate brief cache on the contact, fire-and-forget at commit
+    if contact_id is not None:
+        try:
+            from app.contacts.ai_brief import invalidate_brief_cache
+            await invalidate_brief_cache(db, contact_id)
+        except Exception:
+            pass
+
     sms = SmsMessage(
         id=uuid.uuid4(),
         user_id=user.id,

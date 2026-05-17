@@ -43,6 +43,10 @@ class Contact(TimestampMixin, Base):
     lead_source: Mapped[str | None] = mapped_column(String(100), nullable=True)
     job_title: Mapped[str | None] = mapped_column(String(255), nullable=True)
     custom_fields_data: Mapped[dict | None] = mapped_column(JSON, nullable=True, server_default="{}")
+    ai_brief: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ai_brief_generated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
 
 class ContactMemory(Base):

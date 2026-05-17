@@ -374,6 +374,96 @@ async def list_contact_conversations(
 
 
 # ---------------------------------------------------------------------------
+# AI Brief
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{contact_id}/brief")
+async def get_contact_brief(
+    contact_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    """Return the cached AI brief, regenerating if stale (>1hr) or missing.
+    Response: { brief, generated_at, is_fresh }"""
+    from sqlalchemy import select
+    from app.contacts.ai_brief import _is_fresh, generate_brief
+    from app.contacts.models import Contact
+
+    row = await db.execute(select(Contact).where(Contact.id == contact_id))
+    contact = row.scalar_one_or_none()
+    if contact is None:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Contact not found")
+
+    if contact.ai_brief and _is_fresh(contact.ai_brief_generated_at):
+        return {
+            "data": {
+                "brief": contact.ai_brief,
+                "generated_at": contact.ai_brief_generated_at.isoformat()
+                if contact.ai_brief_generated_at else None,
+                "is_fresh": True,
+            }
+        }
+
+    new_brief = await generate_brief(db, contact_id)
+    if new_brief is None:
+        # Generation failed — return existing (stale) brief if any, else null
+        return {
+            "data": {
+                "brief": contact.ai_brief,
+                "generated_at": contact.ai_brief_generated_at.isoformat()
+                if contact.ai_brief_generated_at else None,
+                "is_fresh": False,
+            }
+        }
+
+    await db.refresh(contact)
+    return {
+        "data": {
+            "brief": contact.ai_brief,
+            "generated_at": contact.ai_brief_generated_at.isoformat()
+            if contact.ai_brief_generated_at else None,
+            "is_fresh": True,
+        }
+    }
+
+
+@router.post("/{contact_id}/brief/regenerate")
+async def regenerate_contact_brief(
+    contact_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    """Force regeneration regardless of cache age."""
+    from sqlalchemy import select
+    from app.contacts.ai_brief import generate_brief
+    from app.contacts.models import Contact
+    from fastapi import HTTPException
+
+    row = await db.execute(select(Contact).where(Contact.id == contact_id))
+    contact = row.scalar_one_or_none()
+    if contact is None:
+        raise HTTPException(status_code=404, detail="Contact not found")
+
+    new_brief = await generate_brief(db, contact_id)
+    if new_brief is None:
+        raise HTTPException(
+            status_code=502,
+            detail="Brief generation failed. Try again later.",
+        )
+    await db.refresh(contact)
+    return {
+        "data": {
+            "brief": contact.ai_brief,
+            "generated_at": contact.ai_brief_generated_at.isoformat()
+            if contact.ai_brief_generated_at else None,
+            "is_fresh": True,
+        }
+    }
+
+
+# ---------------------------------------------------------------------------
 # Contact Memories (AI-extracted)
 # ---------------------------------------------------------------------------
 

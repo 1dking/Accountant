@@ -70,6 +70,11 @@ async def write_memory_from_voicemail_task(
             db.add(memory)
             await db.commit()
 
+            # Invalidate the AI brief cache so the next contact-detail view
+            # regenerates with this new memory included.
+            from app.contacts.ai_brief import invalidate_brief_cache
+            await invalidate_brief_cache(db, call_log.contact_id)
+
         logger.info(
             "memory_write.task_success call_log_id=%s memory_id=%s",
             call_log_id, memory.id,
@@ -133,6 +138,9 @@ async def write_memory_from_sms_thread_task(
             )
             db.add(memory)
             await db.commit()
+
+            from app.contacts.ai_brief import invalidate_brief_cache
+            await invalidate_brief_cache(db, contact_id)
 
         logger.info(
             "memory_write.task_success contact_id=%s memory_id=%s source=sms_thread",
