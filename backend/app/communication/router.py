@@ -730,15 +730,15 @@ async def voice_voicemail_status(
 
     # Trigger the 'voicemail' automation flow regardless of transcription
     # outcome. If user has no flow for this trigger, the engine skips.
+    # Use BackgroundTasks (NOT asyncio.create_task) — the latter only holds
+    # a weak reference and the coroutine can be GC'd before it runs.
     if call_log.automation_flow_triggered_at is None and call_log.user_id is not None:
         from app.communication.automation_engine import trigger_flow_for_call
-        import asyncio
-        asyncio.create_task(
-            trigger_flow_for_call(
-                call_log_id=call_log_id,
-                trigger_type="voicemail",
-                session_factory=request.app.state.session_factory,
-            )
+        background_tasks.add_task(
+            trigger_flow_for_call,
+            call_log_id=call_log_id,
+            trigger_type="voicemail",
+            session_factory=request.app.state.session_factory,
         )
 
     return _xml_response("<Response/>")
@@ -804,6 +804,7 @@ async def voice_call_status(
     form: Annotated[dict, Depends(verified_twilio_form)],
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
+    background_tasks: BackgroundTasks,
 ) -> Response:
     """Twilio fires this on Dial-leg lifecycle events.
 
@@ -846,7 +847,9 @@ async def voice_call_status(
 
     await db.commit()
 
-    # Trigger missed_call automation for cell_only users
+    # Trigger missed_call automation for cell_only users.
+    # Use BackgroundTasks (not asyncio.create_task) for the same weak-ref
+    # reason — see voice_voicemail_status comment above.
     if (
         call_status in ("no-answer", "busy", "failed")
         and call_log.kind != "voicemail"
@@ -859,13 +862,11 @@ async def voice_call_status(
         user = user_row.scalar_one_or_none()
         if user is not None and user.voicemail_mode == "cell_only":
             from app.communication.automation_engine import trigger_flow_for_call
-            import asyncio
-            asyncio.create_task(
-                trigger_flow_for_call(
-                    call_log_id=call_log.id,
-                    trigger_type="missed_call",
-                    session_factory=request.app.state.session_factory,
-                )
+            background_tasks.add_task(
+                trigger_flow_for_call,
+                call_log_id=call_log.id,
+                trigger_type="missed_call",
+                session_factory=request.app.state.session_factory,
             )
 
     return _xml_response("<Response/>")

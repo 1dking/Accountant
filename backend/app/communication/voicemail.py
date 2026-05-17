@@ -74,14 +74,14 @@ async def transcribe_voicemail_task(
             call_log_id, len(transcript_text),
         )
 
-        # Chain memory extraction after transcript lands. Fire-and-forget.
-        # write_memory_from_voicemail_task skips internally if contact_id is NULL.
+        # Chain memory extraction after transcript lands. We're already
+        # in a background task — awaiting inline is reliable (no request
+        # context here for FastAPI's BackgroundTasks). The ~1-2s added
+        # latency only delays the next free moment of this background
+        # task, not any user-facing response.
         try:
             from app.communication.memory_writer import write_memory_from_voicemail_task
-            import asyncio
-            asyncio.create_task(
-                write_memory_from_voicemail_task(call_log_id, session_factory)
-            )
+            await write_memory_from_voicemail_task(call_log_id, session_factory)
         except Exception as e:
             logger.warning(
                 "voicemail_transcribe.memory_chain_failed call_log_id=%s error=%s",
