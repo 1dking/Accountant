@@ -112,6 +112,17 @@ async def transcribe_with_assemblyai(file_bytes: bytes) -> dict:
                     "duration": data.get("audio_duration", 0),
                 }
             if data["status"] == "error":
+                # Empty-audio errors aren't true failures — voicemails that
+                # are silent, beep-only, or where the caller hung up before
+                # speaking. Resolve to empty transcript instead of failing
+                # the whole pipeline.
+                err_msg = (data.get("error") or "").lower()
+                if "no spoken audio" in err_msg or "language detection" in err_msg:
+                    logger.info(
+                        "transcription: empty audio (%s) — returning empty transcript",
+                        data.get("error", "")[:120],
+                    )
+                    return {"text": "", "segments": [], "language": None, "duration": 0}
                 raise RuntimeError(f"AssemblyAI error: {data.get('error', 'Unknown')}")
             await asyncio.sleep(5)
 
