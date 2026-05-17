@@ -28,6 +28,7 @@ import { getUnreadCount } from '@/api/inbox'
 import { schedulingApi } from '@/api/scheduling'
 import { formatDate, formatRelativeTime } from '@/lib/utils'
 import { EVENT_TYPES } from '@/lib/constants'
+import OnboardingChecklist from '@/components/dashboard/OnboardingChecklist'
 import ActivityPanel from '@/components/dashboard/ActivityPanel'
 import type { CalendarEvent, ActivityLogEntry, ExpenseApproval } from '@/types/models'
 
@@ -168,6 +169,9 @@ export default function DashboardPage() {
     <div className="flex flex-1 min-h-0">
       {/* Main content */}
       <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
+        {/* Onboarding checklist — auto-hides when everything is done/dismissed */}
+        <OnboardingChecklist />
+
         {/* Greeting */}
         <div className="flex items-start justify-between mb-6">
           <div>

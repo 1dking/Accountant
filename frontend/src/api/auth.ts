@@ -70,6 +70,34 @@ export async function deleteVoicemailGreeting() {
   return api.delete<ApiResponse<{ type: null }>>('/auth/me/voicemail-greeting')
 }
 
+// ─── Onboarding Checklist ───
+
+export interface OnboardingItem {
+  key: string
+  label: string
+  description: string
+  completed: boolean
+  action_link: string | null
+  can_dismiss: boolean
+  dismissed_at: string | null
+}
+
+export interface OnboardingPayload {
+  items: OnboardingItem[]
+  overall_progress: number
+}
+
+export async function getOnboarding() {
+  return api.get<ApiResponse<OnboardingPayload>>('/auth/me/onboarding')
+}
+
+export async function dismissOnboardingItem(itemKey: string) {
+  return api.post<ApiResponse<{ onboarding_state: Record<string, any> }>>(
+    `/auth/me/onboarding/${itemKey}/dismiss`,
+    {},
+  )
+}
+
 export async function getSystemStats() {
   return api.get<ApiResponse<{
     document_count: number
