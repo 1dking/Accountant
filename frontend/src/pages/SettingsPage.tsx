@@ -21,6 +21,7 @@ import NewsPreferences from '@/components/settings/NewsPreferences'
 import BillingSettings from '@/components/settings/BillingSettings'
 import MobileAppSettings from '@/components/settings/MobileAppSettings'
 import AutomationSettings from '@/components/settings/AutomationSettings'
+import NotificationPreferencesSettings from '@/components/settings/NotificationPreferencesSettings'
 
 const TABS: { id: string; label: string; icon: typeof User; adminOnly?: boolean }[] = [
   { id: 'billing', label: 'Plan & Billing', icon: Wallet },
@@ -31,6 +32,7 @@ const TABS: { id: string; label: string; icon: typeof User; adminOnly?: boolean 
   { id: 'gmail', label: 'Gmail', icon: Inbox },
   { id: 'google-calendar', label: 'Google Cal', icon: CalendarDays },
   { id: 'notifications', label: 'Push Notifs', icon: BellRing },
+  { id: 'notif-prefs', label: 'Notif Prefs', icon: BellRing },
   { id: 'banking', label: 'Banking', icon: Landmark },
   { id: 'payments', label: 'Payments', icon: CreditCard },
   { id: 'tax', label: 'Sales Tax', icon: Receipt },
@@ -98,6 +100,7 @@ export default function SettingsPage() {
           {activeTab === 'gmail' && <GmailSettings />}
           {activeTab === 'google-calendar' && <GoogleCalendarSettings />}
           {activeTab === 'notifications' && <PushNotificationSettings />}
+          {activeTab === 'notif-prefs' && <NotificationPreferencesSettings />}
           {activeTab === 'banking' && (
             <>
               <PlaidSettings />
