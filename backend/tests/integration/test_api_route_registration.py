@@ -51,6 +51,8 @@ FRONTEND_API_DEPENDENCIES = [
     ("GET", "/api/notifications/unread-count"),
     ("PUT", "/api/notifications/{notification_id}/read"),
     ("PUT", "/api/notifications/read-all"),
+    ("GET", "/api/notifications/preferences"),
+    ("PUT", "/api/notifications/preferences"),
 ]
 
 
