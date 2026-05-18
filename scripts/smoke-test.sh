@@ -41,3 +41,36 @@ fi
 
 echo ""
 echo "All integration smoke tests passed."
+
+# ---------------------------------------------------------------------------
+# Stale-bundle check
+# ---------------------------------------------------------------------------
+# Catches the "pnpm build silently failed → dist/ never regenerated → scp
+# pushed an old bundle" footgun that bit the email-absorption ship on
+# 2026-05-18. If frontend source has been edited since the last successful
+# build, warn loudly so the deployer rebuilds before scp'ing.
+#
+# Heuristic: compare mtime of dist/index.html to the newest source file
+# under frontend/src. If any source is newer than the bundle, the bundle
+# is stale.
+
+FRONTEND_DIST="$REPO_ROOT/frontend/dist/index.html"
+FRONTEND_SRC="$REPO_ROOT/frontend/src"
+
+if [[ -f "$FRONTEND_DIST" ]] && [[ -d "$FRONTEND_SRC" ]]; then
+    newest_src=$(find "$FRONTEND_SRC" -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.css" \) -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -1)
+    if [[ -n "$newest_src" ]]; then
+        src_epoch=${newest_src%% *}
+        src_epoch=${src_epoch%.*}
+        dist_epoch=$(stat -c '%Y' "$FRONTEND_DIST" 2>/dev/null || stat -f '%m' "$FRONTEND_DIST" 2>/dev/null)
+        if [[ -n "$dist_epoch" ]] && (( src_epoch > dist_epoch )); then
+            echo ""
+            echo "⚠  WARNING: frontend/dist/ is older than frontend/src/."
+            echo "   Source file: ${newest_src#* }"
+            echo "   Run 'cd frontend && pnpm build' before deploying or you'll"
+            echo "   push a stale bundle. Capture build output too:"
+            echo "     pnpm build 2>&1 | tee /tmp/build.log"
+            echo "     grep -E 'ELIFECYCLE|error TS' /tmp/build.log && exit 1"
+        fi
+    fi
+fi
