@@ -32,9 +32,9 @@ export type TabKey =
   | 'tasks' | 'payments'
 
 const TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
+  { key: 'messages', label: 'Messages', icon: MessageSquare },
   { key: 'activity', label: 'Activity', icon: Activity },
   { key: 'memory', label: 'Memory', icon: Brain },
-  { key: 'messages', label: 'Messages', icon: MessageSquare },
   { key: 'invoices', label: 'Invoices', icon: FileText },
   { key: 'proposals', label: 'Proposals', icon: FileSignature },
   { key: 'estimates', label: 'Estimates', icon: Calculator },

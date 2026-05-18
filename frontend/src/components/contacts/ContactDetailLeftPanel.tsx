@@ -103,7 +103,51 @@ interface Props {
   saveField: (key: string, value: any) => void
   onAddTag: (tag: string) => void
   onRemoveTag: (tag: string) => void
-  onEditNotes: () => void
+}
+
+// ---------------------------------------------------------------------------
+// NotesEditor — on-blur auto-save textarea. Replaces the legacy
+// window.prompt() UX. Local draft state lets the user type freely; we
+// only persist when focus leaves the textarea AND the value actually
+// changed. Esc reverts the draft.
+// ---------------------------------------------------------------------------
+
+function NotesEditor({
+  value,
+  onSave,
+}: {
+  value: string
+  onSave: (v: string) => void
+}) {
+  const [draft, setDraft] = useState(value)
+
+  useEffect(() => { setDraft(value) }, [value])
+
+  const commit = () => {
+    if (draft !== value) onSave(draft)
+  }
+
+  return (
+    <div>
+      <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-400 dark:text-gray-500 mb-0.5">
+        Notes
+      </label>
+      <textarea
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') {
+            setDraft(value)
+            ;(e.target as HTMLTextAreaElement).blur()
+          }
+        }}
+        rows={3}
+        placeholder="Notes about this contact…"
+        className="w-full px-2 py-1.5 text-sm rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+      />
+    </div>
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -123,7 +167,6 @@ export default function ContactDetailLeftPanel({
   saveField,
   onAddTag,
   onRemoveTag,
-  onEditNotes,
 }: Props) {
   const initials = getInitials(contact.contact_name, contact.company_name)
 
@@ -367,15 +410,10 @@ export default function ContactDetailLeftPanel({
           onSave={(v) => saveField('tax_id', v)}
           placeholder="Add tax ID"
         />
-        <div>
-          <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-400 dark:text-gray-500 mb-0.5">Notes</label>
-          <div
-            onClick={onEditNotes}
-            className="px-2 py-1.5 text-sm rounded cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors min-h-[32px] text-gray-700 dark:text-gray-300 whitespace-pre-wrap"
-          >
-            {contact.notes || <span className="text-gray-400 dark:text-gray-500 italic">Click to add notes</span>}
-          </div>
-        </div>
+        <NotesEditor
+          value={contact.notes || ''}
+          onSave={(v) => saveField('notes', v)}
+        />
       </div>
     </div>
   )

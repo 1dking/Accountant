@@ -21,11 +21,13 @@ import {
   createContactMemory, deleteContactMemory, listContactMemories,
   type ContactMemory,
 } from '@/api/automation'
-import ContactAIBrief from '@/components/contacts/ContactAIBrief'
 import ContactDetailLeftPanel from '@/components/contacts/ContactDetailLeftPanel'
 import ContactDetailCenterPanel, {
   type TabKey,
 } from '@/components/contacts/ContactDetailCenterPanel'
+import ContactDetailRightPanel from '@/components/contacts/ContactDetailRightPanel'
+
+type MobileView = 'info' | 'messages' | 'context'
 
 type ComposerKey = 'email' | 'call' | 'note' | 'sms'
 
@@ -40,7 +42,8 @@ export default function ContactDetailPage() {
   // State
   // -------------------------------------------------------------------------
 
-  const [activeTab, setActiveTab] = useState<TabKey>('activity')
+  const [activeTab, setActiveTab] = useState<TabKey>('messages')
+  const [mobileView, setMobileView] = useState<MobileView>('messages')
   const [activeComposer, setActiveComposer] = useState<ComposerKey | null>(null)
   const [savedToast, setSavedToast] = useState(false)
   const [activityFilter, setActivityFilter] = useState<string>('all')
@@ -282,11 +285,11 @@ export default function ContactDetailPage() {
     setShowTagSuggestions(false)
   }
 
-  const handleEditNotes = () => {
-    const newNote = prompt('Notes:', contact.notes || '')
-    if (newNote !== null && newNote !== contact.notes) {
-      saveField('notes', newNote)
-    }
+  // SMS button (mobile + header) routes to Messages tab. On mobile,
+  // it also flips the meta-view since panels are stacked.
+  const goToMessages = () => {
+    setActiveTab('messages')
+    setMobileView('messages')
   }
 
   // -------------------------------------------------------------------------
@@ -379,7 +382,7 @@ export default function ContactDetailPage() {
             <StickyNote className="h-4 w-4" /> Note
           </button>
           <button
-            onClick={() => setActiveTab('messages')}
+            onClick={goToMessages}
             className={cn(
               'flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg transition-colors',
               activeTab === 'messages'
@@ -484,55 +487,124 @@ export default function ContactDetailPage() {
         </div>
       )}
 
-      {/* AI Brief */}
-      {id && <ContactAIBrief contactId={id} />}
+      {/* Mobile/tablet meta-tabs — switch which panel is visible at
+          <lg widths. Hidden on lg+ where all three are visible in the
+          grid simultaneously. */}
+      <nav
+        className="lg:hidden flex shrink-0 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900"
+        aria-label="Panel selector"
+      >
+        {([
+          { key: 'messages' as const, label: 'Messages' },
+          { key: 'info' as const, label: 'Info' },
+          { key: 'context' as const, label: 'Context' },
+        ]).map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => setMobileView(key)}
+            className={cn(
+              'flex-1 px-3 py-2 text-sm font-medium border-b-2 transition-colors',
+              mobileView === key
+                ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
+                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300',
+            )}
+          >
+            {label}
+          </button>
+        ))}
+      </nav>
 
-      {/* Two-column body — preserved from legacy layout */}
-      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-        <ContactDetailLeftPanel
-          contact={contact}
-          tags={tags}
-          allTags={allTags}
-          tagInput={tagInput}
-          setTagInput={setTagInput}
-          showTagSuggestions={showTagSuggestions}
-          setShowTagSuggestions={setShowTagSuggestions}
-          tagSuggestions={tagSuggestions}
-          activities={activities}
-          saveField={saveField}
-          onAddTag={handleAddTag}
-          onRemoveTag={(name) => removeTagMutation.mutate(name)}
-          onEditNotes={handleEditNotes}
-        />
-        <ContactDetailCenterPanel
-          contactId={id!}
-          contact={contact}
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          activities={activities}
-          invoices={invoices}
-          proposals={proposals}
-          estimates={estimates}
-          meetings={meetings}
-          fileShares={fileShares}
-          expenses={expenses}
-          memories={memories}
-          activityIsLoading={activityQuery.isLoading}
-          invoicesIsLoading={invoicesQuery.isLoading}
-          proposalsIsLoading={proposalsQuery.isLoading}
-          estimatesIsLoading={estimatesQuery.isLoading}
-          meetingsIsLoading={meetingsQuery.isLoading}
-          filesIsLoading={filesQuery.isLoading}
-          expensesIsLoading={expensesQuery.isLoading}
-          memoriesIsLoading={memoriesQuery.isLoading}
-          activityFilter={activityFilter}
-          setActivityFilter={setActivityFilter}
-          expandedMemoryId={expandedMemoryId}
-          setExpandedMemoryId={setExpandedMemoryId}
-          onAddNoteClick={() => toggleComposer('note')}
-          onAddMemoryClick={() => setShowMemoryModal(true)}
-          onDeleteMemory={(memoryId) => deleteMemoryMut.mutate(memoryId)}
-        />
+      {/* Three-panel grid on lg+, single-column with meta-tab routing
+          below lg. Each panel ignores the mobile view at lg (always
+          shown via lg:flex/lg:block) and otherwise visibility-gates
+          on the mobileView state. */}
+      <div className="flex-1 lg:grid lg:grid-cols-[280px_1fr_320px] overflow-hidden">
+
+        <div
+          className={cn(
+            'lg:flex lg:flex-col',
+            mobileView === 'info' ? 'flex flex-col' : 'hidden',
+          )}
+        >
+          <ContactDetailLeftPanel
+            contact={contact}
+            tags={tags}
+            allTags={allTags}
+            tagInput={tagInput}
+            setTagInput={setTagInput}
+            showTagSuggestions={showTagSuggestions}
+            setShowTagSuggestions={setShowTagSuggestions}
+            tagSuggestions={tagSuggestions}
+            activities={activities}
+            saveField={saveField}
+            onAddTag={handleAddTag}
+            onRemoveTag={(name) => removeTagMutation.mutate(name)}
+          />
+        </div>
+
+        <div
+          className={cn(
+            'lg:flex lg:flex-col min-w-0',
+            mobileView === 'messages' ? 'flex flex-col' : 'hidden',
+          )}
+        >
+          <ContactDetailCenterPanel
+            contactId={id!}
+            contact={contact}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            activities={activities}
+            invoices={invoices}
+            proposals={proposals}
+            estimates={estimates}
+            meetings={meetings}
+            fileShares={fileShares}
+            expenses={expenses}
+            memories={memories}
+            activityIsLoading={activityQuery.isLoading}
+            invoicesIsLoading={invoicesQuery.isLoading}
+            proposalsIsLoading={proposalsQuery.isLoading}
+            estimatesIsLoading={estimatesQuery.isLoading}
+            meetingsIsLoading={meetingsQuery.isLoading}
+            filesIsLoading={filesQuery.isLoading}
+            expensesIsLoading={expensesQuery.isLoading}
+            memoriesIsLoading={memoriesQuery.isLoading}
+            activityFilter={activityFilter}
+            setActivityFilter={setActivityFilter}
+            expandedMemoryId={expandedMemoryId}
+            setExpandedMemoryId={setExpandedMemoryId}
+            onAddNoteClick={() => toggleComposer('note')}
+            onAddMemoryClick={() => setShowMemoryModal(true)}
+            onDeleteMemory={(memoryId) => deleteMemoryMut.mutate(memoryId)}
+          />
+        </div>
+
+        <div
+          className={cn(
+            'lg:block',
+            mobileView === 'context' ? 'block' : 'hidden',
+          )}
+        >
+          <ContactDetailRightPanel
+            contactId={id!}
+            contactPhone={contact.phone || null}
+            contactEmail={contact.email || null}
+            memories={memories}
+            activities={activities}
+            onSwitchTab={(tab) => {
+              setActiveTab(tab)
+              setMobileView('messages')
+            }}
+            onEmailClick={() => {
+              toggleComposer('email')
+              setMobileView('messages')
+            }}
+            onNoteClick={() => {
+              toggleComposer('note')
+              setMobileView('messages')
+            }}
+          />
+        </div>
       </div>
 
       {/* Memory modal — owned here because state lives at page level */}
