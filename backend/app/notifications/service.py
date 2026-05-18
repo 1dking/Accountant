@@ -9,7 +9,60 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import NotFoundError
 from app.core.pagination import PaginationParams, build_pagination_meta
 from app.core.websocket import websocket_manager
-from app.notifications.models import Notification, PushSubscription
+from app.notifications.models import (
+    Notification,
+    NotificationPreference,
+    PushSubscription,
+)
+
+
+# Default delivery preferences when no per-user row exists for a given
+# notification_type. in_app=True everywhere — that's the cheap channel
+# and the bell is the canonical surface. sms=True for high-urgency
+# types where a buzz is worth interrupting your day.
+DEFAULT_PREFERENCES = {
+    "sms_inbound": {"in_app": True, "email": False, "sms": False},
+    "voicemail_received": {"in_app": True, "email": False, "sms": True},
+    "ai_reply_sent": {"in_app": True, "email": False, "sms": False},
+    "automation_flow_completed": {"in_app": True, "email": False, "sms": False},
+    "admin_reminder": {"in_app": True, "email": False, "sms": False},
+    "identity_capture_asked": {"in_app": True, "email": False, "sms": False},
+    "contact_auto_created": {"in_app": True, "email": False, "sms": False},
+    "identity_capture_failed": {"in_app": True, "email": False, "sms": True},
+    # Fallback for any new type added later
+    "_default": {"in_app": True, "email": False, "sms": False},
+}
+
+
+# Human-readable labels for the Settings UI. New types should add a
+# row here AND a row in DEFAULT_PREFERENCES.
+NOTIFICATION_TYPE_LABELS = {
+    "sms_inbound": "New SMS message",
+    "voicemail_received": "New voicemail",
+    "ai_reply_sent": "AI replied on your behalf",
+    "automation_flow_completed": "Automation completed",
+    "admin_reminder": "Admin reminder",
+    "identity_capture_asked": "Asked unknown caller for identity",
+    "contact_auto_created": "Contact auto-created from SMS",
+    "identity_capture_failed": "Couldn't capture identity",
+}
+
+
+async def _get_preferences(
+    db: AsyncSession, user_id: uuid.UUID, notification_type: str
+) -> dict:
+    """Resolve effective preferences for (user, type). DB row wins over
+    DEFAULT_PREFERENCES; default-of-defaults is in_app=True only."""
+    row = await db.execute(
+        select(NotificationPreference).where(
+            NotificationPreference.user_id == user_id,
+            NotificationPreference.notification_type == notification_type,
+        )
+    )
+    pref = row.scalar_one_or_none()
+    if pref is not None:
+        return {"in_app": pref.in_app, "email": pref.email, "sms": pref.sms}
+    return DEFAULT_PREFERENCES.get(notification_type) or DEFAULT_PREFERENCES["_default"]
 
 logger = logging.getLogger(__name__)
 
@@ -24,53 +77,145 @@ async def create_notification(
     resource_id: str | None = None,
     link_path: str | None = None,
     contact_id: uuid.UUID | None = None,
-) -> Notification:
-    """Create a notification record and push it via WebSocket.
+) -> Notification | None:
+    """Create a notification record (gated by user preferences) + dispatch
+    via WS, email-log, and SMS-to-cell per preference matrix.
 
-    link_path: frontend route to navigate when the user clicks the
-      notification (e.g. /contacts/{id}?tab=messages).
-    contact_id: direct FK for filtering and contact-detail nav.
+    Returns the Notification row if in_app=True, else None (other channels
+    still fired). All side-channel failures are isolated — they never
+    block the in-app row creation.
     """
-    notification = Notification(
-        user_id=user_id,
-        type=type,
-        title=title,
-        message=message,
-        resource_type=resource_type,
-        resource_id=resource_id,
-        link_path=link_path,
-        contact_id=contact_id,
-    )
-    db.add(notification)
-    await db.commit()
-    await db.refresh(notification)
+    prefs = await _get_preferences(db, user_id, type)
+
+    notification: Notification | None = None
+    if prefs.get("in_app", True):
+        notification = Notification(
+            user_id=user_id,
+            type=type,
+            title=title,
+            message=message,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            link_path=link_path,
+            contact_id=contact_id,
+        )
+        db.add(notification)
+        await db.commit()
+        await db.refresh(notification)
+    else:
+        logger.info(
+            "notifications.gated_out_in_app user_id=%s type=%s "
+            "(user disabled the in-app channel for this type)",
+            user_id, type,
+        )
+
+    # Email channel — currently logs only. SMTP send is a future
+    # integration. Logged at INFO so it's visible in the journal for
+    # auditing when the user has email enabled but no SMTP exists yet.
+    if prefs.get("email", False):
+        logger.info(
+            "notifications.email_pending_smtp user_id=%s type=%s "
+            "title=%r — email channel enabled but SMTP integration "
+            "not yet implemented",
+            user_id, type, title,
+        )
+
+    # SMS-to-cell channel — sends to user.fallback_phone via Twilio.
+    # Wrapped in try/except so an SMS failure can't break the in-app
+    # row or the parent feature. Never creates a notification for the
+    # outbound SMS itself (no recursion).
+    if prefs.get("sms", False):
+        try:
+            await _send_sms_notification(db, user_id, title, message)
+        except Exception as e:
+            logger.warning(
+                "notifications.sms_channel_failed user_id=%s type=%s error=%s",
+                user_id, type, str(e)[:200],
+            )
 
     # Push real-time event via WebSocket. The frontend wsClient dispatches
-    # on the "type" field, so use that consistently. (Previously this
-    # used "event" — a latent bug that would have dropped every dispatch
-    # even if the WS path itself worked.)
-    await websocket_manager.send_to_user(
-        str(user_id),
-        {
-            "type": "notification",
-            "data": {
-                "id": str(notification.id),
-                "user_id": str(user_id),
-                "type": type,
-                "title": title,
-                "message": message,
-                "resource_type": resource_type,
-                "resource_id": resource_id,
-                "link_path": link_path,
-                "contact_id": str(contact_id) if contact_id else None,
-                "is_read": False,
-                "created_at": notification.created_at.isoformat()
-                if notification.created_at else None,
+    # on the "type" field, so use that consistently. Only fire when the
+    # in-app row exists — no point pushing a phantom event.
+    if notification is not None:
+        await websocket_manager.send_to_user(
+            str(user_id),
+            {
+                "type": "notification",
+                "data": {
+                    "id": str(notification.id),
+                    "user_id": str(user_id),
+                    "type": type,
+                    "title": title,
+                    "message": message,
+                    "resource_type": resource_type,
+                    "resource_id": resource_id,
+                    "link_path": link_path,
+                    "contact_id": str(contact_id) if contact_id else None,
+                    "is_read": False,
+                    "created_at": notification.created_at.isoformat()
+                    if notification.created_at else None,
+                },
             },
-        },
-    )
+        )
 
     return notification
+
+
+async def _send_sms_notification(
+    db: AsyncSession, user_id: uuid.UUID, title: str, message: str
+) -> None:
+    """Send a notification SMS to the user's fallback_phone.
+
+    Uses Twilio's Python SDK directly (not communication.service.send_sms)
+    so we don't loop — send_sms calls invalidate_brief_cache, persists an
+    SmsMessage row, etc. We just want a raw SMS to the user's cell.
+    """
+    from app.auth.models import User
+    from app.config import Settings
+
+    settings = Settings()
+    if not settings.twilio_account_sid or not settings.twilio_auth_token:
+        logger.info(
+            "notifications.sms_channel_skipped_no_twilio user_id=%s", user_id
+        )
+        return
+
+    row = await db.execute(select(User).where(User.id == user_id))
+    user = row.scalar_one_or_none()
+    if user is None or not user.fallback_phone:
+        logger.info(
+            "notifications.sms_channel_skipped_no_fallback user_id=%s", user_id
+        )
+        return
+
+    body = f"[{title}] {message}"[:1500]
+    from_number = settings.twilio_from_number or None
+    if not from_number:
+        # Try the user's assigned Twilio number as the FROM
+        from app.communication.models import TwilioPhoneNumber
+
+        phone_row = await db.execute(
+            select(TwilioPhoneNumber).where(
+                TwilioPhoneNumber.assigned_user_id == user_id
+            )
+        )
+        phone = phone_row.scalar_one_or_none()
+        from_number = phone.phone_number if phone else None
+    if not from_number:
+        logger.warning(
+            "notifications.sms_channel_skipped_no_from_number user_id=%s",
+            user_id,
+        )
+        return
+
+    from twilio.rest import Client
+
+    client = Client(settings.twilio_account_sid, settings.twilio_auth_token)
+    client.messages.create(body=body, from_=from_number, to=user.fallback_phone)
+    logger.info(
+        "notifications.sms_channel_sent user_id=%s to=%s chars=%d",
+        user_id, user.fallback_phone, len(body),
+    )
 
 
 async def get_unread_count(db: AsyncSession, user_id: uuid.UUID) -> int:
