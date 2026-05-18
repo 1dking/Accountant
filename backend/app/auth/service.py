@@ -211,6 +211,8 @@ async def update_user_profile(
         user.conversation_template = updates.conversation_template or None
     if updates.conversation_ai_instructions is not None:
         user.conversation_ai_instructions = updates.conversation_ai_instructions or None
+    if updates.identity_capture_enabled is not None:
+        user.identity_capture_enabled = updates.identity_capture_enabled
     await db.commit()
     await db.refresh(user)
 
@@ -455,4 +457,9 @@ def user_to_response_dict(user: User) -> dict:
         "conversation_reply_enabled": bool(user.conversation_reply_enabled),
         "conversation_template": user.conversation_template,
         "conversation_ai_instructions": user.conversation_ai_instructions,
+        "identity_capture_enabled": bool(
+            user.identity_capture_enabled
+            if user.identity_capture_enabled is not None
+            else True
+        ),
     }

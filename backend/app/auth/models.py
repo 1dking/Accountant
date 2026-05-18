@@ -52,6 +52,12 @@ class User(TimestampMixin, Base):
     )
     conversation_template: Mapped[str | None] = mapped_column(Text, nullable=True)
     conversation_ai_instructions: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # When the engine is on AND inbound comes from an unknown number,
+    # AI asks for name+email. Defaults true — only useful when the
+    # conversation engine itself is enabled.
+    identity_capture_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default="1", nullable=False
+    )
     # Per-item onboarding metadata: { item_key: { dismissed_at: ISO } }
     onboarding_state: Mapped[dict | None] = mapped_column(
         JSON, nullable=False, server_default="{}", default=dict

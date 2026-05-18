@@ -82,6 +82,9 @@ class SmsMessage(Base):
     is_auto_reply: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default="0", nullable=False
     )
+    is_identity_capture_attempt: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="0", nullable=False
+    )
 
 
 class LiveChatSession(TimestampMixin, Base):

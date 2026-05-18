@@ -62,16 +62,29 @@ async def sms_webhook(
 
     sms = await service.receive_sms(db, from_number, to_number, body, twilio_sid)
 
-    # Conversation engine trigger — only when we matched a contact AND a user
-    if sms is not None and sms.contact_id is not None and sms.user_id is not None:
-        from app.communication.conversation_engine import classify_and_respond
-        background_tasks.add_task(
-            classify_and_respond,
-            contact_id=sms.contact_id,
-            user_id=sms.user_id,
-            latest_inbound_sms_id=sms.id,
-            session_factory=request.app.state.session_factory,
-        )
+    # Conversation engine trigger — branch by whether the inbound matched
+    # a contact. If yes → normal classify_and_respond. If no → identity
+    # capture flow (unknown caller).
+    if sms is not None and sms.user_id is not None:
+        if sms.contact_id is not None:
+            from app.communication.conversation_engine import classify_and_respond
+            background_tasks.add_task(
+                classify_and_respond,
+                contact_id=sms.contact_id,
+                user_id=sms.user_id,
+                latest_inbound_sms_id=sms.id,
+                session_factory=request.app.state.session_factory,
+            )
+        else:
+            # Unknown caller — identity capture branch handles its own
+            # engine + capture-enabled gates.
+            from app.communication.identity_capture import handle_unknown_sms_task
+            background_tasks.add_task(
+                handle_unknown_sms_task,
+                sms_id=sms.id,
+                user_id=sms.user_id,
+                session_factory=request.app.state.session_factory,
+            )
 
     return {"data": {"message": "OK"}}
 

@@ -62,6 +62,7 @@ class UserResponse(BaseModel):
     conversation_reply_enabled: bool = False
     conversation_template: str | None = None
     conversation_ai_instructions: str | None = None
+    identity_capture_enabled: bool = True
 
     model_config = {"from_attributes": True, "populate_by_name": True}
 
@@ -77,6 +78,7 @@ class UserUpdate(BaseModel):
     conversation_reply_enabled: bool | None = None
     conversation_template: str | None = Field(None, max_length=2000)
     conversation_ai_instructions: str | None = Field(None, max_length=2000)
+    identity_capture_enabled: bool | None = None
 
 
 class VoicemailGreetingPreview(BaseModel):

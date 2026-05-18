@@ -73,6 +73,7 @@ import app.reconciliation.models  # noqa: F401
 import app.inbox.models  # noqa: F401
 import app.forms.models  # noqa: F401
 import app.communication.models  # noqa: F401
+import app.communication.identity_capture  # noqa: F401
 import app.workflows.models  # noqa: F401
 import app.pages.models  # noqa: F401
 import app.scheduling.models  # noqa: F401
