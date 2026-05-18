@@ -48,6 +48,7 @@ class ContactUpdate(BaseModel):
     lead_source: Optional[str] = Field(None, max_length=100)
     job_title: Optional[str] = Field(None, max_length=255)
     custom_fields_data: Optional[dict] = None
+    email_absorption_enabled: Optional[bool] = None
 
 
 class ContactResponse(BaseModel):
@@ -80,6 +81,8 @@ class ContactResponse(BaseModel):
     # Conversation engine per-contact state
     conversation_engine_enabled: Optional[bool] = None
     conversation_engine_paused_until: Optional[datetime] = None
+    # Email absorption opt-out (Session E)
+    email_absorption_enabled: bool = True
 
     model_config = {"from_attributes": True}
 

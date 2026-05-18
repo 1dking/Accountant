@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Send, Voicemail, AlertCircle, Check, Phone, Bot, Pause } from 'lucide-react'
+import {
+  AlertCircle, ArrowDownLeft, ArrowUpRight, Bot, Check, Mail, Pause,
+  Phone, Send, Sparkles, Voicemail,
+} from 'lucide-react'
 import {
   listContactConversations,
   sendSms,
@@ -247,6 +250,9 @@ export default function ContactConversationThread({
           </div>
         ) : (
           events.map((ev) => {
+            if (ev.type === 'email') {
+              return <EmailEvent key={ev.id} ev={ev} />
+            }
             if (ev.type === 'voicemail') {
               return (
                 <div key={ev.id} className="flex flex-col items-start max-w-[80%]">
@@ -356,6 +362,119 @@ export default function ContactConversationThread({
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+
+/**
+ * Email event bubble — distinct from SMS bubbles. Document-style
+ * card with subject prominent, body snippet truncated to 2 lines
+ * with a "Show more" toggle, AI summary in italic-gray below.
+ *
+ * Direction icons: ↗ outbound (blue), ↙ inbound (emerald). The
+ * "View in Gmail" link opens the thread in a new tab (gmail.com's
+ * web URL accepts the thread_id directly).
+ */
+function EmailEvent({ ev }: { ev: ConversationEvent }) {
+  const [expanded, setExpanded] = useState(false)
+  const isOut = ev.direction === 'outbound'
+  const snippet = ev.snippet || ''
+  const hasMore = snippet.length > 180
+
+  return (
+    <div
+      className={`flex flex-col ${isOut ? 'items-end ml-auto' : 'items-start'} max-w-[88%] w-full`}
+    >
+      <div
+        className={`w-full rounded-lg border p-3 ${
+          isOut
+            ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
+            : 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800'
+        }`}
+      >
+        <div className="flex items-center gap-2 text-xs mb-1.5">
+          {isOut ? (
+            <ArrowUpRight className="h-3.5 w-3.5 text-blue-500 dark:text-blue-400 shrink-0" />
+          ) : (
+            <ArrowDownLeft className="h-3.5 w-3.5 text-emerald-500 dark:text-emerald-400 shrink-0" />
+          )}
+          <Mail
+            className={`h-3.5 w-3.5 shrink-0 ${
+              isOut
+                ? 'text-blue-600 dark:text-blue-400'
+                : 'text-emerald-600 dark:text-emerald-400'
+            }`}
+          />
+          <span
+            className={`font-medium ${
+              isOut
+                ? 'text-blue-700 dark:text-blue-300'
+                : 'text-emerald-700 dark:text-emerald-300'
+            }`}
+          >
+            Email
+          </span>
+          <span className="text-gray-400 dark:text-gray-500">·</span>
+          <span className="text-gray-500 dark:text-gray-400 text-[11px]">
+            {isOut ? 'Sent' : 'Received'}
+          </span>
+        </div>
+
+        {ev.subject && (
+          <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-1.5 break-words">
+            {ev.subject}
+          </div>
+        )}
+
+        {snippet && (
+          <div
+            className={`text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words ${
+              expanded ? '' : 'line-clamp-2'
+            }`}
+          >
+            {snippet}
+          </div>
+        )}
+        {hasMore && (
+          <button
+            onClick={() => setExpanded((e) => !e)}
+            className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline mt-1"
+          >
+            {expanded ? 'Show less' : 'Show more'}
+          </button>
+        )}
+
+        {ev.body_summary && (
+          <div className="mt-2 pt-2 border-t border-white/40 dark:border-white/10">
+            <div className="flex items-start gap-1.5 text-[11px] italic text-gray-600 dark:text-gray-400">
+              <Sparkles className="h-3 w-3 mt-0.5 shrink-0 text-indigo-500 dark:text-indigo-400 not-italic" />
+              <span>
+                <span className="font-medium not-italic text-gray-500 dark:text-gray-500 mr-1">
+                  AI summary:
+                </span>
+                {ev.body_summary}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {ev.thread_id && (
+          <div className="mt-2 flex items-center gap-3">
+            <a
+              href={`https://mail.google.com/mail/u/0/#inbox/${ev.thread_id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              View in Gmail ↗
+            </a>
+          </div>
+        )}
+      </div>
+      <span className="text-[10px] text-gray-400 mt-1 px-1">
+        {relativeTime(ev.timestamp)}
+      </span>
     </div>
   )
 }

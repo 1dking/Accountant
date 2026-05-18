@@ -287,7 +287,7 @@ export default function ContactDetailLeftPanel({
       <hr className="border-gray-200 dark:border-gray-700" />
 
       {/* Settings */}
-      <div>
+      <div className="space-y-3">
         <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-3">Settings</h3>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -309,6 +309,50 @@ export default function ContactDetailLeftPanel({
               className={cn(
                 'absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform',
                 contact.dnd_enabled ? 'translate-x-5' : 'translate-x-0.5',
+              )}
+            />
+          </button>
+        </div>
+        {/* Email absorption opt-out — defaults ON. Flip OFF for
+            personal contacts mixed into the CRM whose emails
+            shouldn't be summarized into the memory layer. */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span
+              className={cn(
+                'inline-block w-4 h-4 rounded-sm text-center text-[10px] leading-4 font-bold',
+                contact.email_absorption_enabled !== false
+                  ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500',
+              )}
+            >
+              ✉
+            </span>
+            <span
+              className="text-sm text-gray-700 dark:text-gray-300"
+              title="When ON, emails to/from this contact's address will be summarized into their memory layer."
+            >
+              Absorb emails
+            </span>
+          </div>
+          <button
+            onClick={() =>
+              saveField(
+                'email_absorption_enabled',
+                !(contact.email_absorption_enabled !== false),
+              )
+            }
+            className={cn(
+              'relative w-10 h-5 rounded-full transition-colors',
+              contact.email_absorption_enabled !== false
+                ? 'bg-indigo-500'
+                : 'bg-gray-300 dark:bg-gray-600',
+            )}
+          >
+            <div
+              className={cn(
+                'absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform',
+                contact.email_absorption_enabled !== false ? 'translate-x-5' : 'translate-x-0.5',
               )}
             />
           </button>

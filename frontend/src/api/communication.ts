@@ -147,16 +147,60 @@ export async function syncWebhooks(phoneId: string) {
 
 export type ConversationEvent = {
   id: string
-  type: 'sms_in' | 'sms_out' | 'voicemail'
+  type: 'sms_in' | 'sms_out' | 'voicemail' | 'email'
   timestamp: string | null
-  body: string
+  // Present on sms + voicemail; absent on email (subject/snippet are
+  // typed below). Optional so the discriminated union doesn't force a
+  // sentinel on email events.
+  body?: string
   direction: string
-  status: string | null
+  status?: string | null
   from_number?: string
   to_number?: string
   recording_url_path?: string | null
   recording_duration_seconds?: number | null
+  // Email-only fields (type === 'email'):
+  subject?: string | null
+  snippet?: string | null
+  body_summary?: string | null
+  thread_id?: string
+  memory_id?: string | null
+  gmail_message_id?: string
   ref_id: string
+}
+
+export async function triggerEmailAbsorption(lookbackDays = 7) {
+  return api.post<ApiResponse<{ run_id: string; status: string; lookback_days: number }>>(
+    '/communication/email-absorb',
+    { lookback_days: lookbackDays },
+  )
+}
+
+export interface EmailAbsorptionRun {
+  run_id: string
+  status: 'queued' | 'running' | 'complete' | 'failed'
+  lookback_days: number
+  scanned: number
+  matched: number
+  absorbed: number
+  skipped: number
+  contacts_touched: number
+  error_message: string | null
+  started_at: string | null
+  finished_at: string | null
+  created_at: string | null
+}
+
+export async function getEmailAbsorptionRun(runId: string) {
+  return api.get<ApiResponse<EmailAbsorptionRun>>(
+    `/communication/email-absorb/runs/${runId}`,
+  )
+}
+
+export async function listEmailAbsorptionRuns() {
+  return api.get<ApiResponse<EmailAbsorptionRun[]>>(
+    '/communication/email-absorb/runs',
+  )
 }
 
 export async function listContactConversations(contactId: string) {
