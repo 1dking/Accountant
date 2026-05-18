@@ -14,6 +14,7 @@ export interface User {
   conversation_reply_enabled?: boolean
   conversation_template?: string | null
   conversation_ai_instructions?: string | null
+  identity_capture_enabled?: boolean
 }
 
 // Documents

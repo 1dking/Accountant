@@ -478,6 +478,9 @@ function ConversationEnginePanel() {
   const [instructions, setInstructions] = useState(
     user?.conversation_ai_instructions ?? '',
   )
+  const [identityCapture, setIdentityCapture] = useState(
+    user?.identity_capture_enabled ?? true,
+  )
   const [preview, setPreview] = useState<null | {
     generated_reply: string
     classification: string
@@ -499,6 +502,7 @@ function ConversationEnginePanel() {
     setEnabled(!!user?.conversation_reply_enabled)
     setTemplate(user?.conversation_template ?? '')
     setInstructions(user?.conversation_ai_instructions ?? '')
+    setIdentityCapture(user?.identity_capture_enabled ?? true)
   }, [user])
 
   const saveMut = useMutation({
@@ -507,6 +511,7 @@ function ConversationEnginePanel() {
         conversation_reply_enabled: enabled,
         conversation_template: template,
         conversation_ai_instructions: instructions,
+        identity_capture_enabled: identityCapture,
       } as any),
     onSuccess: () => {
       toast.success('Conversation engine settings saved')
@@ -518,7 +523,8 @@ function ConversationEnginePanel() {
   const dirty =
     enabled !== !!user?.conversation_reply_enabled ||
     template !== (user?.conversation_template ?? '') ||
-    instructions !== (user?.conversation_ai_instructions ?? '')
+    instructions !== (user?.conversation_ai_instructions ?? '') ||
+    identityCapture !== (user?.identity_capture_enabled ?? true)
 
   return (
     <section className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
@@ -582,6 +588,27 @@ function ConversationEnginePanel() {
             className="w-full px-3 py-2 text-sm border rounded resize-none dark:bg-gray-900 dark:border-gray-600"
           />
         </div>
+
+        {enabled && (
+          <label className="flex items-start gap-2 cursor-pointer pt-2 border-t border-gray-100 dark:border-gray-800">
+            <input
+              type="checkbox"
+              checked={identityCapture}
+              onChange={(e) => setIdentityCapture(e.target.checked)}
+              className="mt-1"
+            />
+            <span className="text-sm">
+              <span className="font-medium">
+                Ask unknown numbers to identify themselves
+              </span>
+              <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                When an inbound SMS arrives from a phone not in your contacts,
+                AI will ask for their name + email and auto-create a contact
+                when they respond. Capped at 2 attempts per number per week.
+              </span>
+            </span>
+          </label>
+        )}
 
         <div className="flex items-center gap-3 flex-wrap">
           <button

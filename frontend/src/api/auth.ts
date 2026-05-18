@@ -30,6 +30,7 @@ export async function updateProfile(data: {
   conversation_reply_enabled?: boolean
   conversation_template?: string
   conversation_ai_instructions?: string
+  identity_capture_enabled?: boolean
 }) {
   return api.put<ApiResponse<User>>('/auth/me', data)
 }
