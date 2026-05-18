@@ -158,3 +158,74 @@ class SmsAutomationStep(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class AbsorbedEmail(Base):
+    """An email that matched a CRM contact and was summarized into
+    contact memory by the email-absorption pipeline (Session E).
+
+    Idempotency: a single Gmail message_id can only be absorbed once
+    per user (the unique index on (user_id, gmail_message_id) is the
+    enforcement). Re-running absorption skips already-seen rows.
+    memory_id is a logical FK back to contact_memories — kept nullable
+    so an absorbed email still persists when Claude summarization
+    fails, with body_summary=NULL.
+    """
+
+    __tablename__ = "absorbed_emails"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    contact_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("contacts.id", ondelete="CASCADE"), nullable=False
+    )
+    gmail_message_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    thread_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    direction: Mapped[str] = mapped_column(String(10), nullable=False)  # inbound | outbound
+    subject: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    snippet: Mapped[str | None] = mapped_column(Text, nullable=True)
+    body_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    absorbed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    memory_id: Mapped[uuid.UUID | None] = mapped_column(nullable=True)
+
+
+class EmailAbsorptionRun(Base):
+    """One row per email-absorption invocation. Frontend polls by id
+    until status transitions to 'complete' or 'failed'. Counts are
+    incremented in-place by the worker as it progresses (running
+    progress visibility); on failure error_message is populated and
+    finished_at is set."""
+
+    __tablename__ = "email_absorption_runs"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    # 'queued' → 'running' → 'complete' | 'failed'
+    status: Mapped[str] = mapped_column(
+        String(20), nullable=False, server_default="queued"
+    )
+    lookback_days: Mapped[int] = mapped_column(Integer, nullable=False)
+    started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    finished_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    scanned: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    matched: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    absorbed: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    skipped: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    contacts_touched: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="0"
+    )
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )

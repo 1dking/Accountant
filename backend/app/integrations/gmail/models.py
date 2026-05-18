@@ -27,6 +27,12 @@ class GmailAccount(TimestampMixin, Base):
         DateTime(timezone=True), nullable=True
     )
     sync_cursor: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Cursor for the email-absorption pipeline (Session E). NULL → next
+    # run does a 90-day backfill; populated after first run so subsequent
+    # scans only cover the recent delta.
+    absorption_last_run_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
 
 class GmailScanResult(TimestampMixin, Base):

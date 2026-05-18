@@ -56,6 +56,12 @@ class Contact(TimestampMixin, Base):
     conversation_engine_paused_until: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # Per-contact opt-out for the email absorption pipeline (Session E).
+    # Default true; user flips this off on a contact-by-contact basis
+    # when a personal contact is mixed into the CRM.
+    email_absorption_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default="1", nullable=False
+    )
 
 
 class ContactMemory(Base):

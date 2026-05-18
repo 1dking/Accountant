@@ -315,11 +315,11 @@ async def list_contact_conversations(
     db: Annotated[AsyncSession, Depends(get_db)],
     _: Annotated[User, Depends(get_current_user)],
 ) -> dict:
-    """Return SMS messages + voicemail entries for a contact, sorted
-    chronologically (oldest first — frontend renders newest-at-bottom
-    for typical SMS-thread feel)."""
+    """Return SMS messages + voicemail entries + absorbed emails for a
+    contact, sorted chronologically (oldest first — frontend renders
+    newest-at-bottom for typical SMS-thread feel)."""
     from sqlalchemy import select
-    from app.communication.models import CallLog, SmsMessage
+    from app.communication.models import AbsorbedEmail, CallLog, SmsMessage
 
     sms_rows = await db.execute(
         select(SmsMessage)
@@ -334,6 +334,14 @@ async def list_contact_conversations(
             CallLog.kind == "voicemail",
         )
         .order_by(CallLog.created_at.desc())
+        .limit(50)
+    )
+    # Emails absorbed by the Session E pipeline. Newest 50 — older
+    # context is summarized into the contact's memory rows + AI brief.
+    email_rows = await db.execute(
+        select(AbsorbedEmail)
+        .where(AbsorbedEmail.contact_id == contact_id)
+        .order_by(AbsorbedEmail.sent_at.desc())
         .limit(50)
     )
 
@@ -365,6 +373,20 @@ async def list_contact_conversations(
             ),
             "recording_duration_seconds": vm.recording_duration_seconds,
             "ref_id": str(vm.id),
+        })
+    for em in email_rows.scalars().all():
+        events.append({
+            "id": f"email:{em.id}",
+            "type": "email",
+            "timestamp": em.sent_at.isoformat() if em.sent_at else None,
+            "direction": em.direction,
+            "subject": em.subject,
+            "snippet": em.snippet,
+            "body_summary": em.body_summary,
+            "thread_id": em.thread_id,
+            "memory_id": str(em.memory_id) if em.memory_id else None,
+            "gmail_message_id": em.gmail_message_id,
+            "ref_id": str(em.id),
         })
 
     # Sort by timestamp ascending (oldest first) so the frontend can render

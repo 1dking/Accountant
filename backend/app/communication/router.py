@@ -1411,3 +1411,141 @@ async def close_chat_session(
 ) -> dict:
     session = await service.close_session(db, session_id)
     return {"data": LiveChatSessionResponse.model_validate(session)}
+
+
+# ---------------------------------------------------------------------------
+# Email Absorption (Session E) — manual trigger + run status polling
+# ---------------------------------------------------------------------------
+
+
+@router.post("/email-absorb", status_code=202)
+async def trigger_email_absorption(
+    body: dict,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    """Kick off email absorption for the current user.
+
+    Body: { "lookback_days": int (1-365, default 7) }
+
+    Creates an EmailAbsorptionRun row in 'queued' status, schedules the
+    worker via BackgroundTasks, returns 202 + { run_id } immediately.
+    Frontend polls GET /email-absorb/runs/{run_id} until status is
+    'complete' or 'failed'.
+    """
+    from app.communication.email_absorber import absorb_user_emails_task
+    from app.communication.models import EmailAbsorptionRun
+
+    requested_days = body.get("lookback_days", 7)
+    try:
+        lookback_days = int(requested_days)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="lookback_days must be an integer")
+    if lookback_days < 1 or lookback_days > 365:
+        raise HTTPException(
+            status_code=400, detail="lookback_days must be between 1 and 365",
+        )
+
+    run = EmailAbsorptionRun(
+        id=uuid.uuid4(),
+        user_id=current_user.id,
+        status="queued",
+        lookback_days=lookback_days,
+    )
+    db.add(run)
+    await db.commit()
+    await db.refresh(run)
+
+    background_tasks.add_task(
+        absorb_user_emails_task,
+        run_id=run.id,
+        user_id=current_user.id,
+        session_factory=request.app.state.session_factory,
+    )
+    logger.info(
+        "email_absorber.run_queued run_id=%s user_id=%s lookback_days=%d",
+        run.id, current_user.id, lookback_days,
+    )
+    return {
+        "data": {
+            "run_id": str(run.id),
+            "status": run.status,
+            "lookback_days": run.lookback_days,
+        }
+    }
+
+
+@router.get("/email-absorb/runs/{run_id}")
+async def get_email_absorption_run(
+    run_id: uuid.UUID,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    """Poll a run's status + progress counters. Frontend hits this
+    every 2s while status is 'queued' or 'running'."""
+    from app.communication.models import EmailAbsorptionRun
+
+    row = await db.execute(
+        select(EmailAbsorptionRun).where(
+            EmailAbsorptionRun.id == run_id,
+            EmailAbsorptionRun.user_id == current_user.id,
+        )
+    )
+    run = row.scalar_one_or_none()
+    if run is None:
+        raise HTTPException(status_code=404, detail="Run not found")
+    return {
+        "data": {
+            "run_id": str(run.id),
+            "status": run.status,
+            "lookback_days": run.lookback_days,
+            "scanned": run.scanned,
+            "matched": run.matched,
+            "absorbed": run.absorbed,
+            "skipped": run.skipped,
+            "contacts_touched": run.contacts_touched,
+            "error_message": run.error_message,
+            "started_at": run.started_at.isoformat() if run.started_at else None,
+            "finished_at": run.finished_at.isoformat() if run.finished_at else None,
+            "created_at": run.created_at.isoformat() if run.created_at else None,
+        }
+    }
+
+
+@router.get("/email-absorb/runs")
+async def list_email_absorption_runs(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    """Return the user's 10 most-recent runs. Settings page renders
+    'Last run: X ago' from the top entry + a small history list."""
+    from app.communication.models import EmailAbsorptionRun
+
+    rows = await db.execute(
+        select(EmailAbsorptionRun)
+        .where(EmailAbsorptionRun.user_id == current_user.id)
+        .order_by(EmailAbsorptionRun.created_at.desc())
+        .limit(10)
+    )
+    runs = list(rows.scalars().all())
+    return {
+        "data": [
+            {
+                "run_id": str(r.id),
+                "status": r.status,
+                "lookback_days": r.lookback_days,
+                "scanned": r.scanned,
+                "matched": r.matched,
+                "absorbed": r.absorbed,
+                "skipped": r.skipped,
+                "contacts_touched": r.contacts_touched,
+                "error_message": r.error_message,
+                "started_at": r.started_at.isoformat() if r.started_at else None,
+                "finished_at": r.finished_at.isoformat() if r.finished_at else None,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            }
+            for r in runs
+        ]
+    }
