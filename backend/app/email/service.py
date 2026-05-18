@@ -285,18 +285,33 @@ async def send_invoice_email(
     if not to_email:
         raise ValidationError("No recipient email address provided or found on invoice contact")
 
-    # Build subject
-    email_subject = subject or f"Invoice {invoice.invoice_number}"
+    # Render via override-aware renderer. Subject + body both respect
+    # admin overrides; body stays Jinja2 (line-items table can't be
+    # reproduced with flat placeholders, so the schema marks invoice as
+    # allows_body_override=False).
+    from app.email.renderer import render_email as render_email_v2
 
-    # Render HTML
     now = datetime.now(timezone.utc)
-    html_body = render_template(
-        "invoice.html",
+    contact_name = (
+        getattr(invoice, "contact_name", None)
+        or (invoice.contact.contact_name if getattr(invoice, "contact", None) else "")
+    )
+    rendered_subject, html_body = await render_email_v2(
+        db,
+        "invoice",
+        user.id,
         invoice=invoice,
+        invoice_number=invoice.invoice_number,
+        total=float(invoice.total),
+        currency=invoice.currency,
+        due_date=str(invoice.due_date) if invoice.due_date else "",
+        contact_name=contact_name,
         custom_message=message,
         company_name=smtp_config.from_name,
         year=now.year,
     )
+    # Caller-supplied subject (legacy API param) still wins over override.
+    email_subject = subject or rendered_subject
 
     # Fetch company branding for PDF
     from app.settings.service import get_company_settings
@@ -367,16 +382,28 @@ async def send_payment_reminder(
     due_date = invoice.due_date if hasattr(invoice, "due_date") else None
     days_overdue = (now - due_date).days if due_date else 0
 
-    # Render HTML
-    html_body = render_template(
-        "payment_reminder.html",
+    # Render via override-aware renderer. Body stays Jinja2 (schema
+    # marks payment_reminder as allows_body_override=False); subject is
+    # editable.
+    from app.email.renderer import render_email as render_email_v2
+
+    contact_name = (
+        getattr(invoice, "contact_name", None)
+        or (invoice.contact.contact_name if getattr(invoice, "contact", None) else "")
+    )
+    email_subject, html_body = await render_email_v2(
+        db,
+        "payment_reminder",
+        user.id,
         invoice=invoice,
+        invoice_number=invoice.invoice_number,
+        total=float(invoice.total),
+        currency=invoice.currency,
         days_overdue=days_overdue,
+        contact_name=contact_name,
         company_name=smtp_config.from_name,
         year=datetime.now(timezone.utc).year,
     )
-
-    email_subject = f"Payment Reminder: Invoice {invoice.invoice_number}"
 
     await send_email(smtp_config, to_email, email_subject, html_body)
 
@@ -398,6 +425,8 @@ async def send_payment_confirmation(
     (NotFoundError if no SMTP exists) — the call site decides whether
     to swallow it.
     """
+    from app.email.renderer import render_email
+
     smtp_config = await resolve_smtp_config(db, user, None)
 
     # Determine recipient from the invoice's contact relationship.
@@ -410,10 +439,14 @@ async def send_payment_confirmation(
         )
 
     payment_date = payment.date.isoformat() if hasattr(payment, "date") else ""
-    html_body = render_template(
-        "payment_confirmation.html",
+    subject, html_body = await render_email(
+        db,
+        "payment_confirmation",
+        user.id,
         invoice=invoice,
+        invoice_number=invoice.invoice_number,
         amount=float(payment.amount),
+        currency=invoice.currency,
         payment_date=payment_date,
         payment_method=getattr(payment, "payment_method", None),
         company_name=smtp_config.from_name,
@@ -423,7 +456,7 @@ async def send_payment_confirmation(
     await send_email(
         smtp_config,
         to=to_email,
-        subject=f"Payment received — Invoice {invoice.invoice_number}",
+        subject=subject,
         html_body=html_body,
     )
     return {"detail": f"Payment confirmation sent to {to_email}"}
@@ -469,14 +502,24 @@ async def send_estimate_email(
     settings = Settings()
     view_url = f"{settings.public_base_url}/p/{pat.token}"
 
-    # Render HTML
+    # Render via override-aware renderer. Body stays Jinja2 (line-items
+    # table); subject is editable.
+    from app.email.renderer import render_email as render_email_v2
+
     now = datetime.now(timezone.utc)
-    html_body = render_template(
-        "estimate.html",
+    contact_name = estimate.contact.contact_name if estimate.contact else ""
+    email_subject, html_body = await render_email_v2(
+        db,
+        "estimate",
+        user.id,
         estimate=estimate,
+        estimate_number=estimate.estimate_number,
+        total=float(estimate.total) if estimate.total is not None else 0.0,
+        currency=getattr(estimate, "currency", "USD"),
+        contact_name=contact_name,
+        view_url=view_url,
         custom_message=None,
         company_name=smtp_config.from_name,
-        view_url=view_url,
         year=now.year,
     )
 
@@ -486,7 +529,7 @@ async def send_estimate_email(
         (f"Estimate-{estimate.estimate_number}.pdf", pdf_bytes, "application/pdf"),
     ]
 
-    await send_email(smtp_config, to_email, f"Estimate {estimate.estimate_number}", html_body, attachments)
+    await send_email(smtp_config, to_email, email_subject, html_body, attachments)
 
     # Mark as sent if still draft
     if estimate.status == EstimateStatus.DRAFT:

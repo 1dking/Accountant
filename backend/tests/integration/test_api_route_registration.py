@@ -55,6 +55,13 @@ FRONTEND_API_DEPENDENCIES = [
     ("PUT", "/api/notifications/read-all"),
     ("GET", "/api/notifications/preferences"),
     ("PUT", "/api/notifications/preferences"),
+
+    # Email template overrides
+    ("GET", "/api/email/templates"),
+    ("GET", "/api/email/templates/{template_key}"),
+    ("PUT", "/api/email/templates/{template_key}"),
+    ("DELETE", "/api/email/templates/{template_key}"),
+    ("POST", "/api/email/templates/{template_key}/test"),
 ]
 
 

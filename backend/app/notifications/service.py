@@ -196,7 +196,8 @@ async def _send_email_notification(
 
     from app.auth.models import User
     from app.config import Settings
-    from app.email.service import render_template, resolve_smtp_config, send_email
+    from app.email.renderer import render_email
+    from app.email.service import resolve_smtp_config, send_email
 
     row = await db.execute(select(User).where(User.id == user_id))
     user = row.scalar_one_or_none()
@@ -222,8 +223,10 @@ async def _send_email_notification(
     preferences_url = f"{base_url}/settings?tab=notif-prefs"
     type_label = NOTIFICATION_TYPE_LABELS.get(type, type.replace("_", " ").title())
 
-    html_body = render_template(
-        "notification.html",
+    subject, html_body = await render_email(
+        db,
+        "notification",
+        user_id,
         title=title,
         message=message,
         link_url=link_url,
@@ -238,7 +241,7 @@ async def _send_email_notification(
     await send_email(
         smtp_config,
         to=user.email,
-        subject=f"[{smtp_config.from_name}] {title}",
+        subject=subject,
         html_body=html_body,
     )
     logger.info(

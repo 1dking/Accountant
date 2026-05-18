@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router'
-import { User, Mail, Inbox, Landmark, CreditCard, MessageSquare, Bell, Lock, Receipt, Building2, CalendarDays, BellRing, Newspaper, Wallet, Smartphone, Zap } from 'lucide-react'
+import { User, Mail, Inbox, Landmark, CreditCard, MessageSquare, Bell, Lock, Receipt, Building2, CalendarDays, BellRing, Newspaper, Wallet, Smartphone, Zap, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/authStore'
 import ProfileSettings from '@/components/settings/ProfileSettings'
@@ -22,6 +22,7 @@ import BillingSettings from '@/components/settings/BillingSettings'
 import MobileAppSettings from '@/components/settings/MobileAppSettings'
 import AutomationSettings from '@/components/settings/AutomationSettings'
 import NotificationPreferencesSettings from '@/components/settings/NotificationPreferencesSettings'
+import EmailTemplatesSettings from '@/components/settings/EmailTemplatesSettings'
 
 const TABS: { id: string; label: string; icon: typeof User; adminOnly?: boolean }[] = [
   { id: 'billing', label: 'Plan & Billing', icon: Wallet },
@@ -29,6 +30,7 @@ const TABS: { id: string; label: string; icon: typeof User; adminOnly?: boolean 
   { id: 'profile', label: 'Profile', icon: User },
   { id: 'users', label: 'Users', icon: User, adminOnly: true },
   { id: 'email', label: 'Email (SMTP)', icon: Mail },
+  { id: 'email-templates', label: 'Email Templates', icon: FileText, adminOnly: true },
   { id: 'gmail', label: 'Gmail', icon: Inbox },
   { id: 'google-calendar', label: 'Google Cal', icon: CalendarDays },
   { id: 'notifications', label: 'Push Notifs', icon: BellRing },
@@ -97,6 +99,7 @@ export default function SettingsPage() {
           {activeTab === 'profile' && <ProfileSettings />}
           {activeTab === 'users' && user?.role === 'admin' && <UserManagement />}
           {activeTab === 'email' && <SmtpSettings />}
+          {activeTab === 'email-templates' && user?.role === 'admin' && <EmailTemplatesSettings />}
           {activeTab === 'gmail' && <GmailSettings />}
           {activeTab === 'google-calendar' && <GoogleCalendarSettings />}
           {activeTab === 'notifications' && <PushNotificationSettings />}

@@ -614,11 +614,8 @@ async def admin_create_user(
     response: dict = user_to_response_dict(user)
     if body.send_invite:
         from app.auth.service import generate_invite_token
-        from app.email.service import (
-            render_template,
-            resolve_smtp_config,
-            send_email,
-        )
+        from app.email.renderer import render_email
+        from app.email.service import resolve_smtp_config, send_email
 
         settings = request.app.state.settings
         token = generate_invite_token(user.id, settings)
@@ -628,15 +625,18 @@ async def admin_create_user(
 
         try:
             smtp_config = await resolve_smtp_config(db, admin, None)
-            html = render_template(
-                "invite.html",
+            subject, html = await render_email(
+                db,
+                "invite",
+                admin.id,
                 full_name=user.full_name,
                 invite_link=invite_link,
+                company_name=smtp_config.from_name,
             )
             await send_email(
                 smtp_config,
                 to=user.email,
-                subject="You're invited",
+                subject=subject,
                 html_body=html,
             )
         except Exception as exc:

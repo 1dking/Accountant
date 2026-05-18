@@ -148,7 +148,8 @@ async def _send_reset_email(
     """Render password_reset.html and dispatch via the user's SMTP config
     (falling back to system default). Isolated so the rest of the flow can
     proceed even if SMTP is unconfigured during local dev."""
-    from app.email.service import render_template, resolve_smtp_config, send_email
+    from app.email.renderer import render_email
+    from app.email.service import resolve_smtp_config, send_email
 
     smtp_config = await resolve_smtp_config(db, user, None)
 
@@ -157,8 +158,10 @@ async def _send_reset_email(
         f"/auth/password-reset/confirm/{token}"
     )
 
-    html_body = render_template(
-        "password_reset.html",
+    subject, html_body = await render_email(
+        db,
+        "password_reset",
+        user.id,
         user_name=user.full_name or user.email,
         reset_url=reset_url,
         expires_in="1 hour",
@@ -169,7 +172,7 @@ async def _send_reset_email(
     await send_email(
         smtp_config,
         to=user.email,
-        subject="Reset your password",
+        subject=subject,
         html_body=html_body,
     )
 
