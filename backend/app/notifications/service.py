@@ -29,6 +29,11 @@ DEFAULT_PREFERENCES = {
     "identity_capture_asked": {"in_app": True, "email": False, "sms": False},
     "contact_auto_created": {"in_app": True, "email": False, "sms": False},
     "identity_capture_failed": {"in_app": True, "email": False, "sms": True},
+    # Security event — your account just had its password changed. Email
+    # is on by default so the trail goes to the address you used to
+    # request the reset; SMS too because if it WASN'T you, you want to
+    # know fast. (Effective once SMTP integration is wired up.)
+    "password_changed": {"in_app": True, "email": True, "sms": True},
     # Fallback for any new type added later
     "_default": {"in_app": True, "email": False, "sms": False},
 }
@@ -45,6 +50,7 @@ NOTIFICATION_TYPE_LABELS = {
     "identity_capture_asked": "Asked unknown caller for identity",
     "contact_auto_created": "Contact auto-created from SMS",
     "identity_capture_failed": "Couldn't capture identity",
+    "password_changed": "Password changed",
 }
 
 
@@ -109,16 +115,26 @@ async def create_notification(
             user_id, type,
         )
 
-    # Email channel — currently logs only. SMTP send is a future
-    # integration. Logged at INFO so it's visible in the journal for
-    # auditing when the user has email enabled but no SMTP exists yet.
+    # Email channel — dispatch via the user's SMTP config (falling back
+    # to system default). Failure NEVER blocks the in-app row: SMTP can
+    # be unconfigured during local dev, the mailbox can be unreachable,
+    # the user might not have a valid email — none of those should kill
+    # the notification entirely. We log and move on.
     if prefs.get("email", False):
-        logger.info(
-            "notifications.email_pending_smtp user_id=%s type=%s "
-            "title=%r — email channel enabled but SMTP integration "
-            "not yet implemented",
-            user_id, type, title,
-        )
+        try:
+            await _send_email_notification(
+                db,
+                user_id=user_id,
+                type=type,
+                title=title,
+                message=message,
+                link_path=link_path,
+            )
+        except Exception as e:
+            logger.warning(
+                "notifications.email_channel_failed user_id=%s type=%s error=%s",
+                user_id, type, str(e)[:200],
+            )
 
     # SMS-to-cell channel — sends to user.fallback_phone via Twilio.
     # Wrapped in try/except so an SMS failure can't break the in-app
@@ -159,6 +175,76 @@ async def create_notification(
         )
 
     return notification
+
+
+async def _send_email_notification(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    type: str,
+    title: str,
+    message: str,
+    link_path: str | None,
+) -> None:
+    """Render notification.html and dispatch via the user's SMTP config.
+
+    If the user has no resolvable SMTP config (and no system default
+    exists), we log and bail — better to skip than to surface an SMTP
+    error to the caller. This is the channel where "user wants email
+    but the platform isn't fully wired" needs to fail gracefully.
+    """
+    from datetime import datetime, timezone
+
+    from app.auth.models import User
+    from app.config import Settings
+    from app.email.service import render_template, resolve_smtp_config, send_email
+
+    row = await db.execute(select(User).where(User.id == user_id))
+    user = row.scalar_one_or_none()
+    if user is None or not user.email:
+        logger.info(
+            "notifications.email_channel_skipped_no_user user_id=%s", user_id
+        )
+        return
+
+    try:
+        smtp_config = await resolve_smtp_config(db, user, None)
+    except NotFoundError:
+        logger.info(
+            "notifications.email_channel_skipped_no_smtp user_id=%s type=%s "
+            "— no user or system SMTP config configured",
+            user_id, type,
+        )
+        return
+
+    settings = Settings()
+    base_url = settings.public_base_url.rstrip("/")
+    link_url = f"{base_url}{link_path}" if link_path else None
+    preferences_url = f"{base_url}/settings?tab=notif-prefs"
+    type_label = NOTIFICATION_TYPE_LABELS.get(type, type.replace("_", " ").title())
+
+    html_body = render_template(
+        "notification.html",
+        title=title,
+        message=message,
+        link_url=link_url,
+        link_label="Open in app",
+        type_label=type_label,
+        type=type,
+        preferences_url=preferences_url,
+        company_name=smtp_config.from_name,
+        year=datetime.now(timezone.utc).year,
+    )
+
+    await send_email(
+        smtp_config,
+        to=user.email,
+        subject=f"[{smtp_config.from_name}] {title}",
+        html_body=html_body,
+    )
+    logger.info(
+        "notifications.email_channel_sent user_id=%s to=%s type=%s",
+        user_id, user.email, type,
+    )
 
 
 async def _send_sms_notification(

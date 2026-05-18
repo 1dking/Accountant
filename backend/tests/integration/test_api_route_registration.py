@@ -46,6 +46,8 @@ FRONTEND_API_DEPENDENCIES = [
     ("GET", "/api/auth/me/voicemail-greeting"),
     ("POST", "/api/auth/me/voicemail-greeting"),
     ("DELETE", "/api/auth/me/voicemail-greeting"),
+    ("POST", "/api/auth/password-reset/request"),
+    ("POST", "/api/auth/password-reset/confirm"),
 
     # Notifications
     ("GET", "/api/notifications/unread-count"),

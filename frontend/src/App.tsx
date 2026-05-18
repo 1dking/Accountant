@@ -51,6 +51,8 @@ import MeetingRoomPage from '@/pages/MeetingRoomPage'
 import MeetingGuestJoinPage from '@/pages/MeetingGuestJoinPage'
 import RecordingsPage from '@/pages/RecordingsPage'
 import GoogleCallbackPage from '@/pages/GoogleCallbackPage'
+import PasswordResetRequestPage from '@/pages/PasswordResetRequestPage'
+import PasswordResetConfirmPage from '@/pages/PasswordResetConfirmPage'
 import HelpPage from '@/pages/HelpPage'
 import PublicDocumentPage from '@/pages/PublicDocumentPage'
 import DocsHomePage from '@/pages/DocsHomePage'
@@ -244,6 +246,8 @@ export default function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/auth/password-reset/request" element={<PasswordResetRequestPage />} />
+            <Route path="/auth/password-reset/confirm/:token" element={<PasswordResetConfirmPage />} />
             <Route path="/auth/google/callback" element={<GoogleCallbackPage />} />
             <Route path="/p/:token" element={<PublicDocumentPage />} />
             <Route path="/proposals/sign/:token" element={<ProposalSigningPage />} />

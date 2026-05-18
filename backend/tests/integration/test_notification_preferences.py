@@ -24,6 +24,7 @@ class TestDefaultsCoverage:
         "identity_capture_asked",
         "contact_auto_created",
         "identity_capture_failed",
+        "password_changed",
     }
 
     def test_every_known_type_has_default(self):

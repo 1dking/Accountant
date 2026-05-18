@@ -1,4 +1,5 @@
 
+import logging
 import uuid
 from datetime import date, datetime, timezone
 from decimal import Decimal
@@ -21,6 +22,8 @@ from app.invoicing.schemas import (
     InvoicePaymentCreate,
     InvoiceUpdate,
 )
+
+logger = logging.getLogger(__name__)
 
 
 async def generate_invoice_number(db: AsyncSession) -> str:
@@ -286,7 +289,9 @@ async def record_payment(
     )
     total_paid = Decimal(str(paid_result.scalar()))
 
+    was_paid_transition = False
     if total_paid >= Decimal(str(invoice.total)):
+        was_paid_transition = invoice.status != InvoiceStatus.PAID
         invoice.status = InvoiceStatus.PAID
     else:
         invoice.status = InvoiceStatus.PARTIALLY_PAID
@@ -309,6 +314,21 @@ async def record_payment(
         await create_income_from_payment(db, invoice, payment, user)
     except ImportError:
         pass  # Income module not yet available
+
+    # On a fresh PAID transition, send the contact a payment confirmation
+    # email. Wrap broad — SMTP unconfigured, contact has no email, MX
+    # bounce, etc., must NEVER fail the payment record. The DB write has
+    # already committed at this point.
+    if was_paid_transition:
+        try:
+            from app.email.service import send_payment_confirmation
+
+            await send_payment_confirmation(db, invoice, payment, user)
+        except Exception as exc:
+            logger.warning(
+                "invoicing.payment_confirmation_email_failed invoice_id=%s err=%s",
+                invoice.id, str(exc)[:200],
+            )
 
     return payment
 

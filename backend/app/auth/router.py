@@ -15,6 +15,8 @@ from app.auth.schemas import (
     AdminUserUpdate,
     GoogleAuthRequest,
     InviteCompleteRequest,
+    PasswordResetConfirm,
+    PasswordResetRequest,
     TokenRefreshRequest,
     UserCreate,
     UserLogin,
@@ -148,6 +150,56 @@ async def logout(
 ) -> dict:
     await revoke_refresh_token(db, body.refresh_token)
     return {"data": {"message": "Logged out successfully"}}
+
+
+# ---------------------------------------------------------------------------
+# Password reset
+# ---------------------------------------------------------------------------
+
+
+@router.post("/password-reset/request")
+async def password_reset_request_endpoint(
+    body: PasswordResetRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
+) -> dict:
+    """Trigger a password reset email. Always returns 200 to prevent
+    account enumeration — the response is identical whether or not the
+    email maps to a real user."""
+    from app.auth.password_reset import request_password_reset
+
+    try:
+        await request_password_reset(db, body.email, request.app.state.settings)
+    except RateLimitError:
+        # Surface rate-limit so legitimate users see "slow down" rather
+        # than a silent black-hole. Email-only gating means this isn't
+        # an enumeration oracle.
+        raise
+    return {
+        "data": {
+            "message": (
+                "If an account exists for that email, a reset link has "
+                "been sent."
+            )
+        }
+    }
+
+
+@router.post("/password-reset/confirm")
+async def password_reset_confirm_endpoint(
+    body: PasswordResetConfirm,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
+) -> dict:
+    """Validate a reset token, set the new password, and auto-login the
+    user. Returns the same TokenResponse shape as /login so the frontend
+    can store credentials and redirect straight into the app."""
+    from app.auth.password_reset import confirm_password_reset
+
+    tokens = await confirm_password_reset(
+        db, body.token, body.new_password, request.app.state.settings
+    )
+    return {"data": tokens}
 
 
 @router.get("/me")
@@ -543,11 +595,58 @@ async def list_users(
 @router.post("/users", status_code=201)
 async def admin_create_user(
     body: AdminUserCreate,
-    _: Annotated[User, Depends(require_role([Role.ADMIN]))],
+    admin: Annotated[User, Depends(require_role([Role.ADMIN]))],
     db: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
 ) -> dict:
-    user = await create_user(db, body.email, body.password, body.full_name, body.role, body.feature_access)
-    return {"data": user_to_response_dict(user)}
+    """Create a user, optionally emailing them an invite link.
+
+    When ``send_invite=true``, mirrors the platform_admin flow:
+    generate an invite JWT, build a frontend link, and send the
+    invite.html template via the admin's SMTP config. Failure to send
+    the email never fails user creation — the response surfaces the
+    invite_link so the admin can copy/paste manually as a fallback.
+    """
+    user = await create_user(
+        db, body.email, body.password, body.full_name, body.role, body.feature_access
+    )
+
+    response: dict = user_to_response_dict(user)
+    if body.send_invite:
+        from app.auth.service import generate_invite_token
+        from app.email.service import (
+            render_template,
+            resolve_smtp_config,
+            send_email,
+        )
+
+        settings = request.app.state.settings
+        token = generate_invite_token(user.id, settings)
+        base_url = settings.public_base_url.rstrip("/")
+        invite_link = f"{base_url}/invite?token={token}"
+        response["invite_link"] = invite_link
+
+        try:
+            smtp_config = await resolve_smtp_config(db, admin, None)
+            html = render_template(
+                "invite.html",
+                full_name=user.full_name,
+                invite_link=invite_link,
+            )
+            await send_email(
+                smtp_config,
+                to=user.email,
+                subject="You're invited",
+                html_body=html,
+            )
+        except Exception as exc:
+            # Surface the link in the response so the admin can DIY.
+            logger.warning(
+                "auth.admin_invite_email_failed user_id=%s err=%s",
+                user.id, str(exc)[:200],
+            )
+
+    return {"data": response}
 
 
 @router.put("/users/{user_id}")

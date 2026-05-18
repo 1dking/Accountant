@@ -383,6 +383,52 @@ async def send_payment_reminder(
     return {"detail": f"Payment reminder sent to {to_email}"}
 
 
+async def send_payment_confirmation(
+    db: AsyncSession,
+    invoice,
+    payment,
+    user: User,
+) -> dict:
+    """Send a payment-confirmation email to the invoice contact.
+
+    Called after a payment lands and the invoice transitions to PAID.
+    Wraps SMTP resolution + template render + send into one call so the
+    invoicing service can fire-and-forget. Returns the same shape as
+    other email workflows; raises on caller-visible config issues
+    (NotFoundError if no SMTP exists) — the call site decides whether
+    to swallow it.
+    """
+    smtp_config = await resolve_smtp_config(db, user, None)
+
+    # Determine recipient from the invoice's contact relationship.
+    to_email: Optional[str] = getattr(invoice, "contact_email", None)
+    if not to_email and hasattr(invoice, "contact") and invoice.contact:
+        to_email = invoice.contact.email
+    if not to_email:
+        raise ValidationError(
+            "No recipient email address found on invoice contact"
+        )
+
+    payment_date = payment.date.isoformat() if hasattr(payment, "date") else ""
+    html_body = render_template(
+        "payment_confirmation.html",
+        invoice=invoice,
+        amount=float(payment.amount),
+        payment_date=payment_date,
+        payment_method=getattr(payment, "payment_method", None),
+        company_name=smtp_config.from_name,
+        year=datetime.now(timezone.utc).year,
+    )
+
+    await send_email(
+        smtp_config,
+        to=to_email,
+        subject=f"Payment received — Invoice {invoice.invoice_number}",
+        html_body=html_body,
+    )
+    return {"detail": f"Payment confirmation sent to {to_email}"}
+
+
 async def send_estimate_email(
     db: AsyncSession,
     estimate_id: uuid.UUID,
