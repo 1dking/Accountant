@@ -87,6 +87,18 @@ WEBHOOK_PATH_SMS = "/sms/webhook"
 WEBHOOK_PATH_CALL_STATUS = "/voice/call-status"
 
 
+def build_webhook_url(settings: Settings, path: str) -> str:
+    """Resolve a /communication-relative path to an absolute URL using
+    settings.public_base_url. Single source of truth for outbound webhook
+    URLs so a config change auto-propagates everywhere.
+
+    Example: build_webhook_url(settings, "/voice/voicemail")
+        → "https://accountant.ocidm.io/api/communication/voice/voicemail"
+    """
+    base = (settings.public_base_url or "").rstrip("/")
+    return f"{base}/api/communication{path}"
+
+
 def build_webhook_urls(settings: Settings) -> dict[str, str]:
     """Return absolute URLs for the webhooks Twilio needs to call on our
     behalf for each phone number. Driven by settings.public_base_url so the

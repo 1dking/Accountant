@@ -263,7 +263,7 @@ def _xml_response(twiml_body: str) -> Response:
     return Response(content=twiml_body, media_type="application/xml")
 
 
-def _voicemail_response(user: "User | None") -> Response:
+def _voicemail_response(user: "User | None", settings: "Settings") -> Response:
     """TwiML for the voicemail capture flow.
 
     Branches on the user's voicemail_greeting_type:
@@ -288,7 +288,9 @@ def _voicemail_response(user: "User | None") -> Response:
             key = getattr(user, "voicemail_greeting_storage_key", None)
             if key:
                 response.play(
-                    f"https://accountant.ocidm.io/api/communication/voicemail-greeting/{user.id}.mp3"
+                    service.build_webhook_url(
+                        settings, f"/voicemail-greeting/{user.id}.mp3"
+                    )
                 )
                 used_custom = True
             else:
@@ -325,8 +327,10 @@ def _voicemail_response(user: "User | None") -> Response:
 
     response.append(
         Record(
-            action="https://accountant.ocidm.io/api/communication/voice/voicemail-complete",
-            recording_status_callback="https://accountant.ocidm.io/api/communication/voice/voicemail-status",
+            action=service.build_webhook_url(settings, "/voice/voicemail-complete"),
+            recording_status_callback=service.build_webhook_url(
+                settings, "/voice/voicemail-status"
+            ),
             recording_status_callback_method="POST",
             recording_status_callback_event="completed",
             max_length=120,
@@ -394,9 +398,9 @@ async def voice_twiml(
         except ValueError:
             user_uuid = None  # malformed UUID, fall through to global
 
+    settings: Settings = request.app.state.settings
     # Fall back to the global TWILIO_FROM_NUMBER if user has no assigned number
     if not caller_id:
-        settings: Settings = request.app.state.settings
         caller_id = settings.twilio_from_number or None
 
     response = VoiceResponse()
@@ -406,7 +410,9 @@ async def voice_twiml(
     )
     dial_kwargs: dict = {
         "record": "record-from-answer-dual",
-        "recording_status_callback": "https://accountant.ocidm.io/api/communication/voice/recording-status",
+        "recording_status_callback": service.build_webhook_url(
+            settings, "/voice/recording-status"
+        ),
         "recording_status_callback_method": "POST",
         "recording_status_callback_event": "completed",
     }
@@ -418,7 +424,7 @@ async def voice_twiml(
     # dialed-noun fires lifecycle webhooks.
     dial.number(
         to_number,
-        status_callback="https://accountant.ocidm.io/api/communication/voice/call-status",
+        status_callback=service.build_webhook_url(settings, "/voice/call-status"),
         status_callback_method="POST",
         status_callback_event="initiated ringing answered completed",
     )
@@ -458,6 +464,7 @@ async def voice_twiml(
 @router.post("/voice/incoming")
 async def voice_incoming(
     form: Annotated[dict, Depends(verified_twilio_form)],
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> Response:
     """Inbound webhook: Twilio hits this when one of our owned numbers is called.
@@ -469,6 +476,7 @@ async def voice_incoming(
     """
     from twilio.twiml.voice_response import VoiceResponse, Dial
 
+    settings: Settings = request.app.state.settings
     called = form.get("Called", "")
     caller_from = form.get("From", "")
 
@@ -494,15 +502,17 @@ async def voice_incoming(
     # belong on <Dial> (the recording is a property of the bridge).
     dial = Dial(
         timeout=10,
-        action="https://accountant.ocidm.io/api/communication/voice/incoming-fallback",
+        action=service.build_webhook_url(settings, "/voice/incoming-fallback"),
         record="record-from-answer-dual",
-        recording_status_callback="https://accountant.ocidm.io/api/communication/voice/recording-status",
+        recording_status_callback=service.build_webhook_url(
+            settings, "/voice/recording-status"
+        ),
         recording_status_callback_method="POST",
         recording_status_callback_event="completed",
     )
     dial.client(
         str(phone.assigned_user_id),
-        status_callback="https://accountant.ocidm.io/api/communication/voice/call-status",
+        status_callback=service.build_webhook_url(settings, "/voice/call-status"),
         status_callback_method="POST",
         status_callback_event="initiated ringing answered completed",
     )
@@ -539,6 +549,7 @@ async def voice_incoming(
 @router.post("/voice/incoming-fallback")
 async def voice_incoming_fallback(
     form: Annotated[dict, Depends(verified_twilio_form)],
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> Response:
     """Fires after the browser-Dial finishes (success or timeout).
@@ -550,6 +561,7 @@ async def voice_incoming_fallback(
     """
     from twilio.twiml.voice_response import VoiceResponse, Dial
 
+    settings: Settings = request.app.state.settings
     dial_status = form.get("DialCallStatus", "")
     called = form.get("Called", "") or form.get("To", "")  # 'Called' on incoming; 'To' on the fallback POST
 
@@ -586,7 +598,7 @@ async def voice_incoming_fallback(
         dial = Dial(timeout=20, caller_id=called)  # no action= → silent hangup
         dial.number(
             fallback,
-            status_callback="https://accountant.ocidm.io/api/communication/voice/call-status",
+            status_callback=service.build_webhook_url(settings, "/voice/call-status"),
             status_callback_method="POST",
             status_callback_event="initiated ringing answered completed",
         )
@@ -596,14 +608,14 @@ async def voice_incoming_fallback(
     # voicemail_only: skip cell entirely, go straight to voicemail.
     if mode == "voicemail_only":
         await _mark_kind_voicemail(db, parent_call_sid)
-        return _voicemail_response(assigned_user)
+        return _voicemail_response(assigned_user, settings)
 
     # cell_then_voicemail (default):
     if not fallback:
         # No cell (no user, deleted phone, or user has no fallback_phone)
         # → voicemail directly. Caller still gets options.
         await _mark_kind_voicemail(db, parent_call_sid)
-        return _voicemail_response(assigned_user)
+        return _voicemail_response(assigned_user, settings)
 
     # Cell dial. On no-answer/fail, Twilio POSTs to action=/voice/voicemail.
     # statusCallback belongs on <Number>, NOT on <Dial> (Bug 1 lesson).
@@ -611,11 +623,11 @@ async def voice_incoming_fallback(
     dial = Dial(
         timeout=20,
         caller_id=called,
-        action="https://accountant.ocidm.io/api/communication/voice/voicemail",
+        action=service.build_webhook_url(settings, "/voice/voicemail"),
     )
     dial.number(
         fallback,
-        status_callback="https://accountant.ocidm.io/api/communication/voice/call-status",
+        status_callback=service.build_webhook_url(settings, "/voice/call-status"),
         status_callback_method="POST",
         status_callback_event="initiated ringing answered completed",
     )
@@ -626,6 +638,7 @@ async def voice_incoming_fallback(
 @router.post("/voice/voicemail")
 async def voice_voicemail(
     form: Annotated[dict, Depends(verified_twilio_form)],
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> Response:
     """Fires when the cell-fallback <Dial> finishes without 'completed'.
@@ -634,6 +647,7 @@ async def voice_voicemail(
     DID answer and the call completed naturally, short-circuit with an
     empty response — the call is already done, no voicemail needed.
     """
+    settings: Settings = request.app.state.settings
     dial_call_status = form.get("DialCallStatus", "")
     parent_call_sid = form.get("CallSid", "")
 
@@ -661,7 +675,7 @@ async def voice_voicemail(
         assigned_user = user_result.scalar_one_or_none()
 
     await _mark_kind_voicemail(db, parent_call_sid)
-    return _voicemail_response(assigned_user)
+    return _voicemail_response(assigned_user, settings)
 
 
 @router.post("/voice/voicemail-complete")
