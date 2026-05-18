@@ -23,6 +23,7 @@ import MobileAppSettings from '@/components/settings/MobileAppSettings'
 import AutomationSettings from '@/components/settings/AutomationSettings'
 import NotificationPreferencesSettings from '@/components/settings/NotificationPreferencesSettings'
 import EmailTemplatesSettings from '@/components/settings/EmailTemplatesSettings'
+import EmailAbsorptionSettings from '@/components/settings/EmailAbsorptionSettings'
 
 const TABS: { id: string; label: string; icon: typeof User; adminOnly?: boolean }[] = [
   { id: 'billing', label: 'Plan & Billing', icon: Wallet },
@@ -32,6 +33,7 @@ const TABS: { id: string; label: string; icon: typeof User; adminOnly?: boolean 
   { id: 'email', label: 'Email (SMTP)', icon: Mail },
   { id: 'email-templates', label: 'Email Templates', icon: FileText, adminOnly: true },
   { id: 'gmail', label: 'Gmail', icon: Inbox },
+  { id: 'email-absorption', label: 'Email Absorb', icon: Inbox },
   { id: 'google-calendar', label: 'Google Cal', icon: CalendarDays },
   { id: 'notifications', label: 'Push Notifs', icon: BellRing },
   { id: 'notif-prefs', label: 'Notif Prefs', icon: BellRing },
@@ -101,6 +103,7 @@ export default function SettingsPage() {
           {activeTab === 'email' && <SmtpSettings />}
           {activeTab === 'email-templates' && user?.role === 'admin' && <EmailTemplatesSettings />}
           {activeTab === 'gmail' && <GmailSettings />}
+          {activeTab === 'email-absorption' && <EmailAbsorptionSettings />}
           {activeTab === 'google-calendar' && <GoogleCalendarSettings />}
           {activeTab === 'notifications' && <PushNotificationSettings />}
           {activeTab === 'notif-prefs' && <NotificationPreferencesSettings />}
