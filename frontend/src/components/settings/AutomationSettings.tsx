@@ -13,7 +13,7 @@ import {
   type AutomationTriggerType,
   type AutomationFlowInput,
 } from '@/api/automation'
-import { updateProfile } from '@/api/auth'
+import { updateProfile, previewConversationReply } from '@/api/auth'
 import { useAuthStore } from '@/stores/authStore'
 
 const TRIGGER_LABELS: Record<AutomationTriggerType, string> = {
@@ -478,6 +478,22 @@ function ConversationEnginePanel() {
   const [instructions, setInstructions] = useState(
     user?.conversation_ai_instructions ?? '',
   )
+  const [preview, setPreview] = useState<null | {
+    generated_reply: string
+    classification: string
+    sample_inbound_used: string
+  }>(null)
+  const previewMut = useMutation({
+    mutationFn: () =>
+      previewConversationReply({
+        template,
+        ai_instructions: instructions || undefined,
+      }),
+    onSuccess: (resp: any) => {
+      setPreview(resp?.data ?? null)
+    },
+    onError: (e: any) => toast.error(`Preview failed: ${e.message || ''}`),
+  })
 
   useEffect(() => {
     setEnabled(!!user?.conversation_reply_enabled)
@@ -567,7 +583,7 @@ function ConversationEnginePanel() {
           />
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <button
             type="button"
             onClick={() => saveMut.mutate()}
@@ -576,12 +592,45 @@ function ConversationEnginePanel() {
           >
             {saveMut.isPending ? 'Saving…' : 'Save'}
           </button>
+          <button
+            type="button"
+            onClick={() => previewMut.mutate()}
+            disabled={!template.trim() || previewMut.isPending}
+            className="px-4 py-2 border border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-md text-sm disabled:opacity-50"
+            title="Generate a sample AI reply using your current template + tone, without saving"
+          >
+            {previewMut.isPending ? 'Generating…' : 'See sample reply'}
+          </button>
           {dirty && (
             <span className="text-xs text-gray-500 dark:text-gray-400">
               Unsaved changes
             </span>
           )}
         </div>
+
+        {preview && (
+          <div className="mt-2 p-3 bg-indigo-50/60 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded">
+            <div className="text-[11px] uppercase tracking-wide text-indigo-700 dark:text-indigo-300 mb-1">
+              Sample reply ({preview.classification})
+            </div>
+            <div className="text-xs text-gray-500 dark:text-gray-400 mb-1.5 italic">
+              They sent: "{preview.sample_inbound_used}"
+            </div>
+            <div className="text-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-900 p-2 rounded border border-gray-200 dark:border-gray-700">
+              {preview.generated_reply || (
+                <span className="italic text-gray-400">(no reply — would stay silent)</span>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => previewMut.mutate()}
+              disabled={previewMut.isPending}
+              className="mt-2 text-xs text-indigo-600 hover:underline disabled:opacity-50"
+            >
+              Try another
+            </button>
+          </div>
+        )}
 
         <div className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded p-2">
           ⚠ The AI will reply up to 6 times per conversation. Close-out

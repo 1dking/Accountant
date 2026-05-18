@@ -50,6 +50,67 @@ Keep draft_text under 320 chars. NO emojis unless the user's instructions \
 explicitly say so. Match the user's voice."""
 
 
+DEFAULT_SAMPLE_INBOUND = (
+    "Hey, just wondering if you have a few minutes to chat about the "
+    "project tomorrow?"
+)
+
+
+async def generate_preview(
+    template: str,
+    ai_instructions: str | None,
+    sample_inbound: str | None = None,
+) -> dict:
+    """Generate a one-off sample reply without DB writes or SMS sends.
+
+    Used by the Settings UI's "See sample reply" button so users can
+    eyeball their template + instructions before saving. Builds a
+    synthetic conversation context (just the single inbound) and runs
+    the same Claude classifier the real engine uses.
+
+    Returns: { generated_reply, classification }
+    Raises on Anthropic API failure — caller wraps with HTTPException.
+    """
+    settings = Settings()
+    if not settings.anthropic_api_key:
+        raise ValueError("Anthropic API not configured")
+
+    inbound = (sample_inbound or DEFAULT_SAMPLE_INBOUND).strip()
+
+    parts: list[str] = []
+    parts.append("USER VOICE TEMPLATE:")
+    parts.append(template or "(no template — use neutral friendly tone)")
+    if ai_instructions:
+        parts.append("\nADDITIONAL TONE INSTRUCTIONS:")
+        parts.append(ai_instructions)
+    parts.append("\nCONTACT:")
+    parts.append("Name: Sample Caller, Company: (preview)")
+    parts.append("\nMESSAGE HISTORY (oldest first):")
+    parts.append(f"[them] {inbound}")
+    parts.append("\nClassify and respond to the latest inbound message.")
+    user_prompt = "\n".join(parts)
+
+    client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+    response = await client.messages.create(
+        model=MODEL,
+        max_tokens=MAX_TOKENS,
+        system=SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": user_prompt}],
+        timeout=30.0,
+    )
+    raw = "".join(
+        b.text for b in response.content if getattr(b, "type", "") == "text"
+    )
+    parsed = json.loads(_strip_fences(raw))
+    action = parsed.get("action") or "respond"
+    draft = (parsed.get("draft_text") or "").strip()[:1600]
+    return {
+        "generated_reply": draft,
+        "classification": action,
+        "sample_inbound_used": inbound,
+    }
+
+
 def _build_user_prompt(
     user: User, contact: Contact | None, history: list[SmsMessage]
 ) -> str:

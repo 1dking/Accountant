@@ -167,6 +167,36 @@ async def update_me(
     return {"data": UserResponse.model_validate(user)}
 
 
+@router.post("/me/conversation-preview")
+async def preview_conversation_reply(
+    body: dict,
+    _: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    """Generate a sample AI reply using the user's draft template +
+    tone — WITHOUT saving anything or sending an SMS. Lets users eyeball
+    output before clicking Save in Settings → Automation."""
+    from app.communication.conversation_engine import generate_preview
+
+    template = (body.get("template") or "").strip()
+    instructions = body.get("ai_instructions") or None
+    sample = body.get("sample_inbound") or None
+    if not template:
+        raise HTTPException(
+            status_code=400,
+            detail="template is required (the voice you want AI to mirror)",
+        )
+    try:
+        result = await generate_preview(template, instructions, sample)
+    except ValueError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"AI preview failed: {str(e)[:160]}",
+        )
+    return {"data": result}
+
+
 @router.get("/me/onboarding")
 async def get_my_onboarding(
     current_user: Annotated[User, Depends(get_current_user)],

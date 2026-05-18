@@ -98,6 +98,25 @@ export async function dismissOnboardingItem(itemKey: string) {
   )
 }
 
+// ─── Conversation engine preview ───
+
+export interface ConversationPreviewResult {
+  generated_reply: string
+  classification: 'respond' | 'close_out' | 'silent'
+  sample_inbound_used: string
+}
+
+export async function previewConversationReply(data: {
+  template: string
+  ai_instructions?: string
+  sample_inbound?: string
+}) {
+  return api.post<ApiResponse<ConversationPreviewResult>>(
+    '/auth/me/conversation-preview',
+    data,
+  )
+}
+
 export async function getSystemStats() {
   return api.get<ApiResponse<{
     document_count: number
