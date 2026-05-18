@@ -387,6 +387,12 @@ def _sample_variables(template_key: str, company_name: str) -> dict:
             "full_name": "Jane Smith",
             "invite_link": "https://accountant.example.com/invite?token=sample",
         }
+    if template_key == "welcome":
+        return {
+            **common,
+            "user_name": "Jane Smith",
+            "login_url": "https://accountant.example.com/login",
+        }
     if template_key == "notification":
         return {
             **common,

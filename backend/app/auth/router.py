@@ -646,6 +646,20 @@ async def admin_create_user(
                 user.id, str(exc)[:200],
             )
 
+        # Welcome email — sent in addition to the invite. The invite
+        # delivers the credential; the welcome delivers the orientation.
+        # Two distinct emails by design. Failure of either NEVER fails
+        # user creation.
+        try:
+            from app.auth.service import send_welcome_email
+
+            await send_welcome_email(db, user, request.app.state.settings)
+        except Exception as exc:
+            logger.warning(
+                "auth.admin_welcome_email_failed user_id=%s err=%s",
+                user.id, str(exc)[:200],
+            )
+
     return {"data": response}
 
 

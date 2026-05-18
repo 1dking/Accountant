@@ -1,11 +1,11 @@
 
+import json
+import logging
 import uuid as _uuid
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-
-import json
 
 from app.auth.features import resolve_feature_access
 from app.auth.models import RefreshToken, Role, User
@@ -22,6 +22,47 @@ from app.collaboration.service import log_activity
 from app.config import Settings
 from app.core.exceptions import ConflictError, ForbiddenError, NotFoundError, ValidationError
 from app.core.pagination import PaginationParams, build_pagination_meta
+
+logger = logging.getLogger(__name__)
+
+
+async def send_welcome_email(
+    db: AsyncSession,
+    user: User,
+    settings: Settings,
+) -> None:
+    """Friendly onboarding email — sent post-registration and post-invite.
+
+    Wrapped broad on the caller side: a failed welcome email must NEVER
+    fail account creation. The user is in the DB; SMTP issues should be
+    visible in logs but not surfaced as 500s. Goes through the Tier 2
+    override renderer so admins can customize the copy in Settings →
+    Email Templates without a code change.
+    """
+    from app.email.renderer import render_email
+    from app.email.service import resolve_smtp_config, send_email
+
+    smtp_config = await resolve_smtp_config(db, user, None)
+
+    base_url = settings.public_base_url.rstrip("/")
+    subject, html_body = await render_email(
+        db,
+        "welcome",
+        user.id,
+        user_name=user.full_name or user.email,
+        company_name=smtp_config.from_name,
+        login_url=f"{base_url}/login",
+    )
+
+    await send_email(
+        smtp_config,
+        to=user.email,
+        subject=subject,
+        html_body=html_body,
+    )
+    logger.info(
+        "auth.welcome_email_sent user_id=%s to=%s", user.id, user.email
+    )
 
 
 async def register_user(
@@ -57,6 +98,15 @@ async def register_user(
         resource_id=str(user.id),
         details={"email": user.email, "role": user.role.value},
     )
+
+    # Welcome email — best-effort, never blocks registration.
+    try:
+        await send_welcome_email(db, user, settings)
+    except Exception as exc:
+        logger.warning(
+            "auth.welcome_email_failed user_id=%s err=%s",
+            user.id, str(exc)[:200],
+        )
 
     return user
 

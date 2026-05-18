@@ -49,6 +49,17 @@ TEMPLATES: dict[str, TemplateSchema] = {
         "variables": ["full_name", "invite_link", "company_name"],
         "allows_body_override": True,
     },
+    "welcome": {
+        "label": "Welcome email",
+        "description": (
+            "Sent after a user completes registration or accepts an "
+            "admin invite — gives them a friendly nudge toward the "
+            "onboarding checklist on the dashboard."
+        ),
+        "default_subject": "Welcome to {company_name}",
+        "variables": ["user_name", "company_name", "login_url"],
+        "allows_body_override": True,
+    },
     "notification": {
         "label": "In-app notification (email channel)",
         "description": (

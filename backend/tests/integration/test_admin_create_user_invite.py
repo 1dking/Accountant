@@ -77,10 +77,13 @@ async def test_send_invite_true_triggers_email(
     assert body.get("invite_link"), "Response must include invite_link fallback"
     assert "/invite?token=" in body["invite_link"]
 
-    assert len(sends) == 1
-    sent = sends[0]
+    # Tier 3 added a welcome email on top of the invite — both fire on
+    # send_invite=true. Filter to the invite send to keep this test
+    # focused; the welcome send is covered by test_welcome_email.py.
+    invite_sends = [s for s in sends if "invite" in s["subject"].lower()]
+    assert len(invite_sends) == 1
+    sent = invite_sends[0]
     assert sent["to"] == "newhire@example.com"
-    assert "invite" in sent["subject"].lower()
     assert "New Hire" in sent["html_body"]
 
 

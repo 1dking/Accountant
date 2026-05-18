@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 style="margin-top:0;">Welcome to {{ company_name | default("Accountant") }}, {{ user_name }}!</h2>
+<p>You're in. Your account is ready and you can start using the platform right now.</p>
+<p>The fastest path to value:</p>
+<ol style="margin: 12px 0 16px 0; padding-left: 24px; color: #334155;">
+  <li style="margin-bottom: 6px;">Sign in and head to your dashboard.</li>
+  <li style="margin-bottom: 6px;">Work through the onboarding checklist at the top — it walks you through the few-minute setup (phone, voicemail, fallback number).</li>
+  <li>Once setup is green, every other feature is available from the side nav.</li>
+</ol>
+<div style="text-align: center;">
+  <a href="{{ login_url }}" class="btn">Open my dashboard</a>
+</div>
+<p style="font-size: 13px; color: #64748b; margin-top: 24px;">If anything's confusing or broken, reply to this email and we'll get on it.</p>
+<p style="font-size: 12px; color: #94a3b8; word-break: break-all;">Or copy this link: {{ login_url }}</p>
+{% endblock %}
