@@ -41,6 +41,7 @@
     "@univerjs/sheets": "^0.16.0",
     "@univerjs/sheets-ui": "^0.16.0",
     "clsx": "^2.1.1",
+    "cmdk": "^1.1.1",
     "dompurify": "^3.3.2",
     "file-saver": "^2.0.5",
     "livekit-client": "^2.17.2",
