@@ -322,7 +322,7 @@ export default function ContactConversationThread({
                   }`}
                 >
                   <span>{relativeTime(ev.timestamp)}</span>
-                  {isOut && <StatusIcon status={ev.status} />}
+                  {isOut && <StatusIcon status={ev.status ?? null} />}
                 </div>
               </div>
             )
