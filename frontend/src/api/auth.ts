@@ -117,6 +117,50 @@ export async function previewConversationReply(data: {
   )
 }
 
+// ─── Admin team management ───
+
+export interface AdminTeamMember {
+  id: string
+  email: string
+  full_name: string
+  role: string | null
+  assigned_phone_number: string | null
+  fallback_phone: string | null
+  voicemail_greeting_set: boolean
+  voicemail_mode: string
+  conversation_reply_enabled: boolean
+  onboarding_progress: number
+  onboarding_done_count: number
+  onboarding_total_count: number
+}
+
+export async function listAdminTeam() {
+  return api.get<ApiResponse<AdminTeamMember[]>>('/auth/admin/team')
+}
+
+export async function getTeamMemberOnboarding(userId: string) {
+  return api.get<ApiResponse<OnboardingPayload & { user_id: string; email: string; full_name: string }>>(
+    `/auth/admin/team/${userId}/onboarding`,
+  )
+}
+
+export async function overrideTeamMember(userId: string, data: {
+  fallback_phone?: string
+  voicemail_mode?: string
+}) {
+  return api.put<ApiResponse<{ id: string; fallback_phone: string | null; voicemail_mode: string }>>(
+    `/auth/admin/team/${userId}/override`,
+    data,
+  )
+}
+
+export async function sendTeamMemberReminder(userId: string) {
+  return api.post<ApiResponse<{ sent: boolean; reason?: string; incomplete_count?: number }>>(
+    `/auth/admin/team/${userId}/remind`,
+    {},
+  )
+}
+
 export async function getSystemStats() {
   return api.get<ApiResponse<{
     document_count: number

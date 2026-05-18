@@ -12,6 +12,7 @@ import AppShell from '@/components/layout/AppShell'
 import InstallBanner from '@/components/layout/InstallBanner'
 import LoginPage from '@/pages/LoginPage'
 import DashboardPage from '@/pages/DashboardPage'
+import AdminTeamPage from '@/pages/AdminTeamPage'
 import DocumentsPage from '@/pages/DocumentsPage'
 import DocumentDetailPage from '@/pages/DocumentDetailPage'
 import CalendarPage from '@/pages/CalendarPage'
@@ -150,6 +151,7 @@ function AuthenticatedApp() {
     <AppShell>
       <Routes>
         <Route path="/" element={<DashboardPage />} />
+        <Route path="/admin/team" element={<AdminTeamPage />} />
         <Route path="/documents" element={<DocumentsPage />} />
         <Route path="/documents/:id" element={<DocumentDetailPage />} />
         <Route path="/drive" element={<DrivePage />} />

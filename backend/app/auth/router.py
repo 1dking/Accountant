@@ -239,6 +239,170 @@ async def dismiss_my_onboarding_item(
     return {"data": {"onboarding_state": new_state}}
 
 
+# ---------------------------------------------------------------------------
+# Admin team management — admin role only
+# ---------------------------------------------------------------------------
+
+
+@router.get("/admin/team")
+async def list_admin_team(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(require_role([Role.ADMIN]))],
+) -> dict:
+    """Admin view of every user with their onboarding progress + key
+    settings. Single page = whole team's setup status at a glance."""
+    from sqlalchemy import select
+    from app.auth.onboarding import compute_items, compute_progress
+    from app.communication.models import TwilioPhoneNumber
+
+    rows = await db.execute(
+        select(User).where(User.is_active == True).order_by(User.created_at)  # noqa: E712
+    )
+    users = list(rows.scalars().all())
+
+    # Pre-load phone assignments in one pass
+    phone_rows = await db.execute(select(TwilioPhoneNumber))
+    phones_by_user: dict = {}
+    for p in phone_rows.scalars().all():
+        if p.assigned_user_id is not None:
+            phones_by_user[p.assigned_user_id] = p.phone_number
+
+    out = []
+    for u in users:
+        items = await compute_items(db, u)
+        out.append({
+            "id": str(u.id),
+            "email": u.email,
+            "full_name": u.full_name,
+            "role": u.role.value if u.role else None,
+            "assigned_phone_number": phones_by_user.get(u.id),
+            "fallback_phone": u.fallback_phone,
+            "voicemail_greeting_set": u.voicemail_greeting_type is not None,
+            "voicemail_mode": u.voicemail_mode or "cell_then_voicemail",
+            "conversation_reply_enabled": bool(u.conversation_reply_enabled),
+            "onboarding_progress": compute_progress(items),
+            "onboarding_done_count": sum(
+                1 for i in items if i["completed"] and not i.get("dismissed_at")
+            ),
+            "onboarding_total_count": sum(
+                1 for i in items if not i.get("dismissed_at")
+            ),
+        })
+    return {"data": out}
+
+
+@router.get("/admin/team/{user_id}/onboarding")
+async def get_team_member_onboarding(
+    user_id: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(require_role([Role.ADMIN]))],
+) -> dict:
+    """Detailed onboarding state for one team member. Same shape as
+    /me/onboarding but admin-scoped."""
+    from sqlalchemy import select
+    from app.auth.onboarding import compute_items, compute_progress
+
+    target_row = await db.execute(select(User).where(User.id == user_id))
+    target = target_row.scalar_one_or_none()
+    if target is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    items = await compute_items(db, target)
+    return {
+        "data": {
+            "user_id": str(target.id),
+            "email": target.email,
+            "full_name": target.full_name,
+            "items": items,
+            "overall_progress": compute_progress(items),
+        }
+    }
+
+
+@router.put("/admin/team/{user_id}/override")
+async def admin_override_user_fields(
+    user_id: str,
+    body: dict,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(require_role([Role.ADMIN]))],
+) -> dict:
+    """Admin sets fallback_phone, voicemail_mode for a team member.
+    Limited to whitelisted fields — not a free-form user update.
+    """
+    from sqlalchemy import select
+
+    ALLOWED = {"fallback_phone", "voicemail_mode"}
+    bad = set(body.keys()) - ALLOWED
+    if bad:
+        raise HTTPException(
+            status_code=400, detail=f"Cannot override fields: {sorted(bad)}"
+        )
+
+    target_row = await db.execute(select(User).where(User.id == user_id))
+    target = target_row.scalar_one_or_none()
+    if target is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if "fallback_phone" in body:
+        target.fallback_phone = (body["fallback_phone"] or None)
+    if "voicemail_mode" in body:
+        vm = body["voicemail_mode"]
+        if vm not in {"cell_then_voicemail", "voicemail_only", "cell_only"}:
+            raise HTTPException(status_code=400, detail="invalid voicemail_mode")
+        target.voicemail_mode = vm
+
+    await db.commit()
+    await db.refresh(target)
+    return {
+        "data": {
+            "id": str(target.id),
+            "fallback_phone": target.fallback_phone,
+            "voicemail_mode": target.voicemail_mode,
+        }
+    }
+
+
+@router.post("/admin/team/{user_id}/remind")
+async def admin_send_setup_reminder(
+    user_id: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(require_role([Role.ADMIN]))],
+) -> dict:
+    """Send a setup-reminder notification to a team member. Creates
+    a 'type=admin_reminder' notification on their account that links
+    them to the dashboard onboarding checklist."""
+    from sqlalchemy import select
+    from app.auth.onboarding import compute_items, compute_progress
+    from app.notifications.service import create_notification
+
+    target_row = await db.execute(select(User).where(User.id == user_id))
+    target = target_row.scalar_one_or_none()
+    if target is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    items = await compute_items(db, target)
+    progress = compute_progress(items)
+    incomplete = [i for i in items if not i["completed"] and not i.get("dismissed_at")]
+    if not incomplete:
+        return {
+            "data": {"sent": False, "reason": "User has nothing left to set up"}
+        }
+
+    pct = int(progress * 100)
+    next_label = incomplete[0]["label"] if incomplete else "your setup"
+    await create_notification(
+        db,
+        user_id=target.id,
+        type="admin_reminder",
+        title="Setup reminder from your admin",
+        message=f"You're {pct}% set up. Next step: {next_label}.",
+        resource_type="user",
+        resource_id=str(target.id),
+        link_path="/dashboard",
+    )
+    return {"data": {"sent": True, "incomplete_count": len(incomplete)}}
+
+
 @router.get("/me/voicemail-greeting")
 async def get_my_voicemail_greeting(
     current_user: Annotated[User, Depends(get_current_user)],
