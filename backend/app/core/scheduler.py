@@ -26,6 +26,32 @@ async def _process_recurring_rules() -> None:
         logger.exception("Error processing recurring rules")
 
 
+async def _cleanup_old_notifications() -> None:
+    """Job: delete notifications older than 30 days. Daily at 3am UTC.
+
+    The notifications table grows fast (one row per SMS + voicemail +
+    automation event), and the bell only shows the last 20 anyway.
+    Keeping 30 days is the sweet spot for UX (history available if you
+    look) vs storage growth.
+    """
+    try:
+        from datetime import datetime, timedelta, timezone
+        from sqlalchemy import delete as sa_delete
+        from app.notifications.models import Notification
+
+        cutoff = datetime.now(timezone.utc) - timedelta(days=30)
+        async with _session_factory() as db:
+            result = await db.execute(
+                sa_delete(Notification).where(Notification.created_at < cutoff)
+            )
+            await db.commit()
+            count = result.rowcount or 0
+            if count > 0:
+                logger.info("notifications_cleanup deleted=%d cutoff=%s", count, cutoff.isoformat())
+    except Exception:
+        logger.exception("Error in notifications cleanup")
+
+
 async def _check_overdue_invoices() -> None:
     """Job: mark past-due invoices as overdue."""
     try:
@@ -257,6 +283,13 @@ def setup_scheduler(session_factory: Any, settings: Any = None) -> None:
         _fetch_daily_news,
         CronTrigger(hour=5, minute=0),
         id="fetch_daily_news",
+        replace_existing=True,
+    )
+
+    scheduler.add_job(
+        _cleanup_old_notifications,
+        CronTrigger(hour=3, minute=0),
+        id="cleanup_old_notifications",
         replace_existing=True,
     )
 

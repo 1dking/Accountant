@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
-import { Menu, Bell, Search, Sparkles } from 'lucide-react'
+import { Menu, Bell, Search, Sparkles, X } from 'lucide-react'
 import { useNotificationStore } from '@/stores/notificationStore'
 import { useUiStore } from '@/stores/uiStore'
 import { formatRelativeTime } from '@/lib/utils'
@@ -15,6 +15,7 @@ export default function Header() {
     markAllRead,
     fetchNotifications,
     fetchUnreadCount,
+    deleteNotification,
   } = useNotificationStore()
   const { panelState, openSidebar, openOBrain, closePanel } = useUiStore()
   const [showNotifications, setShowNotifications] = useState(false)
@@ -167,33 +168,50 @@ export default function Header() {
                   <p className="p-4 text-sm text-gray-500 dark:text-gray-400 text-center">No notifications</p>
                 ) : (
                   notifications.slice(0, 20).map((n) => (
-                    <button
+                    <div
                       key={n.id}
-                      onClick={() => {
-                        if (!n.is_read) markRead(n.id)
-                        // Prefer the explicit link_path set by the
-                        // notification creator (new pattern). Fall back to
-                        // legacy resource-type routing only when link_path
-                        // is empty (older rows / push notifications).
-                        if (n.link_path) {
-                          navigate(n.link_path)
-                        } else if (n.resource_type === 'document' && n.resource_id) {
-                          navigate(`/documents/${n.resource_id}`)
-                        } else if (n.contact_id) {
-                          navigate(`/contacts/${n.contact_id}`)
-                        }
-                        setShowNotifications(false)
-                      }}
-                      className={`w-full text-left px-4 py-3 border-b border-gray-50 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors ${
+                      className={`group relative w-full border-b border-gray-50 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors ${
                         !n.is_read ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''
                       }`}
                     >
-                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{n.title}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{n.message}</p>
-                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                        {formatRelativeTime(n.created_at)}
-                      </p>
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!n.is_read) markRead(n.id)
+                          // Prefer the explicit link_path set by the
+                          // notification creator (new pattern). Fall back to
+                          // legacy resource-type routing only when link_path
+                          // is empty (older rows / push notifications).
+                          if (n.link_path) {
+                            navigate(n.link_path)
+                          } else if (n.resource_type === 'document' && n.resource_id) {
+                            navigate(`/documents/${n.resource_id}`)
+                          } else if (n.contact_id) {
+                            navigate(`/contacts/${n.contact_id}`)
+                          }
+                          setShowNotifications(false)
+                        }}
+                        className="w-full text-left px-4 py-3 pr-9"
+                      >
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{n.title}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{n.message}</p>
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                          {formatRelativeTime(n.created_at)}
+                        </p>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          deleteNotification(n.id)
+                        }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Dismiss"
+                        aria-label="Dismiss notification"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   ))
                 )}
               </div>
