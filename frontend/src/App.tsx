@@ -128,12 +128,19 @@ function AuthenticatedApp() {
       wsClient.connect()
       fetchNotifications()
 
-      const unsub = wsClient.on('notification.new', (event) => {
+      // Backend publishes type='notification' (not 'notification.new').
+      const unsubNotif = wsClient.on('notification', (event) => {
         addNotification(event.data as any)
       })
 
+      // sms.received fans out to any tab subscribed to a contact thread.
+      // The thread component (ContactConversationThread) reads
+      // event.data.contact_id and refetches its query if it matches.
+      // Nothing to do here at the App level — listener lives in the
+      // thread component.
+
       return () => {
-        unsub()
+        unsubNotif()
         wsClient.disconnect()
       }
     }

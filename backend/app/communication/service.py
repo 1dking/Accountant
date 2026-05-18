@@ -479,6 +479,28 @@ async def receive_sms(
             reference_id=sms.id,
         )
 
+    # WebSocket fan-out for live Messages tab / Communication tab. The
+    # Messages-tab thread filters by contact_id on the receiving end.
+    # Wrapped in try/except — WS failure must NOT break inbound SMS.
+    if owner_user_id is not None:
+        try:
+            from app.core.websocket import websocket_manager
+            await websocket_manager.send_to_user(
+                str(owner_user_id),
+                {
+                    "type": "sms.received",
+                    "data": {
+                        "sms_id": str(sms.id),
+                        "contact_id": str(contact_id) if contact_id else None,
+                        "from_number": from_number,
+                        "body": (body or "")[:300],
+                        "created_at": sms.created_at.isoformat() if sms.created_at else None,
+                    },
+                },
+            )
+        except Exception as e:
+            logger.warning("ws.sms_received_publish_failed error=%s", str(e)[:200])
+
     # In-app notification for the user who owns this Twilio number.
     # Wrapped in try/except — notification failure must NOT break the
     # underlying inbound SMS flow.

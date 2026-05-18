@@ -307,9 +307,11 @@ def create_app() -> FastAPI:
     fastapi_app.include_router(coach_router, prefix="/api/coach", tags=["coach"])
     fastapi_app.include_router(news_router, prefix="/api/news", tags=["news"])
 
-    # WebSocket endpoint
-    @fastapi_app.websocket("/ws")
-    async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
+    # WebSocket endpoint — shared body, mounted at both /ws (legacy) and
+    # /api/ws (preferred, routes through the same Apache proxy as /api/*).
+    # The DH/Cloudflare path historically dropped Upgrade headers on /ws;
+    # /api/ws goes through the proven /api/* proxy chain.
+    async def _ws_handler(websocket: WebSocket, token: str):
         # Validate origin to prevent cross-site WebSocket hijacking
         origin = websocket.headers.get("origin", "")
         allowed_origins = settings.cors_origins
@@ -331,6 +333,14 @@ def create_app() -> FastAPI:
                 await websocket.receive_text()
         except WebSocketDisconnect:
             websocket_manager.disconnect(user_id, websocket)
+
+    @fastapi_app.websocket("/ws")
+    async def websocket_endpoint_legacy(websocket: WebSocket, token: str = Query(...)):
+        await _ws_handler(websocket, token)
+
+    @fastapi_app.websocket("/api/ws")
+    async def websocket_endpoint_api(websocket: WebSocket, token: str = Query(...)):
+        await _ws_handler(websocket, token)
 
     # System endpoints
     @fastapi_app.get("/api/system/health")

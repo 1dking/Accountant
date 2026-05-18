@@ -45,13 +45,17 @@ async def create_notification(
     await db.commit()
     await db.refresh(notification)
 
-    # Push real-time event via WebSocket
+    # Push real-time event via WebSocket. The frontend wsClient dispatches
+    # on the "type" field, so use that consistently. (Previously this
+    # used "event" — a latent bug that would have dropped every dispatch
+    # even if the WS path itself worked.)
     await websocket_manager.send_to_user(
         str(user_id),
         {
-            "event": "notification",
+            "type": "notification",
             "data": {
                 "id": str(notification.id),
+                "user_id": str(user_id),
                 "type": type,
                 "title": title,
                 "message": message,
@@ -59,6 +63,9 @@ async def create_notification(
                 "resource_id": resource_id,
                 "link_path": link_path,
                 "contact_id": str(contact_id) if contact_id else None,
+                "is_read": False,
+                "created_at": notification.created_at.isoformat()
+                if notification.created_at else None,
             },
         },
     )

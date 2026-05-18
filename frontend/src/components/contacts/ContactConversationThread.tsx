@@ -8,6 +8,7 @@ import {
   type ConversationEvent,
 } from '@/api/communication'
 import { api } from '@/api/client'
+import { wsClient } from '@/api/websocket'
 import { useAuthStore } from '@/stores/authStore'
 
 interface Props {
@@ -110,6 +111,23 @@ export default function ContactConversationThread({
     document.addEventListener('visibilitychange', onVis)
     return () => document.removeEventListener('visibilitychange', onVis)
   }, [])
+
+  // Live SMS push — refetch the thread when a matching contact_id event
+  // arrives. WS is the fast path; polling remains as a 10s fallback so
+  // we never miss a message if WS is wedged.
+  useEffect(() => {
+    const unsub = wsClient.on('sms.received', (ev) => {
+      const eventContactId = (ev.data as any)?.contact_id
+      if (eventContactId === contactId) {
+        queryClient.invalidateQueries({
+          queryKey: ['contact-conversations', contactId],
+        })
+      }
+    })
+    return () => {
+      unsub()
+    }
+  }, [contactId, queryClient])
 
   const { data, isLoading } = useQuery({
     queryKey: ['contact-conversations', contactId],

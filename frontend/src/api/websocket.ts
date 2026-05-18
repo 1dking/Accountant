@@ -21,7 +21,10 @@ class WebSocketClient {
 
     this.isIntentionallyClosed = false
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const wsUrl = `${protocol}//${window.location.host}/ws?token=${token}`
+    // Use /api/ws (not /ws) to route through the same Apache proxy as
+    // every /api/* HTTP request. The bare /ws path on DH historically
+    // dropped Upgrade headers; /api/* is proven.
+    const wsUrl = `${protocol}//${window.location.host}/api/ws?token=${token}`
 
     try {
       this.ws = new WebSocket(wsUrl)

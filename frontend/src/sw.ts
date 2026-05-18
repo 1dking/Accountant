@@ -53,7 +53,7 @@ registerRoute(
 
 // ── Network-only for WebSocket routes ────────────────────────────────────
 registerRoute(
-  ({ url }) => url.pathname.startsWith('/ws'),
+  ({ url }) => url.pathname.startsWith('/ws') || url.pathname.startsWith('/api/ws'),
   new NetworkOnly()
 )
 
