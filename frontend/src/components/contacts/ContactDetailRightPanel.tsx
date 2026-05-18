@@ -19,23 +19,10 @@
 import { Activity, Brain, Mail, MessageSquare, Phone, Sparkles, StickyNote } from 'lucide-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { cn } from '@/lib/utils'
+import { cn, formatRelativeTime } from '@/lib/utils'
 import { getContactBrief, regenerateContactBrief, type ContactMemory } from '@/api/automation'
 import { formatDateTime } from './contactDetailUtils'
 import type { TabKey } from './ContactDetailCenterPanel'
-
-function relativeTime(iso: string | null): string {
-  if (!iso) return ''
-  const diffMs = Date.now() - new Date(iso).getTime()
-  const sec = Math.floor(diffMs / 1000)
-  if (sec < 60) return 'just now'
-  const min = Math.floor(sec / 60)
-  if (min < 60) return `${min}m ago`
-  const hr = Math.floor(min / 60)
-  if (hr < 24) return `${hr}h ago`
-  const day = Math.floor(hr / 24)
-  return `${day}d ago`
-}
 
 function memorySourceIcon(src: string): string {
   if (src === 'voicemail') return '🎙'
@@ -150,7 +137,7 @@ function AIBriefCard({ contactId }: { contactId: string }) {
           </p>
           {generated && (
             <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-2">
-              {isFresh ? 'Generated' : 'Cached'} {relativeTime(generated)}
+              {isFresh ? 'Generated' : 'Cached'} {formatRelativeTime(generated)}
             </p>
           )}
         </>
@@ -281,7 +268,7 @@ export default function ContactDetailRightPanel({
                   <div className="flex-1 min-w-0">
                     <p className="text-gray-700 dark:text-gray-300 truncate">{a.title}</p>
                     <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
-                      {a.created_at ? relativeTime(a.created_at) : ''}
+                      {a.created_at ? formatRelativeTime(a.created_at) : ''}
                     </p>
                   </div>
                 </li>

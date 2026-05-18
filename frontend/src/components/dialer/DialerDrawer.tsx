@@ -1,28 +1,32 @@
 /**
- * Slide-out dialer drawer.
+ * Slide-out dialer drawer with 5-tab content framework.
  *
- * Renders the right-edge Liquid Glass surface, backdrop, drawer
- * header (close + dialer title — gets "Calling From" treatment in
- * commit 2). Body switches on Twilio mode:
- *   - incoming-ringing / in-call / outgoing-connecting / requesting-mic
- *     / permission-denied / error → dedicated call-state panel
- *   - idle / initializing / ready → KeypadView (placeholder body;
- *     commit 2 wraps it in a 5-tab framework)
+ * Body switches on Twilio mode FIRST — active call states take over
+ * the whole drawer (incoming, in-call, calling, mic-denied, error).
+ * Otherwise the body renders the persistent "Calling From" header,
+ * a 5-tab nav, and the active tab's content.
  *
- * State ownership: the parent (FloatingDialer wrapper) owns the
- * Twilio state (via useTwilioDevice) and the drawer's open flag.
- * This component is presentational + handles keyboard + focus trap.
+ * Dialing a number from any tab routes through the same Twilio
+ * device.dial() — Recents/Contacts/Keypad all funnel into one call
+ * pipeline. The keypad input string is owned here so it persists
+ * across drawer open/close and across tab switches.
  */
 import { useEffect, useRef, useState } from 'react'
-import { AlertCircle, Phone, X } from 'lucide-react'
+import { AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { TwilioDeviceState } from './hooks/useTwilioDevice'
 import CallingPanel from './panels/CallingPanel'
 import ErrorPanel from './panels/ErrorPanel'
 import InCallPanel from './panels/InCallPanel'
 import IncomingPanel from './panels/IncomingPanel'
-import KeypadView from './panels/KeypadView'
 import PermissionDeniedPanel from './panels/PermissionDeniedPanel'
+import DialerHeader from './DialerHeader'
+import DialerTabBar, { type DialerTabKey } from './DialerTabBar'
+import ContactsTab from './tabs/ContactsTab'
+import KeypadTab from './tabs/KeypadTab'
+import QueueTab from './tabs/QueueTab'
+import RecentsTab from './tabs/RecentsTab'
+import VoicemailTab from './tabs/VoicemailTab'
 
 import './liquid-glass.css'
 
@@ -30,24 +34,23 @@ interface Props {
   isOpen: boolean
   onClose: () => void
   device: TwilioDeviceState
+  callingFrom: string | null
 }
 
-export default function DialerDrawer({ isOpen, onClose, device }: Props) {
+export default function DialerDrawer({ isOpen, onClose, device, callingFrom }: Props) {
   const {
     mode, errorMsg, durationSeconds, isMuted, incomingNumber,
     dial, hangup, acceptIncoming, rejectIncoming, toggleMute, retryInit,
   } = device
 
-  // Keypad input is owned here because it's a transient UI buffer —
-  // the underlying dial() takes the final string. The number persists
-  // across drawer open/close so users can re-open and resume typing.
+  // Persistent state across drawer open/close.
   const [number, setNumber] = useState('')
-  const inputRef = useRef<HTMLInputElement>(null)
+  const [activeTab, setActiveTab] = useState<DialerTabKey>('recents')
+
   const drawerRef = useRef<HTMLDivElement>(null)
 
-  // Render flag — keep the drawer in the DOM through its exit animation
-  // so the slide-out reads naturally. Cleared 200ms after isOpen flips
-  // false (matches the .lg-drawer-exit duration).
+  // Keep the drawer mounted through its exit animation so the slide
+  // out reads naturally. Cleared 200ms after isOpen flips false.
   const [shouldRender, setShouldRender] = useState(isOpen)
   useEffect(() => {
     if (isOpen) {
@@ -58,10 +61,9 @@ export default function DialerDrawer({ isOpen, onClose, device }: Props) {
     }
   }, [isOpen])
 
-  // Escape closes the drawer — always honored as an explicit user
-  // action, even mid-call. Suppress backdrop click-out when a call is
-  // active (incoming / in-call) so the user can't accidentally dismiss
-  // an active call by clicking off-drawer.
+  // Escape closes the drawer — explicit user action wins even during
+  // active calls. Click-out is suppressed during calls so users can't
+  // accidentally dismiss an active call by clicking off-drawer.
   useEffect(() => {
     if (!isOpen) return
     const handleKey = (e: KeyboardEvent) => {
@@ -71,13 +73,11 @@ export default function DialerDrawer({ isOpen, onClose, device }: Props) {
     return () => document.removeEventListener('keydown', handleKey)
   }, [isOpen, onClose])
 
-  // Basic focus trap: when the drawer opens, move focus inside; when
-  // it closes, return focus to whatever was previously focused.
+  // Basic focus trap: focus the first focusable on open, return focus
+  // to whatever was previously focused on close.
   useEffect(() => {
     if (!isOpen) return
-    const previouslyFocused = document.activeElement as HTMLElement | null
-    // Move focus into the drawer on next tick so the animation has
-    // mounted the surface.
+    const prev = document.activeElement as HTMLElement | null
     const t = window.setTimeout(() => {
       const focusable = drawerRef.current?.querySelector<HTMLElement>(
         'input, button:not([disabled]), [tabindex]:not([tabindex="-1"])',
@@ -86,7 +86,7 @@ export default function DialerDrawer({ isOpen, onClose, device }: Props) {
     }, 0)
     return () => {
       window.clearTimeout(t)
-      previouslyFocused?.focus?.()
+      prev?.focus?.()
     }
   }, [isOpen])
 
@@ -96,20 +96,74 @@ export default function DialerDrawer({ isOpen, onClose, device }: Props) {
     onClose()
   }
 
-  const handleDial = () => {
-    void dial(number)
+  // Unified dial helper: any tab that initiates a call routes the
+  // number into local keypad state (so the Calling/InCall panels can
+  // display it) and fires device.dial.
+  const handleDial = (raw: string) => {
+    const trimmed = raw.trim()
+    if (!trimmed) return
+    setNumber(trimmed)
+    void dial(trimmed)
   }
-  const handleDigit = (d: string) => setNumber((prev) => prev + d)
-  const handleBackspace = () => setNumber((prev) => prev.slice(0, -1))
 
   if (!shouldRender) return null
 
+  // Active-call states get a full-drawer takeover; the tabbed body
+  // hides until the call clears. The "Calling From" header stays at
+  // the top either way so the user always knows the source number.
+  const renderBody = () => {
+    if (mode === 'incoming-ringing') {
+      return (
+        <IncomingPanel
+          fromNumber={incomingNumber}
+          onAccept={() => { void acceptIncoming() }}
+          onReject={rejectIncoming}
+        />
+      )
+    }
+    if (mode === 'in-call') {
+      return (
+        <InCallPanel
+          remoteNumber={incomingNumber || number}
+          durationSeconds={durationSeconds}
+          isMuted={isMuted}
+          onMute={toggleMute}
+          onHangup={hangup}
+        />
+      )
+    }
+    if (mode === 'outgoing-connecting' || mode === 'requesting-mic') {
+      return <CallingPanel target={number} mode={mode} onHangup={hangup} />
+    }
+    if (mode === 'permission-denied') return <PermissionDeniedPanel />
+    if (mode === 'error') return <ErrorPanel message={errorMsg} onRetry={retryInit} />
+
+    // Idle / initializing / ready → tabbed content
+    return (
+      <div className="flex flex-col h-full">
+        <DialerTabBar active={activeTab} onChange={setActiveTab} />
+        <div className="flex-1 overflow-y-auto min-h-0">
+          {activeTab === 'recents' && <RecentsTab onDial={handleDial} />}
+          {activeTab === 'contacts' && <ContactsTab onDial={handleDial} />}
+          {activeTab === 'keypad' && (
+            <KeypadTab
+              number={number}
+              setNumber={setNumber}
+              onDigit={(d) => setNumber((prev) => prev + d)}
+              onBackspace={() => setNumber((prev) => prev.slice(0, -1))}
+              onCall={() => handleDial(number)}
+              disabled={mode !== 'ready'}
+            />
+          )}
+          {activeTab === 'voicemail' && <VoicemailTab />}
+          {activeTab === 'queue' && <QueueTab />}
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div
-      className="fixed inset-0 z-50"
-      role="presentation"
-      aria-hidden={!isOpen}
-    >
+    <div className="fixed inset-0 z-50" role="presentation" aria-hidden={!isOpen}>
       {/* Backdrop */}
       <div
         onClick={handleBackdropClick}
@@ -134,74 +188,16 @@ export default function DialerDrawer({ isOpen, onClose, device }: Props) {
         )}
       >
         <div className="lg-drawer-content flex flex-col h-full">
-          {/* Drawer header — commit 1 ships a minimal version. Commit 2
-              upgrades this to "Calling From {twilio_number}" with the
-              wave indicator. */}
-          <header className="flex items-center justify-between px-5 py-4 border-b border-white/10">
-            <div className="flex items-center gap-2">
-              <Phone className="h-4 w-4 text-[color:var(--lg-text-secondary)]" />
-              <span className="text-sm font-semibold tracking-wide text-[color:var(--lg-text-primary)]">
-                Dialer
-              </span>
-            </div>
-            <button
-              onClick={onClose}
-              aria-label="Close dialer"
-              className="p-1.5 rounded-md text-[color:var(--lg-text-secondary)] hover:text-[color:var(--lg-text-primary)] hover:bg-white/8 transition-colors"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </header>
+          <DialerHeader callingFrom={callingFrom} mode={mode} onClose={onClose} />
 
           {errorMsg && mode !== 'error' && (
-            <div className="px-5 py-2 bg-red-500/10 border-b border-red-500/20 text-xs text-red-300 flex items-center gap-2">
+            <div className="px-5 py-2 bg-red-500/10 border-b border-red-500/20 text-xs text-red-300 flex items-center gap-2 shrink-0">
               <AlertCircle className="h-3.5 w-3.5 shrink-0" />
               <span className="flex-1 truncate" title={errorMsg}>{errorMsg}</span>
             </div>
           )}
 
-          {/* Body — call states take over, otherwise show the keypad */}
-          <div className="flex-1 overflow-y-auto">
-            {mode === 'incoming-ringing' && (
-              <IncomingPanel
-                fromNumber={incomingNumber}
-                onAccept={() => { void acceptIncoming() }}
-                onReject={rejectIncoming}
-              />
-            )}
-
-            {mode === 'in-call' && (
-              <InCallPanel
-                remoteNumber={incomingNumber || number}
-                durationSeconds={durationSeconds}
-                isMuted={isMuted}
-                onMute={toggleMute}
-                onHangup={hangup}
-              />
-            )}
-
-            {(mode === 'outgoing-connecting' || mode === 'requesting-mic') && (
-              <CallingPanel target={number} mode={mode} onHangup={hangup} />
-            )}
-
-            {mode === 'permission-denied' && <PermissionDeniedPanel />}
-
-            {mode === 'error' && (
-              <ErrorPanel message={errorMsg} onRetry={retryInit} />
-            )}
-
-            {(mode === 'idle' || mode === 'initializing' || mode === 'ready') && (
-              <KeypadView
-                number={number}
-                setNumber={setNumber}
-                onDigit={handleDigit}
-                onBackspace={handleBackspace}
-                onCall={handleDial}
-                inputRef={inputRef}
-                disabled={mode !== 'ready'}
-              />
-            )}
-          </div>
+          <div className="flex-1 min-h-0">{renderBody()}</div>
         </div>
       </div>
     </div>
