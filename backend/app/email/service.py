@@ -113,10 +113,14 @@ async def update_smtp_config(
 
     update_data = data.model_dump(exclude_unset=True)
 
-    # Handle password encryption if a new password was provided.
+    # Handle password encryption if a new password was provided. Treat
+    # both "key absent" and "key present but None/empty" as "preserve
+    # existing password" — the second case is what the frontend Edit
+    # form produces when the admin leaves the password field blank.
     if "password" in update_data:
         raw_password = update_data.pop("password")
-        config.encrypted_password = encryption.encrypt(raw_password)
+        if raw_password:
+            config.encrypted_password = encryption.encrypt(raw_password)
 
     # If setting this config as default, unset other defaults first.
     if update_data.get("is_default"):

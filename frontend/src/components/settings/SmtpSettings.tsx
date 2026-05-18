@@ -1,32 +1,96 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Trash2, Send, Star } from 'lucide-react'
-import { listSmtpConfigs, createSmtpConfig, deleteSmtpConfig, sendTestEmail } from '@/api/integrations'
+import { Plus, Trash2, Send, Star, Pencil } from 'lucide-react'
+import {
+  listSmtpConfigs,
+  createSmtpConfig,
+  updateSmtpConfig,
+  deleteSmtpConfig,
+  sendTestEmail,
+} from '@/api/integrations'
 import type { SmtpConfig } from '@/types/models'
+
+interface FormState {
+  name: string
+  host: string
+  port: number
+  username: string
+  password: string
+  from_email: string
+  from_name: string
+  use_tls: boolean
+  is_default: boolean
+}
+
+const EMPTY_FORM: FormState = {
+  name: '',
+  host: '',
+  port: 587,
+  username: '',
+  password: '',
+  from_email: '',
+  from_name: '',
+  use_tls: true,
+  is_default: false,
+}
 
 export default function SmtpSettings() {
   const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
+  // null = add mode; a UUID = edit mode for that config
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingUsername, setEditingUsername] = useState<string>('')
   const [testEmail, setTestEmail] = useState('')
   const [testConfigId, setTestConfigId] = useState<string | null>(null)
   const [msg, setMsg] = useState('')
+  const [form, setForm] = useState<FormState>(EMPTY_FORM)
 
-  const [form, setForm] = useState({
-    name: '', host: '', port: 587, username: '', password: '',
-    from_email: '', from_name: '', use_tls: true, is_default: false,
-  })
+  const isEditing = editingId !== null
 
   const { data } = useQuery({
     queryKey: ['smtp-configs'],
     queryFn: listSmtpConfigs,
   })
 
+  const resetAndClose = () => {
+    setShowForm(false)
+    setEditingId(null)
+    setEditingUsername('')
+    setForm(EMPTY_FORM)
+  }
+
   const createMutation = useMutation({
     mutationFn: () => createSmtpConfig(form),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['smtp-configs'] })
-      setShowForm(false)
-      setForm({ name: '', host: '', port: 587, username: '', password: '', from_email: '', from_name: '', use_tls: true, is_default: false })
+      resetAndClose()
+      setMsg('Configuration added')
+      setTimeout(() => setMsg(''), 3000)
+    },
+    onError: () => {
+      setMsg('Save failed')
+      setTimeout(() => setMsg(''), 3000)
+    },
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: () => {
+      // Omit password from PUT body when blank — backend preserves the
+      // stored value if the key is absent or null. Defense in depth on
+      // both sides.
+      const { password, ...rest } = form
+      const body = password ? { ...rest, password } : rest
+      return updateSmtpConfig(editingId!, body)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['smtp-configs'] })
+      resetAndClose()
+      setMsg('Configuration updated')
+      setTimeout(() => setMsg(''), 3000)
+    },
+    onError: () => {
+      setMsg('Update failed')
+      setTimeout(() => setMsg(''), 3000)
     },
   })
 
@@ -50,14 +114,48 @@ export default function SmtpSettings() {
     },
   })
 
+  const handleAdd = () => {
+    setEditingId(null)
+    setEditingUsername('')
+    setForm(EMPTY_FORM)
+    setShowForm(true)
+  }
+
+  const handleEdit = (config: SmtpConfig) => {
+    setEditingId(config.id)
+    setEditingUsername(config.username)
+    setForm({
+      name: config.name,
+      host: config.host,
+      port: config.port,
+      username: config.username,
+      password: '',  // never pre-populate; placeholder handles UX
+      from_email: config.from_email,
+      from_name: config.from_name,
+      use_tls: config.use_tls,
+      is_default: config.is_default,
+    })
+    setShowForm(true)
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (isEditing) {
+      updateMutation.mutate()
+    } else {
+      createMutation.mutate()
+    }
+  }
+
   const configs: SmtpConfig[] = data?.data ?? []
+  const submitting = createMutation.isPending || updateMutation.isPending
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">SMTP Email Configuration</h2>
         <button
-          onClick={() => setShowForm(!showForm)}
+          onClick={() => (showForm ? resetAndClose() : handleAdd())}
           className="flex items-center gap-1.5 px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >
           <Plus className="w-4 h-4" />
@@ -71,9 +169,14 @@ export default function SmtpSettings() {
 
       {showForm && (
         <form
-          onSubmit={(e) => { e.preventDefault(); createMutation.mutate() }}
+          onSubmit={handleSubmit}
           className="bg-white dark:bg-gray-900 border rounded-lg p-5 space-y-4"
         >
+          <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">
+            {isEditing
+              ? `Edit SMTP Configuration: ${editingUsername}`
+              : 'Add SMTP Configuration'}
+          </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
@@ -97,8 +200,19 @@ export default function SmtpSettings() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Password</label>
-              <input type="password" required value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })}
-                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input
+                type="password"
+                required={!isEditing}
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                placeholder={isEditing ? '•••••• (leave blank to keep current)' : ''}
+                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              {isEditing && (
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Only fill this in if you want to change the password.
+                </p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">From Email</label>
@@ -122,11 +236,15 @@ export default function SmtpSettings() {
             </label>
           </div>
           <div className="flex gap-2">
-            <button type="submit" disabled={createMutation.isPending}
+            <button type="submit" disabled={submitting}
               className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
-              {createMutation.isPending ? 'Saving...' : 'Save Configuration'}
+              {submitting
+                ? 'Saving...'
+                : isEditing
+                  ? 'Save Changes'
+                  : 'Save Configuration'}
             </button>
-            <button type="button" onClick={() => setShowForm(false)}
+            <button type="button" onClick={resetAndClose}
               className="px-4 py-2 text-sm border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800">Cancel</button>
           </div>
         </form>
@@ -151,6 +269,13 @@ export default function SmtpSettings() {
                 </p>
               </div>
               <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleEdit(config)}
+                  title="Edit configuration"
+                  className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
                 <button
                   onClick={() => { setTestConfigId(config.id); setTestEmail('') }}
                   className="flex items-center gap-1 px-2 py-1 text-xs border rounded hover:bg-gray-50 dark:hover:bg-gray-800"
