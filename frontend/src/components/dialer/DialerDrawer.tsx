@@ -20,6 +20,7 @@ import ErrorPanel from './panels/ErrorPanel'
 import InCallPanel from './panels/InCallPanel'
 import IncomingPanel from './panels/IncomingPanel'
 import PermissionDeniedPanel from './panels/PermissionDeniedPanel'
+import DialerCommandPalette from './DialerCommandPalette'
 import DialerHeader from './DialerHeader'
 import DialerTabBar, { type DialerTabKey } from './DialerTabBar'
 import ContactsTab from './tabs/ContactsTab'
@@ -138,9 +139,10 @@ export default function DialerDrawer({ isOpen, onClose, device, callingFrom }: P
     if (mode === 'permission-denied') return <PermissionDeniedPanel />
     if (mode === 'error') return <ErrorPanel message={errorMsg} onRetry={retryInit} />
 
-    // Idle / initializing / ready → tabbed content
+    // Idle / initializing / ready → command palette + tabbed content
     return (
       <div className="flex flex-col h-full">
+        <DialerCommandPalette onDial={handleDial} />
         <DialerTabBar active={activeTab} onChange={setActiveTab} />
         <div className="flex-1 overflow-y-auto min-h-0">
           {activeTab === 'recents' && <RecentsTab onDial={handleDial} />}

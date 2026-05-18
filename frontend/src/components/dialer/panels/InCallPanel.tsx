@@ -23,7 +23,11 @@ export default function InCallPanel({
   return (
     <div className="px-6 py-8 space-y-6">
       <div className="text-center">
-        <div className="text-xs uppercase tracking-wider text-emerald-400/80">
+        <div className="text-xs uppercase tracking-wider text-emerald-400/80 inline-flex items-center gap-1.5">
+          <span
+            aria-hidden="true"
+            className="lg-breathing inline-block w-1.5 h-1.5 rounded-full bg-emerald-400"
+          />
           In call
         </div>
         <div className="font-mono text-2xl mt-3 text-[color:var(--lg-text-primary)] tabular-nums">
