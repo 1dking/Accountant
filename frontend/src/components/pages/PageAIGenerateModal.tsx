@@ -136,6 +136,16 @@ export default function PageAIGenerateModal({ open, onClose, onComplete }: Props
 
   // Render dispatch — derived purely from session.status + has-prd
   const hasPrd = !!session?.prd?.sections?.length
+  // Clarifying-question case: the AI parsed our prompt as too vague, so
+  // it returned a PRD with an `audience` field populated but no sections.
+  // Previously this rendered the same blank prompt step the user just
+  // submitted from, with no feedback — looked like the button did nothing.
+  // Now we surface the AI's question on the PromptStep so the user can
+  // see what's being asked.
+  const aiClarifyingQuestion =
+    session?.prd && !hasPrd && (session.prd.audience || '').trim()
+      ? session.prd.audience!.trim()
+      : null
   const phase: 'prompt' | 'prd' | 'working' | 'failed' =
     !session ? 'prompt'
     : session.status === 'failed' ? 'failed'
@@ -174,6 +184,7 @@ export default function PageAIGenerateModal({ open, onClose, onComplete }: Props
             <PromptStep
               isLoading={createSessionMut.isPending || submitMut.isPending}
               isIteration={showPromptAgain}
+              clarifyingQuestion={aiClarifyingQuestion}
               prompt={prompt}
               setPrompt={setPrompt}
               onSubmit={() => {
@@ -220,6 +231,7 @@ export default function PageAIGenerateModal({ open, onClose, onComplete }: Props
 function PromptStep({
   isLoading,
   isIteration,
+  clarifyingQuestion,
   prompt,
   setPrompt,
   onSubmit,
@@ -227,6 +239,7 @@ function PromptStep({
 }: {
   isLoading: boolean
   isIteration: boolean
+  clarifyingQuestion: string | null
   prompt: string
   setPrompt: (s: string) => void
   onSubmit: () => void
@@ -234,18 +247,29 @@ function PromptStep({
 }) {
   return (
     <div className="space-y-4">
-      <div>
-        <p className="text-sm text-gray-700 dark:text-gray-300">
-          {isIteration
-            ? "Tell AI what to change about the proposed page structure."
-            : "Describe the page you want. Be specific about audience, goals, and what should be on the page."}
-        </p>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-          Example: "Landing page for a small-business accounting firm in Ontario.
-          Hero with phone-call CTA, three services, two testimonials, simple
-          pricing, contact form."
-        </p>
-      </div>
+      {clarifyingQuestion ? (
+        <div className="p-3 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50/70 dark:bg-indigo-950/30">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-indigo-700 dark:text-indigo-300 mb-1">
+            AI needs a bit more info
+          </p>
+          <p className="text-sm text-gray-800 dark:text-gray-100">
+            {clarifyingQuestion}
+          </p>
+        </div>
+      ) : (
+        <div>
+          <p className="text-sm text-gray-700 dark:text-gray-300">
+            {isIteration
+              ? "Tell AI what to change about the proposed page structure."
+              : "Describe the page you want. Be specific about audience, goals, and what should be on the page."}
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            Example: "Landing page for a small-business accounting firm in Ontario.
+            Hero with phone-call CTA, three services, two testimonials, simple
+            pricing, contact form."
+          </p>
+        </div>
+      )}
       <textarea
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
