@@ -70,6 +70,14 @@ FRONTEND_API_DEPENDENCIES = [
 
     # Voicemail orphan recovery (admin-only manual trigger)
     ("POST", "/api/platform-admin/voicemails/recover-orphans"),
+
+    # Pages v2 — conversational PRD-first generation (Session 1)
+    ("POST", "/api/pages/ai/sessions"),
+    ("GET", "/api/pages/ai/sessions/{session_id}"),
+    ("POST", "/api/pages/ai/sessions/{session_id}/prompt"),
+    ("POST", "/api/pages/ai/sessions/{session_id}/approve"),
+    ("POST", "/api/pages/ai/sessions/{session_id}/generate"),
+    ("POST", "/api/pages/{page_id}/sections/{section_index}/refine"),
 ]
 
 

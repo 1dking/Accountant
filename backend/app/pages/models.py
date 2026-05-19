@@ -4,7 +4,7 @@ import datetime as _dt
 import enum
 import uuid
 
-from sqlalchemy import Boolean, Date, DateTime, Enum, Float, ForeignKey, Integer, Numeric, String, Text, func
+from sqlalchemy import Boolean, Date, DateTime, Enum, Float, ForeignKey, Integer, JSON, Numeric, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base, TimestampMixin
@@ -109,6 +109,13 @@ class Page(TimestampMixin, Base):
     font_family: Mapped[str | None] = mapped_column(String(100), nullable=True)
     tracking_pixels_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     chat_history_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Set when the page was created via a conversational generation
+    # session (Session 1 of the pages-v2 refactor). Logical FK back to
+    # page_generation_sessions.id; SQLite ALTER doesn't support hard
+    # FKs after the fact.
+    generation_session_id: Mapped[uuid.UUID | None] = mapped_column(
+        nullable=True,
+    )
 
     # Draft/Live publishing system
     # html_content / css_content = DRAFT (always latest edits)
@@ -418,3 +425,44 @@ class SplitTestAssignment(Base):
     assigned_at: Mapped[_dt.datetime | None] = mapped_column(
         DateTime(timezone=True), server_default=func.now(),
     )
+
+
+class PageGenerationSession(TimestampMixin, Base):
+    """A conversational generation session: prompt iterations →
+    structured PRD → user approval → background generation → page row.
+
+    Lifecycle states (status):
+      drafting   → user is iterating on prompt + PRD; no page yet
+      approved   → user clicked Approve; generation queued
+      generating → background worker is producing section JSX
+      complete   → page row populated; session.page_id set
+      failed     → worker raised; error_message has details
+
+    Distinct from `Page.chat_history_json` (refine-chat after creation).
+    This is the *initial* generation.
+    """
+
+    __tablename__ = "page_generation_sessions"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    # Logical FK to pages.id; populated after generation completes.
+    page_id: Mapped[uuid.UUID | None] = mapped_column(nullable=True)
+    prompt_history: Mapped[list | None] = mapped_column(
+        # SQLite JSON column behaves like Text with on-the-fly parse.
+        # Using sqlalchemy.JSON via the Base import below.
+        JSON, nullable=False, server_default="[]",
+        default=list,
+    )
+    prd: Mapped[dict | None] = mapped_column(
+        JSON, nullable=True,
+    )
+    sitemap: Mapped[list | None] = mapped_column(
+        JSON, nullable=True,
+    )
+    status: Mapped[str] = mapped_column(
+        String(20), nullable=False, server_default="drafting"
+    )
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)

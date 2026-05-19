@@ -6,7 +6,7 @@ import os
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import HTMLResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -824,3 +824,176 @@ async def view_website_page(
         return HTMLResponse("<h1>Page Not Found</h1>", status_code=404)
 
     return await view_public_page(page.slug, db, request)
+
+
+# ---------------------------------------------------------------------------
+# Conversational PRD-first generation (Pages v2 — Session 1)
+# ---------------------------------------------------------------------------
+
+
+def _session_to_dict(s) -> dict:
+    return {
+        "id": str(s.id),
+        "user_id": str(s.user_id),
+        "page_id": str(s.page_id) if s.page_id else None,
+        "prompt_history": s.prompt_history or [],
+        "prd": s.prd,
+        "sitemap": s.sitemap or [],
+        "status": s.status,
+        "error_message": s.error_message,
+        "created_at": s.created_at.isoformat() if s.created_at else None,
+        "updated_at": s.updated_at.isoformat() if s.updated_at else None,
+    }
+
+
+@router.post("/ai/sessions", status_code=201)
+async def create_generation_session(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
+) -> dict:
+    """Open a new conversational generation session. Frontend then
+    POSTs to .../prompt with the user's first message."""
+    from app.pages.conversational import create_session
+
+    session = await create_session(db, user.id)
+    return {"data": _session_to_dict(session)}
+
+
+@router.get("/ai/sessions/{session_id}")
+async def get_generation_session(
+    session_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    """Poll a session's state. Frontend hits this every 2s while
+    status in {generating}."""
+    from sqlalchemy import select
+    from app.pages.models import PageGenerationSession
+
+    row = await db.execute(
+        select(PageGenerationSession).where(
+            PageGenerationSession.id == session_id,
+            PageGenerationSession.user_id == user.id,
+        )
+    )
+    session = row.scalar_one_or_none()
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return {"data": _session_to_dict(session)}
+
+
+@router.post("/ai/sessions/{session_id}/prompt")
+async def submit_session_prompt(
+    session_id: uuid.UUID,
+    body: dict,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
+) -> dict:
+    """Submit a prompt — Claude Sonnet derives an updated PRD + sitemap.
+    Body: { prompt: str }"""
+    from app.pages.conversational import submit_prompt
+
+    prompt = (body.get("prompt") or "").strip()
+    if not prompt:
+        raise HTTPException(status_code=400, detail="prompt is required")
+    if len(prompt) > 4000:
+        raise HTTPException(status_code=400, detail="prompt must be <= 4000 chars")
+
+    settings = request.app.state.settings
+    try:
+        session = await submit_prompt(db, session_id, user.id, prompt, settings)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"data": _session_to_dict(session)}
+
+
+@router.post("/ai/sessions/{session_id}/approve")
+async def approve_session_prd(
+    session_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
+) -> dict:
+    """User confirms the PRD. Status flips to 'approved'."""
+    from app.pages.conversational import approve_prd
+
+    try:
+        session = await approve_prd(db, session_id, user.id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"data": _session_to_dict(session)}
+
+
+@router.post("/ai/sessions/{session_id}/generate", status_code=202)
+async def trigger_session_generation(
+    session_id: uuid.UUID,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
+) -> dict:
+    """Fire the generation worker. Returns 202 immediately; frontend
+    polls GET /ai/sessions/{id} until status='complete' or 'failed'."""
+    from sqlalchemy import select
+    from app.pages.conversational import generate_page_task
+    from app.pages.models import PageGenerationSession
+
+    row = await db.execute(
+        select(PageGenerationSession).where(
+            PageGenerationSession.id == session_id,
+            PageGenerationSession.user_id == user.id,
+        )
+    )
+    session = row.scalar_one_or_none()
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session.status != "approved":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Session must be 'approved' to generate; current: {session.status}",
+        )
+
+    background_tasks.add_task(
+        generate_page_task,
+        session_id=session.id,
+        user_id=user.id,
+        session_factory=request.app.state.session_factory,
+    )
+    return {"data": {"session_id": str(session.id), "status": "queued"}}
+
+
+@router.post("/{page_id}/sections/{section_index}/refine")
+async def refine_page_section(
+    page_id: uuid.UUID,
+    section_index: int,
+    body: dict,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
+) -> dict:
+    """Re-prompt Claude for a single section. body: { instruction: str }
+    Returns the updated page (sections_json reflects the refined section)."""
+    from app.pages.conversational import refine_section
+
+    instruction = (body.get("instruction") or "").strip()
+    if not instruction:
+        raise HTTPException(status_code=400, detail="instruction is required")
+    if len(instruction) > 2000:
+        raise HTTPException(status_code=400, detail="instruction must be <= 2000 chars")
+
+    settings = request.app.state.settings
+    try:
+        page = await refine_section(
+            db, page_id, section_index, instruction, user.id, settings,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {
+        "data": {
+            "id": str(page.id),
+            "title": page.title,
+            "slug": page.slug,
+            "sections_json": page.sections_json,
+            "updated_at": page.updated_at.isoformat() if page.updated_at else None,
+        }
+    }
