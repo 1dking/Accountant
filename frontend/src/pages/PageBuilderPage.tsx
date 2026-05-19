@@ -1092,6 +1092,23 @@ export default function PageBuilderPage() {
         {renderCreateWebsiteModal()}
         {renderTemplateBrowser()}
         {renderTemplatePreview()}
+        {/* PageAIGenerateModal must be mounted INSIDE the list-view
+            return tree — the "Generate with AI" button lives here, and
+            React only reads state from components in the current render
+            tree. Previously (commit c429602) it was only mounted in the
+            editor view's tree, so clicking Generate on the list flipped
+            showAIGenerate=true into the void with no consumer. */}
+        <PageAIGenerateModal
+          open={showAIGenerate}
+          onClose={() => setShowAIGenerate(false)}
+          onComplete={(pageId) => {
+            setShowAIGenerate(false)
+            setSelectedPageId(pageId)
+            setView('edit')
+            queryClient.invalidateQueries({ queryKey: ['pages'] })
+            toast.success('Page generated — opening editor')
+          }}
+        />
 
         <div className="flex items-center justify-between mb-8">
           <div>
