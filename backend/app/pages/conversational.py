@@ -560,7 +560,13 @@ async def generate_page_task(
                     },
                 })
 
-            # Persist as a new Page row.
+            # Persist as a new Page row. We also compile sections to
+            # full HTML5 right here so the Preview tab has something to
+            # render immediately — the legacy preview iframe reads from
+            # page.html_content. Same compiler the Publish flow uses,
+            # so Preview and Publish never disagree.
+            from app.pages.compiler import compile_page
+
             page = Page(
                 id=uuid.uuid4(),
                 title=prd.get("title") or "Untitled page",
@@ -568,11 +574,20 @@ async def generate_page_task(
                 description=prd.get("audience") or None,
                 status=PageStatus.DRAFT,
                 sections_json=json.dumps(generated_sections),
-                html_content=None,  # Compiled in Session 2's static publish flow
+                html_content=None,  # set immediately below
                 css_content=None,
                 generation_session_id=session.id,
                 created_by=user_id,
             )
+            try:
+                page.html_content = compile_page(page, company_settings=None)
+            except Exception as exc:
+                # Compile failure is non-fatal — the user still has
+                # sections_json and can fix via refine. Log and proceed.
+                logger.warning(
+                    "pages.generate_compile_failed session_id=%s err=%s",
+                    session_id, str(exc)[:200],
+                )
             db.add(page)
             await db.flush()  # need page.id
 
@@ -580,8 +595,9 @@ async def generate_page_task(
             session.status = "complete"
             await db.commit()
             logger.info(
-                "pages.generate_complete session_id=%s page_id=%s sections=%d",
+                "pages.generate_complete session_id=%s page_id=%s sections=%d compiled=%s",
                 session_id, page.id, len(generated_sections),
+                bool(page.html_content),
             )
         except Exception as exc:
             logger.exception(
@@ -657,6 +673,18 @@ async def refine_section(
     sections[section_index] = target
 
     page.sections_json = json.dumps(sections)
+    # Recompile html_content so the Preview reflects the refined
+    # section. compile_page is fast (no AI, pure string ops); we keep
+    # it inline. Compile failure stays non-fatal — sections_json is
+    # still authoritative and the user can re-refine.
+    try:
+        from app.pages.compiler import compile_page
+        page.html_content = compile_page(page, company_settings=None)
+    except Exception as exc:
+        logger.warning(
+            "pages.section_refine_compile_failed page_id=%s err=%s",
+            page_id, str(exc)[:200],
+        )
     await db.commit()
     await db.refresh(page)
     logger.info(
