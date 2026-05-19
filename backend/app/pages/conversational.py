@@ -3,30 +3,30 @@
 Workflow (Tempo Labs / Lovable-style):
 
   1. User opens "New Page" → frontend creates a session (POST /sessions)
-  2. User submits prompt → Claude Sonnet 4.6 produces a structured
-     PRD (title, audience, goals, sections array) + sitemap
-     (POST /sessions/{id}/prompt). User can iterate by submitting
-     more prompts; each appends to prompt_history and re-derives
-     the PRD.
+  2. User submits prompt → hybrid AI (Gemini → Claude → static)
+     produces a structured PRD + sitemap. User can iterate by
+     submitting more prompts; each appends to prompt_history and
+     re-derives the PRD.
   3. User clicks Approve → session.status='approved'
-     (POST /sessions/{id}/approve)
   4. Frontend triggers generation → background worker walks the
-     sitemap, calls Claude per section for the JSX/Tailwind content
-     (POST /sessions/{id}/generate)
+     sitemap, calls the hybrid stack per section for JSX/Tailwind
   5. Worker writes a new Page row with sections_json populated +
      session.status='complete' + session.page_id set
-  6. Refining a section later: POST /pages/{id}/sections/{idx}/refine
-     re-prompts Claude with the section content and the user's
-     instruction; replaces just that section's content.
+  6. Refining a section later: re-prompts the hybrid stack with the
+     section content and the user's instruction.
 
-Anthropic Claude Sonnet 4.6 is the model for PRD/sitemap (needs the
-better reasoning), Haiku 4.5 for per-section JSX generation (fast +
-cheap, the section template is well-defined).
+Provider strategy (Pages v2 — Gemini-first hybrid):
+- Gemini 2.5 Pro for PRD generation (better reasoning + JSON output)
+- Gemini 2.5 Flash for per-section JSX (fast + cheap, well-defined)
+- Claude Sonnet 4.5 / Haiku 4.5 as automatic fallback on Gemini failure
+- Hand-written static template as final fallback if both providers fail
+- Every call logs the provider actually used (provider= field) so we
+  can evaluate Gemini's real-world reliability later.
 
 Privacy / safety: prompts + outputs are logged at INFO level for
 observability. PRD/section content is treated as user-authored;
 no sanitization is performed at storage time (the static-HTML
-compiler in Session 2 will handle XSS at render time).
+compiler handles XSS at render time).
 """
 from __future__ import annotations
 
@@ -37,6 +37,7 @@ import uuid
 from datetime import datetime, timezone
 
 import anthropic
+import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -45,12 +46,18 @@ from app.pages.models import Page, PageGenerationSession, PageStatus
 
 logger = logging.getLogger(__name__)
 
-PRD_MODEL = "claude-sonnet-4-5-20250929"  # Sonnet 4.5 — Sonnet 4.6 wasn't available at build time
+# Claude — fallback provider
+PRD_MODEL = "claude-sonnet-4-5-20250929"
 SECTION_MODEL = "claude-haiku-4-5-20251001"
 PRD_MAX_TOKENS = 2000
 SECTION_MAX_TOKENS = 1500
 PRD_TIMEOUT_SECONDS = 30.0
 SECTION_TIMEOUT_SECONDS = 20.0
+
+# Gemini — primary provider
+GEMINI_PRD_MODEL = "gemini-2.5-pro"
+GEMINI_SECTION_MODEL = "gemini-2.5-flash"
+GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 
 PRD_SYSTEM_PROMPT = """\
 You are a Product Requirements Document (PRD) writer for a website
@@ -79,10 +86,10 @@ Pick sections that fit the user's intent. Typical landing page is
 cta + footer is a solid baseline). Don't pad with sections the
 user didn't imply.
 
-If the user's prompt is too vague to write a useful PRD, ask a
-clarifying question in the "audience" field and leave "sections"
-empty — the frontend will display this back as a question rather
-than render an empty page.
+ALWAYS return at least 4 sections. If the user's prompt is short or
+vague, make reasonable assumptions and produce a plausible default
+page — do not return an empty sections array. The user can iterate
+from there.
 """
 
 SECTION_SYSTEM_PROMPT = """\
@@ -122,6 +129,258 @@ def _client(settings: Settings) -> anthropic.AsyncAnthropic:
     if not settings.anthropic_api_key:
         raise ValueError("anthropic_api_key not configured")
     return anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+
+
+# ---------------------------------------------------------------------------
+# Hybrid provider helpers — Gemini primary, Claude fallback, static fallback.
+# ---------------------------------------------------------------------------
+
+
+def _is_valid_prd(prd: dict | None) -> bool:
+    """Shape check for a PRD: must have a title and a non-empty sections
+    list whose entries each have id + type + title."""
+    if not isinstance(prd, dict):
+        return False
+    if not isinstance(prd.get("title"), str) or not prd["title"].strip():
+        return False
+    sections = prd.get("sections")
+    if not isinstance(sections, list) or not sections:
+        return False
+    for s in sections:
+        if not isinstance(s, dict):
+            return False
+        if not all(isinstance(s.get(k), str) and s[k] for k in ("id", "type", "title")):
+            return False
+    return True
+
+
+def _is_valid_section(s: dict | None) -> bool:
+    """Shape check for a generated section: must have jsx_content string."""
+    if not isinstance(s, dict):
+        return False
+    if not isinstance(s.get("jsx_content"), str) or not s["jsx_content"].strip():
+        return False
+    return True
+
+
+async def _gemini_call_json(
+    api_key: str,
+    model: str,
+    system_prompt: str,
+    user_msg: str,
+    max_tokens: int,
+    timeout: float,
+) -> dict:
+    """Call Gemini's REST API with response_mime_type=json. Returns the
+    parsed JSON object. Raises on HTTP error, empty response, or JSON
+    parse failure so the hybrid wrapper can fall through to Claude."""
+    async with httpx.AsyncClient(timeout=timeout) as http:
+        resp = await http.post(
+            f"{GEMINI_BASE}/{model}:generateContent?key={api_key}",
+            json={
+                "contents": [{"role": "user", "parts": [{"text": user_msg}]}],
+                "systemInstruction": {"parts": [{"text": system_prompt}]},
+                "generationConfig": {
+                    "temperature": 0.4,
+                    "maxOutputTokens": max_tokens,
+                    "responseMimeType": "application/json",
+                },
+            },
+        )
+        resp.raise_for_status()
+        data = resp.json()
+    candidates = data.get("candidates") or []
+    if not candidates:
+        raise ValueError("gemini returned no candidates")
+    parts = (candidates[0].get("content") or {}).get("parts") or []
+    text = "".join(p.get("text", "") for p in parts).strip()
+    if not text:
+        raise ValueError("gemini returned empty text")
+    return json.loads(_strip_json_fences(text))
+
+
+async def _claude_call_json(
+    settings: Settings,
+    model: str,
+    system_prompt: str,
+    user_msg: str,
+    max_tokens: int,
+    timeout: float,
+) -> dict:
+    """Call Claude via the anthropic SDK. Returns the parsed JSON object."""
+    client = _client(settings)
+    response = await client.messages.create(
+        model=model,
+        max_tokens=max_tokens,
+        system=system_prompt,
+        messages=[{"role": "user", "content": user_msg}],
+        timeout=timeout,
+    )
+    raw = "".join(
+        block.text for block in response.content
+        if getattr(block, "type", "") == "text"
+    )
+    return json.loads(_strip_json_fences(raw))
+
+
+def _static_prd_for(prompt: str) -> dict:
+    """Last-resort PRD when both providers fail. Produces a generic
+    landing-page skeleton so the user gets *something* and can refine."""
+    title = (prompt or "New Page").strip().splitlines()[0][:80] or "New Page"
+    return {
+        "title": title,
+        "audience": "General audience",
+        "goals": [
+            "Communicate the value proposition",
+            "Drive primary conversion",
+            "Establish trust",
+        ],
+        "sections": [
+            {"id": "hero", "type": "hero", "title": "Hero",
+             "summary": "Opening pitch", "content_brief": prompt[:300] or "Headline + subtitle + CTA"},
+            {"id": "features", "type": "features", "title": "Features",
+             "summary": "Key benefits", "content_brief": "Three to four core benefits"},
+            {"id": "testimonials", "type": "testimonials", "title": "Testimonials",
+             "summary": "Social proof", "content_brief": "Two short quotes from users"},
+            {"id": "cta", "type": "cta", "title": "Get started",
+             "summary": "Primary call to action", "content_brief": "Single bold CTA"},
+            {"id": "footer", "type": "footer", "title": "Footer",
+             "summary": "Footer links", "content_brief": "Links + copyright"},
+        ],
+    }
+
+
+def _static_section_for(brief: dict) -> dict:
+    """Last-resort section content. Keeps the page renderable while the
+    user iterates via refine."""
+    title = brief.get("title") or "Section"
+    return {
+        "jsx_content": (
+            f"<section className=\"py-12 px-6 text-center\">"
+            f"<h2 className=\"text-2xl font-bold mb-2\">{title}</h2>"
+            f"<p className=\"text-gray-600\">"
+            f"{brief.get('summary') or 'Refine this section to add content.'}</p>"
+            f"</section>"
+        ),
+        "metadata": {"static_fallback": True},
+    }
+
+
+async def _generate_prd_hybrid(prompt: str, settings: Settings) -> tuple[dict, str]:
+    """Gemini → Claude → static. Returns (prd, provider_label).
+
+    provider_label is one of: "gemini", "claude_fallback", "static_fallback".
+    Always succeeds (static fallback is unconditional).
+    """
+    gemini_key = getattr(settings, "gemini_api_key", "") or ""
+    if gemini_key:
+        try:
+            prd = await _gemini_call_json(
+                api_key=gemini_key,
+                model=GEMINI_PRD_MODEL,
+                system_prompt=PRD_SYSTEM_PROMPT,
+                user_msg=prompt,
+                max_tokens=PRD_MAX_TOKENS,
+                timeout=PRD_TIMEOUT_SECONDS,
+            )
+            if _is_valid_prd(prd):
+                logger.info("pages.prd_provider=gemini")
+                return prd, "gemini"
+            logger.warning("pages.prd_gemini_invalid_shape keys=%s", list((prd or {}).keys()))
+        except Exception as exc:
+            logger.warning("pages.prd_gemini_failed err=%s", str(exc)[:200])
+
+    if getattr(settings, "anthropic_api_key", None):
+        try:
+            prd = await _claude_call_json(
+                settings=settings,
+                model=PRD_MODEL,
+                system_prompt=PRD_SYSTEM_PROMPT,
+                user_msg=prompt,
+                max_tokens=PRD_MAX_TOKENS,
+                timeout=PRD_TIMEOUT_SECONDS,
+            )
+            if _is_valid_prd(prd):
+                logger.info("pages.prd_provider=claude_fallback")
+                return prd, "claude_fallback"
+            logger.warning("pages.prd_claude_invalid_shape keys=%s", list((prd or {}).keys()))
+        except Exception as exc:
+            logger.warning("pages.prd_claude_failed err=%s", str(exc)[:200])
+
+    logger.info("pages.prd_provider=static_fallback")
+    return _static_prd_for(prompt), "static_fallback"
+
+
+async def _generate_section_hybrid(
+    brief: dict, settings: Settings, *, instruction: str | None = None,
+    existing_jsx: str | None = None,
+) -> tuple[dict, str]:
+    """Gemini → Claude → static for a single section. Returns
+    (section_dict, provider_label).
+
+    When instruction + existing_jsx are passed, this is a refine call;
+    otherwise it's a fresh-section call.
+    """
+    if instruction is not None:
+        user_msg = (
+            f"Refine the existing section based on the user's instruction.\n\n"
+            f"Section type: {brief.get('type', 'custom_html')}\n"
+            f"Section title: {brief.get('title', '')}\n"
+            f"Existing JSX:\n{existing_jsx or ''}\n\n"
+            f"User instruction:\n{instruction}\n\n"
+            f"Return JSON with the updated jsx_content. Keep the same "
+            f"section type; alter content/styling per the instruction."
+        )
+    else:
+        user_msg = (
+            f"Section type: {brief.get('type', 'custom_html')}\n"
+            f"Section title: {brief.get('title', 'Untitled')}\n\n"
+            f"Content brief:\n{brief.get('content_brief') or brief.get('summary') or ''}"
+        )
+
+    gemini_key = getattr(settings, "gemini_api_key", "") or ""
+    if gemini_key:
+        try:
+            section = await _gemini_call_json(
+                api_key=gemini_key,
+                model=GEMINI_SECTION_MODEL,
+                system_prompt=SECTION_SYSTEM_PROMPT,
+                user_msg=user_msg,
+                max_tokens=SECTION_MAX_TOKENS,
+                timeout=SECTION_TIMEOUT_SECONDS,
+            )
+            if _is_valid_section(section):
+                logger.info("pages.section_provider=gemini id=%s", brief.get("id"))
+                return section, "gemini"
+            logger.warning("pages.section_gemini_invalid_shape id=%s", brief.get("id"))
+        except Exception as exc:
+            logger.warning(
+                "pages.section_gemini_failed id=%s err=%s",
+                brief.get("id"), str(exc)[:200],
+            )
+
+    if getattr(settings, "anthropic_api_key", None):
+        try:
+            section = await _claude_call_json(
+                settings=settings,
+                model=SECTION_MODEL,
+                system_prompt=SECTION_SYSTEM_PROMPT,
+                user_msg=user_msg,
+                max_tokens=SECTION_MAX_TOKENS,
+                timeout=SECTION_TIMEOUT_SECONDS,
+            )
+            if _is_valid_section(section):
+                logger.info("pages.section_provider=claude_fallback id=%s", brief.get("id"))
+                return section, "claude_fallback"
+            logger.warning("pages.section_claude_invalid_shape id=%s", brief.get("id"))
+        except Exception as exc:
+            logger.warning(
+                "pages.section_claude_failed id=%s err=%s",
+                brief.get("id"), str(exc)[:200],
+            )
+
+    logger.info("pages.section_provider=static_fallback id=%s", brief.get("id"))
+    return _static_section_for(brief), "static_fallback"
 
 
 # ---------------------------------------------------------------------------
@@ -177,50 +436,27 @@ async def submit_prompt(
     history = list(session.prompt_history or [])
     history.append({"role": "user", "content": prompt, "timestamp": now})
 
-    client = _client(settings)
-    response = await client.messages.create(
-        model=PRD_MODEL,
-        max_tokens=PRD_MAX_TOKENS,
-        system=PRD_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": prompt}],
-        timeout=PRD_TIMEOUT_SECONDS,
-    )
-    raw = "".join(
-        block.text for block in response.content
-        if getattr(block, "type", "") == "text"
-    )
-    cleaned = _strip_json_fences(raw)
-    try:
-        prd = json.loads(cleaned)
-    except json.JSONDecodeError as exc:
-        logger.warning(
-            "pages.prd_parse_failed session_id=%s err=%s preview=%r",
-            session_id, exc, cleaned[:200],
-        )
-        # Surface the failure as session error_message rather than
-        # raising — the frontend should show "Couldn't parse, try
-        # rephrasing" rather than 500.
-        session.status = "failed"
-        session.error_message = f"PRD JSON parse failed: {exc}"
-        await db.commit()
-        await db.refresh(session)
-        return session
-
-    history.append({"role": "assistant", "content": cleaned, "timestamp": now})
-    sections_list = prd.get("sections", [])
+    # Hybrid stack handles parse failures + provider outages internally;
+    # the static fallback guarantees we return a usable PRD.
+    prd, provider = await _generate_prd_hybrid(prompt, settings)
+    history.append({
+        "role": "assistant",
+        "content": json.dumps(prd),
+        "timestamp": now,
+        "provider": provider,
+    })
+    sections_list = prd.get("sections") or []
     sitemap = [s.get("id") for s in sections_list if s.get("id")]
 
     session.prompt_history = history
     session.prd = prd
     session.sitemap = sitemap
     session.error_message = None
-    # Stay 'drafting' so the user can iterate; explicit Approve flips
-    # to 'approved'.
     await db.commit()
     await db.refresh(session)
     logger.info(
-        "pages.prd_generated session_id=%s sections=%d",
-        session_id, len(sections_list),
+        "pages.prd_generated session_id=%s sections=%d provider=%s",
+        session_id, len(sections_list), provider,
     )
     return session
 
@@ -253,38 +489,14 @@ async def approve_prd(
 # ---------------------------------------------------------------------------
 
 
-async def _generate_single_section(
-    client: anthropic.AsyncAnthropic,
-    section_brief: dict,
-) -> dict:
-    """One Claude Haiku call to produce JSX for a section."""
-    user_msg = (
-        f"Section type: {section_brief.get('type', 'custom_html')}\n"
-        f"Section title: {section_brief.get('title', 'Untitled')}\n\n"
-        f"Content brief:\n{section_brief.get('content_brief') or section_brief.get('summary') or ''}"
-    )
-    response = await client.messages.create(
-        model=SECTION_MODEL,
-        max_tokens=SECTION_MAX_TOKENS,
-        system=SECTION_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": user_msg}],
-        timeout=SECTION_TIMEOUT_SECONDS,
-    )
-    raw = "".join(
-        block.text for block in response.content
-        if getattr(block, "type", "") == "text"
-    )
-    cleaned = _strip_json_fences(raw)
-    return json.loads(cleaned)
-
-
 async def generate_page_task(
     session_id: uuid.UUID,
     user_id: uuid.UUID,
     session_factory,
 ) -> None:
-    """Background worker — walk the sitemap, call Claude per section,
-    persist a new Page row populated with sections_json.
+    """Background worker — walk the sitemap, run the hybrid section
+    generator per section, persist a new Page row populated with
+    sections_json.
 
     Never raises. On any failure: session.status='failed' +
     error_message populated.
@@ -314,38 +526,21 @@ async def generate_page_task(
             if not sections_brief:
                 raise ValueError("PRD has no sections to generate")
 
-            client = _client(settings)
             generated_sections = []
             for brief in sections_brief:
-                try:
-                    generated = await _generate_single_section(client, brief)
-                except Exception as exc:
-                    logger.warning(
-                        "pages.section_generate_failed session_id=%s "
-                        "section_id=%s err=%s — using placeholder",
-                        session_id, brief.get("id"), str(exc)[:200],
-                    )
-                    # Section-level failure → keep going with a
-                    # placeholder so the user still gets a page they
-                    # can refine.
-                    generated = {
-                        "jsx_content": (
-                            f"<section className=\"py-12 px-6 text-center\">"
-                            f"<h2 className=\"text-2xl font-bold\">"
-                            f"{brief.get('title', 'Section')}</h2>"
-                            f"<p className=\"text-gray-600 mt-2\">"
-                            f"This section couldn't be generated. Click to refine.</p>"
-                            f"</section>"
-                        ),
-                        "metadata": {"placeholder": True},
-                    }
+                # Hybrid stack guarantees a section dict back; static
+                # fallback fires if both providers fail or shapes fail.
+                generated, provider = await _generate_section_hybrid(brief, settings)
                 generated_sections.append({
                     "id": brief.get("id"),
                     "type": brief.get("type"),
                     "title": brief.get("title"),
                     "summary": brief.get("summary"),
                     "jsx_content": generated.get("jsx_content", ""),
-                    "metadata": generated.get("metadata") or {},
+                    "metadata": {
+                        **(generated.get("metadata") or {}),
+                        "provider": provider,
+                    },
                 })
 
             # Persist as a new Page row.
@@ -432,40 +627,23 @@ async def refine_section(
         )
 
     target = sections[section_index]
-    user_msg = (
-        f"Refine the existing section based on the user's instruction.\n\n"
-        f"Section type: {target.get('type', 'custom_html')}\n"
-        f"Section title: {target.get('title', '')}\n"
-        f"Existing JSX:\n{target.get('jsx_content', '')}\n\n"
-        f"User instruction:\n{instruction}\n\n"
-        f"Return JSON with the updated jsx_content. Keep the same "
-        f"section type; alter content/styling per the instruction."
+    refined, provider = await _generate_section_hybrid(
+        target,
+        settings,
+        instruction=instruction,
+        existing_jsx=target.get("jsx_content", ""),
     )
-    client = _client(settings)
-    response = await client.messages.create(
-        model=SECTION_MODEL,
-        max_tokens=SECTION_MAX_TOKENS,
-        system=SECTION_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": user_msg}],
-        timeout=SECTION_TIMEOUT_SECONDS,
-    )
-    raw = "".join(
-        block.text for block in response.content
-        if getattr(block, "type", "") == "text"
-    )
-    cleaned = _strip_json_fences(raw)
-    refined = json.loads(cleaned)
-
     target["jsx_content"] = refined.get("jsx_content", target.get("jsx_content"))
-    if refined.get("metadata"):
-        target["metadata"] = refined["metadata"]
+    existing_meta = target.get("metadata") or {}
+    new_meta = refined.get("metadata") or {}
+    target["metadata"] = {**existing_meta, **new_meta, "provider": provider}
     sections[section_index] = target
 
     page.sections_json = json.dumps(sections)
     await db.commit()
     await db.refresh(page)
     logger.info(
-        "pages.section_refined page_id=%s index=%d",
-        page_id, section_index,
+        "pages.section_refined page_id=%s index=%d provider=%s",
+        page_id, section_index, provider,
     )
     return page
