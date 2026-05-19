@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import {
   Inbox, RefreshCw, FileText, CheckCircle, Trash2, Search,
   ChevronLeft, ChevronRight, X, ArrowRight, Calendar, Filter, Repeat,
-  Eye, Paperclip, Loader2, AlertCircle, SkipForward,
+  Eye, Paperclip, Loader2, AlertCircle, SkipForward, Plus,
 } from 'lucide-react'
 import {
   listGmailAccounts,
@@ -19,7 +19,8 @@ import {
   fetchAttachmentToServer,
 } from '@/api/integrations'
 import { listCategories } from '@/api/accounting'
-import { listAccounts as listCashbookAccounts } from '@/api/cashbook'
+import { listAccounts as listCashbookAccounts, createAccount } from '@/api/cashbook'
+import { ACCOUNT_TYPES } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
 import type { GmailScanResult, EmailParsedData, ExpenseCategory, PaymentAccount } from '@/types/models'
 
@@ -67,7 +68,6 @@ function ImportModal({
   onCancel: () => void
   isPending: boolean
 }) {
-  const navigate = useNavigate()
   const [recordType, setRecordType] = useState<'expense' | 'income'>(
     parsedData?.record_type || 'expense'
   )
@@ -87,6 +87,54 @@ function ImportModal({
   const [isRecurring, setIsRecurring] = useState(false)
   const [recurringFrequency, setRecurringFrequency] = useState('monthly')
   const [recurringNextDate, setRecurringNextDate] = useState('')
+
+  // Inline "create new account" — lets the user create a missing
+  // payment account (e.g. a credit card) without leaving the import flow.
+  const queryClient = useQueryClient()
+  const [showCreateAccount, setShowCreateAccount] = useState(false)
+  const [newAccName, setNewAccName] = useState('')
+  const [newAccType, setNewAccType] = useState<string>('credit_card')
+  const [newAccCurrency, setNewAccCurrency] = useState<string>(parsedData?.currency || 'USD')
+  const [newAccOpeningBalance, setNewAccOpeningBalance] = useState<string>('0')
+  const [newAccOpeningDate, setNewAccOpeningDate] = useState<string>(
+    new Date().toISOString().split('T')[0]
+  )
+  const resetNewAccountForm = () => {
+    setNewAccName('')
+    setNewAccType('credit_card')
+    setNewAccCurrency(parsedData?.currency || currency || 'USD')
+    setNewAccOpeningBalance('0')
+    setNewAccOpeningDate(new Date().toISOString().split('T')[0])
+  }
+  const createAccountMutation = useMutation({
+    mutationFn: () =>
+      createAccount({
+        name: newAccName.trim(),
+        account_type: newAccType,
+        currency: newAccCurrency,
+        opening_balance: parseFloat(newAccOpeningBalance) || 0,
+        opening_balance_date: newAccOpeningDate,
+      }),
+    onSuccess: (res) => {
+      const created = res.data
+      // Optimistically merge into the same cache the parent reads, so
+      // the dropdown picks it up immediately without waiting for a
+      // round-trip. Matches the pattern in CashbookPage.tsx.
+      queryClient.setQueryData(['cashbook-accounts'], (old: any) => ({
+        ...(old ?? {}),
+        data: [...(old?.data ?? []), created],
+      }))
+      queryClient.invalidateQueries({ queryKey: ['cashbook-accounts'] })
+      setAccountId(created.id)
+      setShowCreateAccount(false)
+      resetNewAccountForm()
+      toast.success(`Account "${created.name}" created`)
+    },
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : 'Failed to create account'
+      toast.error(msg)
+    },
+  })
 
   // Preview state
   const [previewTab, setPreviewTab] = useState<'email' | number>('email')
@@ -354,23 +402,109 @@ function ImportModal({
 
               {/* Account */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Account <span className="text-red-500">*</span>
-                </label>
-                {cashbookAccounts.length === 0 ? (
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Account <span className="text-red-500">*</span>
+                  </label>
+                  {!showCreateAccount && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        resetNewAccountForm()
+                        setShowCreateAccount(true)
+                      }}
+                      className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium"
+                    >
+                      <Plus className="h-3 w-3" /> New account
+                    </button>
+                  )}
+                </div>
+                {cashbookAccounts.length === 0 && !showCreateAccount ? (
                   <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
                     <span className="text-sm text-amber-700 dark:text-amber-400">No accounts yet.</span>
-                    <button onClick={() => { onCancel(); navigate('/cashbook') }} className="text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium">
-                      Create an account first
+                    <button
+                      type="button"
+                      onClick={() => { resetNewAccountForm(); setShowCreateAccount(true) }}
+                      className="text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium"
+                    >
+                      Create one here
                     </button>
                   </div>
-                ) : (
+                ) : cashbookAccounts.length > 0 ? (
                   <select value={accountId} onChange={e => setAccountId(e.target.value)} className={inputCls}>
                     <option value="">Select account...</option>
                     {cashbookAccounts.map(acc => (
                       <option key={acc.id} value={acc.id}>{acc.name} ({acc.currency})</option>
                     ))}
                   </select>
+                ) : null}
+
+                {/* Inline create-account form — toggled via the "+ New
+                    account" link. Mirrors CashbookPage's create flow so
+                    the user doesn't need to leave the import modal to
+                    add a credit card or other payment source. */}
+                {showCreateAccount && (
+                  <div className="mt-2 p-3 border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20 rounded-lg space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-blue-700 dark:text-blue-300">New account</span>
+                      <button
+                        type="button"
+                        onClick={() => { setShowCreateAccount(false); resetNewAccountForm() }}
+                        className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      value={newAccName}
+                      onChange={e => setNewAccName(e.target.value)}
+                      className={inputCls}
+                      placeholder="Account name (e.g. Amex Business)"
+                      autoFocus
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <select value={newAccType} onChange={e => setNewAccType(e.target.value)} className={inputCls}>
+                        {ACCOUNT_TYPES.map(t => (
+                          <option key={t.value} value={t.value}>{t.label}</option>
+                        ))}
+                      </select>
+                      <select value={newAccCurrency} onChange={e => setNewAccCurrency(e.target.value)} className={inputCls}>
+                        <option value="CAD">CAD</option>
+                        <option value="USD">USD</option>
+                        <option value="EUR">EUR</option>
+                        <option value="GBP">GBP</option>
+                      </select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={newAccOpeningBalance}
+                        onChange={e => setNewAccOpeningBalance(e.target.value)}
+                        className={inputCls}
+                        placeholder="Opening balance"
+                      />
+                      <input
+                        type="date"
+                        value={newAccOpeningDate}
+                        onChange={e => setNewAccOpeningDate(e.target.value)}
+                        className={inputCls}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => createAccountMutation.mutate()}
+                      disabled={!newAccName.trim() || createAccountMutation.isPending}
+                      className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
+                    >
+                      {createAccountMutation.isPending ? (
+                        <><Loader2 className="h-4 w-4 animate-spin" /> Creating…</>
+                      ) : (
+                        <><Plus className="h-4 w-4" /> Create account</>
+                      )}
+                    </button>
+                  </div>
                 )}
               </div>
 
