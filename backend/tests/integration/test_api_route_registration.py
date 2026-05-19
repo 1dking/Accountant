@@ -78,6 +78,10 @@ FRONTEND_API_DEPENDENCIES = [
     ("POST", "/api/pages/ai/sessions/{session_id}/approve"),
     ("POST", "/api/pages/ai/sessions/{session_id}/generate"),
     ("POST", "/api/pages/{page_id}/sections/{section_index}/refine"),
+
+    # Pages v2 — static publish (Session 2)
+    ("POST", "/api/pages/{page_id}/publish-static"),
+    ("GET", "/api/pages/p/{slug}"),
 ]
 
 

@@ -117,6 +117,17 @@ class Page(TimestampMixin, Base):
         nullable=True,
     )
 
+    # Static-publish artifacts (Pages v2 — Session 2). compiled_html is
+    # the full HTML doc produced from sections_json; compiled_html_r2_key
+    # is the R2 object key it was uploaded to (relative to the bucket).
+    compiled_html: Mapped[str | None] = mapped_column(Text, nullable=True)
+    compiled_html_r2_key: Mapped[str | None] = mapped_column(
+        String(500), nullable=True
+    )
+    compiled_html_published_at: Mapped[_dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     # Draft/Live publishing system
     # html_content / css_content = DRAFT (always latest edits)
     # live_* = what the public URL serves (set on Publish/Update)

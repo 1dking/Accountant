@@ -997,3 +997,65 @@ async def refine_page_section(
             "updated_at": page.updated_at.isoformat() if page.updated_at else None,
         }
     }
+
+
+# ---------------------------------------------------------------------------
+# Static publish (Pages v2 — Session 2)
+# ---------------------------------------------------------------------------
+
+
+@router.post("/{page_id}/publish-static")
+async def publish_static(
+    page_id: uuid.UUID,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
+) -> dict:
+    """Compile page.sections_json → static HTML, upload to R2, mark
+    page.status=PUBLISHED + populate compiled_html_r2_key. Returns
+    the live URL.
+
+    Parallel to the existing /{page_id}/publish endpoint (which serves
+    the old opaque-HTML flow). Future work consolidates these; for now
+    /publish-static is the conversational-generation path.
+    """
+    from app.pages.publisher import publish_page_static
+
+    settings = request.app.state.settings
+    try:
+        result = await publish_page_static(db, page_id, user.id, settings)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"data": result}
+
+
+@router.get("/p/{slug}", response_class=HTMLResponse)
+async def serve_published_page(
+    slug: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> HTMLResponse:
+    """Public-facing serve. Returns the compiled HTML stored on the
+    page row (R2 is the durable backup; the DB column is a fast cache).
+    No auth — these URLs are intentionally public.
+
+    Falls back to the legacy /public/view/{slug} composition pipeline
+    if compiled_html is empty (page never went through static publish).
+    """
+    from sqlalchemy import select as sa_select
+    from app.pages.models import Page
+
+    row = await db.execute(sa_select(Page).where(Page.slug == slug))
+    page = row.scalar_one_or_none()
+    if page is None:
+        return HTMLResponse("<h1>Page not found</h1>", status_code=404)
+    if page.compiled_html:
+        return HTMLResponse(
+            content=page.compiled_html,
+            headers={"Cache-Control": "public, max-age=60"},
+        )
+    # Legacy fallback — defer to the inline-render endpoint.
+    return HTMLResponse(
+        "<h1>Page not yet published</h1>"
+        "<p>Click Publish in the page builder to make this page live.</p>",
+        status_code=404,
+    )
