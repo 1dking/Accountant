@@ -19,6 +19,13 @@ from app.communication.models import CallLog
 
 logger = logging.getLogger(__name__)
 
+# Recordings under this duration almost always come back from AssemblyAI as
+# empty text or hard-fail (the 2026-05-16 voicemail batch had 5 of 7
+# recordings at 1-2 seconds, all failed). Skip them at the task door so the
+# AssemblyAI bill + log noise both drop, and the UI gets a clear status
+# instead of a useless "failed".
+MIN_TRANSCRIBE_DURATION_SECONDS = 3
+
 
 async def transcribe_voicemail_task(
     call_log_id: uuid.UUID,
@@ -38,6 +45,33 @@ async def transcribe_voicemail_task(
         call_log_id, recording_sid,
     )
     try:
+        # 0. Duration gate. If the row already has a duration < 3s,
+        # skip AssemblyAI entirely — it would return empty text or
+        # 400 anyway. NULL duration falls through (defensive — better
+        # to attempt + fail than block on a missing field).
+        async with session_factory() as db:
+            row = await db.execute(
+                select(CallLog).where(CallLog.id == call_log_id)
+            )
+            call_log = row.scalar_one_or_none()
+            if call_log is None:
+                logger.warning(
+                    "voicemail_transcribe.task_aborted row gone call_log_id=%s",
+                    call_log_id,
+                )
+                return
+            duration = call_log.recording_duration_seconds
+            if duration is not None and duration < MIN_TRANSCRIBE_DURATION_SECONDS:
+                call_log.voicemail_transcript_status = "too_short"
+                call_log.voicemail_transcript = None
+                await db.commit()
+                logger.info(
+                    "voicemail_transcribe.too_short call_log_id=%s duration=%ds "
+                    "(skipped AssemblyAI; no memory chain)",
+                    call_log_id, duration,
+                )
+                return
+
         # 1. Fetch recording bytes from Twilio (Account-SID Basic Auth)
         twilio_url = (
             f"https://api.twilio.com/2010-04-01/Accounts/{account_sid}"
