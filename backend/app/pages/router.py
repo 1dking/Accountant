@@ -1,12 +1,15 @@
 """FastAPI router for the AI page builder module."""
 
 import json
+import logging
 import math
 import os
 import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, Request, UploadFile
+
+logger = logging.getLogger(__name__)
 from fastapi.responses import HTMLResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -353,6 +356,41 @@ async def update_page(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
 ) -> dict:
+    # Seatbelt: refuse to overwrite html_content with a payload that
+    # has zero <section> tags when the page has structured sections
+    # in sections_json. This catches the Visual editor corruption
+    # pattern (browser DOM cleanup of nested HTML5 docs destroyed the
+    # nested <section> elements; autosave then PUT the wreckage back).
+    # Only fires when the client explicitly sent html_content with a
+    # non-empty value — null/unset and empty-string clears still pass.
+    if (
+        "html_content" in data.model_fields_set
+        and data.html_content
+        and "<section" not in data.html_content.lower()
+    ):
+        existing = await service.get_page(db, page_id)
+        existing_sections_json = getattr(existing, "sections_json", None)
+        if existing_sections_json:
+            try:
+                existing_sections = json.loads(existing_sections_json)
+            except (json.JSONDecodeError, TypeError):
+                existing_sections = []
+            if isinstance(existing_sections, list) and len(existing_sections) > 0:
+                logger.warning(
+                    "pages.update_blocked page_id=%s reason=no_section_tags "
+                    "existing_sections=%d html_preview=%r",
+                    page_id, len(existing_sections),
+                    (data.html_content or "")[:200],
+                )
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        f"Refused to overwrite html_content: payload has no "
+                        f"<section> tags but page has {len(existing_sections)} "
+                        f"structured sections. Possible Visual editor "
+                        f"corruption — content not saved."
+                    ),
+                )
     page = await service.update_page(db, page_id, data, current_user)
     return {"data": PageResponse.model_validate(page)}
 

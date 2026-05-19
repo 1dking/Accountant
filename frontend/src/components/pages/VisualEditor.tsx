@@ -4,6 +4,55 @@ import {
   AlignCenter, AlignRight, AlignJustify,
 } from 'lucide-react'
 
+// ---------------------------------------------------------------------------
+// Doc-shape helpers (Pages v2 compat)
+// ---------------------------------------------------------------------------
+
+/**
+ * If `input` is a full <!DOCTYPE html> document, return just the body's
+ * innerHTML. Otherwise return the input untouched.
+ *
+ * Why: compile_page() in Pages v2 emits a full HTML5 doc into
+ * page.html_content. Wrapping that again inside the editor's iframe
+ * srcdoc (`<body>${html}${editorScript}</body>`) produced nested
+ * <!DOCTYPE>/<html>/<head>/<body> which the browser's HTML parser
+ * "cleaned up" by discarding the inner structure — sections vanished
+ * from the DOM, and the subsequent autosave persisted the wreckage.
+ * Unwrapping before composition keeps the parser happy.
+ */
+function bodyInnerFromFullDoc(input: string): string {
+  if (!input) return ''
+  const trimmed = input.trim()
+  if (!/^<!doctype/i.test(trimmed)) return input
+  const match = trimmed.match(/<body[^>]*>([\s\S]*)<\/body>/i)
+  return match ? match[1] : input
+}
+
+/**
+ * Read body.innerHTML from the editor iframe AFTER stripping the
+ * editor's own injected DOM (overlay div, editor <script>, any
+ * data-editor-* attributes, and any lingering contenteditable=true
+ * attribute from a blur edge case). Prevents the editor from
+ * accidentally serializing itself back into the saved html_content.
+ */
+function getCleanBodyHtml(iframeDoc: Document | null | undefined): string {
+  if (!iframeDoc) return ''
+  const clone = iframeDoc.body.cloneNode(true) as HTMLElement
+  clone.querySelectorAll('#__editor_overlay').forEach((n) => n.remove())
+  clone.querySelectorAll('script').forEach((n) => n.remove())
+  clone.querySelectorAll('*').forEach((el) => {
+    Array.from(el.attributes).forEach((attr) => {
+      if (attr.name.startsWith('data-editor-')) {
+        el.removeAttribute(attr.name)
+      }
+    })
+    if (el.hasAttribute('contenteditable')) {
+      el.removeAttribute('contenteditable')
+    }
+  })
+  return clone.innerHTML
+}
+
 interface VisualEditorProps {
   html: string
   css: string
@@ -117,6 +166,32 @@ export default function VisualEditor({ html, css, onHtmlChange, onCssChange, onV
         }, '*');
       }, true);
 
+      // Read body.innerHTML stripped of editor-only DOM: the overlay
+      // div, the editor script tag, data-editor-* attributes, and any
+      // lingering contenteditable=true. Keep this in lockstep with the
+      // parent-side getCleanBodyHtml() helper.
+      function __cleanBodyHtml() {
+        var clone = document.body.cloneNode(true);
+        var ov = clone.querySelectorAll('#__editor_overlay');
+        for (var i = 0; i < ov.length; i++) ov[i].remove();
+        var sc = clone.querySelectorAll('script');
+        for (var j = 0; j < sc.length; j++) sc[j].remove();
+        var all = clone.querySelectorAll('*');
+        for (var k = 0; k < all.length; k++) {
+          var el = all[k];
+          var attrs = Array.prototype.slice.call(el.attributes);
+          for (var a = 0; a < attrs.length; a++) {
+            if (attrs[a].name.indexOf('data-editor-') === 0) {
+              el.removeAttribute(attrs[a].name);
+            }
+          }
+          if (el.hasAttribute('contenteditable')) {
+            el.removeAttribute('contenteditable');
+          }
+        }
+        return clone.innerHTML;
+      }
+
       document.addEventListener('dblclick', function(e) {
         e.preventDefault();
         var el = e.target;
@@ -125,14 +200,19 @@ export default function VisualEditor({ html, css, onHtmlChange, onCssChange, onV
           el.focus();
           el.addEventListener('blur', function() {
             el.contentEditable = 'false';
-            window.parent.postMessage({ type: 'content-changed', html: document.body.innerHTML }, '*');
+            window.parent.postMessage({ type: 'content-changed', html: __cleanBodyHtml() }, '*');
           }, { once: true });
         }
       }, true);
     </script>
   `
 
-  const srcdoc = `<!DOCTYPE html><html><head><style>${css}</style></head><body style="cursor:pointer;">${html}${editorScript}</body></html>`
+  // Pages v2 emits full HTML5 docs into html_content. Unwrap to
+  // body-inner before composing srcdoc so we don't nest <!DOCTYPE>
+  // inside <body> (the browser parser destroys the structure if we do).
+  // Body-fragment input (legacy v1) passes through untouched.
+  const innerHtml = bodyInnerFromFullDoc(html)
+  const srcdoc = `<!DOCTYPE html><html><head><script src="https://cdn.tailwindcss.com"></script><style>${css}</style></head><body style="cursor:pointer;">${innerHtml}${editorScript}</body></html>`
 
   useEffect(() => {
     const handler = (e: MessageEvent) => {
@@ -186,7 +266,7 @@ export default function VisualEditor({ html, css, onHtmlChange, onCssChange, onV
     try {
       const el = iframeDoc.querySelector(selected.selector) || iframeDoc.body
       ;(el as HTMLElement).style.setProperty(prop, value)
-      onHtmlChange(iframeDoc.body.innerHTML)
+      onHtmlChange(getCleanBodyHtml(iframeDoc))
       // Update selected styles
       const computed = iframeDoc.defaultView?.getComputedStyle(el as Element)
       if (computed) {
@@ -203,9 +283,10 @@ export default function VisualEditor({ html, css, onHtmlChange, onCssChange, onV
     if (!selected || !iframeRef.current?.contentDocument) return
     pushUndo()
     try {
-      const el = iframeRef.current.contentDocument.querySelector(selected.selector)
+      const doc = iframeRef.current.contentDocument
+      const el = doc.querySelector(selected.selector)
       el?.remove()
-      onHtmlChange(iframeRef.current.contentDocument.body.innerHTML)
+      onHtmlChange(getCleanBodyHtml(doc))
       setSelected(null)
       setPanelOpen(false)
     } catch { /* ignore */ }
@@ -215,11 +296,12 @@ export default function VisualEditor({ html, css, onHtmlChange, onCssChange, onV
     if (!selected || !iframeRef.current?.contentDocument) return
     pushUndo()
     try {
-      const el = iframeRef.current.contentDocument.querySelector(selected.selector)
+      const doc = iframeRef.current.contentDocument
+      const el = doc.querySelector(selected.selector)
       if (el) {
         const clone = el.cloneNode(true) as HTMLElement
         el.parentNode?.insertBefore(clone, el.nextSibling)
-        onHtmlChange(iframeRef.current.contentDocument.body.innerHTML)
+        onHtmlChange(getCleanBodyHtml(doc))
       }
     } catch { /* ignore */ }
   }, [selected, pushUndo, onHtmlChange])
@@ -498,7 +580,7 @@ export default function VisualEditor({ html, css, onHtmlChange, onCssChange, onV
                       if (!iframeRef.current?.contentDocument || !selected) return
                       try {
                         const el = iframeRef.current.contentDocument.querySelector(selected.selector) as HTMLImageElement
-                        if (el) { el.src = e.target.value; onHtmlChange(iframeRef.current.contentDocument.body.innerHTML) }
+                        if (el) { el.src = e.target.value; onHtmlChange(getCleanBodyHtml(iframeRef.current.contentDocument)) }
                       } catch { /* ignore */ }
                     }} />
                 </div>
@@ -520,7 +602,7 @@ export default function VisualEditor({ html, css, onHtmlChange, onCssChange, onV
                       if (!iframeRef.current?.contentDocument || !selected) return
                       try {
                         const el = iframeRef.current.contentDocument.querySelector(selected.selector) as HTMLImageElement
-                        if (el) { el.alt = e.target.value; onHtmlChange(iframeRef.current.contentDocument.body.innerHTML) }
+                        if (el) { el.alt = e.target.value; onHtmlChange(getCleanBodyHtml(iframeRef.current.contentDocument)) }
                       } catch { /* ignore */ }
                     }} />
                 </div>
@@ -593,7 +675,7 @@ export default function VisualEditor({ html, css, onHtmlChange, onCssChange, onV
                       if (!iframeRef.current?.contentDocument || !selected) return
                       try {
                         const el = iframeRef.current.contentDocument.querySelector(selected.selector) as HTMLAnchorElement
-                        if (el && 'href' in el) { el.href = e.target.value; onHtmlChange(iframeRef.current.contentDocument.body.innerHTML) }
+                        if (el && 'href' in el) { el.href = e.target.value; onHtmlChange(getCleanBodyHtml(iframeRef.current.contentDocument)) }
                       } catch { /* ignore */ }
                     }} />
                 </div>
@@ -687,7 +769,7 @@ export default function VisualEditor({ html, css, onHtmlChange, onCssChange, onV
                               if (i > 1) (child as HTMLElement).style.position = 'relative'
                               if (i > 1) (child as HTMLElement).style.zIndex = '1'
                             })
-                            onHtmlChange(iframeRef.current.contentDocument.body.innerHTML)
+                            onHtmlChange(getCleanBodyHtml(iframeRef.current.contentDocument))
                           }
                         }
                       } catch { /* ignore */ }
