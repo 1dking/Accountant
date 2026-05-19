@@ -132,6 +132,12 @@ class PageResponse(BaseModel):
     auto_publish: bool = False
     next_page_id: Optional[uuid.UUID] = None
     page_purpose: Optional[str] = None
+    # Pages v2 static-publish surface — populated once /publish-static
+    # has run at least once for this page. The frontend uses these to
+    # render "Last published" + the View Live link without a second
+    # round-trip.
+    compiled_html_r2_key: Optional[str] = None
+    compiled_html_published_at: Optional[datetime] = None
     created_by: uuid.UUID
     created_at: datetime
     updated_at: datetime

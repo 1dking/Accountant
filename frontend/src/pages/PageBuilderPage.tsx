@@ -81,6 +81,22 @@ interface PageDetail extends PageItem {
   auto_publish?: boolean
   next_page_id?: string
   page_purpose?: string
+  sections_json?: string
+  // Pages v2 static-publish artifacts. Populated once /publish-static
+  // has run for this page; used to render "Last published" + the
+  // public live URL on the editor top bar.
+  compiled_html_r2_key?: string | null
+  compiled_html_published_at?: string | null
+}
+
+interface PublishStaticResponse {
+  page_id: string
+  slug: string
+  r2_key: string
+  live_url: string
+  content_hash: string
+  published_at: string | null
+  was_unchanged: boolean
 }
 
 interface WebsiteItem {
@@ -228,6 +244,13 @@ export default function PageBuilderPage() {
   // Draft/save state
   const [draftSaved, setDraftSaved] = useState(false)
   const [hasUnpublishedChanges, setHasUnpublishedChanges] = useState(false)
+
+  // Static-publish state (Pages v2 — Session 2). lastPublish stores
+  // the most recent /publish-static response so we can show the live
+  // URL + a Copy button immediately after publish without waiting for
+  // the page detail query to refetch.
+  const [lastPublish, setLastPublish] = useState<PublishStaticResponse | null>(null)
+  const [publishedLinkCopied, setPublishedLinkCopied] = useState(false)
 
   // Template state
   const [showSaveTemplate, setShowSaveTemplate] = useState(false)
@@ -399,28 +422,31 @@ export default function PageBuilderPage() {
     },
   })
 
-  const publishMutation = useMutation({
-    mutationFn: (id: string) => pagesApi.publish(id),
-    onSuccess: () => {
+  // Pages v2 static publish: compiles sections → uploads HTML to R2 →
+  // flips status to PUBLISHED. One server call; we surface progress as
+  // "Publishing..." → "Published!" since the backend doesn't stream
+  // compile vs upload phases. Replaces the legacy v1 publish + updateLive
+  // mutations — the new endpoint is idempotent for republishes.
+  const publishStaticMutation = useMutation({
+    mutationFn: async (id: string): Promise<PublishStaticResponse> => {
+      return await pagesApi.publishStatic(id) as PublishStaticResponse
+    },
+    onSuccess: (data) => {
+      setLastPublish(data)
+      setPublishedLinkCopied(false)
+      setHasUnpublishedChanges(false)
       queryClient.invalidateQueries({ queryKey: ['pages'] })
       queryClient.invalidateQueries({ queryKey: ['page', selectedPageId] })
-      queryClient.invalidateQueries({ queryKey: ['page-versions', selectedPageId] })
-      setHasUnpublishedChanges(false)
-      toast.success('Page published!')
+      if (data.was_unchanged) {
+        toast.success('No changes to publish — still live')
+      } else {
+        toast.success('Published! Page is live.')
+      }
     },
-    onError: () => toast.error('Failed to publish page'),
-  })
-
-  const updateLiveMutation = useMutation({
-    mutationFn: (id: string) => pagesApi.updateLive(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pages'] })
-      queryClient.invalidateQueries({ queryKey: ['page', selectedPageId] })
-      queryClient.invalidateQueries({ queryKey: ['page-versions', selectedPageId] })
-      setHasUnpublishedChanges(false)
-      toast.success('Live site updated!')
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : 'Publish failed'
+      toast.error(msg)
     },
-    onError: () => toast.error('Failed to update live site'),
   })
 
   const deletePageMutation = useMutation({
@@ -671,30 +697,21 @@ export default function PageBuilderPage() {
     }
   }
 
-  const handlePublish = () => {
-    if (selectedPageId) publishMutation.mutate(selectedPageId)
+  const handlePublishStatic = () => {
+    if (selectedPageId) publishStaticMutation.mutate(selectedPageId)
   }
 
-  const handleUpdateLive = () => {
-    if (selectedPageId) {
-      // Save draft first, then push to live
-      handleSave()
-      setTimeout(() => updateLiveMutation.mutate(selectedPageId), 500)
-    }
-  }
-
-  const handleDiscardChanges = () => {
-    if (detail?.live_html_content) {
-      setEditHtml(detail.live_html_content)
-      setEditCss(detail.live_css_content || '')
-      if (selectedPageId) {
-        updateMutation.mutate({
-          id: selectedPageId,
-          data: { html_content: detail.live_html_content, css_content: detail.live_css_content || '' },
-        })
-      }
-      setHasUnpublishedChanges(false)
-      toast.success('Changes discarded')
+  const handleCopyLiveUrl = async () => {
+    const url = lastPublish?.live_url || (detail?.slug
+      ? `${window.location.origin}/api/pages/p/${detail.slug}`
+      : null)
+    if (!url) return
+    try {
+      await navigator.clipboard.writeText(url)
+      setPublishedLinkCopied(true)
+      setTimeout(() => setPublishedLinkCopied(false), 2000)
+    } catch {
+      toast.error('Copy failed — your browser may have blocked clipboard access')
     }
   }
 
@@ -724,6 +741,27 @@ export default function PageBuilderPage() {
     setEditCss('')
     setDraftSaved(false)
     setHasUnpublishedChanges(false)
+    setLastPublish(null)
+  }
+
+  // "Last published: 4 min ago" — derives from detail.compiled_html_published_at
+  // (server-of-record, survives reload) OR lastPublish (in-memory, freshest
+  // immediately after a publish). The in-memory value wins because it can
+  // be newer than what the most recent ['page'] refetch returned.
+  const lastPublishedAt = lastPublish?.published_at || detail?.compiled_html_published_at
+  const formatRelative = (iso: string | null | undefined): string | null => {
+    if (!iso) return null
+    const then = new Date(iso).getTime()
+    if (Number.isNaN(then)) return null
+    const diffSec = Math.max(0, Math.floor((Date.now() - then) / 1000))
+    if (diffSec < 10) return 'just now'
+    if (diffSec < 60) return `${diffSec}s ago`
+    const m = Math.floor(diffSec / 60)
+    if (m < 60) return `${m} min ago`
+    const h = Math.floor(m / 60)
+    if (h < 24) return `${h}h ago`
+    const d = Math.floor(h / 24)
+    return `${d}d ago`
   }
 
   const openPage = (page: PageItem) => {
@@ -1590,40 +1628,62 @@ export default function PageBuilderPage() {
           {updateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save
         </button>
 
-        {/* Publish button (draft pages only) */}
-        {detail && !isPublished && (
-          <button onClick={handlePublish} disabled={publishMutation.isPending || !selectedPageId}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition">
-            {publishMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} Publish
+        {/* "Last published" timestamp — only shown after at least one
+            static publish has run for this page. Live URL is rendered
+            via the View Live link to its right. */}
+        {lastPublishedAt && (
+          <span className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400" title={new Date(lastPublishedAt).toLocaleString()}>
+            <Clock className="h-3 w-3" /> Last published {formatRelative(lastPublishedAt)}
+          </span>
+        )}
+
+        {/* Publish (Static) — Pages v2 SSG flow. Compiles sections →
+            uploads to R2 → flips status. Same endpoint handles first
+            publish and republishes; the backend short-circuits the
+            upload when the content hash hasn't changed. */}
+        {detail && (
+          <button
+            onClick={handlePublishStatic}
+            disabled={publishStaticMutation.isPending || !selectedPageId}
+            className="relative flex items-center gap-1.5 px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition"
+            title={isPublished ? 'Republish — uploads only if content changed' : 'Compile + upload to R2 + go live'}
+          >
+            {publishStaticMutation.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" /> Publishing…
+              </>
+            ) : (
+              <>
+                <Upload className="h-4 w-4" /> {isPublished ? 'Republish' : 'Publish'}
+              </>
+            )}
+            {isPublished && hasUnpublishedChanges && !publishStaticMutation.isPending && (
+              <span className="absolute -top-1 -right-1 h-2.5 w-2.5 bg-red-500 rounded-full border-2 border-white dark:border-gray-800" />
+            )}
           </button>
         )}
 
-        {/* Update button (published pages with changes) */}
-        {isPublished && (
+        {/* View Live + Copy URL — show whenever the page has been
+            published at least once (compiled_html_published_at set OR
+            we just published it in this session). */}
+        {(isPublished || lastPublish) && detail?.slug && (
           <>
-            <button onClick={handleUpdateLive}
-              disabled={updateLiveMutation.isPending || !selectedPageId}
-              className="relative flex items-center gap-1.5 px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition">
-              {updateLiveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} Update
-              {hasUnpublishedChanges && (
-                <span className="absolute -top-1 -right-1 h-2.5 w-2.5 bg-red-500 rounded-full border-2 border-white dark:border-gray-800" />
-              )}
+            <a
+              href={lastPublish?.live_url || `/api/pages/p/${detail.slug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition"
+            >
+              <ExternalLink className="h-4 w-4" /> View Live
+            </a>
+            <button
+              onClick={handleCopyLiveUrl}
+              className="flex items-center gap-1.5 px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition"
+              title="Copy public URL"
+            >
+              {publishedLinkCopied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
             </button>
-            {hasUnpublishedChanges && (
-              <button onClick={handleDiscardChanges}
-                className="text-xs text-gray-500 hover:text-red-500 transition px-2 py-1">
-                Discard
-              </button>
-            )}
           </>
-        )}
-
-        {/* View Live link */}
-        {isPublished && (
-          <a href={`/api/pages/public/view/${detail?.slug}`} target="_blank" rel="noopener noreferrer"
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition">
-            <ExternalLink className="h-4 w-4" /> View Live
-          </a>
         )}
       </div>
     </div>

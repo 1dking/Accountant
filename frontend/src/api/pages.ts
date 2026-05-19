@@ -56,6 +56,12 @@ export const pagesApi = {
   aiRefineSection: (pageId: string, sectionIndex: number, instruction: string) =>
     api.post(`/pages/${pageId}/sections/${sectionIndex}/refine`, { instruction }),
 
+  // Static publish (Pages v2 — Session 2). Compiles sections to HTML +
+  // uploads to R2 + flips page status to PUBLISHED. Idempotent: same
+  // content hash short-circuits to was_unchanged=true.
+  publishStatic: (id: string) =>
+    api.post(`/pages/${id}/publish-static`),
+
   // Style library
   getStylePresets: () => api.get('/pages/style-presets'),
   getSectionTemplates: () => api.get('/pages/section-templates'),
