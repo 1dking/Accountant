@@ -49,13 +49,23 @@ logger = logging.getLogger(__name__)
 # Claude — fallback provider
 PRD_MODEL = "claude-sonnet-4-5-20250929"
 SECTION_MODEL = "claude-haiku-4-5-20251001"
-PRD_MAX_TOKENS = 2000
+# Token budgets: PRD must fit roughly title + audience + goals (5 short
+# strings) + sections array (up to 8 entries × ~150 tokens). Bumped
+# 2000 → 4096 after seeing Gemini truncate mid-string at 2000 (which
+# manifested as JSONDecodeError "Unterminated string" and forced the
+# Claude fallback, which then blew past the proxy timeout → 502).
+PRD_MAX_TOKENS = 4096
 SECTION_MAX_TOKENS = 1500
-PRD_TIMEOUT_SECONDS = 30.0
-SECTION_TIMEOUT_SECONDS = 20.0
+# Per-provider HTTP timeouts. Total worst-case round trip is
+# (gemini timeout) + (claude timeout) + static — must stay under the
+# reverse proxy's read timeout. DreamHost's default is around 60s.
+PRD_TIMEOUT_SECONDS = 20.0
+SECTION_TIMEOUT_SECONDS = 15.0
 
-# Gemini — primary provider
-GEMINI_PRD_MODEL = "gemini-2.5-pro"
+# Gemini — primary provider. PRD uses Flash (3-10x faster than Pro for
+# our JSON-shaped output) — Pro's extra reasoning isn't worth the 30-60s
+# latency. Section gen also uses Flash.
+GEMINI_PRD_MODEL = "gemini-2.5-flash"
 GEMINI_SECTION_MODEL = "gemini-2.5-flash"
 GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 
@@ -128,7 +138,14 @@ def _strip_json_fences(text: str) -> str:
 def _client(settings: Settings) -> anthropic.AsyncAnthropic:
     if not settings.anthropic_api_key:
         raise ValueError("anthropic_api_key not configured")
-    return anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+    # max_retries=0: don't let the SDK retry. Each retry adds backoff
+    # (0.4s, 0.8s, 1.6s...) that, stacked on top of the Gemini timeout
+    # already burned, can push total request time past the proxy's
+    # read timeout and produce a 502 even when the call eventually
+    # succeeds. Better to fail fast and let the static fallback fire.
+    return anthropic.AsyncAnthropic(
+        api_key=settings.anthropic_api_key, max_retries=0,
+    )
 
 
 # ---------------------------------------------------------------------------
