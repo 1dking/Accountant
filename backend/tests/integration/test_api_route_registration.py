@@ -62,6 +62,14 @@ FRONTEND_API_DEPENDENCIES = [
     ("PUT", "/api/email/templates/{template_key}"),
     ("DELETE", "/api/email/templates/{template_key}"),
     ("POST", "/api/email/templates/{template_key}/test"),
+
+    # Email absorption (Session E)
+    ("POST", "/api/communication/email-absorb"),
+    ("GET", "/api/communication/email-absorb/runs"),
+    ("GET", "/api/communication/email-absorb/runs/{run_id}"),
+
+    # Voicemail orphan recovery (admin-only manual trigger)
+    ("POST", "/api/platform-admin/voicemails/recover-orphans"),
 ]
 
 

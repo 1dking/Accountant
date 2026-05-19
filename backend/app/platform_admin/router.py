@@ -857,3 +857,27 @@ async def remove_org_member(
     if not removed:
         raise HTTPException(404, "Member not found in organization")
     return {"data": {"removed": True}}
+
+
+# ---------------------------------------------------------------------------
+# Voicemail orphan recovery — manual one-shot trigger
+# ---------------------------------------------------------------------------
+
+
+@router.post("/voicemails/recover-orphans")
+async def recover_orphan_voicemails_endpoint(
+    request: Request,
+    admin: Annotated[User, Depends(require_platform_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Run the orphan-voicemail recovery worker once on demand.
+
+    The same logic runs every 15 minutes via APScheduler; this endpoint
+    lets a platform admin force a recovery pass after a known incident
+    (e.g., DH proxy hiccup), without waiting for the next tick.
+    """
+    from app.communication.voicemail_recovery import recover_orphan_voicemails
+
+    settings = request.app.state.settings
+    result = await recover_orphan_voicemails(db, settings)
+    return {"data": result}

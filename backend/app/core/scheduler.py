@@ -80,6 +80,20 @@ async def _scan_gmail_accounts() -> None:
         logger.exception("Error scanning Gmail accounts")
 
 
+async def _recover_orphan_voicemails() -> None:
+    """Job: poll Twilio for recordings on voicemails that webhooks
+    missed. Closes the DH-proxy gap where /voicemail-status sometimes
+    doesn't deliver the recording_sid. Runs every 15 minutes."""
+    try:
+        async with _session_factory() as db:
+            from app.communication.voicemail_recovery import recover_orphan_voicemails
+            result = await recover_orphan_voicemails(db, _settings)
+            if result.get("recovered", 0) > 0 or result.get("given_up", 0) > 0:
+                logger.info("voicemail_recovery.tick %s", result)
+    except Exception:
+        logger.exception("Error in voicemail orphan recovery")
+
+
 async def _sync_plaid_transactions() -> None:
     """Job: sync transactions from connected bank accounts."""
     try:
@@ -290,6 +304,13 @@ def setup_scheduler(session_factory: Any, settings: Any = None) -> None:
         _cleanup_old_notifications,
         CronTrigger(hour=3, minute=0),
         id="cleanup_old_notifications",
+        replace_existing=True,
+    )
+
+    scheduler.add_job(
+        _recover_orphan_voicemails,
+        IntervalTrigger(minutes=15),
+        id="recover_orphan_voicemails",
         replace_existing=True,
     )
 
