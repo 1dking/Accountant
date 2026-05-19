@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect, type ChangeEvent } from 'reac
 import { useNavigate } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { DndContext, type DragEndEvent } from '@dnd-kit/core'
+import { useDropzone } from 'react-dropzone'
 import { toast } from 'sonner'
 import {
   listDocuments,
@@ -410,6 +411,68 @@ export default function DrivePage() {
     queryClient.invalidateQueries({ queryKey: ['recent'] })
   }
 
+  // ── Always-on external file dropzone ────────────────────────────────
+  // Users expect "Drive = drag files in." Previously the dropzone was
+  // gated behind an Upload button click → external drops landed on the
+  // browser's default handler (opens the file in a new tab). The drop
+  // target now spans the whole DrivePage and uploads to currentFolderId.
+  // noClick: true — clicks inside the page (folder nav, selection, etc.)
+  // shouldn't pop the file picker. The Upload button still handles that.
+  const [externalDropProgress, setExternalDropProgress] = useState<{
+    total: number
+    done: number
+  } | null>(null)
+
+  const handleExternalDrop = useCallback(
+    async (acceptedFiles: File[]) => {
+      if (!acceptedFiles.length) return
+      setExternalDropProgress({ total: acceptedFiles.length, done: 0 })
+      try {
+        const { uploadDocuments } = await import('@/api/documents')
+        const result = await uploadDocuments(
+          acceptedFiles,
+          currentFolderId ?? undefined,
+          undefined,
+          (_r, _i, _total) => {
+            setExternalDropProgress((prev) =>
+              prev ? { ...prev, done: prev.done + 1 } : prev,
+            )
+          },
+        )
+        const success = result.data.length
+        const failed = result.failures?.length ?? 0
+        if (failed === 0) {
+          toast.success(
+            `Uploaded ${success} file${success === 1 ? '' : 's'}`,
+          )
+        } else if (success === 0) {
+          toast.error(
+            `All ${failed} file${failed === 1 ? '' : 's'} failed to upload`,
+          )
+        } else {
+          toast.warning(`Uploaded ${success}, ${failed} failed`)
+        }
+        handleUploadComplete()
+      } catch (err: any) {
+        toast.error(err?.message || 'Upload failed')
+      } finally {
+        // Brief delay so the overlay finishes flicking off after success
+        setTimeout(() => setExternalDropProgress(null), 500)
+      }
+    },
+    [currentFolderId],
+  )
+
+  const {
+    getRootProps: getDropzoneRootProps,
+    getInputProps: getDropzoneInputProps,
+    isDragActive: isExternalDragActive,
+  } = useDropzone({
+    onDrop: handleExternalDrop,
+    noClick: true,
+    noKeyboard: true,
+  })
+
   const handleFolderUploadClick = () => {
     setShowPlusMenu(false)
     folderInputRef.current?.click()
@@ -502,7 +565,34 @@ export default function DrivePage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-49px)]">
+    <div {...getDropzoneRootProps({ className: 'flex h-[calc(100vh-49px)] relative' })}>
+      <input {...getDropzoneInputProps()} />
+
+      {/* External-file drag overlay — only visible while dragging from
+          OS file explorer. Pointer-events-none so it doesn't block
+          the underlying click handlers when there's no active drag. */}
+      {(isExternalDragActive || externalDropProgress) && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-blue-500/10 backdrop-blur-sm border-4 border-dashed border-blue-400 rounded-lg pointer-events-none">
+          <div className="bg-white dark:bg-gray-900 px-6 py-4 rounded-lg shadow-lg border border-blue-300 dark:border-blue-700">
+            {externalDropProgress ? (
+              <div className="flex items-center gap-3">
+                <Upload className="h-5 w-5 text-blue-500 animate-pulse" />
+                <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                  Uploading {externalDropProgress.done} / {externalDropProgress.total}…
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                <Upload className="h-5 w-5 text-blue-500" />
+                <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                  Drop files to upload here
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Hidden folder upload input */}
       <input
         ref={folderInputRef}
