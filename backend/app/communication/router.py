@@ -535,9 +535,16 @@ async def voice_incoming(
     # conversation ID. Guard on assigned_user + sid presence.
     parent_call_sid = form.get("CallSid", "")
     if parent_call_sid and phone.assigned_user_id is not None:
+        # Resolve the inbound caller to a known contact by phone number
+        # at row-creation time. Without this, voicemails from known
+        # contacts leave call_logs.contact_id=NULL, the memory writer
+        # bails at its no_contact guard, and the contact memory layer
+        # never sees voicemail content. (2026-05-18 audit Fix 3.)
+        matched_contact = await service._find_contact_by_phone(db, caller_from)
         call_log = CallLog(
             id=uuid.uuid4(),
             user_id=phone.assigned_user_id,
+            contact_id=matched_contact.id if matched_contact else None,
             direction="inbound",
             from_number=caller_from,
             to_number=phone.phone_number,
@@ -751,6 +758,15 @@ async def voice_voicemail_status(
     except (ValueError, TypeError):
         call_log.recording_duration_seconds = 0
     call_log.recording_status = "completed"
+
+    # Defensive backfill: if voice_incoming didn't resolve the caller
+    # to a contact (e.g., row was created before Fix 3 landed, or the
+    # contact was added between call and voicemail), attempt resolution
+    # now so the downstream memory chain has somewhere to write.
+    if call_log.contact_id is None and call_log.from_number:
+        matched = await service._find_contact_by_phone(db, call_log.from_number)
+        if matched is not None:
+            call_log.contact_id = matched.id
 
     # Only transcribe if there's actual content. 0-duration recordings
     # would waste an AssemblyAI API call.
