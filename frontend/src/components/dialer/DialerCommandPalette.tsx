@@ -62,7 +62,8 @@ export default function DialerCommandPalette({ onDial }: Props) {
 
   const contactsQuery = useQuery({
     queryKey: ['dialer-contacts-list'],
-    queryFn: () => listContacts({ page_size: 200 }),
+    // Backend pagination cap is 100 (audit Bug 4).
+    queryFn: () => listContacts({ page_size: 100 }),
     staleTime: 60_000,
   })
 

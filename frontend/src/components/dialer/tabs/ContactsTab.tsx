@@ -44,7 +44,12 @@ export default function ContactsTab({ onDial }: Props) {
 
   const contactsQuery = useQuery({
     queryKey: ['dialer-contacts-list'],
-    queryFn: () => listContacts({ page_size: 200 }),
+    // page_size capped to 100 — the backend pagination validator
+    // rejects anything over 100 with a 422 (which is why this tab
+    // silently rendered empty in the 2026-05-18 audit). 100 covers
+    // the working set for any non-enterprise install; search narrows
+    // beyond that.
+    queryFn: () => listContacts({ page_size: 100 }),
   })
 
   const contacts: Contact[] = (contactsQuery.data?.data as Contact[]) || []
@@ -86,6 +91,18 @@ export default function ContactsTab({ onDial }: Props) {
       <div className="flex-1 overflow-y-auto px-3 pb-3">
         {contactsQuery.isLoading ? (
           <p className="px-3 py-6 text-sm text-[color:var(--lg-text-muted)]">Loading contacts…</p>
+        ) : contactsQuery.isError ? (
+          // Surface fetch errors instead of falling through to the
+          // "no contacts" empty state. The audit caught this — when
+          // page_size=200 returned 422, the empty state masked a real
+          // API failure.
+          <div className="px-3 py-12 text-center">
+            <Users className="h-8 w-8 mx-auto text-red-400 mb-3" />
+            <p className="text-sm text-red-500 dark:text-red-400">Couldn't load contacts</p>
+            <p className="text-xs text-[color:var(--lg-text-muted)] mt-1">
+              {(contactsQuery.error as any)?.message || 'Try refreshing the page'}
+            </p>
+          </div>
         ) : filtered.length === 0 ? (
           <div className="px-3 py-12 text-center">
             <Users className="h-8 w-8 mx-auto text-[color:var(--lg-text-muted)] mb-3" />

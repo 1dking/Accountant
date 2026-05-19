@@ -40,11 +40,12 @@ export default function RecentsTab({ onDial }: Props) {
     queryFn: () => listCalls({ page_size: 50 }),
   })
   // Pull a generous slice of contacts so we can resolve names for
-  // recent callers. 200 covers the realistic working set; if a contact
-  // is beyond it, the row falls back to the raw phone number.
+  // recent callers. 100 is the backend's hard cap (audit Bug 4 —
+  // page_size>100 returns 422). Contacts beyond the cap fall back
+  // to the raw phone number display.
   const contactsQuery = useQuery({
     queryKey: ['dialer-contacts-index'],
-    queryFn: () => listContacts({ page_size: 200 }),
+    queryFn: () => listContacts({ page_size: 100 }),
   })
 
   const calls: CallLogEntry[] = callsQuery.data?.data || []
