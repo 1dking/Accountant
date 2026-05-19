@@ -40,6 +40,22 @@ export const pagesApi = {
   aiChat: (data: { page_id: string; message: string }) =>
     api.post('/pages/ai/chat', data),
 
+  // Conversational PRD-first generation (Pages v2 — Session 1).
+  // Workflow: create session → submit prompt (Claude derives PRD) →
+  // optionally re-prompt to iterate → approve → trigger generate →
+  // poll session until status='complete' (or 'failed').
+  aiCreateSession: () => api.post('/pages/ai/sessions'),
+  aiGetSession: (sessionId: string) =>
+    api.get(`/pages/ai/sessions/${sessionId}`),
+  aiSubmitPrompt: (sessionId: string, prompt: string) =>
+    api.post(`/pages/ai/sessions/${sessionId}/prompt`, { prompt }),
+  aiApprovePrd: (sessionId: string) =>
+    api.post(`/pages/ai/sessions/${sessionId}/approve`),
+  aiTriggerGenerate: (sessionId: string) =>
+    api.post(`/pages/ai/sessions/${sessionId}/generate`),
+  aiRefineSection: (pageId: string, sectionIndex: number, instruction: string) =>
+    api.post(`/pages/${pageId}/sections/${sectionIndex}/refine`, { instruction }),
+
   // Style library
   getStylePresets: () => api.get('/pages/style-presets'),
   getSectionTemplates: () => api.get('/pages/section-templates'),

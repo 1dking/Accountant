@@ -46,6 +46,7 @@ import {
 import VisualEditor from '@/components/pages/VisualEditor'
 import AnalyticsDashboard from '@/components/pages/AnalyticsDashboard'
 import TrackingPixelsSettings from '@/components/pages/TrackingPixelsSettings'
+import PageAIGenerateModal from '@/components/pages/PageAIGenerateModal'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -207,6 +208,7 @@ export default function PageBuilderPage() {
 
   // Modals
   const [showCreatePage, setShowCreatePage] = useState(false)
+  const [showAIGenerate, setShowAIGenerate] = useState(false)
   const [showCreateWebsite, setShowCreateWebsite] = useState(false)
   const [createPageTitle, setCreatePageTitle] = useState('')
   const [createWebsiteName, setCreateWebsiteName] = useState('')
@@ -1065,6 +1067,12 @@ export default function PageBuilderPage() {
             <button onClick={() => setShowCreateWebsite(true)} className="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition">
               <Globe className="h-4 w-4" /> New Website
             </button>
+            <button
+              onClick={() => setShowAIGenerate(true)}
+              className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-4 py-2 rounded-lg transition shadow-md"
+            >
+              <Sparkles className="h-4 w-4" /> Generate with AI
+            </button>
             <button onClick={() => setShowCreatePage(true)} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
               <Plus className="h-4 w-4" /> New Page
             </button>
@@ -1633,6 +1641,19 @@ export default function PageBuilderPage() {
       {renderTemplateBrowser()}
       {renderTemplatePreview()}
       {renderCompareModal()}
+
+      <PageAIGenerateModal
+        open={showAIGenerate}
+        onClose={() => setShowAIGenerate(false)}
+        onComplete={(pageId) => {
+          setShowAIGenerate(false)
+          setSelectedPageId(pageId)
+          setView('edit')
+          queryClient.invalidateQueries({ queryKey: ['pages'] })
+          toast.success('Page generated — opening editor')
+        }}
+      />
+
 
       {renderTopBar()}
 
