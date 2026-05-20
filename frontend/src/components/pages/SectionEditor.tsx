@@ -28,9 +28,11 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
-  Loader2, Sparkles, Trash2, Copy, RotateCcw, X,
+  Loader2, Sparkles, Trash2, Copy, RotateCcw, X, Replace, Plus,
 } from 'lucide-react'
 import { pagesApi } from '@/api/pages'
+import VariantPickerModal from './VariantPickerModal'
+import './section-editor.css'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -88,6 +90,7 @@ interface SectionBlockProps {
   section: PageSection
   index: number
   onChanged: () => void
+  onRequestChangeVariant: (idx: number, category: string) => void
 }
 
 const TAILWIND_CDN = 'https://cdn.tailwindcss.com'
@@ -177,7 +180,7 @@ const EDITOR_SCRIPT = `
 <\/script>
 `
 
-function SectionBlock({ pageId, section, index, onChanged }: SectionBlockProps) {
+function SectionBlock({ pageId, section, index, onChanged, onRequestChangeVariant }: SectionBlockProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const [iframeHeight, setIframeHeight] = useState(240)
   const [hovered, setHovered] = useState(false)
@@ -282,30 +285,42 @@ function SectionBlock({ pageId, section, index, onChanged }: SectionBlockProps) 
 
   const hasEdits = !!section.edited_html
 
+  const sectionTypeClass = section.type ? `se-type-${section.type}` : ''
+
   return (
     <div
-      className="relative group border border-transparent hover:border-indigo-200 dark:hover:border-indigo-800 transition-colors rounded-lg overflow-hidden"
+      className={`se-section ${sectionTypeClass} group bg-white dark:bg-gray-900`}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {/* Hover controls — top-right floating bar */}
+      {/* Hover controls — Liquid Glass floating bar, top-right */}
       {hovered && (
-        <div className="absolute top-2 right-2 z-20 flex items-center gap-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-1">
+        <div className="absolute top-3 right-3 z-20 se-control-bar">
           <button
             onClick={() => setShowRefineInput(true)}
             disabled={refining}
-            className="p-1.5 rounded hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 disabled:opacity-50"
-            title="Refine with AI"
+            className="se-control-btn se-ctrl-refine"
+            aria-label="Refine with AI"
           >
             {refining ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            <span className="se-tooltip">Refine with AI</span>
+          </button>
+          <button
+            onClick={() => onRequestChangeVariant(index, section.type || 'hero')}
+            className="se-control-btn se-ctrl-variant"
+            aria-label="Change variant"
+          >
+            <Replace className="h-4 w-4" />
+            <span className="se-tooltip">Change variant</span>
           </button>
           <button
             onClick={() => duplicateMut.mutate()}
             disabled={duplicateMut.isPending}
-            className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 disabled:opacity-50"
-            title="Duplicate section"
+            className="se-control-btn"
+            aria-label="Duplicate section"
           >
             <Copy className="h-4 w-4" />
+            <span className="se-tooltip">Duplicate section</span>
           </button>
           {hasEdits && (
             <button
@@ -315,10 +330,11 @@ function SectionBlock({ pageId, section, index, onChanged }: SectionBlockProps) 
                 }
               }}
               disabled={revertMut.isPending}
-              className="p-1.5 rounded hover:bg-amber-50 dark:hover:bg-amber-900/30 text-amber-600 dark:text-amber-400 disabled:opacity-50"
-              title="Revert to AI original"
+              className="se-control-btn se-ctrl-revert"
+              aria-label="Revert to AI original"
             >
               <RotateCcw className="h-4 w-4" />
+              <span className="se-tooltip">Revert to AI original</span>
             </button>
           )}
           <button
@@ -328,10 +344,11 @@ function SectionBlock({ pageId, section, index, onChanged }: SectionBlockProps) 
               }
             }}
             disabled={deleteMut.isPending}
-            className="p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 disabled:opacity-50"
-            title="Delete section"
+            className="se-control-btn se-ctrl-delete"
+            aria-label="Delete section"
           >
             <Trash2 className="h-4 w-4" />
+            <span className="se-tooltip">Delete section</span>
           </button>
         </div>
       )}
@@ -382,10 +399,18 @@ function SectionBlock({ pageId, section, index, onChanged }: SectionBlockProps) 
         style={{ height: `${iframeHeight}px` }}
       />
 
-      {/* Section label — bottom-left, tiny, only on hover */}
+      {/* Section badge — Liquid Glass surface, bottom-left, only on hover */}
       {hovered && (
-        <div className="absolute bottom-2 left-2 z-20 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 bg-white/90 dark:bg-gray-900/90 rounded">
-          {section.type || 'section'} · #{index + 1}{hasEdits ? ' · edited' : ''}
+        <div className="absolute bottom-3 left-3 z-20 se-badge">
+          <span>{section.type || 'section'}</span>
+          <span className="opacity-60">·</span>
+          <span>#{index + 1}</span>
+          {hasEdits && (
+            <>
+              <span className="opacity-60">·</span>
+              <span className="se-badge-edited">edited</span>
+            </>
+          )}
         </div>
       )}
     </div>
@@ -397,33 +422,110 @@ function SectionBlock({ pageId, section, index, onChanged }: SectionBlockProps) 
 // ---------------------------------------------------------------------------
 
 export default function SectionEditor({ pageId, sections, onChanged }: SectionEditorProps) {
-  if (!sections || sections.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-full text-gray-400 dark:text-gray-500">
-        <div className="text-center max-w-sm">
-          <p className="text-sm">No sections yet.</p>
-          <p className="text-xs mt-1">
-            Generate a page via the Generate with AI button, or refine an empty section.
-          </p>
-        </div>
-      </div>
-    )
+  const queryClient = useQueryClient()
+
+  // Picker state: { mode, lockedCategory?, swapIndex? }
+  type PickerState =
+    | { mode: 'add' }
+    | { mode: 'swap'; swapIndex: number; lockedCategory: string }
+    | null
+  const [picker, setPicker] = useState<PickerState>(null)
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['page', pageId] })
+    onChanged()
   }
 
+  const addMut = useMutation({
+    mutationFn: (data: { category: string; variant_id: string }) =>
+      pagesApi.addSection(pageId, data),
+    onSuccess: () => { toast.success('Section added'); invalidate() },
+    onError: (e: any) => toast.error(`Add failed: ${e?.message || 'unknown'}`),
+  })
+
+  const changeMut = useMutation({
+    mutationFn: (args: { idx: number; data: { category: string; variant_id: string } }) =>
+      pagesApi.changeVariant(pageId, args.idx, args.data),
+    onSuccess: (resp: any) => {
+      const migrated: string[] = resp?.meta?.migrated_tokens ?? []
+      if (migrated.length > 0) {
+        toast.success(`Variant swapped — ${migrated.length} field${migrated.length === 1 ? '' : 's'} migrated`)
+      } else {
+        toast.success('Variant swapped')
+      }
+      invalidate()
+    },
+    onError: (e: any) => toast.error(`Swap failed: ${e?.message || 'unknown'}`),
+  })
+
+  const handlePick = (variant: { category: string; variant_id: string }) => {
+    if (!picker) return
+    if (picker.mode === 'add') {
+      addMut.mutate({ category: variant.category, variant_id: variant.variant_id })
+    } else {
+      changeMut.mutate({ idx: picker.swapIndex, data: { category: variant.category, variant_id: variant.variant_id } })
+    }
+    setPicker(null)
+  }
+
+  const empty = !sections || sections.length === 0
+
   return (
-    <div className="h-full overflow-y-auto bg-gray-50 dark:bg-gray-900 p-4 space-y-3">
-      {sections.map((sec, idx) => (
-        <SectionBlock
-          key={sec.id || `s-${idx}`}
-          pageId={pageId}
-          section={sec}
-          index={idx}
-          onChanged={onChanged}
-        />
-      ))}
-      <div className="pt-2 text-center text-xs text-gray-400 dark:text-gray-500">
-        {sections.length} {sections.length === 1 ? 'section' : 'sections'} · click any text to edit
+    <div className="se-root h-full overflow-y-auto bg-gray-50 dark:bg-gray-900">
+      <div className="p-4 space-y-3 pb-32">
+        {empty ? (
+          <div className="flex items-center justify-center h-full text-gray-400 dark:text-gray-500 py-24">
+            <div className="text-center max-w-sm">
+              <p className="text-sm">No sections yet.</p>
+              <p className="text-xs mt-1">
+                Click "Add Section" below to pick a variant, or generate a full page from the list view.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <>
+            {sections.map((sec, idx) => (
+              <SectionBlock
+                key={sec.id || `s-${idx}`}
+                pageId={pageId}
+                section={sec}
+                index={idx}
+                onChanged={onChanged}
+                onRequestChangeVariant={(swapIndex, category) =>
+                  setPicker({ mode: 'swap', swapIndex, lockedCategory: category })
+                }
+              />
+            ))}
+            <div className="pt-2 text-center text-xs text-gray-400 dark:text-gray-500">
+              {sections.length} {sections.length === 1 ? 'section' : 'sections'} · click any text to edit
+            </div>
+          </>
+        )}
       </div>
+
+      {/* Sticky "+ Add Section" button — bottom of editor pane */}
+      <div className="sticky bottom-0 left-0 right-0 pointer-events-none flex justify-center pb-6 -mt-12">
+        <button
+          type="button"
+          onClick={() => setPicker({ mode: 'add' })}
+          disabled={addMut.isPending}
+          className="se-add-section pointer-events-auto"
+        >
+          {addMut.isPending ? (
+            <><Loader2 className="h-4 w-4 animate-spin" /> Adding…</>
+          ) : (
+            <><Plus className="h-4 w-4" /> Add Section</>
+          )}
+        </button>
+      </div>
+
+      <VariantPickerModal
+        open={picker !== null}
+        mode={picker?.mode ?? 'add'}
+        lockedCategory={picker?.mode === 'swap' ? picker.lockedCategory : undefined}
+        onClose={() => setPicker(null)}
+        onPick={handlePick}
+      />
     </div>
   )
 }

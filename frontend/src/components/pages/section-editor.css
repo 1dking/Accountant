@@ -1,0 +1,282 @@
+/**
+ * SectionEditor — Liquid Glass surface tokens for the inline page
+ * editor controls (hover bar, badges, sticky Add Section button,
+ * variant picker modal).
+ *
+ * Mirrors dialer/liquid-glass.css but scoped to .se-* classes so the
+ * tokens don't leak into the rest of the app. Same visual language
+ * as the dialer, calibrated for a lighter editor surface (the page
+ * canvas behind shows through).
+ */
+
+.se-root {
+  --se-surface: rgba(10, 14, 26, 0.78);
+  --se-surface-light: rgba(255, 255, 255, 0.86);
+  --se-blur: blur(40px) saturate(180%);
+  --se-border: rgba(255, 255, 255, 0.14);
+  --se-border-inner: rgba(255, 255, 255, 0.06);
+  --se-text-primary: rgba(255, 255, 255, 0.96);
+  --se-text-secondary: rgba(255, 255, 255, 0.68);
+  --se-text-muted: rgba(255, 255, 255, 0.46);
+  --se-accent: linear-gradient(135deg, #6366f1 0%, #8b5cf6 55%, #ec4899 100%);
+  --se-accent-solid: #6366f1;
+  --se-shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  --se-ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
+  --se-ease-out: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Per-section hover control bar — top-right floating glass strip */
+.se-control-bar {
+  background: var(--se-surface);
+  -webkit-backdrop-filter: var(--se-blur);
+  backdrop-filter: var(--se-blur);
+  border: 1px solid var(--se-border);
+  border-radius: 12px;
+  box-shadow: var(--se-shadow-lg);
+  padding: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--se-text-primary);
+  animation: se-pop-in 180ms var(--se-ease-spring);
+}
+
+@keyframes se-pop-in {
+  from { opacity: 0; transform: scale(0.94) translateY(-2px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.se-control-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  color: var(--se-text-secondary);
+  background: transparent;
+  transition: background 140ms var(--se-ease-out), color 140ms var(--se-ease-out), transform 140ms var(--se-ease-out);
+  cursor: pointer;
+}
+.se-control-btn:hover {
+  background: rgba(255, 255, 255, 0.10);
+  color: var(--se-text-primary);
+}
+.se-control-btn:active {
+  transform: scale(0.94);
+}
+.se-control-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+/* Variant ⟳ icon: subtle accent on hover */
+.se-control-btn.se-ctrl-variant:hover {
+  background: rgba(99, 102, 241, 0.20);
+  color: #c7d2fe;
+}
+/* Refine ✦ icon: indigo accent on hover */
+.se-control-btn.se-ctrl-refine:hover {
+  background: rgba(139, 92, 246, 0.20);
+  color: #ddd6fe;
+}
+/* Revert: amber accent */
+.se-control-btn.se-ctrl-revert:hover {
+  background: rgba(245, 158, 11, 0.18);
+  color: #fde68a;
+}
+/* Delete: red accent */
+.se-control-btn.se-ctrl-delete:hover {
+  background: rgba(239, 68, 68, 0.20);
+  color: #fecaca;
+}
+
+/* Tooltip — appears below the icon on hover */
+.se-tooltip {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 8px;
+  background: rgba(0, 0, 0, 0.92);
+  color: rgba(255, 255, 255, 0.94);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  border-radius: 6px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 120ms var(--se-ease-out);
+  z-index: 100;
+}
+.se-control-btn:hover .se-tooltip {
+  opacity: 1;
+  transition-delay: 250ms;
+}
+
+/* Section badge — bottom-left, shows type + edited marker */
+.se-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--se-surface);
+  -webkit-backdrop-filter: var(--se-blur);
+  backdrop-filter: var(--se-blur);
+  border: 1px solid var(--se-border);
+  border-radius: 999px;
+  color: var(--se-text-secondary);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  animation: se-pop-in 180ms var(--se-ease-spring);
+}
+
+/* ✦ accent dot before "edited" word */
+.se-badge-edited::before {
+  content: '✦';
+  color: var(--se-accent-solid);
+  font-size: 9px;
+  margin-right: 2px;
+}
+
+/* Section accent border — appears on hover.
+   Default subtle indigo; section-type modifiers below restyle. */
+.se-section {
+  position: relative;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: border-color 180ms var(--se-ease-out), box-shadow 180ms var(--se-ease-out);
+}
+.se-section:hover {
+  border-color: rgba(99, 102, 241, 0.35);
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.06);
+}
+.se-section.se-type-hero:hover {
+  border-color: rgba(59, 130, 246, 0.40);
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.08);
+}
+.se-section.se-type-features:hover {
+  border-color: rgba(139, 92, 246, 0.40);
+  box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.08);
+}
+.se-section.se-type-pricing:hover {
+  border-color: rgba(236, 72, 153, 0.40);
+  box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.08);
+}
+.se-section.se-type-testimonials:hover {
+  border-color: rgba(16, 185, 129, 0.40);
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.08);
+}
+.se-section.se-type-cta:hover {
+  border-color: rgba(245, 158, 11, 0.40);
+  box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.08);
+}
+.se-section.se-type-footer:hover {
+  border-color: rgba(100, 116, 139, 0.40);
+  box-shadow: 0 0 0 4px rgba(100, 116, 139, 0.08);
+}
+
+/* Sticky Add Section button — bottom of editor pane */
+.se-add-section {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: var(--se-accent);
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+  border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.10) inset;
+  transition: transform 160ms var(--se-ease-spring), box-shadow 160ms var(--se-ease-out);
+  cursor: pointer;
+  border: none;
+}
+.se-add-section:hover {
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: 0 12px 32px rgba(99, 102, 241, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.16) inset;
+}
+.se-add-section:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* Variant picker modal surfaces */
+.se-picker-backdrop {
+  background: rgba(8, 10, 20, 0.65);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  animation: se-fade-in 160ms var(--se-ease-out);
+}
+
+@keyframes se-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.se-picker-surface {
+  background: rgba(15, 18, 32, 0.88);
+  -webkit-backdrop-filter: var(--se-blur);
+  backdrop-filter: var(--se-blur);
+  border: 1px solid var(--se-border);
+  border-radius: 16px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+  color: var(--se-text-primary);
+  animation: se-scale-in 220ms var(--se-ease-spring);
+  overflow: hidden;
+}
+
+@keyframes se-scale-in {
+  from { opacity: 0; transform: scale(0.94); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.se-picker-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 16px;
+  cursor: pointer;
+  transition: background 160ms var(--se-ease-out), border-color 160ms var(--se-ease-out), transform 160ms var(--se-ease-out);
+  color: var(--se-text-primary);
+  text-align: left;
+}
+.se-picker-card:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(99, 102, 241, 0.45);
+  transform: translateY(-2px);
+}
+.se-picker-card-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--se-text-primary);
+}
+.se-picker-card-desc {
+  font-size: 12px;
+  color: var(--se-text-muted);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+.se-picker-card-thumb {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.18), rgba(139, 92, 246, 0.10));
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--se-text-muted);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  overflow: hidden;
+}
+.se-picker-category-card {
+  composes: se-picker-card;
+}

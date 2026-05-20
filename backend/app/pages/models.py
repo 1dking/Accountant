@@ -477,3 +477,29 @@ class PageGenerationSession(TimestampMixin, Base):
         String(20), nullable=False, server_default="drafting"
     )
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class SectionVariant(TimestampMixin, Base):
+    """One template-ready variant for the section picker. Categories map
+    to SectionType values; each category has multiple variants
+    (e.g. hero_video, hero_two_col_image). jsx_template uses {{TOKEN}}
+    placeholders that get substituted from default_props on insert.
+
+    The picker reads via GET /api/pages/variants?category=hero and
+    swap via POST /sections/{idx}/change-variant. Seeded via a
+    standalone seed script — not the migration — so we can re-seed
+    template updates without alembic churn.
+    """
+
+    __tablename__ = "section_variants"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    category: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    variant_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    display_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    jsx_template: Mapped[str] = mapped_column(Text, nullable=False)
+    default_props: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    preview_thumbnail_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, server_default="100")
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="1")

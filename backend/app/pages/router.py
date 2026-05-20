@@ -91,6 +91,33 @@ async def get_template(
     return {"data": TemplateResponse.model_validate(t)}
 
 
+@router.get("/variants")
+async def list_section_variants(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
+    category: str | None = Query(None, description="Filter by category (hero, features, ...)"),
+) -> dict:
+    """List active variants for the SectionEditor picker. Ordered by
+    (sort_order, display_name). Registered above /{page_id} so the
+    literal path doesn't get parsed as a UUID."""
+    from app.pages.variants import list_variants
+    variants = await list_variants(db, category=category)
+    return {
+        "data": [
+            {
+                "id": v.id,
+                "category": v.category,
+                "variant_id": v.variant_id,
+                "display_name": v.display_name,
+                "description": v.description,
+                "preview_thumbnail_url": v.preview_thumbnail_url,
+                "default_props": v.default_props or {},
+            }
+            for v in variants
+        ]
+    }
+
+
 @router.post("/templates", status_code=201)
 async def create_template(
     data: TemplateCreate,
@@ -1215,6 +1242,139 @@ async def revert_section(
         page_id, section_index,
     )
     return {"data": PageResponse.model_validate(page).model_dump(mode="json")}
+
+
+# ---------------------------------------------------------------------------
+# Variant library (Pages v2 — SectionEditor variant picker, Commit 2)
+#
+# Note: GET /variants is registered separately ABOVE @router.get("/{page_id}")
+# to avoid FastAPI route-matching grabbing the literal string as a UUID.
+# ---------------------------------------------------------------------------
+
+
+@router.post("/{page_id}/sections")
+async def add_section(
+    page_id: uuid.UUID,
+    body: dict,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
+    after_idx: int | None = Query(None, description="Insert after this index; default: append at end"),
+) -> dict:
+    """Add a new section from a variant. Body: { category: str,
+    variant_id: str, prop_overrides?: dict }. Appends by default;
+    insert at a specific position via ?after_idx=N."""
+    from app.pages.variants import get_variant, variant_to_section
+
+    category = (body.get("category") or "").strip()
+    variant_id = (body.get("variant_id") or "").strip()
+    if not category or not variant_id:
+        raise HTTPException(status_code=400, detail="category and variant_id are required")
+
+    variant = await get_variant(db, category, variant_id)
+    if variant is None:
+        raise HTTPException(status_code=404, detail=f"Variant {category}/{variant_id} not found")
+
+    page, sections = await _load_sections(db, page_id, user.id)
+    new_section = variant_to_section(variant, prop_overrides=body.get("prop_overrides"))
+
+    if after_idx is None or after_idx >= len(sections):
+        sections.append(new_section)
+        new_idx = len(sections) - 1
+    else:
+        new_idx = max(0, after_idx + 1)
+        sections.insert(new_idx, new_section)
+
+    page.sections_json = json.dumps(sections)
+    _recompile_html(page)
+    await db.commit()
+    await db.refresh(page)
+    logger.info(
+        "pages.section_added page_id=%s variant=%s/%s at_index=%d",
+        page_id, category, variant_id, new_idx,
+    )
+    return {
+        "data": PageResponse.model_validate(page).model_dump(mode="json"),
+        "meta": {"new_section_index": new_idx},
+    }
+
+
+@router.post("/{page_id}/sections/{section_index}/change-variant")
+async def change_section_variant(
+    page_id: uuid.UUID,
+    section_index: int,
+    body: dict,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
+) -> dict:
+    """Swap the variant on an existing section. Body: { category: str,
+    variant_id: str }. Best-effort content migration: extracts token
+    values from the previous section's edited_html (or rendered
+    jsx_content) and feeds them as overrides into the new variant's
+    template. Tokens that don't match get the new variant's default."""
+    from app.pages.variants import (
+        get_variant, variant_to_section, extract_token_values,
+    )
+    from sqlalchemy import select
+    from app.pages.models import SectionVariant
+
+    category = (body.get("category") or "").strip()
+    variant_id = (body.get("variant_id") or "").strip()
+    if not category or not variant_id:
+        raise HTTPException(status_code=400, detail="category and variant_id are required")
+
+    new_variant = await get_variant(db, category, variant_id)
+    if new_variant is None:
+        raise HTTPException(status_code=404, detail=f"Variant {category}/{variant_id} not found")
+
+    page, sections = await _load_sections(db, page_id, user.id)
+    if section_index < 0 or section_index >= len(sections):
+        raise HTTPException(
+            status_code=400,
+            detail=f"section_index {section_index} out of range",
+        )
+    old_section = sections[section_index]
+    old_content = (
+        old_section.get("edited_html")
+        or old_section.get("jsx_content")
+        or ""
+    )
+
+    # Best-effort: extract values from old content using the previous
+    # variant's template if known. If we don't have the template (the
+    # section came from raw AI generation, no variant_id metadata),
+    # we still keep the new variant's defaults intact.
+    overrides: dict = {}
+    old_variant_id = (old_section.get("metadata") or {}).get("variant_id")
+    if old_variant_id and old_content:
+        rows = await db.execute(
+            select(SectionVariant).where(
+                SectionVariant.variant_id == old_variant_id,
+                SectionVariant.is_active.is_(True),
+            )
+        )
+        old_variant = rows.scalar_one_or_none()
+        if old_variant is not None:
+            overrides = extract_token_values(old_content, old_variant.jsx_template)
+
+    new_section = variant_to_section(new_variant, prop_overrides=overrides)
+    # Preserve the section's stable id when swapping a variant so
+    # bookmarks/anchors don't break.
+    if old_section.get("id"):
+        new_section["id"] = old_section["id"]
+
+    sections[section_index] = new_section
+    page.sections_json = json.dumps(sections)
+    _recompile_html(page)
+    await db.commit()
+    await db.refresh(page)
+    logger.info(
+        "pages.section_variant_changed page_id=%s index=%d old=%s new=%s migrated_tokens=%d",
+        page_id, section_index, old_variant_id, variant_id, len(overrides),
+    )
+    return {
+        "data": PageResponse.model_validate(page).model_dump(mode="json"),
+        "meta": {"migrated_tokens": list(overrides.keys())},
+    }
 
 
 # ---------------------------------------------------------------------------

@@ -71,6 +71,25 @@ export const pagesApi = {
   revertSection: (pageId: string, idx: number) =>
     api.post(`/pages/${pageId}/sections/${idx}/revert`),
 
+  // Variant library (SectionEditor picker — Commit 2)
+  listVariants: (category?: string) => {
+    const q = category ? `?category=${encodeURIComponent(category)}` : ''
+    return api.get(`/pages/variants${q}`)
+  },
+  addSection: (
+    pageId: string,
+    data: { category: string; variant_id: string; prop_overrides?: Record<string, unknown> },
+    afterIdx?: number,
+  ) => {
+    const q = typeof afterIdx === 'number' ? `?after_idx=${afterIdx}` : ''
+    return api.post(`/pages/${pageId}/sections${q}`, data)
+  },
+  changeVariant: (
+    pageId: string,
+    idx: number,
+    data: { category: string; variant_id: string },
+  ) => api.post(`/pages/${pageId}/sections/${idx}/change-variant`, data),
+
   // Static publish (Pages v2 — Session 2). Compiles sections to HTML +
   // uploads to R2 + flips page status to PUBLISHED. Idempotent: same
   // content hash short-circuits to was_unchanged=true.
