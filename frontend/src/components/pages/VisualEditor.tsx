@@ -111,10 +111,36 @@ export default function VisualEditor({ html, css, onHtmlChange, onCssChange, onV
         document.body.appendChild(overlay);
       }
 
+      var TEXT_TAGS = ['H1','H2','H3','H4','H5','H6','P','SPAN','A','LI','BUTTON','LABEL','TD','TH'];
+
       document.addEventListener('click', function(e) {
-        e.preventDefault();
+        var clicked = e.target;
+        var isText = TEXT_TAGS.indexOf(clicked.tagName) !== -1;
+
+        // For NON-text elements (sections, divs, etc.) preventDefault
+        // so links don't navigate and forms don't submit. For text
+        // elements we let the browser handle the click so the caret
+        // positions correctly inside contentEditable.
+        if (!isText) {
+          e.preventDefault();
+        }
         e.stopPropagation();
-        selectedEl = e.target;
+
+        selectedEl = clicked;
+
+        // Single-click → caret. Make text elements editable on first
+        // selection. Was dblclick — undiscoverable; users thought edits
+        // were broken. State-of-the-art editors (Lovable, v0, Framer)
+        // all do single-click → caret.
+        if (isText && clicked.getAttribute('contenteditable') !== 'true') {
+          clicked.contentEditable = 'true';
+          clicked.focus();
+          clicked.addEventListener('blur', function() {
+            clicked.contentEditable = 'false';
+            window.parent.postMessage({ type: 'content-changed', html: __cleanBodyHtml() }, '*');
+          }, { once: true });
+        }
+
         if (!overlay) createOverlay();
 
         var rect = selectedEl.getBoundingClientRect();
@@ -192,18 +218,7 @@ export default function VisualEditor({ html, css, onHtmlChange, onCssChange, onV
         return clone.innerHTML;
       }
 
-      document.addEventListener('dblclick', function(e) {
-        e.preventDefault();
-        var el = e.target;
-        if (['H1','H2','H3','H4','H5','H6','P','SPAN','A','LI','BUTTON','LABEL','TD','TH'].includes(el.tagName)) {
-          el.contentEditable = 'true';
-          el.focus();
-          el.addEventListener('blur', function() {
-            el.contentEditable = 'false';
-            window.parent.postMessage({ type: 'content-changed', html: __cleanBodyHtml() }, '*');
-          }, { once: true });
-        }
-      }, true);
+      // (dblclick handler removed — single-click now owns enter-edit.)
     </script>
   `
 
