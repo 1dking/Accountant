@@ -56,6 +56,21 @@ export const pagesApi = {
   aiRefineSection: (pageId: string, sectionIndex: number, instruction: string) =>
     api.post(`/pages/${pageId}/sections/${sectionIndex}/refine`, { instruction }),
 
+  // Per-section CRUD (SectionEditor — Pages v2). All four endpoints
+  // mutate sections_json in place and re-run compile_page so
+  // html_content stays in sync with the structured source-of-truth.
+  patchSection: (
+    pageId: string,
+    idx: number,
+    data: { edited_html?: string | null; style_overrides?: Record<string, unknown> | null },
+  ) => api.patch(`/pages/${pageId}/sections/${idx}`, data),
+  duplicateSection: (pageId: string, idx: number) =>
+    api.post(`/pages/${pageId}/sections/${idx}/duplicate`),
+  deleteSection: (pageId: string, idx: number) =>
+    api.delete(`/pages/${pageId}/sections/${idx}`),
+  revertSection: (pageId: string, idx: number) =>
+    api.post(`/pages/${pageId}/sections/${idx}/revert`),
+
   // Static publish (Pages v2 — Session 2). Compiles sections to HTML +
   // uploads to R2 + flips page status to PUBLISHED. Idempotent: same
   // content hash short-circuits to was_unchanged=true.

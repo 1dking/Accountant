@@ -150,11 +150,19 @@ def compile_page(
 
     # Section content: prefer the new sections_json; fall back to the
     # legacy opaque html_content if sections_json is empty.
+    # Per-section: if edited_html is set (Visual editor / SectionEditor
+    # saved user edits), use it AS-IS (already HTML, no JSX rewrites
+    # needed — the editor produces plain HTML). Otherwise compile from
+    # the AI-original jsx_content with JSX→HTML normalization.
     body_sections: list[str] = []
     if page.sections_json:
         try:
             sections = json.loads(page.sections_json)
             for sec in sections:
+                edited = sec.get("edited_html") or ""
+                if edited:
+                    body_sections.append(edited)
+                    continue
                 jsx = sec.get("jsx_content") or ""
                 if jsx:
                     body_sections.append(_jsx_to_html(jsx))

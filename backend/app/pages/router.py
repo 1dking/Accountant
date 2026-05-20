@@ -1038,6 +1038,186 @@ async def refine_page_section(
 
 
 # ---------------------------------------------------------------------------
+# Per-section CRUD (Pages v2 — SectionEditor, replaces VisualEditor's
+# global html_content writes). All four endpoints mutate sections_json
+# in place and re-run compile_page so page.html_content stays in sync
+# with the structured source-of-truth.
+# ---------------------------------------------------------------------------
+
+
+def _recompile_html(page) -> None:
+    """Recompile page.html_content from sections_json. Best-effort —
+    a compile failure is logged but doesn't block the section update
+    (sections_json remains the authoritative source)."""
+    from app.pages.compiler import compile_page
+    try:
+        page.html_content = compile_page(page, company_settings=None)
+    except Exception as exc:
+        logger.warning(
+            "pages.section_recompile_failed page_id=%s err=%s",
+            page.id, str(exc)[:200],
+        )
+
+
+async def _load_sections(db: AsyncSession, page_id: uuid.UUID, user_id: uuid.UUID):
+    """Load page + parsed sections, bounded by ownership. Returns
+    (page, sections_list). Raises HTTPException(404) if not found."""
+    from sqlalchemy import select
+    from app.pages.models import Page
+    rows = await db.execute(
+        select(Page).where(Page.id == page_id, Page.created_by == user_id)
+    )
+    page = rows.scalar_one_or_none()
+    if page is None:
+        raise HTTPException(status_code=404, detail="Page not found")
+    try:
+        sections = json.loads(page.sections_json or "[]")
+    except (json.JSONDecodeError, TypeError):
+        sections = []
+    if not isinstance(sections, list):
+        sections = []
+    return page, sections
+
+
+@router.patch("/{page_id}/sections/{section_index}")
+async def patch_section(
+    page_id: uuid.UUID,
+    section_index: int,
+    body: dict,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
+) -> dict:
+    """Update one section's edited_html or style_overrides in place.
+    Body: { edited_html?: str | null, style_overrides?: dict | null }.
+    Writes to sections_json — NEVER touches css_content (the bug that
+    sparked this refactor was font-size adjustments appending nth-child
+    !important rules to global CSS; the structured per-section path
+    closes that off entirely)."""
+    page, sections = await _load_sections(db, page_id, user.id)
+    if section_index < 0 or section_index >= len(sections):
+        raise HTTPException(
+            status_code=400,
+            detail=f"section_index {section_index} out of range (page has {len(sections)} sections)",
+        )
+    target = sections[section_index]
+    if not isinstance(target, dict):
+        raise HTTPException(status_code=500, detail="Section is malformed")
+
+    if "edited_html" in body:
+        val = body["edited_html"]
+        if val is not None and not isinstance(val, str):
+            raise HTTPException(status_code=400, detail="edited_html must be a string or null")
+        target["edited_html"] = val
+    if "style_overrides" in body:
+        val = body["style_overrides"]
+        if val is not None and not isinstance(val, dict):
+            raise HTTPException(status_code=400, detail="style_overrides must be an object or null")
+        target["style_overrides"] = val
+
+    sections[section_index] = target
+    page.sections_json = json.dumps(sections)
+    _recompile_html(page)
+    await db.commit()
+    await db.refresh(page)
+    logger.info(
+        "pages.section_patched page_id=%s index=%d edited=%s overrides=%s",
+        page_id, section_index,
+        "edited_html" in body, "style_overrides" in body,
+    )
+    return {"data": PageResponse.model_validate(page).model_dump(mode="json")}
+
+
+@router.post("/{page_id}/sections/{section_index}/duplicate")
+async def duplicate_section(
+    page_id: uuid.UUID,
+    section_index: int,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
+) -> dict:
+    """Insert a deep copy of section[idx] immediately after it. New
+    section gets a fresh id (existing-id + '-copy' suffix to keep it
+    deterministic for tests)."""
+    import copy as _copy
+    page, sections = await _load_sections(db, page_id, user.id)
+    if section_index < 0 or section_index >= len(sections):
+        raise HTTPException(
+            status_code=400,
+            detail=f"section_index {section_index} out of range",
+        )
+    clone = _copy.deepcopy(sections[section_index])
+    if isinstance(clone, dict) and clone.get("id"):
+        clone["id"] = f"{clone['id']}-copy-{uuid.uuid4().hex[:6]}"
+    sections.insert(section_index + 1, clone)
+    page.sections_json = json.dumps(sections)
+    _recompile_html(page)
+    await db.commit()
+    await db.refresh(page)
+    logger.info(
+        "pages.section_duplicated page_id=%s src_index=%d new_index=%d",
+        page_id, section_index, section_index + 1,
+    )
+    return {"data": PageResponse.model_validate(page).model_dump(mode="json")}
+
+
+@router.delete("/{page_id}/sections/{section_index}")
+async def delete_section(
+    page_id: uuid.UUID,
+    section_index: int,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
+) -> dict:
+    """Remove section[idx] from sections_json."""
+    page, sections = await _load_sections(db, page_id, user.id)
+    if section_index < 0 or section_index >= len(sections):
+        raise HTTPException(
+            status_code=400,
+            detail=f"section_index {section_index} out of range",
+        )
+    sections.pop(section_index)
+    page.sections_json = json.dumps(sections)
+    _recompile_html(page)
+    await db.commit()
+    await db.refresh(page)
+    logger.info(
+        "pages.section_deleted page_id=%s index=%d remaining=%d",
+        page_id, section_index, len(sections),
+    )
+    return {"data": PageResponse.model_validate(page).model_dump(mode="json")}
+
+
+@router.post("/{page_id}/sections/{section_index}/revert")
+async def revert_section(
+    page_id: uuid.UUID,
+    section_index: int,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
+) -> dict:
+    """Drop edited_html + style_overrides so the section renders from
+    the AI-original jsx_content again. Lets users undo all their edits
+    on a section without losing the section itself."""
+    page, sections = await _load_sections(db, page_id, user.id)
+    if section_index < 0 or section_index >= len(sections):
+        raise HTTPException(
+            status_code=400,
+            detail=f"section_index {section_index} out of range",
+        )
+    target = sections[section_index]
+    if isinstance(target, dict):
+        target.pop("edited_html", None)
+        target.pop("style_overrides", None)
+        sections[section_index] = target
+    page.sections_json = json.dumps(sections)
+    _recompile_html(page)
+    await db.commit()
+    await db.refresh(page)
+    logger.info(
+        "pages.section_reverted page_id=%s index=%d",
+        page_id, section_index,
+    )
+    return {"data": PageResponse.model_validate(page).model_dump(mode="json")}
+
+
+# ---------------------------------------------------------------------------
 # Static publish (Pages v2 — Session 2)
 # ---------------------------------------------------------------------------
 

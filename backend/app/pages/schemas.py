@@ -138,6 +138,10 @@ class PageResponse(BaseModel):
     # round-trip.
     compiled_html_r2_key: Optional[str] = None
     compiled_html_published_at: Optional[datetime] = None
+    # Discriminator for v1 (legacy VisualEditor) vs v2 (SectionEditor):
+    # v2 pages were generated via the conversational PRD pipeline and
+    # link back to their generation session.
+    generation_session_id: Optional[uuid.UUID] = None
     created_by: uuid.UUID
     created_at: datetime
     updated_at: datetime

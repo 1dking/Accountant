@@ -44,6 +44,7 @@ import {
   Columns2,
 } from 'lucide-react'
 import VisualEditor from '@/components/pages/VisualEditor'
+import SectionEditor, { type PageSection } from '@/components/pages/SectionEditor'
 import AnalyticsDashboard from '@/components/pages/AnalyticsDashboard'
 import TrackingPixelsSettings from '@/components/pages/TrackingPixelsSettings'
 import PageAIGenerateModal from '@/components/pages/PageAIGenerateModal'
@@ -87,6 +88,11 @@ interface PageDetail extends PageItem {
   // public live URL on the editor top bar.
   compiled_html_r2_key?: string | null
   compiled_html_published_at?: string | null
+  // Pages v2 conversational pipeline links a page back to the AI
+  // generation session it came from. We use this as the v1-vs-v2
+  // discriminator: present → route Visual tab to SectionEditor;
+  // absent → keep legacy VisualEditor for v1 pages.
+  generation_session_id?: string | null
 }
 
 interface PublishStaticResponse {
@@ -1572,10 +1578,37 @@ export default function PageBuilderPage() {
           </div>
         )}
 
-        {activeTab === 'visual' && (
-          <VisualEditor html={editHtml} css={editCss} onHtmlChange={handleHtmlChange} onCssChange={handleCssChange}
-            onVideoUpload={async (file: File) => { const res = await pagesApi.uploadVideo(file); return unwrap<{ mp4_url: string; webm_url: string; poster_url: string }>(res) }} />
-        )}
+        {activeTab === 'visual' && (() => {
+          // Pages v2 (generated via conversational PRD) → SectionEditor.
+          // Single source of truth: writes structured edits back to
+          // sections_json via PATCH endpoints. Closes bug #10's
+          // architecture mismatch where edits went to opaque html_content.
+          // Legacy v1 pages (no generation_session_id) → existing
+          // VisualEditor (iframe-of-the-whole-page editor).
+          const isV2 = !!detail?.generation_session_id && !!detail?.sections_json
+          if (isV2 && detail && selectedPageId) {
+            let parsed: PageSection[] = []
+            try {
+              parsed = JSON.parse(detail.sections_json || '[]')
+              if (!Array.isArray(parsed)) parsed = []
+            } catch {
+              parsed = []
+            }
+            return (
+              <SectionEditor
+                pageId={selectedPageId}
+                sections={parsed}
+                onChanged={() => {
+                  queryClient.invalidateQueries({ queryKey: ['page', selectedPageId] })
+                }}
+              />
+            )
+          }
+          return (
+            <VisualEditor html={editHtml} css={editCss} onHtmlChange={handleHtmlChange} onCssChange={handleCssChange}
+              onVideoUpload={async (file: File) => { const res = await pagesApi.uploadVideo(file); return unwrap<{ mp4_url: string; webm_url: string; poster_url: string }>(res) }} />
+          )
+        })()}
 
         {activeTab === 'html' && (
           <div className="h-full flex flex-col overflow-hidden">
