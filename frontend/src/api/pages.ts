@@ -62,7 +62,11 @@ export const pagesApi = {
   patchSection: (
     pageId: string,
     idx: number,
-    data: { edited_html?: string | null; style_overrides?: Record<string, unknown> | null },
+    data: {
+      edited_html?: string | null
+      style_overrides?: Record<string, unknown> | null
+      media_overrides?: Record<string, string> | null
+    } | Record<string, unknown>,
   ) => api.patch(`/pages/${pageId}/sections/${idx}`, data),
   duplicateSection: (pageId: string, idx: number) =>
     api.post(`/pages/${pageId}/sections/${idx}/duplicate`),
@@ -89,6 +93,13 @@ export const pagesApi = {
     idx: number,
     data: { category: string; variant_id: string },
   ) => api.post(`/pages/${pageId}/sections/${idx}/change-variant`, data),
+
+  // Media slots (SectionEditor — Commit 3)
+  uploadMedia: (file: File) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return api.upload('/pages/media/upload', fd)
+  },
 
   // Static publish (Pages v2 — Session 2). Compiles sections to HTML +
   // uploads to R2 + flips page status to PUBLISHED. Idempotent: same

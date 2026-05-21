@@ -29,30 +29,40 @@ HERO_VARIANTS = [
         "display_name": "Video Background",
         "description": "Full-screen video background with text overlay and dual CTAs. Best for cinematic brand introductions.",
         "sort_order": 10,
+        # VIDEO_URL is in the MEDIA_TOKENS whitelist — kept literal in
+        # jsx_content at insert time, substituted only at compile_page
+        # from default_props ⊕ section.media_overrides. Lets the user
+        # change the video without re-rendering the whole template.
         "default_props": {
             "HEADLINE": "Elevate Your Brand. Define Your Future.",
             "SUBHEADLINE": "We craft unique identities that resonate and drive growth.",
             "CTA_PRIMARY_TEXT": "Get a Free Consultation",
             "CTA_PRIMARY_HREF": "#contact",
-            "CTA_SECONDARY_TEXT": "Call Us",
-            "CTA_SECONDARY_HREF": "tel:+15555550100",
-            "PHONE_NUMBER": "+1 (555) 555-0100",
+            "CTA_SECONDARY_TEXT": "Watch our reel",
+            "CTA_SECONDARY_HREF": "#reel",
+            # Default: a calm seascape from Pexels via Mixkit (CC0).
+            # Replaced by the user via the VIDEO_URL media slot.
+            "VIDEO_URL": "https://assets.mixkit.co/videos/preview/mixkit-stars-in-space-1610-large.mp4",
+            "VIDEO_POSTER_URL": "https://images.unsplash.com/photo-1462331940025-496dfbfc7564?auto=format&fit=crop&w=1920&q=80",
         },
-        "jsx_template": """<section className="relative isolate overflow-hidden bg-gradient-to-br from-indigo-700 via-purple-600 to-pink-500 text-white min-h-[80vh] flex items-center justify-center py-16 px-4">
-  <div className="absolute inset-0 z-0 opacity-20 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-purple-400 via-pink-300 to-red-200"></div>
-  <div className="relative z-10 max-w-4xl mx-auto text-center space-y-8">
+        "jsx_template": """<section className="relative isolate overflow-hidden text-white min-h-[80vh] flex items-center justify-center py-16 px-4">
+  <video autoPlay muted loop playsInline poster="{{VIDEO_POSTER_URL}}" className="absolute inset-0 w-full h-full object-cover z-0">
+    <source src="{{VIDEO_URL}}" type="video/mp4" />
+  </video>
+  <div className="absolute inset-0 z-10 bg-gradient-to-br from-slate-950/85 via-slate-950/65 to-indigo-950/70"></div>
+  <div className="relative z-20 max-w-4xl mx-auto text-center space-y-8">
     <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold leading-tight tracking-tight">
       {{HEADLINE}}
     </h1>
-    <p className="text-lg sm:text-xl text-indigo-100 max-w-2xl mx-auto">
+    <p className="text-lg sm:text-xl text-slate-200 max-w-2xl mx-auto">
       {{SUBHEADLINE}}
     </p>
     <div className="flex flex-col sm:flex-row justify-center gap-4 pt-4">
-      <a href="{{CTA_PRIMARY_HREF}}" className="px-8 py-3 bg-white text-indigo-700 font-bold rounded-full shadow-lg hover:bg-gray-100 transition transform hover:scale-105">
+      <a href="{{CTA_PRIMARY_HREF}}" className="px-8 py-3 bg-white text-slate-900 font-bold rounded-full shadow-lg hover:bg-gray-100 transition transform hover:scale-105">
         {{CTA_PRIMARY_TEXT}}
       </a>
-      <a href="{{CTA_SECONDARY_HREF}}" className="px-8 py-3 bg-transparent border-2 border-white text-white font-bold rounded-full shadow-lg hover:bg-white hover:text-indigo-700 transition transform hover:scale-105">
-        {{CTA_SECONDARY_TEXT}}: {{PHONE_NUMBER}}
+      <a href="{{CTA_SECONDARY_HREF}}" className="px-8 py-3 bg-transparent border-2 border-white/60 text-white font-bold rounded-full shadow-lg hover:bg-white/10 transition transform hover:scale-105">
+        {{CTA_SECONDARY_TEXT}}
       </a>
     </div>
   </div>

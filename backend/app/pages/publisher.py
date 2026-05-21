@@ -71,6 +71,45 @@ def _write_file(path: str, data: bytes) -> None:
         f.write(data)
 
 
+async def upload_bytes_to_r2(
+    settings: Settings, key: str, body: bytes, content_type: str,
+) -> str:
+    """Generic R2 upload — used by media picker for image/video files.
+    Returns a public URL the browser can fetch. Falls back to a
+    local-storage path served via /api/documents/... when R2 isn't
+    configured (dev mode).
+
+    Reuses the boto3 client + storage_path conventions from
+    _upload_html_to_r2 so we don't have two parallel upload paths.
+    """
+    if settings.storage_type == "r2" and settings.r2_access_key_id:
+        import boto3
+        client = boto3.client(
+            "s3",
+            endpoint_url=settings.r2_endpoint,
+            aws_access_key_id=settings.r2_access_key_id,
+            aws_secret_access_key=settings.r2_secret_access_key,
+            region_name="auto",
+        )
+        await asyncio.to_thread(
+            client.put_object,
+            Bucket=settings.r2_bucket_name,
+            Key=key,
+            Body=body,
+            ContentType=content_type,
+        )
+        # Public URL — assumes the R2 bucket has a public custom domain
+        # or the public URL pattern is configured via r2_public_base.
+        base = getattr(settings, "r2_public_base", None) or settings.r2_endpoint
+        return f"{base.rstrip('/')}/{settings.r2_bucket_name}/{key}"
+    # Local fallback — relative path; the docs router can serve it.
+    import os
+    full = os.path.join(settings.storage_path or "./data/documents", key)
+    os.makedirs(os.path.dirname(full), exist_ok=True)
+    await asyncio.to_thread(_write_file, full, body)
+    return f"/api/documents/raw/{key}"
+
+
 async def publish_page_static(
     db: AsyncSession,
     page_id: uuid.UUID,

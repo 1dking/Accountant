@@ -501,5 +501,9 @@ class SectionVariant(TimestampMixin, Base):
     jsx_template: Mapped[str] = mapped_column(Text, nullable=False)
     default_props: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     preview_thumbnail_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # Inline SVG schematic for the picker card. Hand-designed per variant,
+    # Liquid Glass palette, no external refs. Falls back to text-only
+    # card when null.
+    svg_thumbnail: Mapped[str | None] = mapped_column(Text, nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, server_default="100")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="1")

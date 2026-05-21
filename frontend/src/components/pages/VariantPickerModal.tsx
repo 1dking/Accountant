@@ -26,6 +26,7 @@ interface Variant {
   display_name: string
   description: string | null
   preview_thumbnail_url: string | null
+  svg_thumbnail: string | null
   default_props: Record<string, unknown>
 }
 
@@ -194,7 +195,18 @@ export default function VariantPickerModal({ open, mode, lockedCategory, onClose
                   className="se-picker-card"
                 >
                   <div className="se-picker-card-thumb">
-                    {v.preview_thumbnail_url ? (
+                    {v.svg_thumbnail ? (
+                      // Inline SVG schematic — hand-designed per variant,
+                      // Liquid Glass palette. Self-contained (no remote
+                      // refs). dangerouslySetInnerHTML is safe here:
+                      // svg_thumbnail comes from our seed file, not user
+                      // input.
+                      <div
+                        className="w-full h-full"
+                        // eslint-disable-next-line react/no-danger
+                        dangerouslySetInnerHTML={{ __html: v.svg_thumbnail }}
+                      />
+                    ) : v.preview_thumbnail_url ? (
                       <img
                         src={v.preview_thumbnail_url}
                         alt={v.display_name}

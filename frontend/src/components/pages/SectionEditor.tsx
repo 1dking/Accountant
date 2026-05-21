@@ -29,10 +29,40 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
   Loader2, Sparkles, Trash2, Copy, RotateCcw, X, Replace, Plus,
+  Film, Image as ImageIcon,
 } from 'lucide-react'
 import { pagesApi } from '@/api/pages'
 import VariantPickerModal from './VariantPickerModal'
+import MediaPickerModal, { type MediaSlotKind } from './MediaPickerModal'
 import './section-editor.css'
+
+// Media tokens — kept in sync with backend MEDIA_TOKENS whitelist.
+// When jsx_content contains {{TOKEN}} for one of these, we render
+// an "edit media" pill so the user can swap the URL without editing
+// the underlying template.
+const MEDIA_TOKEN_PATTERN = /\{\{\s*(VIDEO_URL|VIDEO_POSTER_URL|IMAGE_URL|LOGO_URL)\s*\}\}/g
+
+function detectMediaTokens(html: string): string[] {
+  if (!html) return []
+  const seen = new Set<string>()
+  let m: RegExpExecArray | null
+  MEDIA_TOKEN_PATTERN.lastIndex = 0
+  while ((m = MEDIA_TOKEN_PATTERN.exec(html)) !== null) {
+    seen.add(m[1])
+  }
+  return Array.from(seen)
+}
+
+function tokenKindFor(token: string): MediaSlotKind {
+  if (token === 'VIDEO_URL') return 'video'
+  if (token === 'LOGO_URL') return 'image'
+  return 'image'
+}
+
+function tokenIcon(token: string) {
+  if (token === 'VIDEO_URL') return <Film className="h-3 w-3" />
+  return <ImageIcon className="h-3 w-3" />
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -46,7 +76,8 @@ export interface PageSection {
   jsx_content?: string
   edited_html?: string | null
   style_overrides?: Record<string, unknown> | null
-  metadata?: Record<string, unknown>
+  media_overrides?: Record<string, string> | null
+  metadata?: Record<string, any>
 }
 
 interface SectionEditorProps {
@@ -67,6 +98,19 @@ interface SectionEditorProps {
  * the iframe shows the JSX literal `className="..."` as a no-op
  * attribute and Tailwind doesn't apply.
  */
+/** Client-side media-token substitution for the iframe preview.
+ *  Mirrors substitute_media_tokens() in backend variants.py so the
+ *  editor renders what the published page will render. */
+function substituteMediaTokens(html: string, mediaProps: Record<string, string>): string {
+  if (!html) return html
+  return html.replace(/\{\{\s*([A-Z0-9_]+)\s*\}\}/g, (m, key: string) => {
+    const allowed = new Set(['VIDEO_URL', 'VIDEO_POSTER_URL', 'IMAGE_URL', 'LOGO_URL'])
+    if (!allowed.has(key)) return m
+    const v = mediaProps[key]
+    return v ? v : m
+  })
+}
+
 function jsxToHtml(jsx: string): string {
   if (!jsx) return ''
   return jsx
@@ -187,12 +231,33 @@ function SectionBlock({ pageId, section, index, onChanged, onRequestChangeVarian
   const [refining, setRefining] = useState(false)
   const [showRefineInput, setShowRefineInput] = useState(false)
   const [refineInstruction, setRefineInstruction] = useState('')
+  // Active media slot — token name being edited via MediaPickerModal.
+  // null means picker closed.
+  const [mediaSlot, setMediaSlot] = useState<string | null>(null)
 
   const sectionId = section.id || `section-${index}`
   const html = sectionBodyHtml(section)
+  // Detect which MEDIA_TOKENS the rendered content has. Scans both the
+  // edited_html (if user-edited) and jsx_content; either path may carry
+  // {{X_URL}} placeholders. The picker pill lets users swap the URL
+  // without re-rendering the variant template.
+  const mediaTokens = useMemo(() => {
+    return detectMediaTokens(html)
+  }, [html])
+  const mediaOverrides = section.media_overrides || {}
+  const mediaDefaults = (section.metadata?.props || {}) as Record<string, string>
+  const currentMediaValue = (token: string): string =>
+    mediaOverrides[token] || mediaDefaults[token] || ''
 
   // Mark this iframe with its section id so messages can be routed back.
   // We can't pass JS variables into srcdoc; inject via window.__sectionId.
+  // Substitute media tokens client-side so the preview shows the real
+  // video/image, not literal {{VIDEO_URL}} text.
+  const previewHtml = useMemo(() => {
+    return substituteMediaTokens(html, { ...mediaDefaults, ...mediaOverrides })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [html, JSON.stringify(mediaDefaults), JSON.stringify(mediaOverrides)])
+
   const srcdoc = useMemo(() => {
     return `<!DOCTYPE html>
 <html>
@@ -207,11 +272,11 @@ function SectionBlock({ pageId, section, index, onChanged, onRequestChangeVarian
 </head>
 <body>
   <script>window.__sectionId = ${JSON.stringify(sectionId)};<\/script>
-  ${html}
+  ${previewHtml}
   ${EDITOR_SCRIPT}
 </body>
 </html>`
-  }, [html, sectionId])
+  }, [previewHtml, sectionId])
 
   // Listen for messages from THIS section's iframe
   useEffect(() => {
@@ -236,8 +301,11 @@ function SectionBlock({ pageId, section, index, onChanged, onRequestChangeVarian
   }
 
   const patchMut = useMutation({
-    mutationFn: (data: { edited_html?: string | null; style_overrides?: Record<string, unknown> | null }) =>
-      pagesApi.patchSection(pageId, index, data),
+    mutationFn: (data: {
+      edited_html?: string | null
+      style_overrides?: Record<string, unknown> | null
+      media_overrides?: Record<string, string> | null
+    }) => pagesApi.patchSection(pageId, index, data as Record<string, unknown>),
     onSuccess: invalidate,
     onError: (e: any) => toast.error(`Save failed: ${e?.message || 'unknown'}`),
   })
@@ -413,6 +481,39 @@ function SectionBlock({ pageId, section, index, onChanged, onRequestChangeVarian
           )}
         </div>
       )}
+
+      {/* Media slot pills — bottom-right, only on hover. One pill per
+          detected {{TOKEN}} in the section. Click → MediaPickerModal. */}
+      {hovered && mediaTokens.length > 0 && (
+        <div className="absolute bottom-3 right-3 z-20 flex items-center gap-1.5">
+          {mediaTokens.map((tok) => (
+            <button
+              key={tok}
+              onClick={() => setMediaSlot(tok)}
+              className="se-media-pill"
+              title={`Edit ${tok}`}
+            >
+              {tokenIcon(tok)}
+              <span>{tok}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Media picker modal — opens when a slot pill is clicked */}
+      <MediaPickerModal
+        open={mediaSlot !== null}
+        tokenName={mediaSlot || ''}
+        slotKind={mediaSlot ? tokenKindFor(mediaSlot) : 'any'}
+        currentValue={mediaSlot ? currentMediaValue(mediaSlot) : null}
+        onClose={() => setMediaSlot(null)}
+        onPick={(newValue) => {
+          if (!mediaSlot) return
+          const merged = { ...mediaOverrides, [mediaSlot]: newValue }
+          patchMut.mutate({ media_overrides: merged })
+          setMediaSlot(null)
+        }}
+      />
     </div>
   )
 }

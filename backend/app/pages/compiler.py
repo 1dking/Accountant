@@ -154,18 +154,34 @@ def compile_page(
     # saved user edits), use it AS-IS (already HTML, no JSX rewrites
     # needed — the editor produces plain HTML). Otherwise compile from
     # the AI-original jsx_content with JSX→HTML normalization.
+    #
+    # Final pass: substitute MEDIA_TOKENS ({{VIDEO_URL}}, {{IMAGE_URL}},
+    # ...) using section.media_overrides ⊕ section.metadata.props.
+    # Token substitution is deferred to here so users can change media
+    # without re-rendering the entire template (which would clobber
+    # text edits in edited_html).
+    from app.pages.variants import substitute_media_tokens
+
     body_sections: list[str] = []
     if page.sections_json:
         try:
             sections = json.loads(page.sections_json)
             for sec in sections:
+                media_props = {
+                    **((sec.get("metadata") or {}).get("props") or {}),
+                    **(sec.get("media_overrides") or {}),
+                }
                 edited = sec.get("edited_html") or ""
                 if edited:
-                    body_sections.append(edited)
+                    body_sections.append(
+                        substitute_media_tokens(edited, media_props)
+                    )
                     continue
                 jsx = sec.get("jsx_content") or ""
                 if jsx:
-                    body_sections.append(_jsx_to_html(jsx))
+                    body_sections.append(
+                        substitute_media_tokens(_jsx_to_html(jsx), media_props)
+                    )
         except json.JSONDecodeError:
             logger.warning(
                 "compile_page.sections_parse_failed page_id=%s — falling back to html_content",

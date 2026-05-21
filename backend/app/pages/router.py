@@ -91,6 +91,51 @@ async def get_template(
     return {"data": TemplateResponse.model_validate(t)}
 
 
+@router.post("/media/upload")
+async def upload_page_media(
+    request: Request,
+    file: Annotated[UploadFile, File()],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
+) -> dict:
+    """Upload an image or short video file to R2 for use in a page
+    media slot. Returns the public URL the SectionEditor's media drawer
+    plugs into sections_json[i].media_overrides[*]."""
+    from app.pages.publisher import upload_bytes_to_r2
+
+    settings = request.app.state.settings
+    content_type = file.content_type or "application/octet-stream"
+    if not (
+        content_type.startswith("image/") or content_type.startswith("video/")
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported content type {content_type!r} — image/* or video/* only",
+        )
+
+    body = await file.read()
+    if len(body) > 25 * 1024 * 1024:  # 25 MB cap
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large ({len(body) // (1024 * 1024)} MB). Max 25 MB.",
+        )
+    if not body:
+        raise HTTPException(status_code=400, detail="Empty file")
+
+    ext = (file.filename or "").rsplit(".", 1)
+    suffix = (ext[-1].lower() if len(ext) > 1 else "bin")[:6]
+    key = f"pages/media/{uuid.uuid4().hex}.{suffix}"
+    public_url = await upload_bytes_to_r2(settings, key, body, content_type)
+    return {
+        "data": {
+            "url": public_url,
+            "content_type": content_type,
+            "size_bytes": len(body),
+            "r2_key": key,
+        }
+    }
+
+
 @router.get("/variants")
 async def list_section_variants(
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -111,6 +156,7 @@ async def list_section_variants(
                 "display_name": v.display_name,
                 "description": v.description,
                 "preview_thumbnail_url": v.preview_thumbnail_url,
+                "svg_thumbnail": v.svg_thumbnail,
                 "default_props": v.default_props or {},
             }
             for v in variants
@@ -1140,6 +1186,19 @@ async def patch_section(
         if val is not None and not isinstance(val, dict):
             raise HTTPException(status_code=400, detail="style_overrides must be an object or null")
         target["style_overrides"] = val
+    if "media_overrides" in body:
+        val = body["media_overrides"]
+        if val is not None and not isinstance(val, dict):
+            raise HTTPException(status_code=400, detail="media_overrides must be an object or null")
+        # Auto-normalize YouTube URLs at the boundary so the user can
+        # paste any common YouTube URL shape and we save the embed form.
+        # Direct mp4 URLs and other strings pass through unchanged.
+        if isinstance(val, dict):
+            from app.pages.variants import normalize_youtube_url
+            for key in ("VIDEO_URL",):
+                if key in val and isinstance(val[key], str):
+                    val[key] = normalize_youtube_url(val[key])
+        target["media_overrides"] = val
 
     sections[section_index] = target
     page.sections_json = json.dumps(sections)
@@ -1361,6 +1420,18 @@ async def change_section_variant(
     # bookmarks/anchors don't break.
     if old_section.get("id"):
         new_section["id"] = old_section["id"]
+    # Carry over user-supplied media values whose token names exist in
+    # the new variant's default_props (i.e. the new template also has
+    # that media slot). Lets the user swap layout without losing the
+    # video URL they pasted.
+    from app.pages.variants import MEDIA_TOKENS as _MT
+    new_props = (new_variant.default_props or {})
+    carried_media = {
+        k: v for k, v in (old_section.get("media_overrides") or {}).items()
+        if k in _MT and k in new_props
+    }
+    if carried_media:
+        new_section["media_overrides"] = carried_media
 
     sections[section_index] = new_section
     page.sections_json = json.dumps(sections)
