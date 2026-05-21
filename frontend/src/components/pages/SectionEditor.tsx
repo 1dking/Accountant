@@ -378,6 +378,7 @@ function InsertionZone({ onClick }: { onClick: () => void }) {
       <span className="se-insertion-line" />
       <span className="se-insertion-button">
         <Plus className="h-3.5 w-3.5" />
+        <span className="se-tooltip">Add section here</span>
       </span>
       <span className="se-insertion-line" />
     </div>
