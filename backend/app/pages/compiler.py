@@ -124,18 +124,167 @@ def _build_jsonld(
     return f'<script type="application/ld+json">\n{json_text}\n</script>'
 
 
+GSAP_CDN_SCRIPT = (
+    '<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js" defer></script>\n'
+    '<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js" defer></script>'
+)
+
+
+def _build_animation_init_script() -> str:
+    """Inline JS that walks [data-section-anim] elements and wires up
+    GSAP timelines. Runs after GSAP loads (deferred). Respects
+    prefers-reduced-motion explicitly — sets final visible state
+    rather than just early-returning, so the page is fully usable
+    without motion.
+    """
+    return """<script>
+(function () {
+  function init() {
+    if (!window.gsap || !window.ScrollTrigger) {
+      // GSAP not yet loaded; retry shortly. Defer + DOMContentLoaded
+      // ordering occasionally races on slow connections.
+      setTimeout(init, 50);
+      return;
+    }
+    gsap.registerPlugin(ScrollTrigger);
+
+    // prefers-reduced-motion: set every animatable element to its
+    // final visible state and skip GSAP entirely. Per Commit 4 spec
+    // — explicit final-state, not just early-return.
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) {
+      document.querySelectorAll('[data-section-anim]').forEach(function (wrap) {
+        try {
+          var cfg = JSON.parse(wrap.getAttribute('data-section-anim') || '{}');
+          (cfg.scroll_reveal || []).forEach(function (rev) {
+            wrap.querySelectorAll(rev.selector).forEach(function (el) {
+              el.style.opacity = '1';
+              el.style.transform = 'none';
+            });
+          });
+          (cfg.counter_up || []).forEach(function (c) {
+            // Counter targets already have their final text in HTML.
+          });
+        } catch (e) { /* malformed config */ }
+      });
+      return;
+    }
+
+    document.querySelectorAll('[data-section-anim]').forEach(function (wrap) {
+      var cfg;
+      try { cfg = JSON.parse(wrap.getAttribute('data-section-anim') || '{}'); }
+      catch (e) { return; }
+
+      (cfg.scroll_reveal || []).forEach(function (rev) {
+        var els = wrap.querySelectorAll(rev.selector);
+        if (!els.length) return;
+        gsap.fromTo(els, rev.from || {}, Object.assign({}, rev.to || {}, {
+          duration: rev.duration != null ? rev.duration : 0.8,
+          ease: rev.ease || 'power2.out',
+          delay: rev.delay || 0,
+          stagger: rev.stagger || 0,
+          scrollTrigger: {
+            trigger: wrap,
+            start: rev.start || 'top 80%',
+            once: rev.once !== false,
+          },
+        }));
+      });
+
+      (cfg.counter_up || []).forEach(function (c) {
+        wrap.querySelectorAll(c.selector).forEach(function (el) {
+          var raw = (el.textContent || '').trim();
+          // Parse target: drop everything except digits + decimal,
+          // keep prefix/suffix so "500+" and "$1,200" still display.
+          var match = raw.match(/(-?[\\d,]+\\.?\\d*)/);
+          if (!match) return;
+          var target = parseFloat(match[1].replace(/,/g, ''));
+          if (isNaN(target)) return;
+          var prefix = raw.slice(0, match.index);
+          var suffix = raw.slice(match.index + match[1].length);
+          var state = { v: 0 };
+          gsap.to(state, {
+            v: target,
+            duration: c.duration || 1.5,
+            ease: c.ease || 'power2.out',
+            onUpdate: function () {
+              var n = state.v;
+              var display = n >= 100 ? Math.round(n) : (target >= 10 ? n.toFixed(0) : n.toFixed(1));
+              el.textContent = prefix + display + suffix;
+            },
+            scrollTrigger: {
+              trigger: el,
+              start: c.start || 'top 85%',
+              once: true,
+            },
+          });
+        });
+      });
+
+      (cfg.parallax || []).forEach(function (p) {
+        var els = wrap.querySelectorAll(p.selector);
+        if (!els.length) return;
+        gsap.to(els, {
+          y: p.y_offset != null ? p.y_offset : -50,
+          ease: 'none',
+          scrollTrigger: {
+            trigger: wrap,
+            start: 'top bottom',
+            end: 'bottom top',
+            scrub: p.scrub !== false,
+          },
+        });
+      });
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>"""
+
+
+def _wrap_section_with_animation(html: str, anim_config: dict | None) -> str:
+    """Wrap a section's HTML in a <div data-section-anim='{...}'>
+    wrapper so the init script can find and animate it. No wrapper
+    when anim_config is empty/null — keeps the DOM clean for static
+    sections."""
+    if not anim_config:
+        return html
+    # JSON-escape the config for safe embedding in an HTML attribute.
+    payload = json.dumps(anim_config, separators=(",", ":"), ensure_ascii=False)
+    safe = (
+        payload.replace("&", "&amp;")
+        .replace("'", "&#39;")
+        .replace('"', "&quot;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+    )
+    return f'<div data-section-anim="{safe}">{html}</div>'
+
+
 def compile_page(
     page: Page,
     *,
     company_settings: Any | None = None,
     public_base_url: str = "https://accountant.ocidm.io",
     canonical_url: str | None = None,
+    variant_animations: dict[str, Any] | None = None,
 ) -> str:
     """Produce the full <!DOCTYPE html>... document for a page.
 
     Reads page.sections_json (Pages v2 conversational output); falls
     back to page.html_content for legacy pages that never went through
     the new pipeline.
+
+    `variant_animations` is a fallback dict {variant_id → animation
+    config} used for sections that don't carry an inline `animations`
+    snapshot (legacy sections inserted before Commit 4). Callers with
+    a DB session should pre-fetch SectionVariant.default_animations
+    for the page's variant_ids and pass them here so existing pages
+    light up without a migration.
     """
     title = html_escape.escape(_safe_str(page.meta_title or page.title or "Untitled"))
     description = html_escape.escape(
@@ -163,6 +312,7 @@ def compile_page(
     from app.pages.variants import substitute_media_tokens
 
     body_sections: list[str] = []
+    any_animations = False
     if page.sections_json:
         try:
             sections = json.loads(page.sections_json)
@@ -171,17 +321,29 @@ def compile_page(
                     **((sec.get("metadata") or {}).get("props") or {}),
                     **(sec.get("media_overrides") or {}),
                 }
+                # Animations: prefer the per-section snapshot. Fall back
+                # to variant_animations[variant_id] for legacy sections
+                # inserted before Commit 4 added the snapshot.
+                anim_cfg = sec.get("animations")
+                if not anim_cfg and variant_animations:
+                    vid = (sec.get("metadata") or {}).get("variant_id")
+                    if vid:
+                        anim_cfg = variant_animations.get(vid)
+
                 edited = sec.get("edited_html") or ""
                 if edited:
-                    body_sections.append(
-                        substitute_media_tokens(edited, media_props)
+                    rendered = substitute_media_tokens(edited, media_props)
+                else:
+                    jsx = sec.get("jsx_content") or ""
+                    if not jsx:
+                        continue
+                    rendered = substitute_media_tokens(
+                        _jsx_to_html(jsx), media_props
                     )
-                    continue
-                jsx = sec.get("jsx_content") or ""
-                if jsx:
-                    body_sections.append(
-                        substitute_media_tokens(_jsx_to_html(jsx), media_props)
-                    )
+                if anim_cfg:
+                    any_animations = True
+                    rendered = _wrap_section_with_animation(rendered, anim_cfg)
+                body_sections.append(rendered)
         except json.JSONDecodeError:
             logger.warning(
                 "compile_page.sections_parse_failed page_id=%s — falling back to html_content",
@@ -205,6 +367,11 @@ def compile_page(
     if page.favicon_url:
         favicon = f'<link rel="icon" href="{html_escape.escape(page.favicon_url)}">'
 
+    # Only include GSAP + init when at least one section actually has
+    # animations. Saves ~25KB on pages that don't need motion.
+    anim_head = GSAP_CDN_SCRIPT if any_animations else ""
+    anim_body_end = _build_animation_init_script() if any_animations else ""
+
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -220,10 +387,12 @@ def compile_page(
   {og_image}
   {favicon}
   {TAILWIND_CDN_SCRIPT}
+  {anim_head}
   {jsonld}
 </head>
 <body class="bg-white text-gray-900 antialiased">
 {body_html}
+{anim_body_end}
 </body>
 </html>
 """
@@ -234,6 +403,7 @@ def compile_and_hash(
     *,
     company_settings: Any | None = None,
     public_base_url: str = "https://accountant.ocidm.io",
+    variant_animations: dict[str, Any] | None = None,
 ) -> tuple[str, str]:
     """Compile + return (html, sha256_hex). The hash is used to
     short-circuit re-uploads when the compiled output hasn't changed."""
@@ -243,6 +413,7 @@ def compile_and_hash(
         page,
         company_settings=company_settings,
         public_base_url=public_base_url,
+        variant_animations=variant_animations,
     )
     digest = hashlib.sha256(html.encode("utf-8")).hexdigest()
     return html, digest

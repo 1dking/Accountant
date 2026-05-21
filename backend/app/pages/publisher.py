@@ -143,11 +143,20 @@ async def publish_page_static(
             page_id, exc,
         )
 
+    # Pre-fetch animation defaults for variants referenced by this
+    # page's sections. Lets legacy sections (inserted before Commit 4
+    # added animation snapshots) still animate at publish time.
+    from app.pages.variants import fetch_variant_animations_for_page
+    variant_animations = await fetch_variant_animations_for_page(
+        db, page.sections_json,
+    )
+
     public_base_url = settings.public_base_url or "https://accountant.ocidm.io"
     html, content_hash = compile_and_hash(
         page,
         company_settings=company_settings,
         public_base_url=public_base_url,
+        variant_animations=variant_animations,
     )
 
     # Short-circuit: if compiled_html hash matches what we already have,

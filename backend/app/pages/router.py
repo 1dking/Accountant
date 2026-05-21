@@ -1118,13 +1118,27 @@ async def refine_page_section(
 # ---------------------------------------------------------------------------
 
 
-def _recompile_html(page) -> None:
+async def _recompile_html(page, db: AsyncSession) -> None:
     """Recompile page.html_content from sections_json. Best-effort —
     a compile failure is logged but doesn't block the section update
-    (sections_json remains the authoritative source)."""
+    (sections_json remains the authoritative source).
+
+    Async because we pre-fetch the variants_map for animation fallback
+    (sections inserted before Commit 4 don't carry an inline animation
+    snapshot; we look up the variant's default_animations and pass it
+    to compile_page so existing pages light up without a migration).
+    """
     from app.pages.compiler import compile_page
+    from app.pages.variants import fetch_variant_animations_for_page
     try:
-        page.html_content = compile_page(page, company_settings=None)
+        variant_animations = await fetch_variant_animations_for_page(
+            db, page.sections_json,
+        )
+        page.html_content = compile_page(
+            page,
+            company_settings=None,
+            variant_animations=variant_animations,
+        )
     except Exception as exc:
         logger.warning(
             "pages.section_recompile_failed page_id=%s err=%s",
@@ -1201,7 +1215,7 @@ async def reorder_sections(
     sections.insert(to_index, moved)
 
     page.sections_json = json.dumps(sections)
-    _recompile_html(page)
+    await _recompile_html(page, db)
     await db.commit()
     await db.refresh(page)
     logger.info(
@@ -1263,7 +1277,7 @@ async def patch_section(
 
     sections[section_index] = target
     page.sections_json = json.dumps(sections)
-    _recompile_html(page)
+    await _recompile_html(page, db)
     await db.commit()
     await db.refresh(page)
     logger.info(
@@ -1296,7 +1310,7 @@ async def duplicate_section(
         clone["id"] = f"{clone['id']}-copy-{uuid.uuid4().hex[:6]}"
     sections.insert(section_index + 1, clone)
     page.sections_json = json.dumps(sections)
-    _recompile_html(page)
+    await _recompile_html(page, db)
     await db.commit()
     await db.refresh(page)
     logger.info(
@@ -1322,7 +1336,7 @@ async def delete_section(
         )
     sections.pop(section_index)
     page.sections_json = json.dumps(sections)
-    _recompile_html(page)
+    await _recompile_html(page, db)
     await db.commit()
     await db.refresh(page)
     logger.info(
@@ -1354,7 +1368,7 @@ async def revert_section(
         target.pop("style_overrides", None)
         sections[section_index] = target
     page.sections_json = json.dumps(sections)
-    _recompile_html(page)
+    await _recompile_html(page, db)
     await db.commit()
     await db.refresh(page)
     logger.info(
@@ -1405,7 +1419,7 @@ async def add_section(
         sections.insert(new_idx, new_section)
 
     page.sections_json = json.dumps(sections)
-    _recompile_html(page)
+    await _recompile_html(page, db)
     await db.commit()
     await db.refresh(page)
     logger.info(
@@ -1496,7 +1510,7 @@ async def change_section_variant(
 
     sections[section_index] = new_section
     page.sections_json = json.dumps(sections)
-    _recompile_html(page)
+    await _recompile_html(page, db)
     await db.commit()
     await db.refresh(page)
     logger.info(

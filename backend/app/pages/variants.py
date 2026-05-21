@@ -8,6 +8,7 @@ with values from default_props (override-able). Used by:
 """
 from __future__ import annotations
 
+import json
 import logging
 import re
 import uuid
@@ -407,7 +408,12 @@ def variant_to_section(
         variant.jsx_template, props,
         skip_tokens=MEDIA_TOKENS | EMBED_TOKENS,
     )
-    return {
+    # Snapshot the variant's animation config into the section so
+    # compile_page (which is sync + DB-less) can read it without a
+    # lookup. Future per-section overrides (Commit 4B) just modify
+    # section['animations'] directly. Variant default updates apply
+    # to NEW sections only — same lifecycle as metadata.props.
+    section: dict = {
         "id": f"{variant.variant_id}-{uuid.uuid4().hex[:6]}",
         "type": variant.category,
         "title": variant.display_name,
@@ -419,6 +425,13 @@ def variant_to_section(
             "props": props,
         },
     }
+    # getattr-guarded so test fakes / older variant objects without
+    # the field don't blow up (variant.default_animations was added
+    # in migration b1c2d3e8).
+    animations = getattr(variant, "default_animations", None)
+    if animations:
+        section["animations"] = animations
+    return section
 
 
 async def seed_if_empty(db: AsyncSession) -> int:
@@ -442,6 +455,7 @@ async def seed_if_empty(db: AsyncSession) -> int:
             jsx_template=v["jsx_template"],
             default_props=v.get("default_props", {}),
             svg_thumbnail=SCHEMATICS_BY_VARIANT_ID.get(v["variant_id"]),
+            default_animations=v.get("default_animations"),
             sort_order=v.get("sort_order", 100),
             is_active=True,
         )
@@ -449,6 +463,47 @@ async def seed_if_empty(db: AsyncSession) -> int:
         inserted += 1
     await db.commit()
     return inserted
+
+
+async def fetch_variant_animations_for_page(
+    db: AsyncSession, sections_json: str | None,
+) -> dict[str, Any]:
+    """Pre-fetch SectionVariant.default_animations for the variant_ids
+    referenced by a page's sections. Used by callers that compile_page
+    so legacy sections (which don't have their own snapshot) still
+    light up with the variant's default animations. Zero-migration
+    fallback path.
+
+    Returns {variant_id → animation_config}. Empty dict if no variant
+    ids found or all variants are animation-less.
+    """
+    if not sections_json:
+        return {}
+    try:
+        sections = json.loads(sections_json)
+    except (json.JSONDecodeError, TypeError):
+        return {}
+    if not isinstance(sections, list):
+        return {}
+    variant_ids = {
+        (s.get("metadata") or {}).get("variant_id")
+        for s in sections
+        if isinstance(s, dict)
+    }
+    variant_ids.discard(None)
+    if not variant_ids:
+        return {}
+    rows = await db.execute(
+        select(SectionVariant.variant_id, SectionVariant.default_animations).where(
+            SectionVariant.variant_id.in_(variant_ids),
+            SectionVariant.is_active.is_(True),
+        )
+    )
+    out: dict[str, Any] = {}
+    for vid, anims in rows.all():
+        if anims:
+            out[vid] = anims
+    return out
 
 
 async def resync_variants(db: AsyncSession) -> int:
@@ -489,6 +544,7 @@ async def resync_variants(db: AsyncSession) -> int:
         row.jsx_template = v["jsx_template"]
         row.default_props = v.get("default_props", {})
         row.svg_thumbnail = SCHEMATICS_BY_VARIANT_ID.get(v["variant_id"])
+        row.default_animations = v.get("default_animations")
         row.sort_order = v.get("sort_order", 100)
         updated += 1
     await db.commit()

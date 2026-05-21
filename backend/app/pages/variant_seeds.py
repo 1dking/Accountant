@@ -29,6 +29,16 @@ HERO_VARIANTS = [
         "display_name": "Video Background",
         "description": "Full-screen video background with text overlay and dual CTAs. Best for cinematic brand introductions.",
         "sort_order": 10,
+        "default_animations": {
+            "scroll_reveal": [
+                {"selector": "h1", "from": {"y": 40, "opacity": 0},
+                 "to": {"y": 0, "opacity": 1}, "duration": 0.9, "ease": "power2.out"},
+                {"selector": "p", "from": {"y": 30, "opacity": 0},
+                 "to": {"y": 0, "opacity": 1}, "duration": 0.7, "delay": 0.15, "ease": "power2.out"},
+                {"selector": "a", "from": {"y": 20, "opacity": 0},
+                 "to": {"y": 0, "opacity": 1}, "duration": 0.5, "delay": 0.3, "stagger": 0.1, "ease": "power2.out"},
+            ],
+        },
         # VIDEO_URL is in the MEDIA_TOKENS whitelist — kept literal in
         # jsx_content at insert time, substituted only at compile_page
         # from default_props ⊕ section.media_overrides. Lets the user
@@ -78,6 +88,16 @@ HERO_VARIANTS = [
         "display_name": "Two-Column with Image",
         "description": "Copy on the left, image on the right. Classic converter for SaaS and services.",
         "sort_order": 20,
+        "default_animations": {
+            "scroll_reveal": [
+                {"selector": "h1, p", "from": {"x": -30, "opacity": 0},
+                 "to": {"x": 0, "opacity": 1}, "duration": 0.8, "stagger": 0.1, "ease": "power2.out"},
+                {"selector": "a", "from": {"y": 20, "opacity": 0},
+                 "to": {"y": 0, "opacity": 1}, "duration": 0.5, "delay": 0.3, "stagger": 0.1, "ease": "power2.out"},
+                {"selector": "img, video, iframe", "from": {"x": 40, "opacity": 0},
+                 "to": {"x": 0, "opacity": 1}, "duration": 0.9, "delay": 0.2, "ease": "power2.out"},
+            ],
+        },
         "default_props": {
             "HEADLINE": "Built for teams that move fast.",
             "SUBHEADLINE": "Everything you need to ship — from idea to revenue — without the friction. Trusted by 500+ growing companies.",
@@ -127,6 +147,16 @@ HERO_VARIANTS = [
         "display_name": "Two-Column with Lead Form",
         "description": "Copy left, capture form right. Built for lead generation and consultation booking.",
         "sort_order": 30,
+        "default_animations": {
+            "scroll_reveal": [
+                {"selector": "h1, p, ul", "from": {"x": -30, "opacity": 0},
+                 "to": {"x": 0, "opacity": 1}, "duration": 0.8, "stagger": 0.1, "ease": "power2.out"},
+                {"selector": "form", "from": {"y": 30, "opacity": 0},
+                 "to": {"y": 0, "opacity": 1}, "duration": 0.8, "delay": 0.2, "ease": "power2.out"},
+                {"selector": "form > div, form > button", "from": {"y": 15, "opacity": 0},
+                 "to": {"y": 0, "opacity": 1}, "duration": 0.5, "delay": 0.4, "stagger": 0.08, "ease": "power2.out"},
+            ],
+        },
         "default_props": {
             "HEADLINE": "Book your free strategy session.",
             "SUBHEADLINE": "Tell us what you're building. We'll send a personalized plan within 24 hours — no obligations, no upsells.",
@@ -197,6 +227,24 @@ HERO_VARIANTS = [
         "display_name": "Hero with Stats",
         "description": "Lead with your numbers. Hero + 4-stat horizontal strip for instant credibility.",
         "sort_order": 40,
+        "default_animations": {
+            "scroll_reveal": [
+                {"selector": "h1", "from": {"y": 40, "opacity": 0},
+                 "to": {"y": 0, "opacity": 1}, "duration": 0.9, "ease": "power2.out"},
+                {"selector": "p", "from": {"y": 30, "opacity": 0},
+                 "to": {"y": 0, "opacity": 1}, "duration": 0.7, "delay": 0.15, "ease": "power2.out"},
+                {"selector": "a", "from": {"y": 20, "opacity": 0},
+                 "to": {"y": 0, "opacity": 1}, "duration": 0.5, "delay": 0.3, "stagger": 0.1, "ease": "power2.out"},
+                {"selector": ".stat-label, [data-stat-label]", "from": {"opacity": 0},
+                 "to": {"opacity": 1}, "duration": 0.5, "delay": 0.6, "stagger": 0.1, "ease": "power2.out"},
+            ],
+            # Stats are large gradient-text numbers in the hero_with_stats
+            # template — the selector picks them up via the
+            # bg-clip-text + gradient classes.
+            "counter_up": [
+                {"selector": ".text-4xl.sm\\:text-5xl.font-extrabold", "duration": 1.6, "ease": "power2.out"},
+            ],
+        },
         "default_props": {
             "HEADLINE": "Trusted by founders. Loved by teams.",
             "SUBHEADLINE": "The numbers speak for themselves. Real results from real customers, built into every release.",

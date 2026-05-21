@@ -505,5 +505,12 @@ class SectionVariant(TimestampMixin, Base):
     # Liquid Glass palette, no external refs. Falls back to text-only
     # card when null.
     svg_thumbnail: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # GSAP/ScrollTrigger animation defaults applied at compile time.
+    # JSON blob; see _build_animation_init_script for the supported
+    # shapes (scroll_reveal / counter_up / parallax). Snapshotted into
+    # sections_json[i].animations at variant_to_section time.
+    default_animations: Mapped[dict | None] = mapped_column(
+        JSON, nullable=True,
+    )
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, server_default="100")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="1")
