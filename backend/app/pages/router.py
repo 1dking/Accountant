@@ -1166,6 +1166,96 @@ async def _load_sections(db: AsyncSession, page_id: uuid.UUID, user_id: uuid.UUI
     return page, sections
 
 
+@router.get("/animations/presets")
+async def list_animation_presets(
+    _: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
+) -> dict:
+    """List all animation presets keyed by id. Picker uses this to
+    render the 2-tier card grid + per-preset config defaults.
+    Registered ABOVE /{page_id}/... routes so the literal segment
+    doesn't get parsed as a UUID."""
+    from app.pages.animation_presets import all_presets
+    out = []
+    for pid, p in all_presets().items():
+        out.append({
+            "id": pid,
+            "tier": p["tier"],
+            "display_name": p["display_name"],
+            "description": p["description"],
+            "defaults": p.get("defaults", {}),
+        })
+    return {"data": out}
+
+
+@router.patch("/{page_id}/sections/{section_index}/animation")
+async def set_section_animation(
+    page_id: uuid.UUID,
+    section_index: int,
+    body: dict,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
+) -> dict:
+    """Set the animation preset + config for one section.
+    Body: { preset: str, config?: dict }.
+      preset = "default" → drop overrides, fall back to variant default
+      preset = "none"    → no animation at all
+      preset = "<id>"    → apply the named preset with merged config
+    """
+    from app.pages.animation_presets import is_valid_preset, all_presets
+
+    preset = (body.get("preset") or "").strip()
+    if not is_valid_preset(preset):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown preset {preset!r}. See GET /api/pages/animations/presets.",
+        )
+    config = body.get("config") or {}
+    if not isinstance(config, dict):
+        raise HTTPException(
+            status_code=400, detail="config must be an object",
+        )
+
+    page, sections = await _load_sections(db, page_id, user.id)
+    if not (0 <= section_index < len(sections)):
+        raise HTTPException(
+            status_code=400,
+            detail=f"section_index {section_index} out of range",
+        )
+    target = sections[section_index]
+    if not isinstance(target, dict):
+        raise HTTPException(status_code=500, detail="Section malformed")
+
+    from datetime import datetime, timezone
+    if preset == "default":
+        # Drop the explicit override; compile_page falls back to the
+        # variant's default_animations.
+        target.pop("animations", None)
+    elif preset == "none":
+        # Explicit no-animation. Distinct from "default" — a section
+        # that's been set to "none" stays unanimated even if the
+        # variant gains animations later.
+        target["animations"] = {"preset": "none"}
+    else:
+        defaults = (all_presets().get(preset) or {}).get("defaults", {})
+        merged_config = {**defaults, **config}
+        target["animations"] = {
+            "preset": preset,
+            "config": merged_config,
+            "applied_at": datetime.now(timezone.utc).isoformat(),
+        }
+    sections[section_index] = target
+
+    page.sections_json = json.dumps(sections)
+    await _recompile_html(page, db)
+    await db.commit()
+    await db.refresh(page)
+    logger.info(
+        "pages.section_animation_set page_id=%s index=%d preset=%s",
+        page_id, section_index, preset,
+    )
+    return {"data": PageResponse.model_validate(page).model_dump(mode="json")}
+
+
 @router.patch("/{page_id}/sections/reorder")
 async def reorder_sections(
     page_id: uuid.UUID,

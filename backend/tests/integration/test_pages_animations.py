@@ -253,3 +253,155 @@ async def test_fetch_variant_animations_handles_empty_sections(
     assert await fetch_variant_animations_for_page(
         db, json.dumps([{"metadata": {}}]),
     ) == {}
+
+
+# ---------------------------------------------------------------------------
+# Commit 4B — preset-based animations (Tier 1 + Tier 2)
+# ---------------------------------------------------------------------------
+
+
+from httpx import AsyncClient
+from tests.conftest import auth_header
+
+
+@pytest.mark.high
+async def test_list_animation_presets_returns_14(
+    client: AsyncClient, admin_user: User
+):
+    """GET /api/pages/animations/presets lists Tier 1 (9 entries) +
+    Tier 2 (5 scrub) = 14 presets. Tier 4 hover effects deferred to
+    Commit 4B.2."""
+    resp = await client.get(
+        "/api/pages/animations/presets",
+        headers=auth_header(admin_user),
+    )
+    assert resp.status_code == 200, resp.text
+    data = resp.json()["data"]
+    ids = {p["id"] for p in data}
+    assert "fade_up" in ids
+    assert "stagger_children" in ids
+    assert "parallax_bg" in ids
+    assert "pin_and_scrub" in ids
+    tier_counts = {}
+    for p in data:
+        tier_counts[p["tier"]] = tier_counts.get(p["tier"], 0) + 1
+    assert tier_counts.get("entry") == 9
+    assert tier_counts.get("scrub") == 5
+    assert sum(tier_counts.values()) == 14
+
+
+@pytest.mark.high
+async def test_patch_animation_writes_preset_and_config(
+    client: AsyncClient, admin_user: User, animated_page: Page
+):
+    """PATCH /sections/{idx}/animation sets section.animations.preset
+    + config with the right shape. compile_page emits the new attrs."""
+    resp = await client.patch(
+        f"/api/pages/{animated_page.id}/sections/0/animation",
+        json={"preset": "fade_up", "config": {"duration": 1.2}},
+        headers=auth_header(admin_user),
+    )
+    assert resp.status_code == 200, resp.text
+    data = resp.json()["data"]
+    sections = json.loads(data["sections_json"])
+    anim = sections[0]["animations"]
+    assert anim["preset"] == "fade_up"
+    # Defaults merged: stagger, ease should be present alongside the override
+    assert anim["config"]["duration"] == 1.2
+    assert anim["config"].get("ease") == "power2.out"
+    assert "applied_at" in anim
+    # Compiled HTML uses the new attribute shape
+    html = data["html_content"] or ""
+    assert 'data-anim-preset="fade_up"' in html
+    assert 'data-anim-config="' in html
+
+
+@pytest.mark.high
+async def test_patch_animation_scrub_preset_emits_mobile_mode_attr(
+    client: AsyncClient, admin_user: User, animated_page: Page
+):
+    """Tier 2 presets carry a data-anim-mobile-mode attribute (default
+    'auto') so the runtime can degrade scrub effects on < 768px
+    viewports. Mobile safety valve."""
+    resp = await client.patch(
+        f"/api/pages/{animated_page.id}/sections/0/animation",
+        json={"preset": "parallax_bg"},
+        headers=auth_header(admin_user),
+    )
+    assert resp.status_code == 200, resp.text
+    html = resp.json()["data"]["html_content"] or ""
+    assert 'data-anim-preset="parallax_bg"' in html
+    assert 'data-anim-mobile-mode="auto"' in html
+
+
+@pytest.mark.high
+async def test_patch_animation_none_strips_wrapper(
+    client: AsyncClient, admin_user: User, animated_page: Page
+):
+    """preset='none' means the section renders entirely static. No
+    data-section-anim, no data-anim-preset, no GSAP CDN injected
+    (assuming this is the only animated section)."""
+    resp = await client.patch(
+        f"/api/pages/{animated_page.id}/sections/0/animation",
+        json={"preset": "none"},
+        headers=auth_header(admin_user),
+    )
+    assert resp.status_code == 200, resp.text
+    html = resp.json()["data"]["html_content"] or ""
+    assert "data-section-anim" not in html
+    assert "data-anim-preset" not in html
+    assert "gsap.min.js" not in html
+
+
+@pytest.mark.high
+async def test_patch_animation_default_falls_back_to_variant_default(
+    client: AsyncClient, admin_user: User, animated_page: Page
+):
+    """preset='default' drops the explicit override. compile_page
+    falls back to whatever the variant default produces (4A behavior).
+    For the animated_page fixture, the inline 'animations' field is
+    removed; subsequent compiles either re-apply via variants_map
+    fallback or render without animation if no variant fallback."""
+    resp = await client.patch(
+        f"/api/pages/{animated_page.id}/sections/0/animation",
+        json={"preset": "default"},
+        headers=auth_header(admin_user),
+    )
+    assert resp.status_code == 200, resp.text
+    data = resp.json()["data"]
+    sections = json.loads(data["sections_json"])
+    # The explicit override is gone — no animations key on the section.
+    assert "animations" not in sections[0]
+
+
+@pytest.mark.normal
+async def test_patch_animation_rejects_unknown_preset(
+    client: AsyncClient, admin_user: User, animated_page: Page
+):
+    """Unknown preset id → 400 with a useful error pointing to the
+    presets endpoint."""
+    resp = await client.patch(
+        f"/api/pages/{animated_page.id}/sections/0/animation",
+        json={"preset": "boogie_woogie"},
+        headers=auth_header(admin_user),
+    )
+    assert resp.status_code == 400
+    msg = resp.json()["error"]["message"]
+    assert "boogie_woogie" in msg
+
+
+@pytest.mark.normal
+def test_init_script_handles_preset_attributes():
+    """The compiled init script must reference both attribute paths
+    (data-section-anim + data-anim-preset) so 4A flat configs and 4B
+    presets both wire up. Smoke test on the compiled HTML."""
+    from app.pages.compiler import _build_animation_init_script
+    script = _build_animation_init_script()
+    assert "data-section-anim" in script
+    assert "data-anim-preset" in script
+    # Mobile safety valve present
+    assert "innerWidth < 768" in script
+    # Preset registry mirrored (sanity: at least one Tier 1 + one Tier 2)
+    assert "fade_up" in script
+    assert "parallax_bg" in script
+    assert "pin_and_scrub" in script

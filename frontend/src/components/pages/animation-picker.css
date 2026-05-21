@@ -1,0 +1,369 @@
+/**
+ * AnimationPickerModal — inline CSS-keyframe previews for the 14
+ * presets. Pure CSS, no GSAP — picker itself stays light. Each
+ * preview is a small abstract shape (text-bar + accent strip)
+ * demonstrating the animation's character.
+ *
+ * Each preview class:
+ *  - Renders inside a fixed 96×60 box (.ap-preview-box)
+ *  - Uses an .ap-preview-bar (text-bar shape) as the main subject
+ *  - Animates infinitely with a 200ms pause between loops
+ *  - Speeds up by 1.5× on .ap-card:hover via animation-duration
+ *    multiplier
+ */
+
+.ap-modal {
+  --ap-surface: rgba(15, 18, 32, 0.94);
+  --ap-blur: blur(36px) saturate(180%);
+  --ap-border: rgba(255, 255, 255, 0.10);
+  --ap-text: rgba(255, 255, 255, 0.96);
+  --ap-text-muted: rgba(255, 255, 255, 0.50);
+  --ap-text-dim: rgba(255, 255, 255, 0.30);
+  --ap-card-bg: rgba(255, 255, 255, 0.04);
+  --ap-card-bg-hover: rgba(255, 255, 255, 0.08);
+  --ap-card-border: rgba(255, 255, 255, 0.08);
+  --ap-card-border-hover: rgba(99, 102, 241, 0.55);
+  --ap-accent: linear-gradient(135deg, #6366f1, #8b5cf6, #ec4899);
+  --ap-ease: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.ap-backdrop {
+  background: rgba(8, 10, 20, 0.6);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+.ap-drawer {
+  background: var(--ap-surface);
+  -webkit-backdrop-filter: var(--ap-blur);
+  backdrop-filter: var(--ap-blur);
+  border-left: 1px solid var(--ap-border);
+  box-shadow: -24px 0 64px rgba(0, 0, 0, 0.55);
+  color: var(--ap-text);
+}
+
+.ap-tier-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 4px 10px;
+  cursor: pointer;
+  user-select: none;
+}
+.ap-tier-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ap-text-muted);
+}
+.ap-tier-count {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--ap-text-dim);
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.ap-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  background: var(--ap-card-bg);
+  border: 1px solid var(--ap-card-border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 160ms var(--ap-ease), border-color 160ms var(--ap-ease), transform 160ms var(--ap-ease);
+  text-align: left;
+  position: relative;
+}
+.ap-card:hover {
+  background: var(--ap-card-bg-hover);
+  border-color: var(--ap-card-border-hover);
+  transform: translateY(-1px);
+}
+.ap-card.selected {
+  border-color: rgba(99, 102, 241, 0.85);
+  background: rgba(99, 102, 241, 0.10);
+}
+.ap-card-check {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--ap-accent);
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.ap-card-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ap-text);
+  line-height: 1.2;
+}
+.ap-card-desc {
+  font-size: 11px;
+  color: var(--ap-text-muted);
+  line-height: 1.35;
+}
+
+/* Preview box — every preset card has one. The animation classes
+   below target .ap-preview-bar inside, with an "active" state
+   modifier .ap-anim-{preset_id} on the box. */
+.ap-preview-box {
+  position: relative;
+  width: 100%;
+  height: 60px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.10), rgba(139, 92, 246, 0.04));
+  overflow: hidden;
+}
+.ap-preview-bar {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 60%;
+  height: 8px;
+  background: linear-gradient(90deg, #6366f1, #ec4899);
+  border-radius: 999px;
+  transform: translate(-50%, -50%);
+  transform-origin: center;
+}
+/* Secondary bar — used by stagger_children, opacity_scrub, etc. */
+.ap-preview-bar-2 {
+  position: absolute;
+  left: 50%;
+  top: 70%;
+  width: 38%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.30);
+  border-radius: 999px;
+  transform: translate(-50%, -50%);
+}
+.ap-preview-bar-3 {
+  position: absolute;
+  left: 50%;
+  top: 30%;
+  width: 28%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.20);
+  border-radius: 999px;
+  transform: translate(-50%, -50%);
+}
+
+/* Each animation gets its own @keyframes + applied via
+   class .ap-anim-{preset}. animation-iteration-count: infinite,
+   animation-direction: normal, pause via 30% of the cycle as the
+   "end state". Hover the card → speed up 1.5×. */
+
+/* Tier 1 — Entry presets */
+@keyframes ap-fade-up {
+  0%, 100% { transform: translate(-50%, calc(-50% + 14px)); opacity: 0; }
+  25%, 75% { transform: translate(-50%, -50%); opacity: 1; }
+}
+.ap-anim-fade_up .ap-preview-bar { animation: ap-fade-up 2.4s var(--ap-ease) infinite; }
+.ap-card:hover .ap-anim-fade_up .ap-preview-bar { animation-duration: 1.6s; }
+
+@keyframes ap-fade-down {
+  0%, 100% { transform: translate(-50%, calc(-50% - 14px)); opacity: 0; }
+  25%, 75% { transform: translate(-50%, -50%); opacity: 1; }
+}
+.ap-anim-fade_down .ap-preview-bar { animation: ap-fade-down 2.4s var(--ap-ease) infinite; }
+.ap-card:hover .ap-anim-fade_down .ap-preview-bar { animation-duration: 1.6s; }
+
+@keyframes ap-slide-left {
+  0%, 100% { transform: translate(calc(-50% - 30px), -50%); opacity: 0; }
+  25%, 75% { transform: translate(-50%, -50%); opacity: 1; }
+}
+.ap-anim-slide_left .ap-preview-bar { animation: ap-slide-left 2.4s var(--ap-ease) infinite; }
+.ap-card:hover .ap-anim-slide_left .ap-preview-bar { animation-duration: 1.6s; }
+
+@keyframes ap-slide-right {
+  0%, 100% { transform: translate(calc(-50% + 30px), -50%); opacity: 0; }
+  25%, 75% { transform: translate(-50%, -50%); opacity: 1; }
+}
+.ap-anim-slide_right .ap-preview-bar { animation: ap-slide-right 2.4s var(--ap-ease) infinite; }
+.ap-card:hover .ap-anim-slide_right .ap-preview-bar { animation-duration: 1.6s; }
+
+@keyframes ap-scale-in {
+  0%, 100% { transform: translate(-50%, -50%) scale(0.6); opacity: 0; }
+  25%, 75% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+.ap-anim-scale_in .ap-preview-bar { animation: ap-scale-in 2.4s var(--ap-ease) infinite; }
+.ap-card:hover .ap-anim-scale_in .ap-preview-bar { animation-duration: 1.6s; }
+
+@keyframes ap-scale-out {
+  0%, 100% { transform: translate(-50%, -50%) scale(1.4); opacity: 0; }
+  25%, 75% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+.ap-anim-scale_out .ap-preview-bar { animation: ap-scale-out 2.4s var(--ap-ease) infinite; }
+.ap-card:hover .ap-anim-scale_out .ap-preview-bar { animation-duration: 1.6s; }
+
+@keyframes ap-blur-in {
+  0%, 100% { filter: blur(8px); opacity: 0; }
+  25%, 75% { filter: blur(0); opacity: 1; }
+}
+.ap-anim-blur_in .ap-preview-bar { animation: ap-blur-in 2.4s var(--ap-ease) infinite; }
+.ap-card:hover .ap-anim-blur_in .ap-preview-bar { animation-duration: 1.6s; }
+
+@keyframes ap-rotate-in {
+  0%, 100% { transform: translate(-50%, -50%) rotate(-22deg); opacity: 0; }
+  25%, 75% { transform: translate(-50%, -50%) rotate(0); opacity: 1; }
+}
+.ap-anim-rotate_in .ap-preview-bar { animation: ap-rotate-in 2.4s var(--ap-ease) infinite; }
+.ap-card:hover .ap-anim-rotate_in .ap-preview-bar { animation-duration: 1.6s; }
+
+/* stagger_children — three bars, each delayed */
+@keyframes ap-stagger {
+  0%, 90%, 100% { transform: translate(-50%, calc(-50% + 12px)); opacity: 0; }
+  35%, 70% { transform: translate(-50%, -50%); opacity: 1; }
+}
+.ap-anim-stagger_children .ap-preview-bar-3 { animation: ap-stagger 2.4s var(--ap-ease) 0s infinite; top: 22%; }
+.ap-anim-stagger_children .ap-preview-bar   { animation: ap-stagger 2.4s var(--ap-ease) 0.15s infinite; top: 50%; }
+.ap-anim-stagger_children .ap-preview-bar-2 { animation: ap-stagger 2.4s var(--ap-ease) 0.3s infinite; top: 78%; }
+.ap-card:hover .ap-anim-stagger_children .ap-preview-bar,
+.ap-card:hover .ap-anim-stagger_children .ap-preview-bar-2,
+.ap-card:hover .ap-anim-stagger_children .ap-preview-bar-3 { animation-duration: 1.6s; }
+
+/* Tier 2 — Scrub effects.
+   These don't have a natural "loop" — they're scroll-driven on the
+   real page. Previews fake a scroll cycle: bar drifts continuously,
+   with a "scroll indicator" arrow hinting that scroll drives it. */
+@keyframes ap-parallax-bg {
+  0%   { transform: translate(-50%, -50%); }
+  50%  { transform: translate(-50%, calc(-50% - 14px)); }
+  100% { transform: translate(-50%, -50%); }
+}
+.ap-anim-parallax_bg .ap-preview-bar { animation: ap-parallax-bg 3s linear infinite; }
+.ap-card:hover .ap-anim-parallax_bg .ap-preview-bar { animation-duration: 2s; }
+
+@keyframes ap-parallax-fg {
+  0%   { transform: translate(-50%, -50%); }
+  50%  { transform: translate(-50%, calc(-50% + 12px)); }
+  100% { transform: translate(-50%, -50%); }
+}
+.ap-anim-parallax_fg .ap-preview-bar { animation: ap-parallax-fg 3s linear infinite; }
+.ap-card:hover .ap-anim-parallax_fg .ap-preview-bar { animation-duration: 2s; }
+
+@keyframes ap-scale-scroll {
+  0%   { transform: translate(-50%, -50%) scale(0.85); }
+  50%  { transform: translate(-50%, -50%) scale(1.15); }
+  100% { transform: translate(-50%, -50%) scale(0.85); }
+}
+.ap-anim-scale_with_scroll .ap-preview-bar { animation: ap-scale-scroll 3s linear infinite; }
+.ap-card:hover .ap-anim-scale_with_scroll .ap-preview-bar { animation-duration: 2s; }
+
+@keyframes ap-opacity-scrub {
+  0%, 100% { opacity: 0; }
+  30%, 70% { opacity: 1; }
+}
+.ap-anim-opacity_scrub .ap-preview-bar { animation: ap-opacity-scrub 3s linear infinite; }
+.ap-card:hover .ap-anim-opacity_scrub .ap-preview-bar { animation-duration: 2s; }
+
+/* pin_and_scrub — main bar pinned; a "ghost" bar moves past behind */
+.ap-anim-pin_and_scrub .ap-preview-bar { background: linear-gradient(90deg, #6366f1, #ec4899); }
+@keyframes ap-pin-ghost {
+  0%   { transform: translate(-50%, calc(-50% + 28px)); opacity: 0; }
+  50%  { transform: translate(-50%, -50%); opacity: 0.5; }
+  100% { transform: translate(-50%, calc(-50% - 28px)); opacity: 0; }
+}
+.ap-anim-pin_and_scrub .ap-preview-bar-2 {
+  background: rgba(255, 255, 255, 0.35);
+  top: 50%;
+  animation: ap-pin-ghost 2.4s linear infinite;
+}
+.ap-card:hover .ap-anim-pin_and_scrub .ap-preview-bar-2 { animation-duration: 1.6s; }
+/* small "pin" icon hint in the top-right of the preview box */
+.ap-anim-pin_and_scrub::after {
+  content: '📌';
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  font-size: 10px;
+  opacity: 0.65;
+}
+
+/* Config panel */
+.ap-config-panel {
+  margin-top: 14px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--ap-card-border);
+  border-radius: 10px;
+}
+.ap-config-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+}
+.ap-config-row + .ap-config-row {
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+.ap-config-label {
+  font-size: 12px;
+  color: var(--ap-text);
+  flex: 0 0 auto;
+}
+.ap-config-value {
+  font-size: 11px;
+  color: var(--ap-text-muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 48px;
+  text-align: right;
+}
+.ap-config-input {
+  flex: 1;
+  background: transparent;
+}
+.ap-config-select {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--ap-card-border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  color: var(--ap-text);
+  font-size: 12px;
+  outline: none;
+}
+.ap-config-select:focus {
+  border-color: rgba(99, 102, 241, 0.55);
+}
+.ap-config-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 4px;
+}
+.ap-config-checkbox-row input { accent-color: #6366f1; }
+.ap-config-checkbox-row label {
+  font-size: 12px;
+  color: var(--ap-text-muted);
+  cursor: pointer;
+}
+
+/* Footer reset button */
+.ap-reset-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-size: 12px;
+  color: var(--ap-text-muted);
+  background: transparent;
+  border: 1px solid var(--ap-card-border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 140ms var(--ap-ease), color 140ms var(--ap-ease), border-color 140ms var(--ap-ease);
+}
+.ap-reset-button:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--ap-text);
+  border-color: rgba(255, 255, 255, 0.18);
+}

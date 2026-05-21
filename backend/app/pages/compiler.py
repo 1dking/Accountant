@@ -131,11 +131,15 @@ GSAP_CDN_SCRIPT = (
 
 
 def _build_animation_init_script() -> str:
-    """Inline JS that walks [data-section-anim] elements and wires up
-    GSAP timelines. Runs after GSAP loads (deferred). Respects
-    prefers-reduced-motion explicitly — sets final visible state
-    rather than just early-returning, so the page is fully usable
-    without motion.
+    """Inline JS that wires GSAP timelines for:
+      - 4A [data-section-anim] flat configs (scroll_reveal /
+        counter_up / parallax arrays)
+      - 4B [data-anim-preset] presets (entry + scrub) with
+        per-section config and mobile safety valve.
+
+    Runs after GSAP CDN scripts load (deferred). prefers-reduced-motion
+    is honored EXPLICITLY by setting final visible state, not just
+    early-returning — page remains fully usable without motion.
     """
     return """<script>
 (function () {
@@ -149,8 +153,8 @@ def _build_animation_init_script() -> str:
     gsap.registerPlugin(ScrollTrigger);
 
     // prefers-reduced-motion: set every animatable element to its
-    // final visible state and skip GSAP entirely. Per Commit 4 spec
-    // — explicit final-state, not just early-return.
+    // final visible state and skip GSAP entirely. Explicit final-state
+    // restoration per the Commit 4 requirement.
     var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduce) {
       document.querySelectorAll('[data-section-anim]').forEach(function (wrap) {
@@ -160,16 +164,26 @@ def _build_animation_init_script() -> str:
             wrap.querySelectorAll(rev.selector).forEach(function (el) {
               el.style.opacity = '1';
               el.style.transform = 'none';
+              el.style.filter = 'none';
             });
           });
-          (cfg.counter_up || []).forEach(function (c) {
-            // Counter targets already have their final text in HTML.
-          });
         } catch (e) { /* malformed config */ }
+      });
+      document.querySelectorAll('[data-anim-preset]').forEach(function (wrap) {
+        // Reset transforms/opacity/filter so the section renders fully.
+        wrap.style.opacity = '1';
+        wrap.style.transform = 'none';
+        wrap.style.filter = 'none';
       });
       return;
     }
 
+    // Mobile safety valve — < 768px viewports with data-anim-mobile-mode
+    // = "auto" downgrade scrub effects to entry-trigger-once. "disable"
+    // turns off the scrub effect entirely; otherwise scrub runs as-is.
+    var isMobile = window.innerWidth < 768;
+
+    // ---------- 4A flat shape: [data-section-anim] -----------------
     document.querySelectorAll('[data-section-anim]').forEach(function (wrap) {
       var cfg;
       try { cfg = JSON.parse(wrap.getAttribute('data-section-anim') || '{}'); }
@@ -194,8 +208,6 @@ def _build_animation_init_script() -> str:
       (cfg.counter_up || []).forEach(function (c) {
         wrap.querySelectorAll(c.selector).forEach(function (el) {
           var raw = (el.textContent || '').trim();
-          // Parse target: drop everything except digits + decimal,
-          // keep prefix/suffix so "500+" and "$1,200" still display.
           var match = raw.match(/(-?[\\d,]+\\.?\\d*)/);
           if (!match) return;
           var target = parseFloat(match[1].replace(/,/g, ''));
@@ -231,10 +243,120 @@ def _build_animation_init_script() -> str:
             trigger: wrap,
             start: 'top bottom',
             end: 'bottom top',
-            scrub: p.scrub !== false,
+            scrub: p.scrub !== false ? 0.6 : false,
           },
         });
       });
+    });
+
+    // ---------- 4B preset shape: [data-anim-preset] -----------------
+    // Each preset has a dedicated effect handler. Entry presets use
+    // gsap.fromTo + ScrollTrigger once. Scrub presets use scrub with
+    // a smoothing factor.
+    var ENTRY_PRESETS = {
+      fade_up:          {from: {y: 40, opacity: 0},  to: {y: 0, opacity: 1}},
+      fade_down:        {from: {y: -40, opacity: 0}, to: {y: 0, opacity: 1}},
+      slide_left:       {from: {x: -60, opacity: 0}, to: {x: 0, opacity: 1}},
+      slide_right:      {from: {x: 60, opacity: 0},  to: {x: 0, opacity: 1}},
+      scale_in:         {from: {scale: 0.85, opacity: 0}, to: {scale: 1, opacity: 1}},
+      scale_out:        {from: {scale: 1.15, opacity: 0}, to: {scale: 1, opacity: 1}},
+      blur_in:          {from: {filter: 'blur(12px)', opacity: 0}, to: {filter: 'blur(0px)', opacity: 1}},
+      rotate_in:        {from: {rotation: -8, opacity: 0}, to: {rotation: 0, opacity: 1}},
+      stagger_children: {from: {y: 30, opacity: 0}, to: {y: 0, opacity: 1}, target: 'children'},
+    };
+
+    document.querySelectorAll('[data-anim-preset]').forEach(function (wrap) {
+      var presetId = wrap.getAttribute('data-anim-preset');
+      var cfg;
+      try { cfg = JSON.parse(wrap.getAttribute('data-anim-config') || '{}'); }
+      catch (e) { cfg = {}; }
+      var mobileMode = wrap.getAttribute('data-anim-mobile-mode') || 'auto';
+
+      // ----- Tier 1 entry presets -----
+      if (ENTRY_PRESETS[presetId]) {
+        var p = ENTRY_PRESETS[presetId];
+        var targets = (p.target === 'children') ? wrap.children : [wrap];
+        gsap.fromTo(targets, p.from, Object.assign({}, p.to, {
+          duration: cfg.duration != null ? cfg.duration : 0.8,
+          ease: cfg.ease || 'power2.out',
+          delay: cfg.delay || 0,
+          stagger: cfg.stagger || 0,
+          scrollTrigger: {
+            trigger: wrap,
+            start: 'top 80%',
+            once: true,
+          },
+        }));
+        return;
+      }
+
+      // ----- Tier 2 scrub presets -----
+      // Mobile valve: < 768px + mode=auto → degrade to single-trigger
+      // entry-style animation (just settle to the END state on enter).
+      // mode=disable → no animation at all on mobile.
+      var degradeToEntry = isMobile && mobileMode === 'auto';
+      var skip = isMobile && mobileMode === 'disable';
+      if (skip) return;
+
+      function scrubBuild(opts) {
+        if (degradeToEntry) {
+          // Fire-once entry: jump to end state when section enters view.
+          gsap.fromTo(opts.target, opts.from, Object.assign({}, opts.to, {
+            duration: 0.7,
+            ease: 'power2.out',
+            scrollTrigger: { trigger: wrap, start: 'top 80%', once: true },
+          }));
+        } else {
+          gsap.fromTo(opts.target, opts.from, Object.assign({}, opts.to, {
+            ease: 'none',
+            scrollTrigger: {
+              trigger: wrap,
+              start: opts.start || 'top bottom',
+              end: opts.end || 'bottom top',
+              scrub: 0.6,
+            },
+          }));
+        }
+      }
+
+      if (presetId === 'parallax_bg') {
+        scrubBuild({ target: wrap, from: { y: 0 }, to: { y: -80 } });
+      } else if (presetId === 'parallax_fg') {
+        scrubBuild({ target: wrap, from: { y: 0 }, to: { y: 50 } });
+      } else if (presetId === 'scale_with_scroll') {
+        scrubBuild({ target: wrap, from: { scale: 0.9 }, to: { scale: 1.1 } });
+      } else if (presetId === 'opacity_scrub') {
+        // Three-stop opacity: fade in over 30%, hold, fade out at end.
+        if (degradeToEntry) {
+          gsap.fromTo(wrap, { opacity: 0 }, {
+            opacity: 1, duration: 0.7, ease: 'power2.out',
+            scrollTrigger: { trigger: wrap, start: 'top 80%', once: true },
+          });
+        } else {
+          var tl = gsap.timeline({
+            scrollTrigger: {
+              trigger: wrap, start: 'top bottom', end: 'bottom top',
+              scrub: 0.6,
+            },
+          });
+          tl.fromTo(wrap, { opacity: 0 }, { opacity: 1, duration: 0.3 })
+            .to(wrap, { opacity: 1, duration: 0.4 })
+            .to(wrap, { opacity: 0, duration: 0.3 });
+        }
+      } else if (presetId === 'pin_and_scrub') {
+        if (!degradeToEntry) {
+          var mult = (cfg.intensity != null ? cfg.intensity : 1.5);
+          ScrollTrigger.create({
+            trigger: wrap,
+            start: 'top top',
+            end: '+=' + (wrap.offsetHeight * mult) + 'px',
+            pin: true,
+            pinSpacing: true,
+          });
+        }
+        // Mobile auto-mode falls through with no pin (pin is jarring
+        // on touch devices). Sections render normally.
+      }
     });
   }
   if (document.readyState === 'loading') {
@@ -247,22 +369,56 @@ def _build_animation_init_script() -> str:
 
 
 def _wrap_section_with_animation(html: str, anim_config: dict | None) -> str:
-    """Wrap a section's HTML in a <div data-section-anim='{...}'>
-    wrapper so the init script can find and animate it. No wrapper
-    when anim_config is empty/null — keeps the DOM clean for static
-    sections."""
+    """Wrap a section's HTML so the init script can find and animate
+    it. Two attribute paths:
+
+      - 4A flat shape ({scroll_reveal: [...], counter_up: [...]}) →
+        wrapped with data-section-anim='{...full config...}'
+      - 4B preset shape ({preset: "fade_up", config: {...}}) →
+        wrapped with data-anim-preset="<id>" + data-anim-config='{...}'
+        + optional data-anim-mobile-mode
+
+    Both are recognized by the runtime; emitting them as distinct
+    attributes keeps the picker UI simple (no need to round-trip the
+    flat shape) and makes per-preset CSS targeting possible.
+
+    preset == "none" → no wrapper, no data attributes. Section
+    renders entirely static.
+    """
     if not anim_config:
         return html
-    # JSON-escape the config for safe embedding in an HTML attribute.
-    payload = json.dumps(anim_config, separators=(",", ":"), ensure_ascii=False)
-    safe = (
+    preset_id = anim_config.get("preset") if isinstance(anim_config, dict) else None
+    if preset_id == "none":
+        return html
+    if preset_id and preset_id != "default":
+        config = anim_config.get("config") or {}
+        mobile_mode = config.get("mobile_mode", "auto")
+        cfg_payload = _attr_escape_json(config)
+        mobile_attr = (
+            f' data-anim-mobile-mode="{mobile_mode}"'
+            if mobile_mode in ("auto", "disable") else ""
+        )
+        return (
+            f'<div data-anim-preset="{preset_id}" '
+            f'data-anim-config="{cfg_payload}"'
+            f'{mobile_attr}>{html}</div>'
+        )
+    # 4A flat shape (variant default / explicit scroll_reveal arrays):
+    safe = _attr_escape_json(anim_config)
+    return f'<div data-section-anim="{safe}">{html}</div>'
+
+
+def _attr_escape_json(obj: Any) -> str:
+    """JSON-encode + HTML-attribute-escape an object. Used by both
+    4A flat and 4B preset wrappers."""
+    payload = json.dumps(obj, separators=(",", ":"), ensure_ascii=False)
+    return (
         payload.replace("&", "&amp;")
         .replace("'", "&#39;")
         .replace('"', "&quot;")
         .replace("<", "&lt;")
         .replace(">", "&gt;")
     )
-    return f'<div data-section-anim="{safe}">{html}</div>'
 
 
 def compile_page(
@@ -341,7 +497,15 @@ def compile_page(
                         _jsx_to_html(jsx), media_props
                     )
                 if anim_cfg:
-                    any_animations = True
+                    # "none" preset → no wrapper + no GSAP injection.
+                    # Distinct from "default" (variant default behavior)
+                    # and from no override at all.
+                    is_none = (
+                        isinstance(anim_cfg, dict)
+                        and anim_cfg.get("preset") == "none"
+                    )
+                    if not is_none:
+                        any_animations = True
                     rendered = _wrap_section_with_animation(rendered, anim_cfg)
                 body_sections.append(rendered)
         except json.JSONDecodeError:

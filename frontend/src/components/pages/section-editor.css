@@ -75,6 +75,11 @@
   background: rgba(99, 102, 241, 0.20);
   color: #c7d2fe;
 }
+/* Animations 🪄 icon: cyan accent on hover */
+.se-control-btn.se-ctrl-anim:hover {
+  background: rgba(6, 182, 212, 0.22);
+  color: #a5f3fc;
+}
 /* Refine ✦ icon: indigo accent on hover */
 .se-control-btn.se-ctrl-refine:hover {
   background: rgba(139, 92, 246, 0.20);

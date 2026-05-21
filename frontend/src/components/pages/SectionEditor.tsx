@@ -29,7 +29,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
   Loader2, Sparkles, Trash2, Copy, RotateCcw, X, Replace, Plus,
-  Film, Image as ImageIcon, GripVertical,
+  Film, Image as ImageIcon, GripVertical, Wand2,
 } from 'lucide-react'
 import {
   DndContext, PointerSensor, KeyboardSensor, useSensor, useSensors,
@@ -43,6 +43,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { pagesApi } from '@/api/pages'
 import VariantPickerModal from './VariantPickerModal'
 import MediaPickerModal, { type MediaSlotKind } from './MediaPickerModal'
+import AnimationPickerModal from './AnimationPickerModal'
 import './section-editor.css'
 
 // Media tokens — kept in sync with backend variants.py MEDIA_TOKENS
@@ -111,6 +112,18 @@ export interface PageSection {
   edited_html?: string | null
   style_overrides?: Record<string, unknown> | null
   media_overrides?: Record<string, string> | null
+  /** Commit 4B per-section animation preset + config. preset 'none'
+   *  means explicitly no animation; absent means use the variant's
+   *  default_animations. */
+  animations?: {
+    preset?: string
+    config?: Record<string, unknown>
+    applied_at?: string
+    // 4A flat shape compatibility — variant defaults may still live here
+    scroll_reveal?: unknown[]
+    counter_up?: unknown[]
+    parallax?: unknown[]
+  } | null
   metadata?: Record<string, any>
 }
 
@@ -399,6 +412,9 @@ function SectionBlock({
   // Active media slot — token name being edited via MediaPickerModal.
   // null means picker closed.
   const [mediaSlot, setMediaSlot] = useState<string | null>(null)
+  // Animation picker open state. Reads section.animations to pre-select
+  // the current preset.
+  const [animOpen, setAnimOpen] = useState(false)
 
   const sectionId = section.id || `section-${index}`
   const html = sectionBodyHtml(section)
@@ -553,6 +569,14 @@ function SectionBlock({
             <span className="se-tooltip">Refine with AI</span>
           </button>
           <button
+            onClick={() => setAnimOpen(true)}
+            className="se-control-btn se-ctrl-anim"
+            aria-label="Animations"
+          >
+            <Wand2 className="h-4 w-4" />
+            <span className="se-tooltip">Animations</span>
+          </button>
+          <button
             onClick={() => onRequestChangeVariant(index, section.type || 'hero')}
             className="se-control-btn se-ctrl-variant"
             aria-label="Change variant"
@@ -678,6 +702,17 @@ function SectionBlock({
           ))}
         </div>
       )}
+
+      {/* Animation picker — Commit 4B. Reads section.animations to
+          pre-select the current preset. */}
+      <AnimationPickerModal
+        open={animOpen}
+        pageId={pageId}
+        sectionIndex={index}
+        current={section.animations || null}
+        onClose={() => setAnimOpen(false)}
+        onApplied={() => invalidate()}
+      />
 
       {/* Media picker modal — opens when a slot pill is clicked. The
           target URL key may differ from the token name (element tokens

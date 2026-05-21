@@ -100,6 +100,16 @@ export const pagesApi = {
       to_index: toIndex,
     }),
 
+  // Per-section animation preset (4B). Backend writes
+  // section.animations.preset + config; compile_page emits the
+  // matching data-anim-preset wrapper attributes.
+  listAnimationPresets: () => api.get('/pages/animations/presets'),
+  setSectionAnimation: (
+    pageId: string,
+    idx: number,
+    data: { preset: string; config?: Record<string, unknown> },
+  ) => api.patch(`/pages/${pageId}/sections/${idx}/animation`, data),
+
   // Media slots (SectionEditor — Commit 3)
   uploadMedia: (file: File) => {
     const fd = new FormData()
