@@ -303,7 +303,124 @@ HERO_VARIANTS = [
 ]
 
 
+# =============================================================================
+# FEATURES variants (Commit 5)
+# =============================================================================
+#
+# Convention for non-Hero flagships:
+#  - Section-level animations via default_animations (entry on scroll).
+#  - Per-card hover effects via Tailwind hover: classes directly in the
+#    template (hover:-translate-y-1 hover:shadow-xl etc.). Reason:
+#    section.animations.preset = "hover_lift" lifts the WHOLE wrapper;
+#    per-card lifts belong in the markup itself. Keeps the preset
+#    system focused on section-level effects.
+#  - Realistic placeholder content — written for a generic SaaS context
+#    so the variant looks production-ready on insert, not "Item One/Two".
+
+FEATURES_VARIANTS = [
+    {
+        "id": "var_features_3col_icon",
+        "category": "features",
+        "variant_id": "features_3col_icon",
+        "display_name": "3-Column Icon Grid",
+        "description": "Six features in a 3-column grid with gradient icon tiles. Best for showcasing capabilities at a glance.",
+        "sort_order": 10,
+        "default_props": {
+            "EYEBROW": "Why teams choose us",
+            "HEADLINE": "Everything you need, nothing you don't.",
+            "SUBHEADLINE": "Six reasons our customers stay. Built for teams shipping in the real world.",
+            "FEATURE_1_TITLE": "Lightning-fast performance",
+            "FEATURE_1_BODY": "Sub-100ms response times worldwide. Your team never waits on us.",
+            "FEATURE_2_TITLE": "Seamless team collaboration",
+            "FEATURE_2_BODY": "Real-time editing, granular permissions, comments where work happens.",
+            "FEATURE_3_TITLE": "Bank-grade security",
+            "FEATURE_3_BODY": "SOC 2 Type II, end-to-end encryption, and audit logs on every action.",
+            "FEATURE_4_TITLE": "Real-time insights",
+            "FEATURE_4_BODY": "Dashboards that surface the metric that matters before you ask.",
+            "FEATURE_5_TITLE": "Custom integrations",
+            "FEATURE_5_BODY": "Connect Slack, Linear, Notion, and 200+ tools your team already uses.",
+            "FEATURE_6_TITLE": "White-glove support",
+            "FEATURE_6_BODY": "Real humans on chat in under 5 minutes. Pro plans get a dedicated CSM.",
+        },
+        # Section-level entry: 6 cards stagger up as the section scrolls
+        # into view. Per-card hover handled via Tailwind classes inside
+        # the template (transition + hover:-translate-y-1 + hover:shadow-xl).
+        "default_animations": {
+            "preset": "stagger_children",
+            "config": {"duration": 0.6, "stagger": 0.08, "ease": "power2.out"},
+        },
+        # Tailwind notes embedded in the template:
+        # - bg-slate-950 base section
+        # - bg-white/5 backdrop-blur cards with subtle white/10 border
+        # - 6 gradient icon tiles using the OCIDM palette
+        #   (indigo→violet→fuchsia, cyan→indigo, amber→pink, etc.)
+        # - Per-card hover: lift + shadow + accent border on hover
+        # - Lucide-style inline SVG paths (no external icon dep)
+        "jsx_template": """<section className="relative isolate overflow-hidden bg-slate-950 py-20 sm:py-24 lg:py-28">
+  <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_rgba(99,102,241,0.18),_transparent_60%)]"></div>
+  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="text-center max-w-3xl mx-auto mb-14 sm:mb-16">
+      <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/5 border border-white/10 backdrop-blur-sm text-indigo-200 rounded-full text-xs font-semibold uppercase tracking-wider mb-5">
+        {{EYEBROW}}
+      </span>
+      <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white leading-tight">
+        {{HEADLINE}}
+      </h2>
+      <p className="mt-4 text-base sm:text-lg text-gray-300 leading-relaxed">
+        {{SUBHEADLINE}}
+      </p>
+    </div>
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 lg:gap-6">
+      <div className="group relative rounded-2xl p-6 bg-white/[0.04] backdrop-blur-xl border border-white/10 transition-all duration-200 hover:-translate-y-1 hover:bg-white/[0.07] hover:border-indigo-400/40 hover:shadow-[0_12px_32px_rgba(99,102,241,0.18)]">
+        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 flex items-center justify-center mb-5 shadow-lg shadow-indigo-500/30">
+          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        </div>
+        <h3 className="text-lg font-semibold text-white mb-2">{{FEATURE_1_TITLE}}</h3>
+        <p className="text-sm text-gray-300 leading-relaxed">{{FEATURE_1_BODY}}</p>
+      </div>
+      <div className="group relative rounded-2xl p-6 bg-white/[0.04] backdrop-blur-xl border border-white/10 transition-all duration-200 hover:-translate-y-1 hover:bg-white/[0.07] hover:border-violet-400/40 hover:shadow-[0_12px_32px_rgba(139,92,246,0.18)]">
+        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 via-fuchsia-500 to-pink-500 flex items-center justify-center mb-5 shadow-lg shadow-violet-500/30">
+          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+        </div>
+        <h3 className="text-lg font-semibold text-white mb-2">{{FEATURE_2_TITLE}}</h3>
+        <p className="text-sm text-gray-300 leading-relaxed">{{FEATURE_2_BODY}}</p>
+      </div>
+      <div className="group relative rounded-2xl p-6 bg-white/[0.04] backdrop-blur-xl border border-white/10 transition-all duration-200 hover:-translate-y-1 hover:bg-white/[0.07] hover:border-fuchsia-400/40 hover:shadow-[0_12px_32px_rgba(217,70,239,0.18)]">
+        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-fuchsia-500 via-pink-500 to-rose-500 flex items-center justify-center mb-5 shadow-lg shadow-fuchsia-500/30">
+          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+        </div>
+        <h3 className="text-lg font-semibold text-white mb-2">{{FEATURE_3_TITLE}}</h3>
+        <p className="text-sm text-gray-300 leading-relaxed">{{FEATURE_3_BODY}}</p>
+      </div>
+      <div className="group relative rounded-2xl p-6 bg-white/[0.04] backdrop-blur-xl border border-white/10 transition-all duration-200 hover:-translate-y-1 hover:bg-white/[0.07] hover:border-cyan-400/40 hover:shadow-[0_12px_32px_rgba(6,182,212,0.18)]">
+        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 via-sky-500 to-indigo-500 flex items-center justify-center mb-5 shadow-lg shadow-cyan-500/30">
+          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+        </div>
+        <h3 className="text-lg font-semibold text-white mb-2">{{FEATURE_4_TITLE}}</h3>
+        <p className="text-sm text-gray-300 leading-relaxed">{{FEATURE_4_BODY}}</p>
+      </div>
+      <div className="group relative rounded-2xl p-6 bg-white/[0.04] backdrop-blur-xl border border-white/10 transition-all duration-200 hover:-translate-y-1 hover:bg-white/[0.07] hover:border-amber-400/40 hover:shadow-[0_12px_32px_rgba(245,158,11,0.18)]">
+        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 via-orange-500 to-pink-500 flex items-center justify-center mb-5 shadow-lg shadow-amber-500/30">
+          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5"/></svg>
+        </div>
+        <h3 className="text-lg font-semibold text-white mb-2">{{FEATURE_5_TITLE}}</h3>
+        <p className="text-sm text-gray-300 leading-relaxed">{{FEATURE_5_BODY}}</p>
+      </div>
+      <div className="group relative rounded-2xl p-6 bg-white/[0.04] backdrop-blur-xl border border-white/10 transition-all duration-200 hover:-translate-y-1 hover:bg-white/[0.07] hover:border-emerald-400/40 hover:shadow-[0_12px_32px_rgba(16,185,129,0.18)]">
+        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 flex items-center justify-center mb-5 shadow-lg shadow-emerald-500/30">
+          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        </div>
+        <h3 className="text-lg font-semibold text-white mb-2">{{FEATURE_6_TITLE}}</h3>
+        <p className="text-sm text-gray-300 leading-relaxed">{{FEATURE_6_BODY}}</p>
+      </div>
+    </div>
+  </div>
+</section>""",
+    },
+]
+
+
 def all_variants() -> list[dict]:
-    """All seed variants across categories. Currently Hero only;
-    Commit 3 will add the remaining 11 categories."""
-    return list(HERO_VARIANTS)
+    """All seed variants across categories. Commit 5 expands beyond
+    Hero to flagships across all 12 categories."""
+    return [*HERO_VARIANTS, *FEATURES_VARIANTS]

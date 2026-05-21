@@ -171,9 +171,63 @@ SVG_HERO_WITH_STATS = (
 )
 
 
+SVG_FEATURES_3COL_ICON = (
+    '<svg viewBox="0 0 400 250" xmlns="http://www.w3.org/2000/svg" '
+    'preserveAspectRatio="xMidYMid slice" role="img" '
+    'aria-label="3-column features grid schematic">'
+    + _GRADIENT_DEFS +
+    # Base
+    '<rect width="400" height="250" fill="#0F1320"/>'
+    # Top: eyebrow pill + headline + subheadline (centered)
+    '<rect x="160" y="18" width="80" height="10" rx="5" fill="rgba(99,102,241,0.32)"/>'
+    '<rect x="100" y="38" width="200" height="10" rx="3" fill="rgba(255,255,255,0.88)"/>'
+    '<rect x="130" y="56" width="140" height="6" rx="2" fill="rgba(255,255,255,0.32)"/>'
+    # 6 cards in 3x2 grid. Card geometry: 110w × 70h, gutter 8px.
+    # Top row y=82, bottom row y=164. x starts at 25, 145, 265.
+    # Card 1 (indigo→violet)
+    '<rect x="25" y="82" width="110" height="70" rx="8" fill="#1A1F2E" stroke="rgba(255,255,255,0.08)"/>'
+    '<rect x="35" y="92" width="18" height="18" rx="4" fill="url(#lg-accent)"/>'
+    '<rect x="35" y="118" width="64" height="6" rx="2" fill="rgba(255,255,255,0.78)"/>'
+    '<rect x="35" y="130" width="80" height="4" rx="2" fill="rgba(255,255,255,0.30)"/>'
+    '<rect x="35" y="138" width="62" height="4" rx="2" fill="rgba(255,255,255,0.30)"/>'
+    # Card 2
+    '<rect x="145" y="82" width="110" height="70" rx="8" fill="#1A1F2E" stroke="rgba(255,255,255,0.08)"/>'
+    '<rect x="155" y="92" width="18" height="18" rx="4" fill="url(#lg-accent)" opacity="0.85"/>'
+    '<rect x="155" y="118" width="68" height="6" rx="2" fill="rgba(255,255,255,0.78)"/>'
+    '<rect x="155" y="130" width="80" height="4" rx="2" fill="rgba(255,255,255,0.30)"/>'
+    '<rect x="155" y="138" width="58" height="4" rx="2" fill="rgba(255,255,255,0.30)"/>'
+    # Card 3
+    '<rect x="265" y="82" width="110" height="70" rx="8" fill="#1A1F2E" stroke="rgba(255,255,255,0.08)"/>'
+    '<rect x="275" y="92" width="18" height="18" rx="4" fill="url(#lg-accent)" opacity="0.70"/>'
+    '<rect x="275" y="118" width="58" height="6" rx="2" fill="rgba(255,255,255,0.78)"/>'
+    '<rect x="275" y="130" width="80" height="4" rx="2" fill="rgba(255,255,255,0.30)"/>'
+    '<rect x="275" y="138" width="66" height="4" rx="2" fill="rgba(255,255,255,0.30)"/>'
+    # Card 4 (bottom row)
+    '<rect x="25" y="164" width="110" height="70" rx="8" fill="#1A1F2E" stroke="rgba(255,255,255,0.08)"/>'
+    '<rect x="35" y="174" width="18" height="18" rx="4" fill="url(#lg-accent)" opacity="0.65"/>'
+    '<rect x="35" y="200" width="64" height="6" rx="2" fill="rgba(255,255,255,0.78)"/>'
+    '<rect x="35" y="212" width="80" height="4" rx="2" fill="rgba(255,255,255,0.30)"/>'
+    '<rect x="35" y="220" width="62" height="4" rx="2" fill="rgba(255,255,255,0.30)"/>'
+    # Card 5
+    '<rect x="145" y="164" width="110" height="70" rx="8" fill="#1A1F2E" stroke="rgba(255,255,255,0.08)"/>'
+    '<rect x="155" y="174" width="18" height="18" rx="4" fill="url(#lg-accent)" opacity="0.55"/>'
+    '<rect x="155" y="200" width="62" height="6" rx="2" fill="rgba(255,255,255,0.78)"/>'
+    '<rect x="155" y="212" width="80" height="4" rx="2" fill="rgba(255,255,255,0.30)"/>'
+    '<rect x="155" y="220" width="58" height="4" rx="2" fill="rgba(255,255,255,0.30)"/>'
+    # Card 6
+    '<rect x="265" y="164" width="110" height="70" rx="8" fill="#1A1F2E" stroke="rgba(255,255,255,0.08)"/>'
+    '<rect x="275" y="174" width="18" height="18" rx="4" fill="url(#lg-accent)" opacity="0.45"/>'
+    '<rect x="275" y="200" width="60" height="6" rx="2" fill="rgba(255,255,255,0.78)"/>'
+    '<rect x="275" y="212" width="80" height="4" rx="2" fill="rgba(255,255,255,0.30)"/>'
+    '<rect x="275" y="220" width="68" height="4" rx="2" fill="rgba(255,255,255,0.30)"/>'
+    '</svg>'
+)
+
+
 SCHEMATICS_BY_VARIANT_ID: dict[str, str] = {
     "hero_video": SVG_HERO_VIDEO,
     "hero_two_col_image": SVG_HERO_TWO_COL_IMAGE,
     "hero_two_col_form": SVG_HERO_TWO_COL_FORM,
     "hero_with_stats": SVG_HERO_WITH_STATS,
+    "features_3col_icon": SVG_FEATURES_3COL_ICON,
 }
