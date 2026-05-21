@@ -12,7 +12,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { X, Check, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react'
+import { X, Check, ChevronDown, ChevronUp, RotateCcw, RotateCw } from 'lucide-react'
 import { pagesApi } from '@/api/pages'
 import './animation-picker.css'
 
@@ -42,6 +42,11 @@ interface Props {
   /** Called after the PATCH resolves successfully. Parent refetches
    *  the page to pick up the new compiled html_content. */
   onApplied: () => void
+  /** Called when the user clicks the Replay button. Parent posts a
+   *  replay message to the section's iframe so the animation plays
+   *  again without re-PATCHing. Optional — picker still works
+   *  without it. */
+  onReplay?: () => void
 }
 
 const EASE_OPTIONS = [
@@ -55,7 +60,7 @@ const EASE_OPTIONS = [
 ]
 
 export default function AnimationPickerModal({
-  open, pageId, sectionIndex, current, onClose, onApplied,
+  open, pageId, sectionIndex, current, onClose, onApplied, onReplay,
 }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(current?.preset ?? null)
   const [config, setConfig] = useState<Record<string, unknown>>(current?.config ?? {})
@@ -226,20 +231,35 @@ export default function AnimationPickerModal({
 
         {/* Footer */}
         <div className="flex items-center justify-between gap-2 px-4 py-3 border-t border-white/10">
-          <button
-            onClick={handleReset}
-            disabled={applyMut.isPending}
-            className="ap-reset-button"
-          >
-            <RotateCcw className="h-3.5 w-3.5" /> Reset to variant default
-          </button>
-          <button
-            onClick={handleNone}
-            disabled={applyMut.isPending}
-            className="ap-reset-button"
-          >
-            No animation
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleReset}
+              disabled={applyMut.isPending}
+              className="ap-reset-button"
+            >
+              <RotateCcw className="h-3.5 w-3.5" /> Reset to variant default
+            </button>
+            <button
+              onClick={handleNone}
+              disabled={applyMut.isPending}
+              className="ap-reset-button"
+            >
+              No animation
+            </button>
+          </div>
+          {/* Replay button — visible when a real preset is selected.
+              Triggers in-place replay in the section iframe without
+              re-PATCHing. 4B.1 closes the 3-step verify loop down to
+              1 step. */}
+          {selectedPreset && onReplay && (
+            <button
+              onClick={onReplay}
+              className="ap-reset-button"
+              title="Play the animation again in the editor"
+            >
+              <RotateCw className="h-3.5 w-3.5" /> Replay
+            </button>
+          )}
         </div>
       </div>
     </div>

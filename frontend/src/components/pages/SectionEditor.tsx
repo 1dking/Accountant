@@ -24,12 +24,12 @@
  *     global CSS rules to page.css_content. Closes the font-size
  *     nth-child !important bug.
  */
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
   Loader2, Sparkles, Trash2, Copy, RotateCcw, X, Replace, Plus,
-  Film, Image as ImageIcon, GripVertical, Wand2,
+  Film, Image as ImageIcon, GripVertical, Wand2, Play,
 } from 'lucide-react'
 import {
   DndContext, PointerSensor, KeyboardSensor, useSensor, useSensors,
@@ -247,6 +247,164 @@ interface SectionBlockProps {
 }
 
 const TAILWIND_CDN = 'https://cdn.tailwindcss.com'
+const GSAP_CDN = 'https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js'
+
+/**
+ * Iframe-side animation runtime — Commit 4B.1.
+ *
+ * Adds an in-place replay of the section's animation preset inside
+ * the Visual editor's per-section iframe. Public-page (compile_page)
+ * runtime still owns the scroll-driven path; this is a stripped-down
+ * version that:
+ *   - Reads window.__sectionAnimation (injected by srcdoc) for the
+ *     preset + config
+ *   - Exposes window.replayAnimation() which the parent triggers via
+ *     postMessage on preset/config change or Replay button click
+ *   - Skips replay when document.activeElement is contentEditable
+ *     (queues for after blur)
+ *   - Honors prefers-reduced-motion with explicit final state
+ *
+ * Tier 1 entry presets play once in-place. Tier 2 scrub presets
+ * simulate a 0→1 scroll-through over ~2s so the user sees the range
+ * without actually scrolling.
+ */
+const ANIMATION_RUNTIME_SCRIPT = `
+<script>
+(function () {
+  var pendingReplay = false;
+
+  // Entry preset library mirrors backend animation_presets.py Tier 1.
+  var ENTRY_PRESETS = {
+    fade_up:          {from: {y: 40, opacity: 0},  to: {y: 0, opacity: 1}},
+    fade_down:        {from: {y: -40, opacity: 0}, to: {y: 0, opacity: 1}},
+    slide_left:       {from: {x: -60, opacity: 0}, to: {x: 0, opacity: 1}},
+    slide_right:      {from: {x: 60, opacity: 0},  to: {x: 0, opacity: 1}},
+    scale_in:         {from: {scale: 0.85, opacity: 0}, to: {scale: 1, opacity: 1}},
+    scale_out:        {from: {scale: 1.15, opacity: 0}, to: {scale: 1, opacity: 1}},
+    blur_in:          {from: {filter: 'blur(12px)', opacity: 0}, to: {filter: 'blur(0px)', opacity: 1}},
+    rotate_in:        {from: {rotation: -8, opacity: 0}, to: {rotation: 0, opacity: 1}},
+    stagger_children: {from: {y: 30, opacity: 0}, to: {y: 0, opacity: 1}, target: 'children'},
+  };
+
+  function isEditing() {
+    var el = document.activeElement;
+    return !!(el && el.isContentEditable);
+  }
+
+  function reduceMotion() {
+    return window.matchMedia
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+
+  function setFinalState() {
+    // Strip any inline transforms/opacity/filter left by a previous
+    // animation. Effectively a "settle" — section renders fully visible.
+    var nodes = [document.body, ...document.body.querySelectorAll('*')];
+    nodes.forEach(function (n) {
+      n.style.opacity = '';
+      n.style.transform = '';
+      n.style.filter = '';
+    });
+  }
+
+  function playEntry(presetId, cfg) {
+    var preset = ENTRY_PRESETS[presetId];
+    if (!preset || !window.gsap) return;
+    var targets;
+    if (preset.target === 'children') {
+      var firstChild = document.body.firstElementChild;
+      targets = firstChild ? Array.from(firstChild.children) : [];
+    } else {
+      targets = document.body.firstElementChild
+        ? [document.body.firstElementChild]
+        : [];
+    }
+    if (!targets.length) return;
+    window.gsap.fromTo(targets, preset.from, Object.assign({}, preset.to, {
+      duration: (cfg && cfg.duration) != null ? cfg.duration : 0.8,
+      ease: (cfg && cfg.ease) || 'power2.out',
+      delay: (cfg && cfg.delay) || 0,
+      stagger: (cfg && cfg.stagger) || 0,
+    }));
+  }
+
+  function playScrubSimulation(presetId, cfg) {
+    // Editor doesn't have a real scroll context. Simulate the scroll
+    // range as a 2s timeline so the user can see the motion character.
+    if (!window.gsap) return;
+    var target = document.body.firstElementChild;
+    if (!target) return;
+    if (presetId === 'parallax_bg') {
+      window.gsap.fromTo(target, {y: 0}, {y: -80, duration: 2, ease: 'none', yoyo: true, repeat: 1});
+    } else if (presetId === 'parallax_fg') {
+      window.gsap.fromTo(target, {y: 0}, {y: 50, duration: 2, ease: 'none', yoyo: true, repeat: 1});
+    } else if (presetId === 'scale_with_scroll') {
+      window.gsap.fromTo(target, {scale: 0.9}, {scale: 1.1, duration: 2, ease: 'none', yoyo: true, repeat: 1});
+    } else if (presetId === 'opacity_scrub') {
+      var tl = window.gsap.timeline();
+      tl.fromTo(target, {opacity: 0}, {opacity: 1, duration: 0.6})
+        .to(target, {opacity: 1, duration: 0.8})
+        .to(target, {opacity: 0, duration: 0.6})
+        .to(target, {opacity: 1, duration: 0.3});  // settle at visible
+    } else if (presetId === 'pin_and_scrub') {
+      // Subtle scale wobble to communicate "section pins here"
+      window.gsap.fromTo(target, {scale: 1, y: 0}, {scale: 0.98, y: -4, duration: 1, ease: 'power1.inOut', yoyo: true, repeat: 1});
+    }
+  }
+
+  window.replayAnimation = function () {
+    if (isEditing()) {
+      pendingReplay = true;
+      return;
+    }
+    var spec = window.__sectionAnimation;
+    if (!spec || !spec.preset || spec.preset === 'none' || spec.preset === 'default') {
+      setFinalState();
+      return;
+    }
+    if (reduceMotion()) {
+      setFinalState();
+      return;
+    }
+    setFinalState();
+    if (ENTRY_PRESETS[spec.preset]) {
+      playEntry(spec.preset, spec.config);
+    } else {
+      playScrubSimulation(spec.preset, spec.config);
+    }
+  };
+
+  // Fire any queued replay when the user blurs out of a contentEditable.
+  document.addEventListener('focusout', function () {
+    setTimeout(function () {
+      if (pendingReplay && !isEditing()) {
+        pendingReplay = false;
+        window.replayAnimation();
+      }
+    }, 50);
+  });
+
+  // Parent posts {type:'replay-animation'} when the user picks a preset
+  // or finishes adjusting a config slider.
+  window.addEventListener('message', function (e) {
+    if (e.data && e.data.type === 'replay-animation' && e.data.sectionId === window.__sectionId) {
+      // Wait for GSAP if not ready yet (CDN may still be loading).
+      if (!window.gsap) {
+        var tries = 0;
+        var poll = setInterval(function () {
+          if (window.gsap || tries++ > 20) {
+            clearInterval(poll);
+            window.replayAnimation();
+          }
+        }, 50);
+      } else {
+        window.replayAnimation();
+      }
+    }
+  });
+})();
+<\/script>
+`
 
 /**
  * Injected iframe-side editor script. Single-click → contentEditable
@@ -417,6 +575,18 @@ function SectionBlock({
   const [animOpen, setAnimOpen] = useState(false)
 
   const sectionId = section.id || `section-${index}`
+
+  /** Send a replay message to this section's iframe. Used by the
+   *  AnimationPickerModal on preset/config change (4B.1) and by the
+   *  Replay button in the section badge. */
+  const replayInIframe = useCallback(() => {
+    const win = iframeRef.current?.contentWindow
+    if (!win) return
+    win.postMessage(
+      { type: 'replay-animation', sectionId },
+      '*',
+    )
+  }, [sectionId])
   const html = sectionBodyHtml(section)
   // Detect which MEDIA_TOKENS the rendered content has. Scans both the
   // edited_html (if user-edited) and jsx_content; either path may carry
@@ -437,12 +607,24 @@ function SectionBlock({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [html, JSON.stringify(mediaDefaults), JSON.stringify(mediaOverrides)])
 
+  // Inject the section's animation spec so the iframe-side replay
+  // function can read it without an attribute round-trip. Excludes the
+  // "default"/"none" branches — those are static in the editor preview.
+  const animationSpecJson = useMemo(() => {
+    const a = section.animations
+    if (!a || !a.preset || a.preset === 'none' || a.preset === 'default') {
+      return 'null'
+    }
+    return JSON.stringify({ preset: a.preset, config: a.config || {} })
+  }, [section.animations])
+
   const srcdoc = useMemo(() => {
     return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
   <script src="${TAILWIND_CDN}"><\/script>
+  <script src="${GSAP_CDN}" defer><\/script>
   <style>
     body { margin: 0; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
     *:hover { cursor: text; }
@@ -450,12 +632,16 @@ function SectionBlock({
   </style>
 </head>
 <body>
-  <script>window.__sectionId = ${JSON.stringify(sectionId)};<\/script>
+  <script>
+    window.__sectionId = ${JSON.stringify(sectionId)};
+    window.__sectionAnimation = ${animationSpecJson};
+  <\/script>
   ${previewHtml}
+  ${ANIMATION_RUNTIME_SCRIPT}
   ${EDITOR_SCRIPT}
 </body>
 </html>`
-  }, [previewHtml, sectionId])
+  }, [previewHtml, sectionId, animationSpecJson])
 
   // Listen for messages from THIS section's iframe
   useEffect(() => {
@@ -670,7 +856,9 @@ function SectionBlock({
         style={{ height: `${iframeHeight}px` }}
       />
 
-      {/* Section badge — Liquid Glass surface, bottom-left, only on hover */}
+      {/* Section badge — Liquid Glass surface, bottom-left, only on hover.
+          Includes a ▶ replay affordance when a non-default animation is
+          applied so the user can replay without opening the picker. */}
       {hovered && (
         <div className="absolute bottom-3 left-3 z-20 se-badge">
           <span>{section.type || 'section'}</span>
@@ -680,6 +868,22 @@ function SectionBlock({
             <>
               <span className="opacity-60">·</span>
               <span className="se-badge-edited">edited</span>
+            </>
+          )}
+          {section.animations
+            && section.animations.preset
+            && section.animations.preset !== 'default'
+            && section.animations.preset !== 'none' && (
+            <>
+              <span className="opacity-60">·</span>
+              <button
+                onClick={(e) => { e.stopPropagation(); replayInIframe() }}
+                className="se-badge-replay"
+                title="Replay animation"
+                aria-label="Replay animation"
+              >
+                <Play className="h-2.5 w-2.5" fill="currentColor" />
+              </button>
             </>
           )}
         </div>
@@ -704,14 +908,22 @@ function SectionBlock({
       )}
 
       {/* Animation picker — Commit 4B. Reads section.animations to
-          pre-select the current preset. */}
+          pre-select the current preset. Commit 4B.1: onApplied also
+          triggers an in-place replay in the section iframe so the
+          user sees the new animation without tab-switching. */}
       <AnimationPickerModal
         open={animOpen}
         pageId={pageId}
         sectionIndex={index}
         current={section.animations || null}
         onClose={() => setAnimOpen(false)}
-        onApplied={() => invalidate()}
+        onApplied={() => {
+          invalidate()
+          // Defer slightly so React-Query refetch + iframe srcdoc
+          // re-render with the new animationSpec finishes first.
+          setTimeout(replayInIframe, 80)
+        }}
+        onReplay={replayInIframe}
       />
 
       {/* Media picker modal — opens when a slot pill is clicked. The

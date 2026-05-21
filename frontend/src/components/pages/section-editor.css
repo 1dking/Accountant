@@ -146,6 +146,28 @@
   margin-right: 2px;
 }
 
+/* Replay-animation chip on the badge — only renders when the section
+   has a non-default preset applied. Click → posts replay-animation
+   message to the iframe. */
+.se-badge-replay {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  color: rgba(165, 243, 252, 0.95);
+  background: rgba(6, 182, 212, 0.18);
+  border: 1px solid rgba(6, 182, 212, 0.40);
+  cursor: pointer;
+  margin-left: 2px;
+  transition: background 140ms var(--se-ease-out), transform 140ms var(--se-ease-out);
+}
+.se-badge-replay:hover {
+  background: rgba(6, 182, 212, 0.32);
+  transform: scale(1.08);
+}
+
 /* Section accent border — appears on hover.
    Default subtle indigo; section-type modifiers below restyle. */
 .se-section {
