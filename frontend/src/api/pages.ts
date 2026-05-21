@@ -94,6 +94,12 @@ export const pagesApi = {
     data: { category: string; variant_id: string },
   ) => api.post(`/pages/${pageId}/sections/${idx}/change-variant`, data),
 
+  reorderSections: (pageId: string, fromIndex: number, toIndex: number) =>
+    api.patch(`/pages/${pageId}/sections/reorder`, {
+      from_index: fromIndex,
+      to_index: toIndex,
+    }),
+
   // Media slots (SectionEditor — Commit 3)
   uploadMedia: (file: File) => {
     const fd = new FormData()

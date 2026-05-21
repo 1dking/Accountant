@@ -76,6 +76,22 @@ describe('VariantPickerModal', () => {
     }
   })
 
+  it('category cards render with subtitles + Lucide icon container (Workstream C)', () => {
+    renderWithQueryClient(
+      <VariantPickerModal open mode="add" onClose={() => {}} onPick={() => {}} />,
+    )
+    // Subtitles describe each category's vibe — lock in the discoverability copy
+    expect(screen.getByText(/Above-the-fold attention grabbers/i)).toBeInTheDocument()
+    expect(screen.getByText(/Showcase capabilities/i)).toBeInTheDocument()
+    expect(screen.getByText(/Plans, tiers, and packages/i)).toBeInTheDocument()
+    // Each card has the icon container — verify count matches category count
+    const iconContainers = document.querySelectorAll('.se-category-card-icon')
+    expect(iconContainers.length).toBe(12)
+    // Inline gradient injected — sanity-check one of them
+    const heroIcon = iconContainers[0] as HTMLElement
+    expect(heroIcon.style.backgroundImage).toMatch(/linear-gradient/)
+  })
+
   it('swap mode with lockedCategory shows variant grid directly + onPick fires with chosen variant', async () => {
     const onPick = vi.fn()
     renderWithQueryClient(

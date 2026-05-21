@@ -1152,6 +1152,65 @@ async def _load_sections(db: AsyncSession, page_id: uuid.UUID, user_id: uuid.UUI
     return page, sections
 
 
+@router.patch("/{page_id}/sections/reorder")
+async def reorder_sections(
+    page_id: uuid.UUID,
+    body: dict,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
+) -> dict:
+    """Move a single section from one index to another.
+    Body: { from_index: int, to_index: int }.
+
+    Single-move semantics (not full-array overwrite) so concurrent
+    edits from elsewhere on the same page can't be silently clobbered
+    by a stale ordering snapshot from the client.
+
+    Registered ABOVE /sections/{section_index} so FastAPI doesn't try
+    to parse the literal string "reorder" as an int.
+    """
+    try:
+        from_index = int(body.get("from_index"))
+        to_index = int(body.get("to_index"))
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=400,
+            detail="from_index and to_index must be integers",
+        )
+
+    page, sections = await _load_sections(db, page_id, user.id)
+    if not sections:
+        raise HTTPException(status_code=400, detail="Page has no sections to reorder")
+    n = len(sections)
+    if not (0 <= from_index < n):
+        raise HTTPException(
+            status_code=400,
+            detail=f"from_index {from_index} out of range (0..{n - 1})",
+        )
+    if not (0 <= to_index < n):
+        raise HTTPException(
+            status_code=400,
+            detail=f"to_index {to_index} out of range (0..{n - 1})",
+        )
+    if from_index == to_index:
+        # No-op; still return the page so the client can sync if it
+        # somehow got out of step.
+        return {"data": PageResponse.model_validate(page).model_dump(mode="json")}
+
+    moved = sections.pop(from_index)
+    sections.insert(to_index, moved)
+
+    page.sections_json = json.dumps(sections)
+    _recompile_html(page)
+    await db.commit()
+    await db.refresh(page)
+    logger.info(
+        "pages.sections_reordered page_id=%s from=%d to=%d",
+        page_id, from_index, to_index,
+    )
+    return {"data": PageResponse.model_validate(page).model_dump(mode="json")}
+
+
 @router.patch("/{page_id}/sections/{section_index}")
 async def patch_section(
     page_id: uuid.UUID,

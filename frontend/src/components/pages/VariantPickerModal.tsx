@@ -15,7 +15,13 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { X, ChevronLeft, Search } from 'lucide-react'
+import {
+  X, ChevronLeft, Search,
+  Layout, Grid3x3, BadgeDollarSign, Quote, Zap, HelpCircle,
+  Users, BarChart3, Mail, LayoutTemplate, Image as ImageIcon,
+  Hexagon,
+} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { pagesApi } from '@/api/pages'
 import './section-editor.css'
 
@@ -44,19 +50,31 @@ interface Props {
   onPick: (variant: Variant) => void
 }
 
-const CATEGORIES: { value: string; label: string; icon: string }[] = [
-  { value: 'hero', label: 'Hero', icon: '🦸' },
-  { value: 'features', label: 'Features', icon: '⭐' },
-  { value: 'pricing', label: 'Pricing', icon: '💰' },
-  { value: 'testimonials', label: 'Testimonials', icon: '💬' },
-  { value: 'cta', label: 'CTA', icon: '🎯' },
-  { value: 'faq', label: 'FAQ', icon: '❓' },
-  { value: 'team', label: 'Team', icon: '👥' },
-  { value: 'stats', label: 'Stats', icon: '📊' },
-  { value: 'contact', label: 'Contact', icon: '📧' },
-  { value: 'footer', label: 'Footer', icon: '📑' },
-  { value: 'gallery', label: 'Gallery', icon: '🖼️' },
-  { value: 'logos', label: 'Logos', icon: '🏢' },
+interface CategoryDef {
+  value: string
+  label: string
+  subtitle: string
+  Icon: LucideIcon
+  /** CSS linear-gradient string for the icon container background. */
+  gradient: string
+}
+
+// Each category has a unique gradient that previews the vibe of the
+// section type. Gradients use the OCIDM palette: electric-blue
+// #00D4FF, violet #8B5CF6, magenta #EC4899, plus warm/cool extensions.
+const CATEGORIES: CategoryDef[] = [
+  { value: 'hero',         label: 'Hero',         subtitle: 'Above-the-fold attention grabbers',  Icon: Layout,           gradient: 'linear-gradient(135deg, #00D4FF, #8B5CF6)' },
+  { value: 'features',     label: 'Features',     subtitle: 'Showcase capabilities + benefits',   Icon: Grid3x3,          gradient: 'linear-gradient(135deg, #8B5CF6, #EC4899)' },
+  { value: 'pricing',      label: 'Pricing',      subtitle: 'Plans, tiers, and packages',         Icon: BadgeDollarSign,  gradient: 'linear-gradient(135deg, #EC4899, #F59E0B)' },
+  { value: 'testimonials', label: 'Testimonials', subtitle: 'Social proof and quotes',            Icon: Quote,            gradient: 'linear-gradient(135deg, #06B6D4, #8B5CF6)' },
+  { value: 'cta',          label: 'CTA',          subtitle: 'Action-driving call-outs',           Icon: Zap,              gradient: 'linear-gradient(135deg, #F59E0B, #EC4899)' },
+  { value: 'faq',          label: 'FAQ',          subtitle: 'Common questions answered',          Icon: HelpCircle,       gradient: 'linear-gradient(135deg, #6366F1, #8B5CF6)' },
+  { value: 'team',         label: 'Team',         subtitle: 'People behind the brand',            Icon: Users,            gradient: 'linear-gradient(135deg, #10B981, #06B6D4)' },
+  { value: 'stats',        label: 'Stats',        subtitle: 'Numbers that build credibility',     Icon: BarChart3,        gradient: 'linear-gradient(135deg, #00D4FF, #10B981)' },
+  { value: 'contact',      label: 'Contact',      subtitle: 'Reach-out paths and forms',          Icon: Mail,             gradient: 'linear-gradient(135deg, #8B5CF6, #06B6D4)' },
+  { value: 'footer',       label: 'Footer',       subtitle: 'Closing structure and links',        Icon: LayoutTemplate,   gradient: 'linear-gradient(135deg, #475569, #8B5CF6)' },
+  { value: 'gallery',      label: 'Gallery',      subtitle: 'Image + video showcases',            Icon: ImageIcon,        gradient: 'linear-gradient(135deg, #EC4899, #8B5CF6)' },
+  { value: 'logos',        label: 'Logos',        subtitle: 'Brand walls and trust marks',        Icon: Hexagon,          gradient: 'linear-gradient(135deg, #06B6D4, #6366F1)' },
 ]
 
 export default function VariantPickerModal({ open, mode, lockedCategory, onClose, onPick }: Props) {
@@ -157,15 +175,21 @@ export default function VariantPickerModal({ open, mode, lockedCategory, onClose
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-6">
           {showingCategoryGrid ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
               {CATEGORIES.map((cat) => (
                 <button
                   key={cat.value}
                   onClick={() => setCategory(cat.value)}
-                  className="se-picker-card text-center py-6"
+                  className="se-category-card group"
                 >
-                  <div className="text-2xl mb-2">{cat.icon}</div>
-                  <div className="se-picker-card-title">{cat.label}</div>
+                  <div
+                    className="se-category-card-icon"
+                    style={{ backgroundImage: cat.gradient }}
+                  >
+                    <cat.Icon className="h-7 w-7 text-white drop-shadow-sm" strokeWidth={1.75} />
+                  </div>
+                  <div className="se-category-card-title">{cat.label}</div>
+                  <div className="se-category-card-subtitle">{cat.subtitle}</div>
                 </button>
               ))}
             </div>

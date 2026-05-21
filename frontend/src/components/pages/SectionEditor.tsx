@@ -29,8 +29,17 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
   Loader2, Sparkles, Trash2, Copy, RotateCcw, X, Replace, Plus,
-  Film, Image as ImageIcon,
+  Film, Image as ImageIcon, GripVertical,
 } from 'lucide-react'
+import {
+  DndContext, PointerSensor, KeyboardSensor, useSensor, useSensors,
+  closestCenter, type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext, useSortable, verticalListSortingStrategy,
+  sortableKeyboardCoordinates, arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { pagesApi } from '@/api/pages'
 import VariantPickerModal from './VariantPickerModal'
 import MediaPickerModal, { type MediaSlotKind } from './MediaPickerModal'
@@ -212,6 +221,16 @@ interface SectionBlockProps {
   index: number
   onChanged: () => void
   onRequestChangeVariant: (idx: number, category: string) => void
+  /** dnd-kit listeners + attributes for the drag handle. Attached
+   *  to a specific element (the ⋮⋮ grip icon) so the iframe and
+   *  text-editing interactions stay independent of drag. */
+  dragHandleProps?: {
+    attributes: React.HTMLAttributes<HTMLElement>
+    listeners: Record<string, (e: React.SyntheticEvent) => void>
+  }
+  /** True while this section is the active drag target — for fade
+   *  styling so the user sees what's moving. */
+  isDragging?: boolean
 }
 
 const TAILWIND_CDN = 'https://cdn.tailwindcss.com'
@@ -301,7 +320,75 @@ const EDITOR_SCRIPT = `
 <\/script>
 `
 
-function SectionBlock({ pageId, section, index, onChanged, onRequestChangeVariant }: SectionBlockProps) {
+/** Sortable wrapper for SectionBlock — provides the dnd-kit drag
+ *  handle attributes and transform style. The handle is exposed via
+ *  dragHandleProps so only the grip icon (not the iframe content)
+ *  initiates drag. */
+function SortableSectionWrapper(props: SectionBlockProps & { sortId: string }) {
+  const { sortId, ...rest } = props
+  const {
+    attributes, listeners, setNodeRef, transform, transition, isDragging,
+  } = useSortable({ id: sortId })
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    // Cast the dragging item above siblings while it animates.
+    zIndex: isDragging ? 50 : undefined,
+    opacity: isDragging ? 0.55 : 1,
+  }
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <SectionBlock
+        {...rest}
+        isDragging={isDragging}
+        dragHandleProps={{
+          // dnd-kit types its listeners as a generic record; cast at
+          // the boundary so React's strict event-handler typing
+          // doesn't fight the SyntheticEvent shape.
+          attributes: attributes as unknown as React.HTMLAttributes<HTMLElement>,
+          listeners: (listeners ?? {}) as Record<string, (e: React.SyntheticEvent) => void>,
+        }}
+      />
+    </div>
+  )
+}
+
+
+/** Hover-zone between sections (and at the top of the list). Renders
+ *  a thin gutter that grows into a horizontal accent line + circular
+ *  "+" button on hover. Clicking opens the category picker for an
+ *  insert-at-position add. */
+function InsertionZone({ onClick }: { onClick: () => void }) {
+  return (
+    <div
+      className="se-insertion-zone group"
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onClick()
+        }
+      }}
+      aria-label="Add section here"
+    >
+      <span className="se-insertion-line" />
+      <span className="se-insertion-button">
+        <Plus className="h-3.5 w-3.5" />
+      </span>
+      <span className="se-insertion-line" />
+    </div>
+  )
+}
+
+
+function SectionBlock({
+  pageId, section, index, onChanged, onRequestChangeVariant,
+  dragHandleProps, isDragging,
+}: SectionBlockProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const [iframeHeight, setIframeHeight] = useState(240)
   const [hovered, setHovered] = useState(false)
@@ -429,13 +516,29 @@ function SectionBlock({ pageId, section, index, onChanged, onRequestChangeVarian
   const hasEdits = !!section.edited_html
 
   const sectionTypeClass = section.type ? `se-type-${section.type}` : ''
+  const sectionDraggingClass = isDragging ? 'se-section-dragging' : ''
 
   return (
     <div
-      className={`se-section ${sectionTypeClass} group bg-white dark:bg-gray-900`}
+      className={`se-section ${sectionTypeClass} ${sectionDraggingClass} group bg-white dark:bg-gray-900`}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
+      {/* Drag handle — top-left ⋮⋮ grip. Listens for pointer + keyboard
+          via dnd-kit. Only rendered when the parent provides handle
+          props (i.e. when the section is inside a SortableContext). */}
+      {dragHandleProps && hovered && (
+        <button
+          type="button"
+          className="se-drag-handle"
+          aria-label={`Drag to reorder ${section.type || 'section'} #${index + 1}`}
+          {...dragHandleProps.attributes}
+          {...dragHandleProps.listeners}
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+      )}
+
       {/* Hover controls — Liquid Glass floating bar, top-right */}
       {hovered && (
         <div className="absolute top-3 right-3 z-20 se-control-bar">
@@ -621,12 +724,69 @@ export default function SectionEditor({ pageId, sections, onChanged }: SectionEd
     onChanged()
   }
 
+  // Pending insertion position: when set, the next add fires with
+  // ?after_idx=N. Lets the hover-zone "+" buttons between sections
+  // insert at a specific position instead of appending.
+  const [pendingInsertAfter, setPendingInsertAfter] = useState<number | null>(null)
+
   const addMut = useMutation({
-    mutationFn: (data: { category: string; variant_id: string }) =>
-      pagesApi.addSection(pageId, data),
+    mutationFn: (args: { data: { category: string; variant_id: string }; afterIdx?: number }) =>
+      pagesApi.addSection(pageId, args.data, args.afterIdx),
     onSuccess: () => { toast.success('Section added'); invalidate() },
     onError: (e: any) => toast.error(`Add failed: ${e?.message || 'unknown'}`),
   })
+
+  const reorderMut = useMutation({
+    mutationFn: (args: { fromIndex: number; toIndex: number }) =>
+      pagesApi.reorderSections(pageId, args.fromIndex, args.toIndex),
+    onSuccess: () => { invalidate() },
+    onError: (e: any) => toast.error(`Reorder failed: ${e?.message || 'unknown'}`),
+  })
+
+  // Stable sortable IDs for dnd-kit. Falls back to index-based ids
+  // for any section row that's missing one (defensive — every section
+  // should have an id from variant_to_section).
+  const sortIds = useMemo(
+    () => (sections || []).map((s, i) => s.id || `s-${i}`),
+    [sections],
+  )
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      // 8px threshold prevents accidental drag when the user means to
+      // click into a text element. Drag only engages after the pointer
+      // moves at least 8px.
+      activationConstraint: { distance: 8 },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  )
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const fromIndex = sortIds.indexOf(String(active.id))
+    const toIndex = sortIds.indexOf(String(over.id))
+    if (fromIndex < 0 || toIndex < 0) return
+    // Optimistic: update the React-Query cache so the editor reorders
+    // instantly. The PATCH then confirms; on error, invalidate rolls
+    // back via refetch.
+    queryClient.setQueryData(['page', pageId], (old: any) => {
+      if (!old?.data?.sections_json) return old
+      try {
+        const arr = JSON.parse(old.data.sections_json)
+        const moved = arrayMove(arr, fromIndex, toIndex)
+        return {
+          ...old,
+          data: { ...old.data, sections_json: JSON.stringify(moved) },
+        }
+      } catch {
+        return old
+      }
+    })
+    reorderMut.mutate({ fromIndex, toIndex })
+  }
 
   const changeMut = useMutation({
     mutationFn: (args: { idx: number; data: { category: string; variant_id: string } }) =>
@@ -646,11 +806,22 @@ export default function SectionEditor({ pageId, sections, onChanged }: SectionEd
   const handlePick = (variant: { category: string; variant_id: string }) => {
     if (!picker) return
     if (picker.mode === 'add') {
-      addMut.mutate({ category: variant.category, variant_id: variant.variant_id })
+      const data = { category: variant.category, variant_id: variant.variant_id }
+      const afterIdx = pendingInsertAfter ?? undefined
+      addMut.mutate({ data, afterIdx })
+      setPendingInsertAfter(null)
     } else {
       changeMut.mutate({ idx: picker.swapIndex, data: { category: variant.category, variant_id: variant.variant_id } })
     }
     setPicker(null)
+  }
+
+  /** Open the category picker pre-set to insert at a specific position.
+   *  afterIdx = -1 means insert at the very top.
+   *  afterIdx = sections.length - 1 means insert at the very bottom. */
+  const openPickerForInsertAfter = (afterIdx: number) => {
+    setPendingInsertAfter(afterIdx)
+    setPicker({ mode: 'add' })
   }
 
   const empty = !sections || sections.length === 0
@@ -664,7 +835,10 @@ export default function SectionEditor({ pageId, sections, onChanged }: SectionEd
     <div className="flex justify-center pt-2 pb-6">
       <button
         type="button"
-        onClick={() => setPicker({ mode: 'add' })}
+        onClick={() => {
+          setPendingInsertAfter(null)  // append at end
+          setPicker({ mode: 'add' })
+        }}
         disabled={addMut.isPending}
         className="se-add-section"
       >
@@ -689,24 +863,38 @@ export default function SectionEditor({ pageId, sections, onChanged }: SectionEd
             {addSectionButton}
           </div>
         ) : (
-          <>
-            {sections.map((sec, idx) => (
-              <SectionBlock
-                key={sec.id || `s-${idx}`}
-                pageId={pageId}
-                section={sec}
-                index={idx}
-                onChanged={onChanged}
-                onRequestChangeVariant={(swapIndex, category) =>
-                  setPicker({ mode: 'swap', swapIndex, lockedCategory: category })
-                }
-              />
-            ))}
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext items={sortIds} strategy={verticalListSortingStrategy}>
+              {/* Insertion zone before the first section. afterIdx=-1
+                  inserts at the very top (sections[0]). */}
+              <InsertionZone onClick={() => openPickerForInsertAfter(-1)} />
+              {sections.map((sec, idx) => (
+                <div key={sortIds[idx]}>
+                  <SortableSectionWrapper
+                    sortId={sortIds[idx]}
+                    pageId={pageId}
+                    section={sec}
+                    index={idx}
+                    onChanged={onChanged}
+                    onRequestChangeVariant={(swapIndex, category) =>
+                      setPicker({ mode: 'swap', swapIndex, lockedCategory: category })
+                    }
+                  />
+                  {/* Between-sections insertion zone. afterIdx=idx puts
+                      the new section at idx+1 (right after this one). */}
+                  <InsertionZone onClick={() => openPickerForInsertAfter(idx)} />
+                </div>
+              ))}
+            </SortableContext>
             {addSectionButton}
             <div className="text-center text-xs text-gray-400 dark:text-gray-500">
               {sections.length} {sections.length === 1 ? 'section' : 'sections'} · click any text to edit
             </div>
-          </>
+          </DndContext>
         )}
       </div>
 
