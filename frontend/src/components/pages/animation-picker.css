@@ -288,6 +288,78 @@
   opacity: 0.65;
 }
 
+/* Tier 4 — Hover effects. Previews loop to demonstrate the
+   character of the interaction without requiring a real hover. */
+
+/* hover_lift: bar gently rises with a soft shadow */
+@keyframes ap-hover-lift {
+  0%, 100% { transform: translate(-50%, -50%); box-shadow: 0 0 0 rgba(0,0,0,0); }
+  40%, 60% { transform: translate(-50%, calc(-50% - 8px)); box-shadow: 0 8px 14px rgba(0,0,0,0.30); }
+}
+.ap-anim-hover_lift .ap-preview-bar { animation: ap-hover-lift 2.4s var(--ap-ease) infinite; }
+.ap-card:hover .ap-anim-hover_lift .ap-preview-bar { animation-duration: 1.6s; }
+
+/* hover_tilt: bar tilts slightly. CSS-only sim since real tilt needs
+   mousemove — preview rocks back and forth to communicate the feel. */
+@keyframes ap-hover-tilt {
+  0%, 100% { transform: translate(-50%, -50%) rotate(0deg); }
+  25%      { transform: translate(-50%, -50%) rotate(-3deg); }
+  75%      { transform: translate(-50%, -50%) rotate(3deg); }
+}
+.ap-anim-hover_tilt .ap-preview-bar { animation: ap-hover-tilt 2.8s var(--ap-ease) infinite; }
+.ap-card:hover .ap-anim-hover_tilt .ap-preview-bar { animation-duration: 1.8s; }
+.ap-anim-hover_tilt::after {
+  content: '⟲';
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  font-size: 10px;
+  color: rgba(255,255,255,0.42);
+}
+
+/* hover_magnetic: bar drifts toward a simulated cursor on the right side */
+@keyframes ap-hover-magnetic {
+  0%, 100% { transform: translate(-50%, -50%); }
+  50%      { transform: translate(calc(-50% + 12px), calc(-50% - 4px)); }
+}
+.ap-anim-hover_magnetic .ap-preview-bar { animation: ap-hover-magnetic 2.6s var(--ap-ease) infinite; }
+.ap-card:hover .ap-anim-hover_magnetic .ap-preview-bar { animation-duration: 1.6s; }
+.ap-anim-hover_magnetic::after {
+  /* simulated cursor dot in the right side of the preview box */
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 14%;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.65);
+  transform: translateY(-50%);
+  box-shadow: 0 0 6px rgba(255,255,255,0.5);
+}
+
+/* hover_underline_draw: a second "text" bar gets an underline drawn beneath */
+.ap-anim-hover_underline_draw .ap-preview-bar {
+  background: linear-gradient(90deg, rgba(255,255,255,0.85), rgba(255,255,255,0.6));
+  height: 6px;
+  width: 50%;
+}
+.ap-anim-hover_underline_draw::after {
+  content: '';
+  position: absolute;
+  left: 25%;
+  top: calc(50% + 10px);
+  height: 2px;
+  background: linear-gradient(90deg, #6366f1, #ec4899);
+  border-radius: 999px;
+  animation: ap-underline-draw 2.4s var(--ap-ease) infinite;
+}
+@keyframes ap-underline-draw {
+  0%, 100% { width: 0; }
+  40%, 60% { width: 50%; }
+}
+.ap-card:hover .ap-anim-hover_underline_draw::after { animation-duration: 1.6s; }
+
 /* Config panel */
 .ap-config-panel {
   margin-top: 14px;

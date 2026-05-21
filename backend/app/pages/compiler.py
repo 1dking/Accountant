@@ -357,6 +357,127 @@ def _build_animation_init_script() -> str:
         // Mobile auto-mode falls through with no pin (pin is jarring
         // on touch devices). Sections render normally.
       }
+
+      // ----- Tier 4 hover effects -----
+      // Touch capability check — on touch-only devices, hover events
+      // can fire via sticky-hover emulation in unpredictable ways.
+      // Skip JS-driven hover entirely on devices without a fine pointer.
+      var hasHover = window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+
+      if (presetId === 'hover_lift') {
+        // Pure CSS — apply transitions + hover styles via inline style
+        // so we don't depend on a stylesheet update.
+        var liftDur = (cfg.duration_ms || 200);
+        wrap.style.transition = 'transform ' + liftDur + 'ms cubic-bezier(0.32, 0.72, 0, 1), box-shadow ' + liftDur + 'ms cubic-bezier(0.32, 0.72, 0, 1)';
+        wrap.style.willChange = 'transform';
+        wrap.addEventListener('mouseenter', function () {
+          if (document.activeElement && document.activeElement.isContentEditable) return;
+          wrap.style.transform = 'translateY(-' + (cfg.translate_y || 4) + 'px)';
+          wrap.style.boxShadow = '0 12px 32px rgba(0,0,0,0.18), 0 4px 12px rgba(0,0,0,0.08)';
+        }, { passive: true });
+        wrap.addEventListener('mouseleave', function () {
+          wrap.style.transform = '';
+          wrap.style.boxShadow = '';
+        }, { passive: true });
+
+      } else if (presetId === 'hover_tilt' && hasHover) {
+        // 3D tilt — rotateX/rotateY based on cursor position.
+        // requestAnimationFrame eases toward target so motion stays
+        // smooth even with high-frequency mousemove events.
+        var maxRot = (cfg.max_rotate || 8);
+        var easeFactor = (cfg.ease || 0.15);
+        var targetRX = 0, targetRY = 0;
+        var currentRX = 0, currentRY = 0;
+        var rafId = null;
+        wrap.style.perspective = '1000px';
+        wrap.style.transformStyle = 'preserve-3d';
+        wrap.style.willChange = 'transform';
+        function loop() {
+          currentRX += (targetRX - currentRX) * easeFactor;
+          currentRY += (targetRY - currentRY) * easeFactor;
+          wrap.style.transform = 'rotateX(' + currentRX.toFixed(2) + 'deg) rotateY(' + currentRY.toFixed(2) + 'deg)';
+          if (Math.abs(targetRX - currentRX) > 0.05 || Math.abs(targetRY - currentRY) > 0.05) {
+            rafId = requestAnimationFrame(loop);
+          } else { rafId = null; }
+        }
+        wrap.addEventListener('mousemove', function (e) {
+          if (document.activeElement && document.activeElement.isContentEditable) return;
+          var rect = wrap.getBoundingClientRect();
+          var cx = rect.left + rect.width / 2;
+          var cy = rect.top + rect.height / 2;
+          targetRY = ((e.clientX - cx) / (rect.width / 2)) * maxRot;
+          targetRX = -((e.clientY - cy) / (rect.height / 2)) * maxRot;
+          if (!rafId) rafId = requestAnimationFrame(loop);
+        }, { passive: true });
+        wrap.addEventListener('mouseleave', function () {
+          targetRX = 0; targetRY = 0;
+          if (!rafId) rafId = requestAnimationFrame(loop);
+        }, { passive: true });
+
+      } else if (presetId === 'hover_magnetic' && hasHover) {
+        // Translate toward cursor within radius. mousemove on the
+        // wrap element (radius is in element-relative pixels).
+        var radius = (cfg.radius || 120);
+        var maxTrans = (cfg.max_translate || 12);
+        var easeFactor2 = (cfg.ease || 0.15);
+        var targetX = 0, targetY = 0;
+        var currentX = 0, currentY = 0;
+        var rafId2 = null;
+        wrap.style.willChange = 'transform';
+        function magLoop() {
+          currentX += (targetX - currentX) * easeFactor2;
+          currentY += (targetY - currentY) * easeFactor2;
+          wrap.style.transform = 'translate3d(' + currentX.toFixed(2) + 'px,' + currentY.toFixed(2) + 'px,0)';
+          if (Math.abs(targetX - currentX) > 0.1 || Math.abs(targetY - currentY) > 0.1) {
+            rafId2 = requestAnimationFrame(magLoop);
+          } else { rafId2 = null; }
+        }
+        wrap.addEventListener('mousemove', function (e) {
+          if (document.activeElement && document.activeElement.isContentEditable) return;
+          var rect = wrap.getBoundingClientRect();
+          var cx = rect.left + rect.width / 2;
+          var cy = rect.top + rect.height / 2;
+          var dx = e.clientX - cx;
+          var dy = e.clientY - cy;
+          var dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < radius) {
+            var pull = (1 - dist / radius);
+            targetX = (dx / radius) * maxTrans * pull;
+            targetY = (dy / radius) * maxTrans * pull;
+          } else {
+            targetX = 0; targetY = 0;
+          }
+          if (!rafId2) rafId2 = requestAnimationFrame(magLoop);
+        }, { passive: true });
+        wrap.addEventListener('mouseleave', function () {
+          targetX = 0; targetY = 0;
+          if (!rafId2) rafId2 = requestAnimationFrame(magLoop);
+        }, { passive: true });
+
+      } else if (presetId === 'hover_underline_draw') {
+        // Pure CSS underline draw on every h1/h2/h3 + p in the section.
+        // Injects a scoped <style> per section so each instance gets
+        // a unique selector via the wrap's auto-generated id.
+        var dur = (cfg.duration_ms || 300);
+        var ease = (cfg.ease || 'cubic-bezier(0.4, 0, 0.2, 1)');
+        if (!wrap.id) wrap.id = 'sec-' + Math.random().toString(36).slice(2, 9);
+        var sid = wrap.id;
+        var style = document.createElement('style');
+        style.textContent =
+          '#' + sid + ' h1, #' + sid + ' h2, #' + sid + ' h3, #' + sid + ' a, #' + sid + ' p {' +
+          '  position: relative; display: inline-block;' +
+          '}' +
+          '#' + sid + ' h1::after, #' + sid + ' h2::after, #' + sid + ' h3::after, #' + sid + ' a::after {' +
+          '  content: ""; position: absolute; left: 0; bottom: -2px;' +
+          '  width: 0; height: 2px;' +
+          '  background: linear-gradient(90deg, #6366f1, #ec4899);' +
+          '  transition: width ' + dur + 'ms ' + ease + ';' +
+          '}' +
+          '#' + sid + ' h1:hover::after, #' + sid + ' h2:hover::after, #' + sid + ' h3:hover::after, #' + sid + ' a:hover::after {' +
+          '  width: 100%;' +
+          '}';
+        document.head.appendChild(style);
+      }
     });
   }
   if (document.readyState === 'loading') {

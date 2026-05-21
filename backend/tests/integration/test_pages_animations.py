@@ -265,12 +265,12 @@ from tests.conftest import auth_header
 
 
 @pytest.mark.high
-async def test_list_animation_presets_returns_14(
+async def test_list_animation_presets_returns_18(
     client: AsyncClient, admin_user: User
 ):
-    """GET /api/pages/animations/presets lists Tier 1 (9 entries) +
-    Tier 2 (5 scrub) = 14 presets. Tier 4 hover effects deferred to
-    Commit 4B.2."""
+    """GET /api/pages/animations/presets lists all 18 presets across
+    3 tiers: Entry (9) + Scroll-driven (5) + Hover (4). Tier 4 added
+    in Commit 4B.2."""
     resp = await client.get(
         "/api/pages/animations/presets",
         headers=auth_header(admin_user),
@@ -278,16 +278,24 @@ async def test_list_animation_presets_returns_14(
     assert resp.status_code == 200, resp.text
     data = resp.json()["data"]
     ids = {p["id"] for p in data}
+    # Tier 1
     assert "fade_up" in ids
     assert "stagger_children" in ids
+    # Tier 2
     assert "parallax_bg" in ids
     assert "pin_and_scrub" in ids
+    # Tier 4 — Commit 4B.2
+    assert "hover_lift" in ids
+    assert "hover_tilt" in ids
+    assert "hover_magnetic" in ids
+    assert "hover_underline_draw" in ids
     tier_counts = {}
     for p in data:
         tier_counts[p["tier"]] = tier_counts.get(p["tier"], 0) + 1
     assert tier_counts.get("entry") == 9
     assert tier_counts.get("scrub") == 5
-    assert sum(tier_counts.values()) == 14
+    assert tier_counts.get("hover") == 4
+    assert sum(tier_counts.values()) == 18
 
 
 @pytest.mark.high
@@ -388,6 +396,36 @@ async def test_patch_animation_rejects_unknown_preset(
     assert resp.status_code == 400
     msg = resp.json()["error"]["message"]
     assert "boogie_woogie" in msg
+
+
+@pytest.mark.high
+async def test_patch_hover_preset_emits_runtime_handler_branch(
+    client: AsyncClient, admin_user: User, animated_page: Page
+):
+    """Setting a hover preset writes the right shape into
+    sections_json AND the compiled html has the matching wrapper.
+    Hover handlers live in the init script body — verify the
+    presence of hover-handling code so this can't silently regress."""
+    resp = await client.patch(
+        f"/api/pages/{animated_page.id}/sections/0/animation",
+        json={"preset": "hover_tilt", "config": {"max_rotate": 12}},
+        headers=auth_header(admin_user),
+    )
+    assert resp.status_code == 200, resp.text
+    data = resp.json()["data"]
+    sections = json.loads(data["sections_json"])
+    anim = sections[0]["animations"]
+    assert anim["preset"] == "hover_tilt"
+    assert anim["config"]["max_rotate"] == 12
+    html = data["html_content"] or ""
+    assert 'data-anim-preset="hover_tilt"' in html
+    # Init script ships hover handlers
+    assert "hover_lift" in html
+    assert "hover_tilt" in html
+    assert "hover_magnetic" in html
+    assert "hover_underline_draw" in html
+    # Touch capability check is present (handler bails on touch-only)
+    assert "hover: hover" in html
 
 
 @pytest.mark.normal

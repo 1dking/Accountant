@@ -352,12 +352,188 @@ const ANIMATION_RUNTIME_SCRIPT = `
     }
   }
 
+  // ---------- Tier 4 hover effects in the editor iframe ----------
+  // Apply hover listeners directly to the section (first body child)
+  // so the user gets the effect when they hover the iframe. Listeners
+  // are removed/re-attached as the animation spec changes.
+  var hoverCleanup = null;
+  function clearHoverListeners() {
+    if (hoverCleanup) { try { hoverCleanup(); } catch (e) {} hoverCleanup = null; }
+    var t = document.body.firstElementChild;
+    if (t) {
+      t.style.transition = '';
+      t.style.transform = '';
+      t.style.boxShadow = '';
+      t.style.perspective = '';
+      t.style.transformStyle = '';
+      t.style.willChange = '';
+    }
+    // Remove any underline-draw style block we may have injected
+    var s = document.getElementById('__se_hover_underline');
+    if (s) s.remove();
+  }
+  function installHover(presetId, cfg) {
+    var target = document.body.firstElementChild;
+    if (!target) return;
+    var hasHover = window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+    function isEditing() {
+      var el = document.activeElement;
+      return !!(el && el.isContentEditable);
+    }
+
+    if (presetId === 'hover_lift') {
+      var liftDur = (cfg && cfg.duration_ms) || 200;
+      target.style.transition = 'transform ' + liftDur + 'ms cubic-bezier(0.32, 0.72, 0, 1), box-shadow ' + liftDur + 'ms cubic-bezier(0.32, 0.72, 0, 1)';
+      target.style.willChange = 'transform';
+      var onEnter = function () {
+        if (isEditing()) return;
+        target.style.transform = 'translateY(-' + ((cfg && cfg.translate_y) || 4) + 'px)';
+        target.style.boxShadow = '0 12px 32px rgba(0,0,0,0.18), 0 4px 12px rgba(0,0,0,0.08)';
+      };
+      var onLeave = function () {
+        target.style.transform = '';
+        target.style.boxShadow = '';
+      };
+      target.addEventListener('mouseenter', onEnter, { passive: true });
+      target.addEventListener('mouseleave', onLeave, { passive: true });
+      hoverCleanup = function () {
+        target.removeEventListener('mouseenter', onEnter);
+        target.removeEventListener('mouseleave', onLeave);
+      };
+
+    } else if (presetId === 'hover_tilt' && hasHover) {
+      var maxRot = (cfg && cfg.max_rotate) || 8;
+      var ease = (cfg && cfg.ease) || 0.15;
+      var trx = 0, tryy = 0, crx = 0, cryy = 0;
+      var raf = null;
+      target.style.perspective = '1000px';
+      target.style.transformStyle = 'preserve-3d';
+      target.style.willChange = 'transform';
+      function loopT() {
+        crx += (trx - crx) * ease;
+        cryy += (tryy - cryy) * ease;
+        target.style.transform = 'rotateX(' + crx.toFixed(2) + 'deg) rotateY(' + cryy.toFixed(2) + 'deg)';
+        if (Math.abs(trx - crx) > 0.05 || Math.abs(tryy - cryy) > 0.05) {
+          raf = requestAnimationFrame(loopT);
+        } else { raf = null; }
+      }
+      var onMove = function (e) {
+        if (isEditing()) return;
+        var rect = target.getBoundingClientRect();
+        var cx = rect.left + rect.width / 2;
+        var cy = rect.top + rect.height / 2;
+        tryy = ((e.clientX - cx) / (rect.width / 2)) * maxRot;
+        trx = -((e.clientY - cy) / (rect.height / 2)) * maxRot;
+        if (!raf) raf = requestAnimationFrame(loopT);
+      };
+      var onMoveLeave = function () {
+        trx = 0; tryy = 0;
+        if (!raf) raf = requestAnimationFrame(loopT);
+      };
+      target.addEventListener('mousemove', onMove, { passive: true });
+      target.addEventListener('mouseleave', onMoveLeave, { passive: true });
+      hoverCleanup = function () {
+        target.removeEventListener('mousemove', onMove);
+        target.removeEventListener('mouseleave', onMoveLeave);
+        if (raf) cancelAnimationFrame(raf);
+      };
+
+    } else if (presetId === 'hover_magnetic' && hasHover) {
+      var radius = (cfg && cfg.radius) || 120;
+      var maxT = (cfg && cfg.max_translate) || 12;
+      var easeM = (cfg && cfg.ease) || 0.15;
+      var tx = 0, ty = 0, cxv = 0, cyv = 0;
+      var rafM = null;
+      target.style.willChange = 'transform';
+      function loopM() {
+        cxv += (tx - cxv) * easeM;
+        cyv += (ty - cyv) * easeM;
+        target.style.transform = 'translate3d(' + cxv.toFixed(2) + 'px,' + cyv.toFixed(2) + 'px,0)';
+        if (Math.abs(tx - cxv) > 0.1 || Math.abs(ty - cyv) > 0.1) {
+          rafM = requestAnimationFrame(loopM);
+        } else { rafM = null; }
+      }
+      var onMoveM = function (e) {
+        if (isEditing()) return;
+        var rect = target.getBoundingClientRect();
+        var cx = rect.left + rect.width / 2;
+        var cy = rect.top + rect.height / 2;
+        var dx = e.clientX - cx, dy = e.clientY - cy;
+        var dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < radius) {
+          var pull = 1 - dist / radius;
+          tx = (dx / radius) * maxT * pull;
+          ty = (dy / radius) * maxT * pull;
+        } else { tx = 0; ty = 0; }
+        if (!rafM) rafM = requestAnimationFrame(loopM);
+      };
+      var onLeaveM = function () {
+        tx = 0; ty = 0;
+        if (!rafM) rafM = requestAnimationFrame(loopM);
+      };
+      target.addEventListener('mousemove', onMoveM, { passive: true });
+      target.addEventListener('mouseleave', onLeaveM, { passive: true });
+      hoverCleanup = function () {
+        target.removeEventListener('mousemove', onMoveM);
+        target.removeEventListener('mouseleave', onLeaveM);
+        if (rafM) cancelAnimationFrame(rafM);
+      };
+
+    } else if (presetId === 'hover_underline_draw') {
+      var dur = (cfg && cfg.duration_ms) || 300;
+      var easeU = (cfg && cfg.ease) || 'cubic-bezier(0.4, 0, 0.2, 1)';
+      var style = document.createElement('style');
+      style.id = '__se_hover_underline';
+      style.textContent =
+        'body h1, body h2, body h3, body a {' +
+        '  position: relative; display: inline-block;' +
+        '}' +
+        'body h1::after, body h2::after, body h3::after, body a::after {' +
+        '  content: ""; position: absolute; left: 0; bottom: -2px;' +
+        '  width: 0; height: 2px;' +
+        '  background: linear-gradient(90deg, #6366f1, #ec4899);' +
+        '  transition: width ' + dur + 'ms ' + easeU + ';' +
+        '}' +
+        'body h1:hover::after, body h2:hover::after, body h3:hover::after, body a:hover::after {' +
+        '  width: 100%;' +
+        '}';
+      document.head.appendChild(style);
+    }
+  }
+
+  function isHoverPreset(id) {
+    return id === 'hover_lift' || id === 'hover_tilt'
+      || id === 'hover_magnetic' || id === 'hover_underline_draw';
+  }
+
+  // Visible "hover hint" — when Replay is clicked for a hover preset,
+  // briefly simulate the hover state since these effects need a real
+  // pointer event to fire.
+  function playHoverHint(presetId, cfg) {
+    var target = document.body.firstElementChild;
+    if (!target) return;
+    if (presetId === 'hover_lift' && window.gsap) {
+      window.gsap.fromTo(target, {y: 0}, {y: -(((cfg && cfg.translate_y) || 4)), duration: 0.25, yoyo: true, repeat: 1, ease: 'power2.out'});
+    } else if (presetId === 'hover_tilt' && window.gsap) {
+      window.gsap.fromTo(target, {rotation: 0}, {rotation: -2, duration: 0.3, yoyo: true, repeat: 1, ease: 'power2.inOut'});
+    } else if (presetId === 'hover_magnetic' && window.gsap) {
+      window.gsap.fromTo(target, {x: 0}, {x: ((cfg && cfg.max_translate) || 12) * 0.6, duration: 0.3, yoyo: true, repeat: 1, ease: 'power2.inOut'});
+    }
+    // hover_underline_draw: no hint — the underline is per-element on
+    // hover; replay would need an element to hover over, doesn't have
+    // a "preview" character on its own.
+  }
+
   window.replayAnimation = function () {
     if (isEditing()) {
       pendingReplay = true;
       return;
     }
     var spec = window.__sectionAnimation;
+    // Always tear down hover listeners on replay — they get re-installed
+    // below if the new preset is still a hover one. Stops listeners from
+    // a previous preset lingering after a swap.
+    clearHoverListeners();
     if (!spec || !spec.preset || spec.preset === 'none' || spec.preset === 'default') {
       setFinalState();
       return;
@@ -369,6 +545,11 @@ const ANIMATION_RUNTIME_SCRIPT = `
     setFinalState();
     if (ENTRY_PRESETS[spec.preset]) {
       playEntry(spec.preset, spec.config);
+    } else if (isHoverPreset(spec.preset)) {
+      // Install listeners so the user gets the effect on hover, AND
+      // play a one-shot hint so they see what it does immediately.
+      installHover(spec.preset, spec.config);
+      playHoverHint(spec.preset, spec.config);
     } else {
       playScrubSimulation(spec.preset, spec.config);
     }

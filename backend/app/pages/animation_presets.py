@@ -152,16 +152,49 @@ TIER2_SCRUB: dict[str, dict] = {
 }
 
 
+# Tier 4 hover effects — event-driven (not scroll), runtime via
+# pure CSS (lift, underline_draw) or JS mousemove + rAF (tilt,
+# magnetic). Skipped on touch-only devices and when
+# prefers-reduced-motion is set.
+TIER4_HOVER: dict[str, dict] = {
+    "hover_lift": {
+        "tier": "hover",
+        "display_name": "Lift on hover",
+        "description": "Section gently lifts up with a soft shadow when cursor enters.",
+        "defaults": {"translate_y": 4, "duration_ms": 200},
+    },
+    "hover_tilt": {
+        "tier": "hover",
+        "display_name": "3D tilt",
+        "description": "Section tilts in 3D toward the cursor as it moves.",
+        "defaults": {"max_rotate": 8, "ease": 0.15},
+    },
+    "hover_magnetic": {
+        "tier": "hover",
+        "display_name": "Magnetic",
+        "description": "Section drifts toward the cursor when it gets close.",
+        "defaults": {"radius": 120, "max_translate": 12, "ease": 0.15},
+    },
+    "hover_underline_draw": {
+        "tier": "hover",
+        "display_name": "Underline draw",
+        "description": "Headings get an accent underline that draws on hover.",
+        "defaults": {"duration_ms": 300, "ease": "cubic-bezier(0.4, 0, 0.2, 1)"},
+    },
+}
+
+
 def all_presets() -> dict[str, dict]:
     """Merged registry — every preset keyed by id. Used by the GET
     /presets endpoint to render the picker, and by section.animations
     validation to reject unknown preset ids."""
-    return {**TIER1_ENTRY, **TIER2_SCRUB}
+    return {**TIER1_ENTRY, **TIER2_SCRUB, **TIER4_HOVER}
 
 
 PRESET_IDS: frozenset[str] = frozenset({
     *TIER1_ENTRY.keys(),
     *TIER2_SCRUB.keys(),
+    *TIER4_HOVER.keys(),
     "default",  # restore variant default behavior
     "none",     # no animation at all
 })

@@ -18,7 +18,7 @@ import './animation-picker.css'
 
 interface PresetRow {
   id: string
-  tier: 'entry' | 'scrub'
+  tier: 'entry' | 'scrub' | 'hover'
   display_name: string
   description: string
   defaults: Record<string, unknown>
@@ -66,6 +66,7 @@ export default function AnimationPickerModal({
   const [config, setConfig] = useState<Record<string, unknown>>(current?.config ?? {})
   const [entryOpen, setEntryOpen] = useState(true)
   const [scrubOpen, setScrubOpen] = useState(false)
+  const [hoverOpen, setHoverOpen] = useState(false)
 
   // Reset state when modal opens / target section changes
   useEffect(() => {
@@ -90,6 +91,7 @@ export default function AnimationPickerModal({
   const presets = presetsQuery.data?.data ?? []
   const entryPresets = useMemo(() => presets.filter(p => p.tier === 'entry'), [presets])
   const scrubPresets = useMemo(() => presets.filter(p => p.tier === 'scrub'), [presets])
+  const hoverPresets = useMemo(() => presets.filter(p => p.tier === 'hover'), [presets])
 
   // Once presets load, auto-expand the tier matching the current preset
   useEffect(() => {
@@ -97,6 +99,7 @@ export default function AnimationPickerModal({
     const p = presets.find(x => x.id === selectedId)
     if (p?.tier === 'scrub') setScrubOpen(true)
     if (p?.tier === 'entry') setEntryOpen(true)
+    if (p?.tier === 'hover') setHoverOpen(true)
   }, [presets, selectedId])
 
   const applyMut = useMutation({
@@ -217,7 +220,26 @@ export default function AnimationPickerModal({
                 </div>
               </TierAccordion>
 
-              {/* Config panel — visible when a Tier 1/2 preset is selected */}
+              {/* Tier 4 — Hover effects */}
+              <TierAccordion
+                title="Hover effects — pointer-driven micro-interactions"
+                count={hoverPresets.length}
+                open={hoverOpen}
+                onToggle={() => setHoverOpen(v => !v)}
+              >
+                <div className="grid grid-cols-2 gap-2.5">
+                  {hoverPresets.map(p => (
+                    <PresetCard
+                      key={p.id}
+                      preset={p}
+                      selected={selectedId === p.id}
+                      onClick={() => handleSelect(p)}
+                    />
+                  ))}
+                </div>
+              </TierAccordion>
+
+              {/* Config panel — visible when a preset is selected */}
               {selectedPreset && (
                 <ConfigPanel
                   preset={selectedPreset}
@@ -338,13 +360,14 @@ function ConfigPanel({
     onChange({ ...config, [key]: value })
 
   const isScrub = preset.tier === 'scrub'
+  const isHover = preset.tier === 'hover'
 
   return (
     <div className="ap-config-panel">
       <div className="text-xs font-semibold uppercase tracking-wider text-white/50 mb-1">
         Fine-tune
       </div>
-      {!isScrub && (
+      {!isScrub && !isHover && (
         <>
           <ConfigSlider
             label="Duration"
@@ -396,6 +419,70 @@ function ConfigPanel({
             <label htmlFor="ap-mobile-mode">
               Reduce on mobile <span className="text-white/40">(auto-degrade scrub on &lt;768px)</span>
             </label>
+          </div>
+        </>
+      )}
+      {isHover && (
+        <>
+          {/* hover_lift: lift distance + transition duration */}
+          {preset.id === 'hover_lift' && (
+            <>
+              <ConfigSlider
+                label="Lift distance"
+                value={Number(config.translate_y ?? preset.defaults.translate_y ?? 4)}
+                min={1} max={16} step={1} unit="px"
+                onChange={(v) => update('translate_y', v)}
+              />
+              <ConfigSlider
+                label="Transition"
+                value={Number(config.duration_ms ?? preset.defaults.duration_ms ?? 200)}
+                min={80} max={500} step={20} unit="ms"
+                onChange={(v) => update('duration_ms', v)}
+              />
+            </>
+          )}
+          {preset.id === 'hover_tilt' && (
+            <>
+              <ConfigSlider
+                label="Max rotation"
+                value={Number(config.max_rotate ?? preset.defaults.max_rotate ?? 8)}
+                min={2} max={20} step={1} unit="°"
+                onChange={(v) => update('max_rotate', v)}
+              />
+              <ConfigSlider
+                label="Ease"
+                value={Number(config.ease ?? preset.defaults.ease ?? 0.15)}
+                min={0.05} max={0.5} step={0.05} unit=""
+                onChange={(v) => update('ease', v)}
+              />
+            </>
+          )}
+          {preset.id === 'hover_magnetic' && (
+            <>
+              <ConfigSlider
+                label="Radius"
+                value={Number(config.radius ?? preset.defaults.radius ?? 120)}
+                min={40} max={300} step={10} unit="px"
+                onChange={(v) => update('radius', v)}
+              />
+              <ConfigSlider
+                label="Max travel"
+                value={Number(config.max_translate ?? preset.defaults.max_translate ?? 12)}
+                min={2} max={40} step={1} unit="px"
+                onChange={(v) => update('max_translate', v)}
+              />
+            </>
+          )}
+          {preset.id === 'hover_underline_draw' && (
+            <ConfigSlider
+              label="Draw duration"
+              value={Number(config.duration_ms ?? preset.defaults.duration_ms ?? 300)}
+              min={100} max={800} step={50} unit="ms"
+              onChange={(v) => update('duration_ms', v)}
+            />
+          )}
+          <div className="text-[11px] text-white/40 mt-2 pt-2 border-t border-white/5">
+            Hover effects only fire on devices with a fine pointer (no touch).
           </div>
         </>
       )}
