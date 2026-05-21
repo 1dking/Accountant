@@ -8,6 +8,7 @@ with values from default_props (override-able). Used by:
 """
 from __future__ import annotations
 
+import logging
 import re
 import uuid
 from typing import Any
@@ -16,6 +17,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.pages.models import SectionVariant
+
+logger = logging.getLogger(__name__)
 
 
 _TOKEN_RE = re.compile(r"\{\{\s*([A-Z0-9_]+)\s*\}\}")
@@ -35,7 +38,24 @@ MEDIA_TOKENS: frozenset[str] = frozenset({
     "VIDEO_POSTER_URL",
     "IMAGE_URL",
     "LOGO_URL",
+    "MEDIA_URL",
 })
+
+# Element-level tokens — substitute to full HTML markup (not just a
+# URL). Polymorphic: the rendered element depends on the URL pattern
+# (YouTube → iframe, mp4 → <video>, image → <img>). These let a single
+# slot accept any media type without changing the variant template.
+#
+# {{VIDEO_EMBED}}  — video player (video-only slots). Reads VIDEO_URL.
+# {{MEDIA_EMBED}}  — flexible media (any media type). Reads MEDIA_URL.
+EMBED_TOKENS: frozenset[str] = frozenset({"VIDEO_EMBED", "MEDIA_EMBED"})
+
+# Each embed token reads its URL from this canonical media-props key.
+# Used by the SectionEditor pill so PATCH writes under the right key.
+EMBED_TOKEN_URL_KEY: dict[str, str] = {
+    "VIDEO_EMBED": "VIDEO_URL",
+    "MEDIA_EMBED": "MEDIA_URL",
+}
 
 
 def render_template(
@@ -62,48 +82,232 @@ def render_template(
 
 
 def substitute_media_tokens(html: str, media_props: dict[str, Any]) -> str:
-    """Final-pass substitution for MEDIA_TOKENS only. Called by
-    compile_page for each section with the merged
-    (default_props ⊕ media_overrides) values. Non-media tokens and
-    unresolved media tokens stay literal."""
+    """Final-pass substitution for media tokens. Called by compile_page
+    for each section with the merged (default_props ⊕ media_overrides)
+    values.
+
+    Two flavors of token are handled here:
+      - URL tokens (MEDIA_TOKENS): swap the literal {{VIDEO_URL}} →
+        URL string. For simple slots like VIDEO_POSTER_URL where you
+        want to substitute into an attribute (poster=, src=, etc.).
+      - Element tokens (EMBED_TOKENS): swap {{VIDEO_EMBED}} →
+        full <iframe>/<video>/<img> markup based on URL classification.
+        Lets a single slot accept any media type — picker doesn't have
+        to know what element the template uses.
+
+    Non-media tokens and unresolved tokens stay literal.
+    """
     if not html:
         return html
     def _sub(match: re.Match[str]) -> str:
         key = match.group(1)
-        if key not in MEDIA_TOKENS:
-            return match.group(0)
-        val = media_props.get(key)
-        if val is None or val == "":
-            return match.group(0)
-        return str(val)
+        if key in EMBED_TOKENS:
+            url_key = EMBED_TOKEN_URL_KEY.get(key)
+            if not url_key:
+                return match.group(0)
+            url = media_props.get(url_key)
+            if not url:
+                return match.group(0)
+            poster = media_props.get("VIDEO_POSTER_URL")
+            slot_kind = "video" if key == "VIDEO_EMBED" else "media"
+            return render_media_embed(
+                str(url), poster_url=poster, kind=slot_kind,
+            )
+        if key in MEDIA_TOKENS:
+            val = media_props.get(key)
+            if val is None or val == "":
+                return match.group(0)
+            return str(val)
+        return match.group(0)
     return _TOKEN_RE.sub(_sub, html)
 
 
-def normalize_youtube_url(url: str) -> str:
-    """Accept any YouTube URL shape — watch?v=, youtu.be/, embed/, or
-    a bare 11-char video ID — and return a normalized embed URL with
-    autoplay+mute+loop params suitable for a hero background.
+def _strip_query(url: str) -> str:
+    """Drop ?query and #fragment for extension matching."""
+    if not url:
+        return ""
+    return url.split("?", 1)[0].split("#", 1)[0]
 
-    Falls back to the input unchanged if no YouTube pattern matches
-    (e.g. a direct mp4 URL passes through as-is).
+
+def _extract_youtube_id(url: str) -> str | None:
+    """Pull the 11-char YouTube video ID from any common URL shape, or
+    return None if the URL isn't a YouTube reference."""
+    if not url:
+        return None
+    s = url.strip()
+    # Bare ID
+    if re.fullmatch(r"[A-Za-z0-9_-]{11}", s):
+        return s
+    m = re.search(
+        r"(?:youtube\.com/(?:watch\?v=|embed/|shorts/|v/)|youtu\.be/)([A-Za-z0-9_-]{11})",
+        s,
+    )
+    return m.group(1) if m else None
+
+
+def _extract_vimeo_id(url: str) -> str | None:
+    """Pull the numeric Vimeo video ID from a vimeo.com URL, or None."""
+    if not url:
+        return None
+    m = re.search(r"vimeo\.com/(?:video/)?(\d+)", url.strip())
+    return m.group(1) if m else None
+
+
+# File extensions used by media URL pattern detection. Case-insensitive
+# match is applied at the call site. Keep these conservative — anything
+# else defaults to <img> with a logged warning.
+_VIDEO_EXTS = (".mp4", ".webm", ".ogg", ".mov")
+_IMAGE_EXTS = (".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg", ".avif")
+
+
+# Image-CDN hosts that serve image content without file extensions in
+# the URL (Unsplash thumbnailer, etc.). When no extension matches but
+# the URL is from one of these, treat as image. Keep tight — only add
+# hosts we know are strictly image-serving.
+_KNOWN_IMAGE_HOSTS = (
+    "images.unsplash.com",
+    "source.unsplash.com",
+    "plus.unsplash.com",
+    "res.cloudinary.com",
+    "cdn.pixabay.com",
+    "images.pexels.com",
+)
+
+
+def classify_media_url(url: str) -> str:
+    """Detect what kind of media a URL represents. Returns one of:
+      'youtube' / 'vimeo' / 'video' (direct file) / 'image' / 'unknown'.
+
+    Order of checks matters: YouTube/Vimeo pattern beats file extension
+    (a YouTube URL with /watch path has no .mp4). Falls back to a
+    small known-image-host whitelist so extension-less Unsplash/etc.
+    URLs classify correctly.
+    """
+    if not url:
+        return "unknown"
+    if _extract_youtube_id(url):
+        return "youtube"
+    if _extract_vimeo_id(url):
+        return "vimeo"
+    base = _strip_query(url).lower()
+    if base.endswith(_VIDEO_EXTS):
+        return "video"
+    if base.endswith(_IMAGE_EXTS):
+        return "image"
+    # Extension-less? Check known image hosts.
+    if any(host in url for host in _KNOWN_IMAGE_HOSTS):
+        return "image"
+    return "unknown"
+
+
+def normalize_video_url(url: str) -> str:
+    """Normalize a user-pasted video URL to a form that renders cleanly.
+
+    - YouTube URL (any shape) → canonical embed URL with autoplay+
+      mute+loop params.
+    - Vimeo URL → canonical player.vimeo.com embed URL.
+    - Direct video file (.mp4 etc.) → passed through unchanged.
+    - Unknown shape → passed through unchanged (probably a direct URL
+      we don't recognize).
     """
     if not url:
         return url
     s = url.strip()
-    # Bare ID: 11 chars, alphanumeric + - _
-    if re.fullmatch(r"[A-Za-z0-9_-]{11}", s):
-        vid = s
-    else:
-        m = (
-            re.search(r"(?:v=|youtu\.be/|embed/|shorts/)([A-Za-z0-9_-]{11})", s)
+    vid = _extract_youtube_id(s)
+    if vid:
+        return (
+            f"https://www.youtube.com/embed/{vid}"
+            f"?autoplay=1&mute=1&loop=1&playlist={vid}"
+            f"&controls=0&rel=0&modestbranding=1"
         )
-        if not m:
-            return s
-        vid = m.group(1)
+    vimeo_id = _extract_vimeo_id(s)
+    if vimeo_id:
+        return (
+            f"https://player.vimeo.com/video/{vimeo_id}"
+            f"?autoplay=1&muted=1&loop=1&background=1"
+        )
+    return s
+
+
+def _html_attr_escape(v: str) -> str:
+    """Conservative attribute-value escape. Avoid escaping the query
+    string's & to &amp; would also work but the most common consumers
+    (browsers parsing srcdoc/iframe src) handle either form."""
     return (
-        f"https://www.youtube.com/embed/{vid}"
-        f"?autoplay=1&mute=1&loop=1&playlist={vid}&controls=0&rel=0&modestbranding=1"
+        v.replace("&", "&amp;")
+         .replace('"', "&quot;")
+         .replace("<", "&lt;")
+         .replace(">", "&gt;")
     )
+
+
+def render_media_embed(
+    url: str, *, poster_url: str | None = None, alt: str = "", kind: str = "media",
+) -> str:
+    """Polymorphic media renderer. Returns the full HTML element for
+    the URL based on its detected kind. Used to expand {{VIDEO_EMBED}}
+    and {{MEDIA_EMBED}} at compile time.
+
+    `kind` is the slot's declared semantic role — only used for the
+    fallback default. 'media' defaults to <img> when ambiguous; 'video'
+    defaults to <iframe> (the more common shape for video).
+    """
+    if not url:
+        return ""
+    detected = classify_media_url(url)
+    safe_url = _html_attr_escape(url)
+    safe_alt = _html_attr_escape(alt) if alt else ""
+    safe_poster = _html_attr_escape(poster_url) if poster_url else ""
+    if detected in ("youtube", "vimeo"):
+        # Both render as iframe; the URL itself is already normalized
+        # to the right embed shape via normalize_video_url at PATCH time.
+        return (
+            f'<iframe src="{safe_url}" '
+            f'class="absolute inset-0 w-full h-full" '
+            f'frameborder="0" '
+            f'allow="autoplay; encrypted-media; picture-in-picture" '
+            f'allowfullscreen></iframe>'
+        )
+    if detected == "video":
+        poster_attr = f' poster="{safe_poster}"' if safe_poster else ""
+        return (
+            f'<video autoplay muted loop playsinline{poster_attr} '
+            f'class="absolute inset-0 w-full h-full object-cover">'
+            f'<source src="{safe_url}" /></video>'
+        )
+    if detected == "image":
+        alt_attr = f' alt="{safe_alt}"' if safe_alt else ' alt=""'
+        return (
+            f'<img src="{safe_url}"{alt_attr} '
+            f'class="absolute inset-0 w-full h-full object-cover" />'
+        )
+    # Unknown shape: default behavior depends on slot kind.
+    # 'video' slots assume iframe (most YouTube-shaped URLs we don't
+    # recognize). 'media' slots default to <img> — a broken image is
+    # visible to the user, whereas a broken iframe is silent.
+    logger.info(
+        "media.url_classify_unknown url=%r slot_kind=%s — defaulting",
+        url[:200], kind,
+    )
+    if kind == "video":
+        return (
+            f'<iframe src="{safe_url}" '
+            f'class="absolute inset-0 w-full h-full" '
+            f'frameborder="0" '
+            f'allow="autoplay; encrypted-media" '
+            f'allowfullscreen></iframe>'
+        )
+    alt_attr = f' alt="{safe_alt}"' if safe_alt else ' alt=""'
+    return (
+        f'<img src="{safe_url}"{alt_attr} '
+        f'class="absolute inset-0 w-full h-full object-cover" />'
+    )
+
+
+# Backward-compat alias — kept for any tests or callers that imported
+# the older YouTube-only normalizer. Forwards to the broader version.
+def normalize_youtube_url(url: str) -> str:
+    return normalize_video_url(url)
 
 
 def extract_token_values(rendered_html: str, template: str) -> dict[str, str]:
@@ -200,7 +404,8 @@ def variant_to_section(
     """
     props = {**(variant.default_props or {}), **(prop_overrides or {})}
     rendered = render_template(
-        variant.jsx_template, props, skip_tokens=MEDIA_TOKENS,
+        variant.jsx_template, props,
+        skip_tokens=MEDIA_TOKENS | EMBED_TOKENS,
     )
     return {
         "id": f"{variant.variant_id}-{uuid.uuid4().hex[:6]}",

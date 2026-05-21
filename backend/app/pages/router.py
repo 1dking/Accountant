@@ -1190,14 +1190,16 @@ async def patch_section(
         val = body["media_overrides"]
         if val is not None and not isinstance(val, dict):
             raise HTTPException(status_code=400, detail="media_overrides must be an object or null")
-        # Auto-normalize YouTube URLs at the boundary so the user can
-        # paste any common YouTube URL shape and we save the embed form.
-        # Direct mp4 URLs and other strings pass through unchanged.
+        # Auto-normalize video URLs at the boundary so the user can
+        # paste any common YouTube/Vimeo URL shape and we save the
+        # embed form. Direct mp4 URLs and image URLs pass through.
+        # Applied to both VIDEO_URL (strict-video slots) and MEDIA_URL
+        # (flexible slots where MEDIA_EMBED chooses element type).
         if isinstance(val, dict):
-            from app.pages.variants import normalize_youtube_url
-            for key in ("VIDEO_URL",):
+            from app.pages.variants import normalize_video_url
+            for key in ("VIDEO_URL", "MEDIA_URL"):
                 if key in val and isinstance(val[key], str):
-                    val[key] = normalize_youtube_url(val[key])
+                    val[key] = normalize_video_url(val[key])
         target["media_overrides"] = val
 
     sections[section_index] = target

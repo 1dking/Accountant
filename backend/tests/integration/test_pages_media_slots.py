@@ -299,3 +299,167 @@ def test_normalize_non_youtube_passes_through():
     the user can drop in self-hosted video."""
     direct = "https://cdn.example.com/videos/hero.mp4"
     assert normalize_youtube_url(direct) == direct
+
+
+# ---------------------------------------------------------------------------
+# Polymorphic media rendering (Commit 4 bugfix — VIDEO_EMBED + MEDIA_EMBED
+# tokens expand to <iframe>/<video>/<img> based on URL classification)
+# ---------------------------------------------------------------------------
+
+
+from app.pages.variants import (
+    EMBED_TOKENS, EMBED_TOKEN_URL_KEY, classify_media_url,
+    normalize_video_url, render_media_embed,
+)
+
+
+def test_classify_youtube_watch_url():
+    assert classify_media_url("https://www.youtube.com/watch?v=dQw4w9WgXcQ") == "youtube"
+
+
+def test_classify_youtube_short_url():
+    assert classify_media_url("https://youtu.be/dQw4w9WgXcQ") == "youtube"
+
+
+def test_classify_vimeo_url():
+    assert classify_media_url("https://vimeo.com/123456789") == "vimeo"
+
+
+def test_classify_mp4_with_query_params():
+    """Query params don't fool the extension check."""
+    assert classify_media_url("https://cdn.example.com/hero.mp4?token=abc") == "video"
+
+
+def test_classify_image_with_query_params():
+    """Unsplash-style URLs with auto-format query — classify as image."""
+    url = "https://images.unsplash.com/photo-1551434678-e076c223a692?auto=format&w=1200"
+    assert classify_media_url(url) == "image"
+
+
+def test_classify_unknown_returns_unknown():
+    assert classify_media_url("https://example.com/whatever") == "unknown"
+
+
+def test_render_video_embed_with_youtube_renders_iframe():
+    """VIDEO_EMBED token + YouTube URL → <iframe> with autoplay+mute+loop."""
+    template = "<div>{{VIDEO_EMBED}}</div>"
+    props = {"VIDEO_URL": normalize_video_url("https://www.youtube.com/watch?v=dQw4w9WgXcQ")}
+    out = substitute_media_tokens(template, props)
+    assert "<iframe" in out
+    assert "youtube.com/embed/dQw4w9WgXcQ" in out
+    assert "allowfullscreen" in out
+    assert "{{VIDEO_EMBED}}" not in out
+
+
+def test_render_video_embed_with_vimeo_renders_iframe():
+    """VIDEO_EMBED + Vimeo URL → player.vimeo.com iframe."""
+    template = "<div>{{VIDEO_EMBED}}</div>"
+    props = {"VIDEO_URL": normalize_video_url("https://vimeo.com/123456789")}
+    out = substitute_media_tokens(template, props)
+    assert "<iframe" in out
+    assert "player.vimeo.com/video/123456789" in out
+
+
+def test_render_video_embed_with_mp4_renders_video_tag():
+    """VIDEO_EMBED + .mp4 URL → native <video> tag (not iframe)."""
+    template = "<div>{{VIDEO_EMBED}}</div>"
+    props = {"VIDEO_URL": "https://cdn.example.com/hero.mp4"}
+    out = substitute_media_tokens(template, props)
+    assert "<video " in out
+    assert 'autoplay' in out
+    assert 'muted' in out
+    assert "<source " in out
+    assert "<iframe" not in out
+
+
+def test_render_media_embed_with_image_renders_img_tag():
+    """MEDIA_EMBED + image URL → <img> tag. The flexible slot."""
+    template = "<div>{{MEDIA_EMBED}}</div>"
+    props = {"MEDIA_URL": "https://images.unsplash.com/photo-abc.jpg"}
+    out = substitute_media_tokens(template, props)
+    assert "<img " in out
+    assert "<video" not in out
+    assert "<iframe" not in out
+
+
+def test_render_media_embed_with_video_url_renders_video_tag():
+    """MEDIA_EMBED + .mp4 URL → <video> tag. Same slot, different element."""
+    template = "<div>{{MEDIA_EMBED}}</div>"
+    props = {"MEDIA_URL": "https://cdn.example.com/clip.webm"}
+    out = substitute_media_tokens(template, props)
+    assert "<video " in out
+    assert "<img" not in out
+
+
+def test_render_media_embed_with_youtube_renders_iframe():
+    """MEDIA_EMBED + YouTube URL → iframe. Same slot accepts any kind."""
+    template = "<div>{{MEDIA_EMBED}}</div>"
+    props = {"MEDIA_URL": normalize_video_url("https://www.youtube.com/watch?v=ABC123XYZ_-")}
+    out = substitute_media_tokens(template, props)
+    assert "<iframe" in out
+    assert "youtube.com/embed/ABC123XYZ_-" in out
+
+
+def test_render_media_embed_with_vimeo_renders_iframe():
+    """MEDIA_EMBED + Vimeo URL → Vimeo iframe."""
+    template = "<div>{{MEDIA_EMBED}}</div>"
+    props = {"MEDIA_URL": normalize_video_url("https://vimeo.com/42")}
+    out = substitute_media_tokens(template, props)
+    assert "<iframe" in out
+    assert "player.vimeo.com/video/42" in out
+
+
+def test_render_embed_attribute_escapes():
+    """User-pasted URLs with ampersands, quotes, or angle brackets
+    don't break the HTML structure."""
+    template = '<div>{{MEDIA_EMBED}}</div>'
+    props = {"MEDIA_URL": 'https://example.com/img.jpg?a=1&b="2"&c=<3>'}
+    out = substitute_media_tokens(template, props)
+    # The dangerous chars are escaped — no raw " or < outside attrs
+    assert '&amp;' in out
+    assert '&quot;' in out
+    assert '&lt;' in out
+    assert '&gt;' in out
+
+
+def test_embed_token_constants_lookup_correct_url_key():
+    """VIDEO_EMBED reads from VIDEO_URL, MEDIA_EMBED reads from
+    MEDIA_URL. Locks in the contract the SectionEditor pill relies on."""
+    assert "VIDEO_EMBED" in EMBED_TOKENS
+    assert "MEDIA_EMBED" in EMBED_TOKENS
+    assert EMBED_TOKEN_URL_KEY["VIDEO_EMBED"] == "VIDEO_URL"
+    assert EMBED_TOKEN_URL_KEY["MEDIA_EMBED"] == "MEDIA_URL"
+
+
+def test_hero_video_template_uses_video_embed_token():
+    """Seed template smoke-check: hero_video must use VIDEO_EMBED, not
+    a bare <video src={{VIDEO_URL}}>. That was the Bug A regression."""
+    from app.pages.variant_seeds import HERO_VARIANTS
+    hero_video = next(v for v in HERO_VARIANTS if v["variant_id"] == "hero_video")
+    assert "{{VIDEO_EMBED}}" in hero_video["jsx_template"]
+    # No bare <video src= or <source src=> — Bug A fix means the
+    # element type is decided at compile time, not hard-wired.
+    assert "<source " not in hero_video["jsx_template"]
+    assert "{{VIDEO_URL}}" not in hero_video["jsx_template"]
+
+
+def test_hero_two_col_image_template_uses_media_embed_token():
+    """Seed template smoke-check: hero_two_col_image must use MEDIA_EMBED
+    so its right-column slot accepts video too. Bug B fix."""
+    from app.pages.variant_seeds import HERO_VARIANTS
+    two_col = next(v for v in HERO_VARIANTS if v["variant_id"] == "hero_two_col_image")
+    assert "{{MEDIA_EMBED}}" in two_col["jsx_template"]
+    # No bare <img src={{IMAGE_URL}}> — the slot is now flexible.
+    assert "{{IMAGE_URL}}" not in two_col["jsx_template"]
+
+
+def test_render_media_embed_unknown_url_falls_back_safely():
+    """An ambiguous URL (no extension, not YouTube/Vimeo) gets a
+    default element. MEDIA_EMBED defaults to <img> (broken image
+    visible); VIDEO_EMBED defaults to <iframe> (best guess for video
+    slots). Logged at INFO either way."""
+    out_media = render_media_embed("https://example.com/whatever", kind="media")
+    assert "<img " in out_media
+
+    out_video = render_media_embed("https://example.com/whatever", kind="video")
+    assert "<iframe" in out_video

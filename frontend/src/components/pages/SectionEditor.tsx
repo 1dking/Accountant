@@ -36,11 +36,27 @@ import VariantPickerModal from './VariantPickerModal'
 import MediaPickerModal, { type MediaSlotKind } from './MediaPickerModal'
 import './section-editor.css'
 
-// Media tokens — kept in sync with backend MEDIA_TOKENS whitelist.
-// When jsx_content contains {{TOKEN}} for one of these, we render
-// an "edit media" pill so the user can swap the URL without editing
-// the underlying template.
-const MEDIA_TOKEN_PATTERN = /\{\{\s*(VIDEO_URL|VIDEO_POSTER_URL|IMAGE_URL|LOGO_URL)\s*\}\}/g
+// Media tokens — kept in sync with backend variants.py MEDIA_TOKENS
+// and EMBED_TOKENS whitelists. When jsx_content contains {{TOKEN}}
+// for one of these, we render a media-edit pill so the user can swap
+// the URL without editing the underlying template.
+//
+// Element-level tokens (VIDEO_EMBED, MEDIA_EMBED) expand at compile
+// time to full <iframe>/<video>/<img> markup based on the URL's
+// pattern — a single slot accepts YouTube, Vimeo, mp4, or images.
+const MEDIA_TOKEN_PATTERN = /\{\{\s*(VIDEO_URL|VIDEO_POSTER_URL|IMAGE_URL|LOGO_URL|MEDIA_URL|VIDEO_EMBED|MEDIA_EMBED)\s*\}\}/g
+
+// Each token's edit pill writes to media_overrides[URL_KEY]. Element
+// tokens map to a backing URL key; plain URL tokens are their own key.
+const TOKEN_TO_URL_KEY: Record<string, string> = {
+  VIDEO_EMBED: 'VIDEO_URL',
+  MEDIA_EMBED: 'MEDIA_URL',
+  VIDEO_URL: 'VIDEO_URL',
+  VIDEO_POSTER_URL: 'VIDEO_POSTER_URL',
+  IMAGE_URL: 'IMAGE_URL',
+  LOGO_URL: 'LOGO_URL',
+  MEDIA_URL: 'MEDIA_URL',
+}
 
 function detectMediaTokens(html: string): string[] {
   if (!html) return []
@@ -54,14 +70,23 @@ function detectMediaTokens(html: string): string[] {
 }
 
 function tokenKindFor(token: string): MediaSlotKind {
-  if (token === 'VIDEO_URL') return 'video'
+  if (token === 'VIDEO_URL' || token === 'VIDEO_EMBED') return 'video'
+  if (token === 'MEDIA_URL' || token === 'MEDIA_EMBED') return 'any'
   if (token === 'LOGO_URL') return 'image'
   return 'image'
 }
 
 function tokenIcon(token: string) {
-  if (token === 'VIDEO_URL') return <Film className="h-3 w-3" />
+  if (token === 'VIDEO_URL' || token === 'VIDEO_EMBED') return <Film className="h-3 w-3" />
   return <ImageIcon className="h-3 w-3" />
+}
+
+function tokenLabel(token: string): string {
+  // User-facing pill label. Element tokens display as their semantic
+  // role rather than the raw token name.
+  if (token === 'VIDEO_EMBED') return 'VIDEO'
+  if (token === 'MEDIA_EMBED') return 'MEDIA'
+  return token
 }
 
 // ---------------------------------------------------------------------------
@@ -99,12 +124,64 @@ interface SectionEditorProps {
  * attribute and Tailwind doesn't apply.
  */
 /** Client-side media-token substitution for the iframe preview.
- *  Mirrors substitute_media_tokens() in backend variants.py so the
- *  editor renders what the published page will render. */
+ *  Mirrors substitute_media_tokens() + render_media_embed() in backend
+ *  variants.py so the editor preview matches what compile_page produces.
+ *  Polymorphic element rendering for {{VIDEO_EMBED}} / {{MEDIA_EMBED}}
+ *  tokens — URL pattern decides iframe / video / img. */
+function classifyMediaUrl(url: string): 'youtube' | 'vimeo' | 'video' | 'image' | 'unknown' {
+  if (!url) return 'unknown'
+  if (/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/|v\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/.test(url)) return 'youtube'
+  if (/^[A-Za-z0-9_-]{11}$/.test(url)) return 'youtube'
+  if (/vimeo\.com\/(?:video\/)?(\d+)/.test(url)) return 'vimeo'
+  const base = url.split('?')[0].split('#')[0].toLowerCase()
+  if (/\.(?:mp4|webm|ogg|mov)$/.test(base)) return 'video'
+  if (/\.(?:jpe?g|png|webp|gif|svg|avif)$/.test(base)) return 'image'
+  return 'unknown'
+}
+
+function renderMediaEmbed(url: string, poster?: string, kind: 'video' | 'media' = 'media'): string {
+  if (!url) return ''
+  const detected = classifyMediaUrl(url)
+  const escAttr = (s: string) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const u = escAttr(url)
+  if (detected === 'youtube' || detected === 'vimeo') {
+    return `<iframe src="${u}" class="absolute inset-0 w-full h-full" frameborder="0" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>`
+  }
+  if (detected === 'video') {
+    const p = poster ? ` poster="${escAttr(poster)}"` : ''
+    return `<video autoplay muted loop playsinline${p} class="absolute inset-0 w-full h-full object-cover"><source src="${u}" /></video>`
+  }
+  if (detected === 'image') {
+    return `<img src="${u}" alt="" class="absolute inset-0 w-full h-full object-cover" />`
+  }
+  // Unknown — slot-kind-dependent default.
+  if (kind === 'video') {
+    return `<iframe src="${u}" class="absolute inset-0 w-full h-full" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>`
+  }
+  return `<img src="${u}" alt="" class="absolute inset-0 w-full h-full object-cover" />`
+}
+
+const _EMBED_TO_URL_KEY: Record<string, string> = {
+  VIDEO_EMBED: 'VIDEO_URL',
+  MEDIA_EMBED: 'MEDIA_URL',
+}
+
 function substituteMediaTokens(html: string, mediaProps: Record<string, string>): string {
   if (!html) return html
   return html.replace(/\{\{\s*([A-Z0-9_]+)\s*\}\}/g, (m, key: string) => {
-    const allowed = new Set(['VIDEO_URL', 'VIDEO_POSTER_URL', 'IMAGE_URL', 'LOGO_URL'])
+    // Element tokens — expand to full polymorphic markup.
+    if (key === 'VIDEO_EMBED' || key === 'MEDIA_EMBED') {
+      const urlKey = _EMBED_TO_URL_KEY[key]
+      const url = mediaProps[urlKey]
+      if (!url) return m
+      return renderMediaEmbed(
+        url,
+        mediaProps['VIDEO_POSTER_URL'],
+        key === 'VIDEO_EMBED' ? 'video' : 'media',
+      )
+    }
+    // URL tokens — straight string substitution.
+    const allowed = new Set(['VIDEO_URL', 'VIDEO_POSTER_URL', 'IMAGE_URL', 'LOGO_URL', 'MEDIA_URL'])
     if (!allowed.has(key)) return m
     const v = mediaProps[key]
     return v ? v : m
@@ -246,8 +323,6 @@ function SectionBlock({ pageId, section, index, onChanged, onRequestChangeVarian
   }, [html])
   const mediaOverrides = section.media_overrides || {}
   const mediaDefaults = (section.metadata?.props || {}) as Record<string, string>
-  const currentMediaValue = (token: string): string =>
-    mediaOverrides[token] || mediaDefaults[token] || ''
 
   // Mark this iframe with its section id so messages can be routed back.
   // We can't pass JS variables into srcdoc; inject via window.__sectionId.
@@ -491,25 +566,34 @@ function SectionBlock({ pageId, section, index, onChanged, onRequestChangeVarian
               key={tok}
               onClick={() => setMediaSlot(tok)}
               className="se-media-pill"
-              title={`Edit ${tok}`}
+              title={`Edit ${tokenLabel(tok)}`}
             >
               {tokenIcon(tok)}
-              <span>{tok}</span>
+              <span>{tokenLabel(tok)}</span>
             </button>
           ))}
         </div>
       )}
 
-      {/* Media picker modal — opens when a slot pill is clicked */}
+      {/* Media picker modal — opens when a slot pill is clicked. The
+          target URL key may differ from the token name (element tokens
+          like VIDEO_EMBED back onto VIDEO_URL in media_overrides). */}
       <MediaPickerModal
         open={mediaSlot !== null}
-        tokenName={mediaSlot || ''}
+        tokenName={mediaSlot ? tokenLabel(mediaSlot) : ''}
         slotKind={mediaSlot ? tokenKindFor(mediaSlot) : 'any'}
-        currentValue={mediaSlot ? currentMediaValue(mediaSlot) : null}
+        currentValue={
+          mediaSlot
+            ? (mediaOverrides[TOKEN_TO_URL_KEY[mediaSlot] || mediaSlot]
+                || mediaDefaults[TOKEN_TO_URL_KEY[mediaSlot] || mediaSlot]
+                || '')
+            : null
+        }
         onClose={() => setMediaSlot(null)}
         onPick={(newValue) => {
           if (!mediaSlot) return
-          const merged = { ...mediaOverrides, [mediaSlot]: newValue }
+          const urlKey = TOKEN_TO_URL_KEY[mediaSlot] || mediaSlot
+          const merged = { ...mediaOverrides, [urlKey]: newValue }
           patchMut.mutate({ media_overrides: merged })
           setMediaSlot(null)
         }}
@@ -571,17 +655,38 @@ export default function SectionEditor({ pageId, sections, onChanged }: SectionEd
 
   const empty = !sections || sections.length === 0
 
+  // Add Section button — inline at the end of the section list (not
+  // sticky). Sticky + pointer-events gymnastics in Commit 2 broke
+  // discoverability for Nate; inline is the simplest path that
+  // guarantees the button is reachable. Renders for both populated
+  // and empty section lists.
+  const addSectionButton = (
+    <div className="flex justify-center pt-2 pb-6">
+      <button
+        type="button"
+        onClick={() => setPicker({ mode: 'add' })}
+        disabled={addMut.isPending}
+        className="se-add-section"
+      >
+        {addMut.isPending ? (
+          <><Loader2 className="h-4 w-4 animate-spin" /> Adding…</>
+        ) : (
+          <><Plus className="h-4 w-4" /> Add Section</>
+        )}
+      </button>
+    </div>
+  )
+
   return (
     <div className="se-root h-full overflow-y-auto bg-gray-50 dark:bg-gray-900">
-      <div className="p-4 space-y-3 pb-32">
+      <div className="p-4 space-y-3 pb-6">
         {empty ? (
-          <div className="flex items-center justify-center h-full text-gray-400 dark:text-gray-500 py-24">
-            <div className="text-center max-w-sm">
-              <p className="text-sm">No sections yet.</p>
-              <p className="text-xs mt-1">
-                Click "Add Section" below to pick a variant, or generate a full page from the list view.
-              </p>
-            </div>
+          <div className="flex flex-col items-center justify-center text-gray-400 dark:text-gray-500 py-20">
+            <p className="text-sm">No sections yet.</p>
+            <p className="text-xs mt-1 mb-6">
+              Pick a variant below to get started.
+            </p>
+            {addSectionButton}
           </div>
         ) : (
           <>
@@ -597,27 +702,12 @@ export default function SectionEditor({ pageId, sections, onChanged }: SectionEd
                 }
               />
             ))}
-            <div className="pt-2 text-center text-xs text-gray-400 dark:text-gray-500">
+            {addSectionButton}
+            <div className="text-center text-xs text-gray-400 dark:text-gray-500">
               {sections.length} {sections.length === 1 ? 'section' : 'sections'} · click any text to edit
             </div>
           </>
         )}
-      </div>
-
-      {/* Sticky "+ Add Section" button — bottom of editor pane */}
-      <div className="sticky bottom-0 left-0 right-0 pointer-events-none flex justify-center pb-6 -mt-12">
-        <button
-          type="button"
-          onClick={() => setPicker({ mode: 'add' })}
-          disabled={addMut.isPending}
-          className="se-add-section pointer-events-auto"
-        >
-          {addMut.isPending ? (
-            <><Loader2 className="h-4 w-4 animate-spin" /> Adding…</>
-          ) : (
-            <><Plus className="h-4 w-4" /> Add Section</>
-          )}
-        </button>
       </div>
 
       <VariantPickerModal

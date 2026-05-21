@@ -40,16 +40,19 @@ HERO_VARIANTS = [
             "CTA_PRIMARY_HREF": "#contact",
             "CTA_SECONDARY_TEXT": "Watch our reel",
             "CTA_SECONDARY_HREF": "#reel",
-            # Default: a calm seascape from Pexels via Mixkit (CC0).
-            # Replaced by the user via the VIDEO_URL media slot.
+            # Default: a calm Mixkit clip (CC0). Replaced via the
+            # VIDEO_URL slot — pasting a YouTube or Vimeo URL renders
+            # an iframe, mp4 renders a <video> element, etc.
             "VIDEO_URL": "https://assets.mixkit.co/videos/preview/mixkit-stars-in-space-1610-large.mp4",
             "VIDEO_POSTER_URL": "https://images.unsplash.com/photo-1462331940025-496dfbfc7564?auto=format&fit=crop&w=1920&q=80",
         },
+        # VIDEO_EMBED expands at compile time to the right element for
+        # the URL value: <iframe> for YouTube/Vimeo, <video> for mp4.
+        # Closes the Commit 3 bug where <video src=youtube_embed_url>
+        # silently failed (browsers can't play iframe URLs in <video>).
         "jsx_template": """<section className="relative isolate overflow-hidden text-white min-h-[80vh] flex items-center justify-center py-16 px-4">
-  <video autoPlay muted loop playsInline poster="{{VIDEO_POSTER_URL}}" className="absolute inset-0 w-full h-full object-cover z-0">
-    <source src="{{VIDEO_URL}}" type="video/mp4" />
-  </video>
-  <div className="absolute inset-0 z-10 bg-gradient-to-br from-slate-950/85 via-slate-950/65 to-indigo-950/70"></div>
+  <div className="absolute inset-0 z-0 overflow-hidden">{{VIDEO_EMBED}}</div>
+  <div className="absolute inset-0 z-10 bg-gradient-to-br from-slate-950/85 via-slate-950/65 to-indigo-950/70 pointer-events-none"></div>
   <div className="relative z-20 max-w-4xl mx-auto text-center space-y-8">
     <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold leading-tight tracking-tight">
       {{HEADLINE}}
@@ -82,8 +85,14 @@ HERO_VARIANTS = [
             "CTA_PRIMARY_HREF": "#signup",
             "CTA_SECONDARY_TEXT": "Watch Demo",
             "CTA_SECONDARY_HREF": "#demo",
-            "IMAGE_URL": "https://images.unsplash.com/photo-1551434678-e076c223a692?auto=format&fit=crop&w=1200&q=80",
+            # MEDIA_URL backs the flexible MEDIA_EMBED slot. Default is
+            # an image; user can swap to YouTube / Vimeo / mp4 from the
+            # picker without changing the variant.
+            "MEDIA_URL": "https://images.unsplash.com/photo-1551434678-e076c223a692?auto=format&fit=crop&w=1200&q=80",
         },
+        # MEDIA_EMBED expands at compile time to <img>, <video>, or
+        # <iframe> depending on the URL pattern. Lets the right-column
+        # slot accept any media type while keeping the same layout.
         "jsx_template": """<section className="relative overflow-hidden bg-white py-16 sm:py-24 lg:py-32">
   <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
     <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
@@ -104,8 +113,8 @@ HERO_VARIANTS = [
         </div>
       </div>
       <div className="relative">
-        <div className="absolute inset-0 -m-4 bg-gradient-to-br from-indigo-200 to-purple-200 rounded-3xl blur-2xl opacity-40"></div>
-        <img src="{{IMAGE_URL}}" alt="" className="relative rounded-2xl shadow-2xl w-full aspect-[4/3] object-cover" />
+        <div className="absolute inset-0 -m-4 bg-gradient-to-br from-indigo-200 to-purple-200 rounded-3xl blur-2xl opacity-40 pointer-events-none"></div>
+        <div className="relative rounded-2xl shadow-2xl w-full aspect-[4/3] overflow-hidden bg-gray-100">{{MEDIA_EMBED}}</div>
       </div>
     </div>
   </div>
