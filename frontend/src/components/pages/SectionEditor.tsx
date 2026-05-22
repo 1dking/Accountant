@@ -637,7 +637,23 @@ const EDITOR_SCRIPT = `
   document.addEventListener('click', function(e) {
     var clicked = e.target;
     var isText = TEXT_TAGS.indexOf(clicked.tagName) !== -1;
-    if (!isText) {
+
+    // <details>/<summary> handling — Commit 5.1.
+    //   The default behavior calls preventDefault() on any non-text
+    //   tag, which kills the browser's native <details> toggle. Walk
+    //   up to find a <summary> ancestor and special-case:
+    //     - Click on chevron icon / summary padding → let native
+    //       toggle fire. No overlay, no edit mode.
+    //     - Click on inner text span → block native toggle so the
+    //       accordion doesn't flap while the user is typing.
+    var summaryAncestor = clicked.closest && clicked.closest('summary');
+    if (summaryAncestor && (!isText || clicked === summaryAncestor)) {
+      e.stopPropagation();
+      return;
+    }
+    if (summaryAncestor) {
+      e.preventDefault();
+    } else if (!isText) {
       e.preventDefault();
     }
     e.stopPropagation();

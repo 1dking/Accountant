@@ -881,42 +881,42 @@ FAQ_VARIANTS = [
           <span className="text-base font-semibold text-white">{{Q1_Q}}</span>
           <svg className="w-5 h-5 text-gray-400 transition-transform group-open:rotate-180 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7"/></svg>
         </summary>
-        <div className="px-5 pb-5 text-sm text-gray-300 leading-relaxed">{{Q1_A}}</div>
+        <p className="px-5 pb-5 text-sm text-gray-300 leading-relaxed">{{Q1_A}}</p>
       </details>
       <details className="group rounded-xl bg-white/[0.04] backdrop-blur-xl border border-white/10 transition-colors hover:border-white/20 open:border-indigo-400/40 open:bg-white/[0.06]">
         <summary className="flex items-center justify-between gap-4 px-5 py-4 cursor-pointer list-none">
           <span className="text-base font-semibold text-white">{{Q2_Q}}</span>
           <svg className="w-5 h-5 text-gray-400 transition-transform group-open:rotate-180 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7"/></svg>
         </summary>
-        <div className="px-5 pb-5 text-sm text-gray-300 leading-relaxed">{{Q2_A}}</div>
+        <p className="px-5 pb-5 text-sm text-gray-300 leading-relaxed">{{Q2_A}}</p>
       </details>
       <details className="group rounded-xl bg-white/[0.04] backdrop-blur-xl border border-white/10 transition-colors hover:border-white/20 open:border-indigo-400/40 open:bg-white/[0.06]">
         <summary className="flex items-center justify-between gap-4 px-5 py-4 cursor-pointer list-none">
           <span className="text-base font-semibold text-white">{{Q3_Q}}</span>
           <svg className="w-5 h-5 text-gray-400 transition-transform group-open:rotate-180 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7"/></svg>
         </summary>
-        <div className="px-5 pb-5 text-sm text-gray-300 leading-relaxed">{{Q3_A}}</div>
+        <p className="px-5 pb-5 text-sm text-gray-300 leading-relaxed">{{Q3_A}}</p>
       </details>
       <details className="group rounded-xl bg-white/[0.04] backdrop-blur-xl border border-white/10 transition-colors hover:border-white/20 open:border-indigo-400/40 open:bg-white/[0.06]">
         <summary className="flex items-center justify-between gap-4 px-5 py-4 cursor-pointer list-none">
           <span className="text-base font-semibold text-white">{{Q4_Q}}</span>
           <svg className="w-5 h-5 text-gray-400 transition-transform group-open:rotate-180 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7"/></svg>
         </summary>
-        <div className="px-5 pb-5 text-sm text-gray-300 leading-relaxed">{{Q4_A}}</div>
+        <p className="px-5 pb-5 text-sm text-gray-300 leading-relaxed">{{Q4_A}}</p>
       </details>
       <details className="group rounded-xl bg-white/[0.04] backdrop-blur-xl border border-white/10 transition-colors hover:border-white/20 open:border-indigo-400/40 open:bg-white/[0.06]">
         <summary className="flex items-center justify-between gap-4 px-5 py-4 cursor-pointer list-none">
           <span className="text-base font-semibold text-white">{{Q5_Q}}</span>
           <svg className="w-5 h-5 text-gray-400 transition-transform group-open:rotate-180 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7"/></svg>
         </summary>
-        <div className="px-5 pb-5 text-sm text-gray-300 leading-relaxed">{{Q5_A}}</div>
+        <p className="px-5 pb-5 text-sm text-gray-300 leading-relaxed">{{Q5_A}}</p>
       </details>
       <details className="group rounded-xl bg-white/[0.04] backdrop-blur-xl border border-white/10 transition-colors hover:border-white/20 open:border-indigo-400/40 open:bg-white/[0.06]">
         <summary className="flex items-center justify-between gap-4 px-5 py-4 cursor-pointer list-none">
           <span className="text-base font-semibold text-white">{{Q6_Q}}</span>
           <svg className="w-5 h-5 text-gray-400 transition-transform group-open:rotate-180 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7"/></svg>
         </summary>
-        <div className="px-5 pb-5 text-sm text-gray-300 leading-relaxed">{{Q6_A}}</div>
+        <p className="px-5 pb-5 text-sm text-gray-300 leading-relaxed">{{Q6_A}}</p>
       </details>
     </div>
   </div>
