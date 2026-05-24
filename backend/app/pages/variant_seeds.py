@@ -1294,9 +1294,179 @@ LOGOS_VARIANTS = [
 ]
 
 
+# =============================================================================
+# NAV variants (Commit 6 Workstream C.1) — 13th category
+# =============================================================================
+#
+# Three flagships covering the canonical reference patterns:
+#   - nav_transparent_on_hero — fixed top, transparent over hero,
+#     solid-blur + bottom border once scrolled past first viewport.
+#     Default for new pages (auto-prepended on page creation).
+#   - nav_solid_always — fixed top, solid bg + bottom border. No
+#     transparency / no scroll-state change. For pages whose hero
+#     doesn't extend full-viewport.
+#   - nav_centered_logo — centered logo with nav links split
+#     left/right. Editorial look that suits portfolio / agency pages.
+#
+# All three:
+#   - Use a tiny inline <script> that toggles a class on scroll
+#     (avoids needing GSAP for a sub-50ms interaction).
+#   - Honor prefers-reduced-motion by skipping the scroll-class
+#     toggle entirely (solid-from-the-start).
+#   - Are hand-crafted to match the Liquid Glass + OCIDM palette of
+#     the rest of the variant library.
+
+NAV_VARIANTS = [
+    {
+        "id": "var_nav_transparent_on_hero",
+        "category": "nav",
+        "variant_id": "nav_transparent_on_hero",
+        "display_name": "Transparent on Hero",
+        "description": "Fixed top, transparent over the hero, blur + border once scrolled past.",
+        "sort_order": 10,
+        "default_props": {
+            "BRAND_NAME": "Acme",
+            "NAV_LINK_1_TEXT": "Product",
+            "NAV_LINK_1_HREF": "#product",
+            "NAV_LINK_2_TEXT": "Pricing",
+            "NAV_LINK_2_HREF": "#pricing",
+            "NAV_LINK_3_TEXT": "Customers",
+            "NAV_LINK_3_HREF": "#customers",
+            "NAV_LINK_4_TEXT": "About",
+            "NAV_LINK_4_HREF": "#about",
+            "CTA_TEXT": "Get started",
+            "CTA_HREF": "#cta",
+        },
+        "default_animations": None,
+        "jsx_template": """<nav className="osm-nav osm-nav-transparent fixed top-0 inset-x-0 z-50 transition-all duration-300">
+  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="flex items-center justify-between h-16 sm:h-20">
+      <a href="/" className="text-xl sm:text-2xl font-extrabold tracking-tight text-white">
+        {{BRAND_NAME}}
+      </a>
+      <div className="hidden md:flex items-center gap-8">
+        <a href="{{NAV_LINK_1_HREF}}" className="text-sm font-medium text-white/85 hover:text-white transition-colors">{{NAV_LINK_1_TEXT}}</a>
+        <a href="{{NAV_LINK_2_HREF}}" className="text-sm font-medium text-white/85 hover:text-white transition-colors">{{NAV_LINK_2_TEXT}}</a>
+        <a href="{{NAV_LINK_3_HREF}}" className="text-sm font-medium text-white/85 hover:text-white transition-colors">{{NAV_LINK_3_TEXT}}</a>
+        <a href="{{NAV_LINK_4_HREF}}" className="text-sm font-medium text-white/85 hover:text-white transition-colors">{{NAV_LINK_4_TEXT}}</a>
+      </div>
+      <a href="{{CTA_HREF}}" className="inline-flex items-center px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 rounded-full shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 transition-all">
+        {{CTA_TEXT}}
+      </a>
+    </div>
+  </div>
+  <style>
+    .osm-nav { background: transparent; border-bottom: 1px solid transparent; }
+    .osm-nav.osm-nav-scrolled {
+      background: rgba(15, 19, 32, 0.78);
+      border-bottom-color: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(16px) saturate(180%);
+      -webkit-backdrop-filter: blur(16px) saturate(180%);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .osm-nav { transition: none; }
+    }
+  </style>
+  <script>
+    (function () {
+      var nav = document.currentScript && document.currentScript.parentElement;
+      if (!nav) return;
+      var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (reduce) { nav.classList.add('osm-nav-scrolled'); return; }
+      var onScroll = function () {
+        if (window.scrollY > 40) { nav.classList.add('osm-nav-scrolled'); }
+        else { nav.classList.remove('osm-nav-scrolled'); }
+      };
+      window.addEventListener('scroll', onScroll, { passive: true });
+      onScroll();
+    })();
+  </script>
+</nav>""",
+    },
+    {
+        "id": "var_nav_solid_always",
+        "category": "nav",
+        "variant_id": "nav_solid_always",
+        "display_name": "Solid Always",
+        "description": "Fixed top with solid background + bottom border. No transparency.",
+        "sort_order": 20,
+        "default_props": {
+            "BRAND_NAME": "Acme",
+            "NAV_LINK_1_TEXT": "Product",
+            "NAV_LINK_1_HREF": "#product",
+            "NAV_LINK_2_TEXT": "Pricing",
+            "NAV_LINK_2_HREF": "#pricing",
+            "NAV_LINK_3_TEXT": "Customers",
+            "NAV_LINK_3_HREF": "#customers",
+            "NAV_LINK_4_TEXT": "About",
+            "NAV_LINK_4_HREF": "#about",
+            "CTA_TEXT": "Get started",
+            "CTA_HREF": "#cta",
+        },
+        "default_animations": None,
+        "jsx_template": """<nav className="fixed top-0 inset-x-0 z-50 bg-slate-950/90 border-b border-white/10 backdrop-blur-xl">
+  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="flex items-center justify-between h-16 sm:h-18">
+      <a href="/" className="text-xl sm:text-2xl font-extrabold tracking-tight text-white">
+        {{BRAND_NAME}}
+      </a>
+      <div className="hidden md:flex items-center gap-8">
+        <a href="{{NAV_LINK_1_HREF}}" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">{{NAV_LINK_1_TEXT}}</a>
+        <a href="{{NAV_LINK_2_HREF}}" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">{{NAV_LINK_2_TEXT}}</a>
+        <a href="{{NAV_LINK_3_HREF}}" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">{{NAV_LINK_3_TEXT}}</a>
+        <a href="{{NAV_LINK_4_HREF}}" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">{{NAV_LINK_4_TEXT}}</a>
+      </div>
+      <a href="{{CTA_HREF}}" className="inline-flex items-center px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 rounded-full shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 transition-all">
+        {{CTA_TEXT}}
+      </a>
+    </div>
+  </div>
+</nav>""",
+    },
+    {
+        "id": "var_nav_centered_logo",
+        "category": "nav",
+        "variant_id": "nav_centered_logo",
+        "display_name": "Centered Logo",
+        "description": "Editorial-style nav — centered brand with links split left and right.",
+        "sort_order": 30,
+        "default_props": {
+            "BRAND_NAME": "Atelier",
+            "NAV_LINK_1_TEXT": "Work",
+            "NAV_LINK_1_HREF": "#work",
+            "NAV_LINK_2_TEXT": "Studio",
+            "NAV_LINK_2_HREF": "#studio",
+            "NAV_LINK_3_TEXT": "Journal",
+            "NAV_LINK_3_HREF": "#journal",
+            "NAV_LINK_4_TEXT": "Contact",
+            "NAV_LINK_4_HREF": "#contact",
+        },
+        "default_animations": None,
+        "jsx_template": """<nav className="fixed top-0 inset-x-0 z-50 bg-slate-950/90 border-b border-white/10 backdrop-blur-xl">
+  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="grid grid-cols-3 items-center h-16 sm:h-20">
+      <div className="hidden md:flex items-center gap-8 justify-self-start">
+        <a href="{{NAV_LINK_1_HREF}}" className="text-sm font-medium text-gray-300 hover:text-white transition-colors uppercase tracking-wider">{{NAV_LINK_1_TEXT}}</a>
+        <a href="{{NAV_LINK_2_HREF}}" className="text-sm font-medium text-gray-300 hover:text-white transition-colors uppercase tracking-wider">{{NAV_LINK_2_TEXT}}</a>
+      </div>
+      <a href="/" className="justify-self-center text-xl sm:text-2xl font-extrabold tracking-tight text-white">
+        {{BRAND_NAME}}
+      </a>
+      <div className="hidden md:flex items-center gap-8 justify-self-end">
+        <a href="{{NAV_LINK_3_HREF}}" className="text-sm font-medium text-gray-300 hover:text-white transition-colors uppercase tracking-wider">{{NAV_LINK_3_TEXT}}</a>
+        <a href="{{NAV_LINK_4_HREF}}" className="text-sm font-medium text-gray-300 hover:text-white transition-colors uppercase tracking-wider">{{NAV_LINK_4_TEXT}}</a>
+      </div>
+    </div>
+  </div>
+</nav>""",
+    },
+]
+
+
 def all_variants() -> list[dict]:
     """All seed variants across categories. Commit 5 expands beyond
-    Hero to flagships across all 12 categories."""
+    Hero to flagships across all 12 categories. Commit 6 adds nav
+    as a 13th category."""
     return [
         *HERO_VARIANTS,
         *FEATURES_VARIANTS,
@@ -1310,4 +1480,5 @@ def all_variants() -> list[dict]:
         *FOOTER_VARIANTS,
         *GALLERY_VARIANTS,
         *LOGOS_VARIANTS,
+        *NAV_VARIANTS,
     ]

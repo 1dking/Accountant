@@ -29,7 +29,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
   Loader2, Sparkles, Trash2, Copy, RotateCcw, X, Replace, Plus,
-  Film, Image as ImageIcon, GripVertical, Wand2, Play,
+  Film, Image as ImageIcon, GripVertical, Wand2, Play, Palette,
 } from 'lucide-react'
 import {
   DndContext, PointerSensor, KeyboardSensor, useSensor, useSensors,
@@ -44,6 +44,7 @@ import { pagesApi } from '@/api/pages'
 import VariantPickerModal from './VariantPickerModal'
 import MediaPickerModal, { type MediaSlotKind } from './MediaPickerModal'
 import AnimationPickerModal from './AnimationPickerModal'
+import StyleEditorDrawer from './StyleEditorDrawer'
 import './section-editor.css'
 
 // Media tokens — kept in sync with backend variants.py MEDIA_TOKENS
@@ -222,6 +223,51 @@ function jsxToHtml(jsx: string): string {
 function sectionBodyHtml(section: PageSection): string {
   if (section.edited_html) return section.edited_html
   return jsxToHtml(section.jsx_content || '')
+}
+
+// ---------------------------------------------------------------------------
+// Commit 6 — client-side mirror of backend compile_section_styles.
+// Used to derive the live-preview CSS string the drawer posts into the
+// iframe on every control change.
+// ---------------------------------------------------------------------------
+
+const CSS_VALUE_REJECT = /[{};<>]/
+
+function camelToKebab(name: string): string {
+  return name.replace(/([A-Z])/g, '-$1').toLowerCase()
+}
+
+export function compileStyleOverridesPreview(
+  overrides: Record<string, Record<string, string | number>> | null | undefined,
+): string {
+  if (!overrides) return ''
+  const rules: string[] = []
+  for (const selector of Object.keys(overrides)) {
+    const props = overrides[selector]
+    if (!props || typeof props !== 'object') continue
+    const decls: string[] = []
+    for (const key of Object.keys(props)) {
+      const val = props[key]
+      const safe = typeof val === 'number'
+        ? String(val)
+        : (typeof val === 'string' && !CSS_VALUE_REJECT.test(val) ? val.trim() : null)
+      if (!safe) continue
+      let v = safe
+      const cssProp = camelToKebab(key)
+      if (cssProp === 'font-family' && v.includes(' ')
+          && !v.startsWith('"') && !v.startsWith("'")) {
+        v = `"${v}"`
+      }
+      decls.push(`  ${cssProp}: ${v};`)
+    }
+    if (!decls.length) continue
+    // Preview CSS is injected INSIDE the iframe — selector doesn't
+    // need the #section-{sid} prefix because the iframe scope is
+    // already isolated to one section's content.
+    const target = selector === 'section' ? 'body > *' : selector
+    rules.push(target + ' {\n' + decls.join('\n') + '\n}')
+  }
+  return rules.join('\n')
 }
 
 // ---------------------------------------------------------------------------
@@ -678,6 +724,16 @@ const EDITOR_SCRIPT = `
     overlay.style.left = (rect.left + window.scrollX) + 'px';
     overlay.style.width = rect.width + 'px';
     overlay.style.height = rect.height + 'px';
+
+    // Commit 6 — broadcast the selected element's tag to the parent so
+    // the StyleEditorDrawer knows which selector to apply edits to.
+    // Tag is lowercased; this is the same key compile_page uses for
+    // style_overrides.
+    window.parent.postMessage({
+      type: 'section-element-selected',
+      sectionId: window.__sectionId,
+      selector: (clicked.tagName || '').toLowerCase(),
+    }, '*');
   }, true);
 
   // Resize observer — sections grow when the user types
@@ -685,6 +741,25 @@ const EDITOR_SCRIPT = `
   ro.observe(document.body);
   window.addEventListener('load', postSize);
   postSize();
+
+  // Commit 6 — live style preview channel. Parent posts a CSS string
+  // built from the drawer's pending style_overrides; we inject (or
+  // replace) a <style id="se-overrides"> in the iframe head so the
+  // preview matches what compile_page will emit. No srcdoc rebuild,
+  // no Tailwind/GSAP reload.
+  window.addEventListener('message', function(e) {
+    if (!e || !e.data) return;
+    if (e.data.type === 'style-overrides-preview'
+        && e.data.sectionId === window.__sectionId) {
+      var styleEl = document.getElementById('se-overrides');
+      if (!styleEl) {
+        styleEl = document.createElement('style');
+        styleEl.id = 'se-overrides';
+        document.head.appendChild(styleEl);
+      }
+      styleEl.textContent = e.data.css || '';
+    }
+  });
 <\/script>
 `
 
@@ -770,6 +845,17 @@ function SectionBlock({
   // Animation picker open state. Reads section.animations to pre-select
   // the current preset.
   const [animOpen, setAnimOpen] = useState(false)
+  // Commit 6 — style editor drawer.
+  //   styleOpen        — visibility
+  //   styleSelector    — element being styled ("h1", "section", ...).
+  //                      Defaults to "section" when the user opens the
+  //                      drawer without first clicking an element.
+  //   selectedElement  — most-recent element click from the iframe.
+  //                      Drawer reads this to pre-target the right
+  //                      selector when opened via the hover bar icon.
+  const [styleOpen, setStyleOpen] = useState(false)
+  const [styleSelector, setStyleSelector] = useState<string>('section')
+  const selectedElementRef = useRef<string>('section')
 
   const sectionId = section.id || `section-${index}`
 
@@ -849,12 +935,46 @@ function SectionBlock({
         setIframeHeight(h)
       } else if (e.data?.type === 'section-content-changed') {
         patchMut.mutate({ edited_html: e.data.html })
+      } else if (e.data?.type === 'section-element-selected') {
+        // Commit 6 — remember which element the user last clicked so
+        // opening the Style drawer via the hover bar targets it.
+        const sel = String(e.data.selector || 'section')
+        selectedElementRef.current = sel
+        // If the drawer is already open, switch its target live so the
+        // user can re-target without close/reopen.
+        if (styleOpen) setStyleSelector(sel)
       }
     }
     window.addEventListener('message', handler)
     return () => window.removeEventListener('message', handler)
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sectionId, styleOpen])
+
+  /** Push a CSS string into the iframe via postMessage. Used for the
+   *  drawer's live-preview channel — fires on every control change,
+   *  no PATCH round-trip required. */
+  const pushPreviewCss = useCallback((
+    overrides: Record<string, Record<string, string | number>>,
+  ) => {
+    const win = iframeRef.current?.contentWindow
+    if (!win) return
+    win.postMessage({
+      type: 'style-overrides-preview',
+      sectionId,
+      css: compileStyleOverridesPreview(overrides),
+    }, '*')
   }, [sectionId])
+
+  /** Open style drawer with the currently-selected element (or
+   *  "section" if no element was clicked). Closes any other drawer
+   *  open on this section so only one is active at a time
+   *  (Commit 6 Workstream D.2). */
+  const openStyleDrawer = useCallback(() => {
+    setAnimOpen(false)
+    setMediaSlot(null)
+    setStyleSelector(selectedElementRef.current || 'section')
+    setStyleOpen(true)
+  }, [])
 
   const queryClient = useQueryClient()
   const invalidate = () => {
@@ -939,20 +1059,24 @@ function SectionBlock({
         </button>
       )}
 
-      {/* Hover controls — Liquid Glass floating bar, top-right */}
+      {/* Hover controls — Liquid Glass floating bar, top-right.
+          Commit 6 Workstream D — visual grouping with a 1px divider.
+          Primary cluster (style / animations / variant) groups the
+          design-altering tools; secondary cluster (refine-ai /
+          duplicate / revert / delete) groups content/lifecycle
+          operations. */}
       {hovered && (
         <div className="absolute top-3 right-3 z-20 se-control-bar">
           <button
-            onClick={() => setShowRefineInput(true)}
-            disabled={refining}
-            className="se-control-btn se-ctrl-refine"
-            aria-label="Refine with AI"
+            onClick={openStyleDrawer}
+            className="se-control-btn se-ctrl-style"
+            aria-label="Style"
           >
-            {refining ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            <span className="se-tooltip">Refine with AI</span>
+            <Palette className="h-4 w-4" />
+            <span className="se-tooltip">Style</span>
           </button>
           <button
-            onClick={() => setAnimOpen(true)}
+            onClick={() => { setStyleOpen(false); setMediaSlot(null); setAnimOpen(true) }}
             className="se-control-btn se-ctrl-anim"
             aria-label="Animations"
           >
@@ -966,6 +1090,18 @@ function SectionBlock({
           >
             <Replace className="h-4 w-4" />
             <span className="se-tooltip">Change variant</span>
+          </button>
+
+          <span className="se-control-divider" aria-hidden="true" />
+
+          <button
+            onClick={() => setShowRefineInput(true)}
+            disabled={refining}
+            className="se-control-btn se-ctrl-refine"
+            aria-label="Refine with AI"
+          >
+            {refining ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            <span className="se-tooltip">Refine with AI</span>
           </button>
           <button
             onClick={() => duplicateMut.mutate()}
@@ -1093,7 +1229,9 @@ function SectionBlock({
           {mediaTokens.map((tok) => (
             <button
               key={tok}
-              onClick={() => setMediaSlot(tok)}
+              onClick={() => {
+                setStyleOpen(false); setAnimOpen(false); setMediaSlot(tok)
+              }}
               className="se-media-pill"
               title={`Edit ${tokenLabel(tok)}`}
             >
@@ -1121,6 +1259,25 @@ function SectionBlock({
           setTimeout(replayInIframe, 80)
         }}
         onReplay={replayInIframe}
+      />
+
+      {/* Style editor drawer — Commit 6 Workstream A. Opens via the
+          hover bar 🎨 icon. Live-preview channel mutates the iframe's
+          <style id="se-overrides"> on every control change; debounced
+          PATCH then persists to sections_json[i].style_overrides. */}
+      <StyleEditorDrawer
+        open={styleOpen}
+        pageId={pageId}
+        sectionIndex={index}
+        selector={styleSelector}
+        initialOverrides={
+          (section.style_overrides as Record<
+            string, Record<string, string | number>
+          > | undefined) ?? undefined
+        }
+        onPreview={pushPreviewCss}
+        onSaved={invalidate}
+        onClose={() => setStyleOpen(false)}
       />
 
       {/* Media picker modal — opens when a slot pill is clicked. The

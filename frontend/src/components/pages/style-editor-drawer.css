@@ -1,0 +1,323 @@
+/**
+ * StyleEditorDrawer — Liquid Glass right-side drawer for element-
+ * level style overrides (Commit 6 Workstream A). Visual language
+ * mirrors AnimationPickerModal so the editor stays coherent.
+ *
+ * Tokens shadow the .ap- vars from animation-picker.css so future
+ * theme work can swap both surfaces in one place.
+ */
+
+.sed-modal {
+  --sed-surface: rgba(15, 18, 32, 0.94);
+  --sed-blur: blur(36px) saturate(180%);
+  --sed-border: rgba(255, 255, 255, 0.10);
+  --sed-text: rgba(255, 255, 255, 0.96);
+  --sed-text-muted: rgba(255, 255, 255, 0.50);
+  --sed-text-dim: rgba(255, 255, 255, 0.30);
+  --sed-card-bg: rgba(255, 255, 255, 0.04);
+  --sed-card-bg-hover: rgba(255, 255, 255, 0.08);
+  --sed-card-border: rgba(255, 255, 255, 0.08);
+  --sed-card-border-hover: rgba(99, 102, 241, 0.55);
+  --sed-accent: rgba(99, 102, 241, 0.85);
+  --sed-ease: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.sed-backdrop {
+  background: rgba(8, 10, 20, 0.6);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+.sed-drawer {
+  background: var(--sed-surface);
+  -webkit-backdrop-filter: var(--sed-blur);
+  backdrop-filter: var(--sed-blur);
+  border-left: 1px solid var(--sed-border);
+  box-shadow: -24px 0 64px rgba(0, 0, 0, 0.55);
+  color: var(--sed-text);
+  width: 480px;
+  max-width: 95vw;
+}
+
+/* Selector chip in the header — shows which element is being edited */
+.sed-selector-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(99, 102, 241, 0.18);
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  color: rgba(199, 210, 254, 0.95);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+/* Section header inside drawer (Typography / Color / Spacing / etc.) */
+.sed-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sed-text-muted);
+  padding: 14px 0 8px;
+  margin-top: 4px;
+}
+.sed-section-header:first-child { margin-top: 0; padding-top: 4px; }
+
+/* Row layout: label left, control right */
+.sed-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 0;
+}
+.sed-row + .sed-row {
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+.sed-label {
+  font-size: 12px;
+  color: var(--sed-text);
+  flex: 0 0 auto;
+  min-width: 88px;
+}
+.sed-control {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.sed-value {
+  font-size: 11px;
+  color: var(--sed-text-muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 44px;
+  text-align: right;
+}
+
+/* Slider — used for size / line-height / letter-spacing / radius / etc. */
+.sed-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1;
+  height: 4px;
+  background: linear-gradient(90deg, rgba(99, 102, 241, 0.6), rgba(139, 92, 246, 0.5));
+  border-radius: 999px;
+  outline: none;
+  cursor: pointer;
+}
+.sed-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  border: none;
+}
+.sed-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  border: none;
+}
+
+/* Select dropdown (font family, weight, transform, ...) */
+.sed-select {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--sed-card-border);
+  border-radius: 6px;
+  padding: 5px 8px;
+  color: var(--sed-text);
+  font-size: 12px;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23a0aec0' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+  background-size: 14px;
+  padding-right: 24px;
+}
+.sed-select:focus {
+  border-color: var(--sed-accent);
+}
+.sed-select option {
+  background: #0f1220;
+  color: white;
+}
+
+/* Numeric input — paired with slider */
+.sed-num {
+  width: 52px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--sed-card-border);
+  border-radius: 6px;
+  padding: 4px 6px;
+  color: var(--sed-text);
+  font-size: 11px;
+  text-align: right;
+  outline: none;
+}
+.sed-num:focus {
+  border-color: var(--sed-accent);
+}
+
+/* Color picker — native input wrapped in a styled box */
+.sed-color-wrap {
+  position: relative;
+  display: inline-block;
+  width: 32px;
+  height: 24px;
+  border-radius: 6px;
+  border: 1px solid var(--sed-card-border);
+  overflow: hidden;
+  cursor: pointer;
+}
+.sed-color-wrap input[type="color"] {
+  position: absolute;
+  inset: -4px;
+  width: calc(100% + 8px);
+  height: calc(100% + 8px);
+  border: none;
+  cursor: pointer;
+  background: transparent;
+}
+.sed-color-hex {
+  width: 78px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--sed-card-border);
+  border-radius: 6px;
+  padding: 4px 6px;
+  color: var(--sed-text);
+  font-size: 11px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-align: left;
+  outline: none;
+}
+.sed-color-hex:focus {
+  border-color: var(--sed-accent);
+}
+
+/* Brand swatch palette — 8 OCIDM brand colors in a row */
+.sed-swatches {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  padding: 6px 0 0;
+}
+.sed-swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  cursor: pointer;
+  transition: transform 120ms var(--sed-ease), border-color 120ms var(--sed-ease);
+}
+.sed-swatch:hover {
+  transform: scale(1.15);
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+/* Toggle button group (text align, transform) */
+.sed-button-group {
+  display: inline-flex;
+  border: 1px solid var(--sed-card-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.sed-button-group button {
+  padding: 5px 9px;
+  font-size: 11px;
+  background: transparent;
+  color: var(--sed-text-muted);
+  cursor: pointer;
+  border: none;
+  border-right: 1px solid var(--sed-card-border);
+  transition: background 120ms var(--sed-ease), color 120ms var(--sed-ease);
+}
+.sed-button-group button:last-child { border-right: none; }
+.sed-button-group button:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--sed-text);
+}
+.sed-button-group button.active {
+  background: rgba(99, 102, 241, 0.25);
+  color: rgba(199, 210, 254, 1);
+}
+
+/* 4-way input grid (padding / margin top-right-bottom-left) */
+.sed-quad-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  width: 100%;
+}
+.sed-quad-cell {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--sed-text-dim);
+}
+.sed-quad-cell input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--sed-card-border);
+  border-radius: 5px;
+  padding: 3px 6px;
+  color: var(--sed-text);
+  font-size: 11px;
+  text-align: right;
+  outline: none;
+  width: 100%;
+}
+.sed-quad-cell input:focus {
+  border-color: var(--sed-accent);
+}
+
+/* Footer */
+.sed-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  border-top: 1px solid var(--sed-border);
+}
+.sed-reset {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  font-size: 11.5px;
+  color: var(--sed-text-muted);
+  background: transparent;
+  border: 1px solid var(--sed-card-border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 140ms var(--sed-ease), color 140ms var(--sed-ease), border-color 140ms var(--sed-ease);
+}
+.sed-reset:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--sed-text);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+.sed-status {
+  font-size: 10.5px;
+  color: var(--sed-text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.sed-status.saving { color: rgba(165, 243, 252, 0.85); }
+.sed-status.saved { color: rgba(167, 243, 208, 0.75); }

@@ -130,6 +130,168 @@ GSAP_CDN_SCRIPT = (
 )
 
 
+# Commit 6 — Element-level style editor.
+#
+# style_overrides shape (per section, persisted via PATCH /sections/{idx}):
+#
+#   { selector: { propertyCamelCase: "value", ... }, ... }
+#
+# e.g.
+#   {
+#     "h1":      {"fontFamily": "Playfair Display", "fontSize": "64px",
+#                 "lineHeight": "0.9", "color": "#ffffff"},
+#     "p":       {"fontFamily": "Inter"},
+#     "section": {"paddingTop": "96px", "backgroundColor": "#0f1320",
+#                 "borderRadius": "24px"}
+#   }
+#
+# Compile rules:
+#   - The "section" pseudo-selector targets the section's outer wrapper
+#     (#section-{sid}). Anything else is treated as a CSS tag selector
+#     scoped inside the section (#section-{sid} h1).
+#   - Section-scoped by design — a per-section "h1" rule colors EVERY
+#     h1 in that section the same. Per-element targeting is deferred
+#     (would require injecting unique IDs into all 15 variant templates;
+#     uniform-by-section matches the Liquid Glass / one-aesthetic-per-
+#     section design intent). See Commit 6 spec.
+#   - CSS properties are camelCase in the JSON (React convention so
+#     drawer code can use the standard CSSProperties type); we
+#     kebab-case them at compile time.
+#   - All values pass through a defensive CSS-value validator that
+#     rejects {, }, ;, < which would break out of the rule block.
+
+# Curated set of font families we treat as Google Fonts. Matches the
+# drawer's curated picker. Any fontFamily value outside this set is
+# emitted as a CSS font-family but NOT requested from Google Fonts
+# (could be a system stack like "Inter, system-ui, sans-serif" or a
+# brand-shipped font).
+GOOGLE_FONTS_CATALOG: set[str] = {
+    "Inter", "Roboto", "Open Sans", "Lato", "Poppins",
+    "Playfair Display", "Cormorant Garamond", "Space Grotesk",
+    "Manrope", "DM Sans", "Plus Jakarta Sans", "Outfit",
+    "Geist", "Mona Sans", "JetBrains Mono", "IBM Plex Sans",
+    "Work Sans", "Nunito", "Source Sans 3", "Merriweather",
+}
+
+# camelCase → kebab-case for CSS property names. Pre-compiled for the
+# style-override compile path which runs once per page render.
+_CAMEL_TO_KEBAB = re.compile(r"(?<!^)(?=[A-Z])")
+
+
+def _camel_to_kebab(name: str) -> str:
+    return _CAMEL_TO_KEBAB.sub("-", name).lower()
+
+
+# CSS value safety — reject characters that could break out of the
+# rule block or inject more rules. CSS values are arbitrary strings
+# from the drawer, so this is the trust boundary.
+_CSS_VALUE_REJECT = re.compile(r"[{};<>]")
+
+
+def _safe_css_value(value: Any) -> str | None:
+    """Return the value as a clean CSS value string, or None if it's
+    unsafe. Numbers pass through (assumed to be unitless or px-style).
+    """
+    if isinstance(value, (int, float)):
+        return str(value)
+    if not isinstance(value, str):
+        return None
+    v = value.strip()
+    if not v:
+        return None
+    if _CSS_VALUE_REJECT.search(v):
+        return None
+    return v
+
+
+def _extract_google_fonts(sections: list[dict]) -> list[str]:
+    """Collect unique fontFamily values across all sections that match
+    GOOGLE_FONTS_CATALOG. Sorted for deterministic output."""
+    found: set[str] = set()
+    for sec in sections:
+        overrides = sec.get("style_overrides") or {}
+        if not isinstance(overrides, dict):
+            continue
+        for _selector, props in overrides.items():
+            if not isinstance(props, dict):
+                continue
+            family = props.get("fontFamily")
+            if isinstance(family, str):
+                # The drawer may store "Inter, system-ui, sans-serif" —
+                # only the first token is the requested family.
+                primary = family.split(",")[0].strip().strip("'\"")
+                if primary in GOOGLE_FONTS_CATALOG:
+                    found.add(primary)
+    return sorted(found)
+
+
+def _build_google_fonts_link(families: list[str]) -> str:
+    """Emit a single <link> requesting all needed families with the
+    common weight range (300-800) and italic axis. Empty string when
+    no families need loading."""
+    if not families:
+        return ""
+    parts = []
+    for fam in families:
+        slug = fam.replace(" ", "+")
+        parts.append(f"family={slug}:wght@300;400;500;600;700;800")
+    qs = "&".join(parts) + "&display=swap"
+    return (
+        '<link rel="preconnect" href="https://fonts.googleapis.com">\n'
+        '  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n'
+        f'  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?{qs}">'
+    )
+
+
+def _compile_section_styles(sid: str, overrides: dict[str, Any]) -> str:
+    """Generate the scoped CSS rule body for one section's overrides.
+    Empty string if no overrides resolve to safe values.
+
+    Selector mapping:
+      - "section" → "#section-{sid}, #section-{sid} > section" (the
+        wrapper div + the variant's inner section element). All 15
+        flagship variants start with a <section> as their root, so
+        targeting both covers padding/background changes whether the
+        variant uses an inner section or not.
+      - anything else → "#section-{sid} <selector>" (descendants).
+    """
+    if not isinstance(overrides, dict) or not overrides:
+        return ""
+    rules: list[str] = []
+    for selector, props in overrides.items():
+        if not isinstance(props, dict) or not props:
+            continue
+        decls: list[str] = []
+        for prop, val in props.items():
+            if not isinstance(prop, str):
+                continue
+            safe = _safe_css_value(val)
+            if safe is None:
+                continue
+            css_prop = _camel_to_kebab(prop)
+            # font-family values with spaces need quoting per CSS spec.
+            # The drawer sends canonical names like "Playfair Display";
+            # we wrap-or-pass through depending on whether quotes are
+            # present already.
+            if (
+                css_prop == "font-family"
+                and " " in safe
+                and not (safe.startswith('"') or safe.startswith("'"))
+            ):
+                safe = f'"{safe}"'
+            decls.append(f"  {css_prop}: {safe};")
+        if not decls:
+            continue
+        if selector == "section":
+            target = f"#section-{sid}, #section-{sid} > section"
+        else:
+            # Strip any user-typed prefix; selector is a bare tag/class
+            # by convention (drawer never produces complex selectors).
+            target = f"#section-{sid} {selector}"
+        rules.append(target + " {\n" + "\n".join(decls) + "\n}")
+    return "\n".join(rules)
+
+
 def _build_animation_init_script() -> str:
     """Inline JS that wires GSAP timelines for:
       - 4A [data-section-anim] flat configs (scroll_reveal /
@@ -589,11 +751,14 @@ def compile_page(
     from app.pages.variants import substitute_media_tokens
 
     body_sections: list[str] = []
+    style_blocks: list[str] = []
+    parsed_sections: list[dict] = []
     any_animations = False
     if page.sections_json:
         try:
             sections = json.loads(page.sections_json)
-            for sec in sections:
+            parsed_sections = [s for s in sections if isinstance(s, dict)]
+            for i, sec in enumerate(sections):
                 media_props = {
                     **((sec.get("metadata") or {}).get("props") or {}),
                     **(sec.get("media_overrides") or {}),
@@ -628,7 +793,22 @@ def compile_page(
                     if not is_none:
                         any_animations = True
                     rendered = _wrap_section_with_animation(rendered, anim_cfg)
-                body_sections.append(rendered)
+
+                # Commit 6 — section-id wrapper. The id is the stable
+                # source of truth for style_overrides scoping; fall
+                # back to position-based id if a legacy section is
+                # missing one (defensive — every variant_to_section
+                # output sets an id).
+                sid = sec.get("id") or f"sec-{i}"
+                body_sections.append(
+                    f'<section id="section-{sid}" data-pages-section>{rendered}</section>'
+                )
+
+                overrides = sec.get("style_overrides") or {}
+                if overrides:
+                    block = _compile_section_styles(sid, overrides)
+                    if block:
+                        style_blocks.append(block)
         except json.JSONDecodeError:
             logger.warning(
                 "compile_page.sections_parse_failed page_id=%s — falling back to html_content",
@@ -657,6 +837,16 @@ def compile_page(
     anim_head = GSAP_CDN_SCRIPT if any_animations else ""
     anim_body_end = _build_animation_init_script() if any_animations else ""
 
+    # Commit 6 — Google Fonts + per-section style overrides.
+    google_fonts_link = _build_google_fonts_link(
+        _extract_google_fonts(parsed_sections)
+    )
+    style_overrides_block = (
+        "<style id=\"pages-style-overrides\">\n"
+        + "\n".join(style_blocks)
+        + "\n</style>"
+    ) if style_blocks else ""
+
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -671,8 +861,10 @@ def compile_page(
   <meta property="og:type" content="website">
   {og_image}
   {favicon}
+  {google_fonts_link}
   {TAILWIND_CDN_SCRIPT}
   {anim_head}
+  {style_overrides_block}
   {jsonld}
 </head>
 <body class="bg-white text-gray-900 antialiased">

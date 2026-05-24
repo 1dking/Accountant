@@ -1597,6 +1597,13 @@ async def change_section_variant(
     }
     if carried_media:
         new_section["media_overrides"] = carried_media
+    # Commit 6 — carry style_overrides across the swap. Selectors that
+    # don't match anything in the new template just become no-op CSS
+    # rules; this is harmless and lets the user keep brand styling
+    # when swapping layout-only.
+    carried_styles = old_section.get("style_overrides")
+    if isinstance(carried_styles, dict) and carried_styles:
+        new_section["style_overrides"] = carried_styles
 
     sections[section_index] = new_section
     page.sections_json = json.dumps(sections)

@@ -95,6 +95,24 @@
   background: rgba(239, 68, 68, 0.20);
   color: #fecaca;
 }
+/* Style 🎨 icon: pink accent on hover */
+.se-control-btn.se-ctrl-style:hover {
+  background: rgba(236, 72, 153, 0.20);
+  color: #fbcfe8;
+}
+
+/* Commit 6 Workstream D — 1px divider between primary (style /
+   animations / variant) and secondary (refine / duplicate / revert /
+   delete) clusters in the hover control bar. Visual grouping at no
+   extra-icon cost. */
+.se-control-divider {
+  display: inline-block;
+  width: 1px;
+  height: 22px;
+  margin: 0 4px;
+  background: rgba(255, 255, 255, 0.10);
+  flex-shrink: 0;
+}
 
 /* Tooltip — appears below the icon on hover */
 .se-tooltip {

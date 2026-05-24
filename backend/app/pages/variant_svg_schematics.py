@@ -588,6 +588,90 @@ SVG_LOGOS_MARQUEE = (
 )
 
 
+# -----------------------------------------------------------------------------
+# NAV schematics (Commit 6 Workstream C.1) — 13th category
+# -----------------------------------------------------------------------------
+
+# All three nav schematics use the same 400×250 viewBox so they sit
+# uniformly next to the other variant cards. The nav itself only
+# occupies the top band (y 0-60); the rest of the canvas shows a faint
+# hero placeholder so the picker user can read the visual context.
+
+SVG_NAV_TRANSPARENT_ON_HERO = (
+    '<svg viewBox="0 0 400 250" xmlns="http://www.w3.org/2000/svg" '
+    'preserveAspectRatio="xMidYMid slice" role="img" '
+    'aria-label="Transparent-on-hero nav schematic">'
+    + _GRADIENT_DEFS +
+    # Hero placeholder (gradient suggesting a vibrant hero)
+    '<rect width="400" height="250" fill="#0F1320"/>'
+    '<rect x="0" y="0" width="400" height="250" fill="url(#lg-accent)" opacity="0.20"/>'
+    '<rect x="0" y="0" width="400" height="250" fill="url(#lg-fade)"/>'
+    # Transparent nav band — just the elements, no bg
+    # Brand
+    '<text x="22" y="34" fill="rgba(255,255,255,0.92)" font-family="Inter, sans-serif" font-size="13" font-weight="700">Acme</text>'
+    # Center nav links (4 bars)
+    '<rect x="155" y="28" width="22" height="6" rx="2" fill="rgba(255,255,255,0.65)"/>'
+    '<rect x="185" y="28" width="22" height="6" rx="2" fill="rgba(255,255,255,0.65)"/>'
+    '<rect x="215" y="28" width="28" height="6" rx="2" fill="rgba(255,255,255,0.65)"/>'
+    '<rect x="251" y="28" width="20" height="6" rx="2" fill="rgba(255,255,255,0.65)"/>'
+    # CTA pill — gradient accent
+    '<rect x="328" y="20" width="56" height="22" rx="11" fill="url(#lg-accent)"/>'
+    '<text x="356" y="35" text-anchor="middle" fill="white" font-family="Inter, sans-serif" font-size="9" font-weight="600">Get started</text>'
+    # Visual indicator the nav floats over the hero — small "↓ scroll" hint at left
+    '<text x="200" y="135" text-anchor="middle" fill="rgba(255,255,255,0.50)" font-family="Inter, sans-serif" font-size="11" font-weight="500" letter-spacing="0.05em">TRANSPARENT</text>'
+    '<text x="200" y="152" text-anchor="middle" fill="rgba(255,255,255,0.30)" font-family="Inter, sans-serif" font-size="9">over hero · solid on scroll</text>'
+    '</svg>'
+)
+
+SVG_NAV_SOLID_ALWAYS = (
+    '<svg viewBox="0 0 400 250" xmlns="http://www.w3.org/2000/svg" '
+    'preserveAspectRatio="xMidYMid slice" role="img" '
+    'aria-label="Solid nav schematic">'
+    + _GRADIENT_DEFS +
+    '<rect width="400" height="250" fill="#0F1320"/>'
+    # Solid nav band — distinct surface + bottom border
+    '<rect x="0" y="0" width="400" height="56" fill="rgba(255,255,255,0.04)"/>'
+    '<rect x="0" y="55" width="400" height="1" fill="rgba(255,255,255,0.12)"/>'
+    # Brand
+    '<text x="22" y="34" fill="rgba(255,255,255,0.92)" font-family="Inter, sans-serif" font-size="13" font-weight="700">Acme</text>'
+    # 4 link bars
+    '<rect x="155" y="28" width="22" height="6" rx="2" fill="rgba(255,255,255,0.55)"/>'
+    '<rect x="185" y="28" width="22" height="6" rx="2" fill="rgba(255,255,255,0.55)"/>'
+    '<rect x="215" y="28" width="28" height="6" rx="2" fill="rgba(255,255,255,0.55)"/>'
+    '<rect x="251" y="28" width="20" height="6" rx="2" fill="rgba(255,255,255,0.55)"/>'
+    # CTA pill
+    '<rect x="328" y="20" width="56" height="22" rx="11" fill="url(#lg-accent)"/>'
+    '<text x="356" y="35" text-anchor="middle" fill="white" font-family="Inter, sans-serif" font-size="9" font-weight="600">Get started</text>'
+    # Below the nav: hint that the section just sits below
+    '<rect x="80" y="120" width="240" height="10" rx="3" fill="rgba(255,255,255,0.10)"/>'
+    '<rect x="100" y="138" width="200" height="6" rx="2" fill="rgba(255,255,255,0.06)"/>'
+    '<text x="200" y="178" text-anchor="middle" fill="rgba(255,255,255,0.45)" font-family="Inter, sans-serif" font-size="11" font-weight="500" letter-spacing="0.05em">SOLID</text>'
+    '</svg>'
+)
+
+SVG_NAV_CENTERED_LOGO = (
+    '<svg viewBox="0 0 400 250" xmlns="http://www.w3.org/2000/svg" '
+    'preserveAspectRatio="xMidYMid slice" role="img" '
+    'aria-label="Centered-logo nav schematic">'
+    + _GRADIENT_DEFS +
+    '<rect width="400" height="250" fill="#0F1320"/>'
+    # Solid nav band
+    '<rect x="0" y="0" width="400" height="56" fill="rgba(255,255,255,0.04)"/>'
+    '<rect x="0" y="55" width="400" height="1" fill="rgba(255,255,255,0.12)"/>'
+    # 2 links left
+    '<rect x="40" y="28" width="22" height="6" rx="2" fill="rgba(255,255,255,0.55)"/>'
+    '<rect x="74" y="28" width="28" height="6" rx="2" fill="rgba(255,255,255,0.55)"/>'
+    # Centered brand
+    '<text x="200" y="34" text-anchor="middle" fill="rgba(255,255,255,0.92)" font-family="Inter, sans-serif" font-size="14" font-weight="800" letter-spacing="0.02em">Atelier</text>'
+    # 2 links right
+    '<rect x="298" y="28" width="26" height="6" rx="2" fill="rgba(255,255,255,0.55)"/>'
+    '<rect x="336" y="28" width="22" height="6" rx="2" fill="rgba(255,255,255,0.55)"/>'
+    # Editorial hint below
+    '<text x="200" y="165" text-anchor="middle" fill="rgba(255,255,255,0.45)" font-family="Inter, sans-serif" font-size="11" font-weight="500" letter-spacing="0.18em">EDITORIAL</text>'
+    '</svg>'
+)
+
+
 SCHEMATICS_BY_VARIANT_ID: dict[str, str] = {
     "hero_video": SVG_HERO_VIDEO,
     "hero_two_col_image": SVG_HERO_TWO_COL_IMAGE,
@@ -604,4 +688,7 @@ SCHEMATICS_BY_VARIANT_ID: dict[str, str] = {
     "footer_4col": SVG_FOOTER_4COL,
     "gallery_masonry": SVG_GALLERY_MASONRY,
     "logos_marquee": SVG_LOGOS_MARQUEE,
+    "nav_transparent_on_hero": SVG_NAV_TRANSPARENT_ON_HERO,
+    "nav_solid_always": SVG_NAV_SOLID_ALWAYS,
+    "nav_centered_logo": SVG_NAV_CENTERED_LOGO,
 }

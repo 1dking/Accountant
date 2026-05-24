@@ -284,6 +284,21 @@ async def create_page(db: AsyncSession, data, user) -> Page:
         page_order=getattr(data, "page_order", 0) or 0,
         created_by=user.id,
     )
+    # Commit 6 Workstream C.1 — auto-prepend the default nav variant on
+    # new page creation (Option B rollout). If the variant isn't seeded
+    # in this environment (legacy fixtures, fresh test DB), we silently
+    # skip — existing pages already followed the no-nav path so this
+    # behaves identically to before Commit 6 in that case.
+    from app.pages.variants import get_variant, variant_to_section
+    import json as _json
+    try:
+        nav_variant = await get_variant(db, "nav", "nav_transparent_on_hero")
+        if nav_variant is not None:
+            section = variant_to_section(nav_variant)
+            page.sections_json = _json.dumps([section])
+    except Exception:
+        # Defensive — never block page creation on the nav-prepend step.
+        pass
     db.add(page)
     await db.commit()
     await db.refresh(page)
