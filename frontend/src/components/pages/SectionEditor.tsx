@@ -921,6 +921,32 @@ function SectionBlock({
     return JSON.stringify({ preset: a.preset, config: a.config || {} })
   }, [section.animations])
 
+  // Commit 6.0.2 — pre-compute the scoped CSS block derived from the
+  // section's persisted style_overrides. Byte-identical to what
+  // compile_page emits for the published page (#section-{sid} h1 {...}).
+  // Baked into srcdoc below so the iframe paints correctly on initial
+  // mount; the post-mount useEffect handles subsequent updates via
+  // postMessage so the iframe doesn't re-mount on every persisted edit.
+  const styleOverridesCss = useMemo(() => {
+    return compileStyleOverridesPreview(
+      section.style_overrides as Record<string, Record<string, string | number>> | undefined,
+      sectionId,
+    )
+  }, [section.style_overrides, sectionId])
+
+  // style_overrides is intentionally NOT in this useMemo's deps array.
+  //
+  // Initial mount: srcdoc includes baked <style id="se-overrides">
+  //   {styleOverridesCss} — iframe paints with correct overrides
+  //   immediately, matches Preview tab + published render.
+  // Subsequent updates: the post-mount useEffect below syncs via
+  //   postMessage by rewriting that same <style id="se-overrides">
+  //   element's textContent. No iframe re-mount.
+  //
+  // If style_overrides WERE a dep here, the iframe would re-mount on
+  // every persisted edit — killing GSAP scroll-triggers, scroll
+  // position, hover state, and any animation runtime state. The
+  // postMessage approach (useEffect below) preserves all of that.
   const srcdoc = useMemo(() => {
     return `<!DOCTYPE html>
 <html>
@@ -933,6 +959,7 @@ function SectionBlock({
     *:hover { cursor: text; }
     [contenteditable="true"]:focus { outline: 2px solid #6366f1; outline-offset: 2px; }
   </style>
+  <style id="se-overrides">${styleOverridesCss}</style>
 </head>
 <body>
   <script>
@@ -944,6 +971,8 @@ function SectionBlock({
   ${EDITOR_SCRIPT}
 </body>
 </html>`
+    // styleOverridesCss intentionally excluded — see comment above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [previewHtml, sectionId, animationSpecJson])
 
   // Listen for messages from THIS section's iframe
@@ -984,6 +1013,30 @@ function SectionBlock({
       css: compileStyleOverridesPreview(overrides, sectionId),
     }, '*')
   }, [sectionId])
+
+  // Commit 6.0.2 — post-mount style sync.
+  //
+  // Initial mount is handled by the srcdoc's baked <style id="se-overrides">
+  // block (above). This effect handles every subsequent change to
+  // section.style_overrides from any source — PATCH refetch (after the
+  // drawer's debounced save), navigation back to this page, parent
+  // component re-renders that bring fresh server data.
+  //
+  // We use postMessage (not srcdoc re-render) because the iframe must
+  // stay mounted to preserve GSAP scroll-triggers, scroll position,
+  // hover state, and animation runtime. The message handler in
+  // EDITOR_SCRIPT finds the existing <style id="se-overrides"> by id
+  // and rewrites its textContent — no flash, no re-paint of unstyled
+  // content.
+  useEffect(() => {
+    const overrides = section.style_overrides as
+      Record<string, Record<string, string | number>> | undefined
+    if (!overrides) return
+    // Defer one tick so the iframe load + EDITOR_SCRIPT message
+    // listener attachment have completed before we post.
+    const t = setTimeout(() => pushPreviewCss(overrides), 0)
+    return () => clearTimeout(t)
+  }, [section.style_overrides, pushPreviewCss])
 
   /** Open style drawer with the currently-selected element (or
    *  "section" if no element was clicked). Closes any other drawer

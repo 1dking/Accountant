@@ -182,6 +182,52 @@ describe('SectionEditor iframe live-preview script (Workstream A)', () => {
   })
 })
 
+describe('Visual tab srcdoc bakes style_overrides (Commit 6.0.2)', () => {
+  // Source-level invariants — the SectionBlock's srcdoc useMemo MUST
+  // include a <style id="se-overrides"> block derived from
+  // section.style_overrides. Without this, the Visual tab paints
+  // template defaults on mount/reload/navigation while the Preview
+  // tab (using compile_page output) shows the user's persisted
+  // overrides. That spec drift was the Commit 6.0.1 regression.
+
+  it('srcdoc embeds <style id="se-overrides"> in <head>', () => {
+    // Either form is acceptable — direct literal or interpolated.
+    expect(SECTION_EDITOR_SRC).toMatch(
+      /<style id="se-overrides">\$\{styleOverridesCss\}<\/style>/,
+    )
+  })
+
+  it('derives styleOverridesCss from section.style_overrides via the same helper', () => {
+    // Must use compileStyleOverridesPreview — single source of truth
+    // with compile_page (which uses the same helper's backend mirror).
+    expect(SECTION_EDITOR_SRC).toMatch(
+      /styleOverridesCss\s*=\s*useMemo[\s\S]{0,200}?compileStyleOverridesPreview\(\s*section\.style_overrides/,
+    )
+  })
+
+  it('styleOverridesCss is NOT in srcdoc useMemo deps (no iframe re-mount on edit)', () => {
+    // The srcdoc useMemo deps array must NOT include styleOverridesCss.
+    // If it did, every persisted style change would re-mount the iframe
+    // — killing GSAP scroll-triggers and scroll position. Post-mount
+    // sync is handled by the useEffect below.
+    const srcdocBlock = SECTION_EDITOR_SRC.match(
+      /const srcdoc = useMemo[\s\S]+?\}, \[([^\]]+)\]\)/,
+    )
+    expect(srcdocBlock, 'srcdoc useMemo must exist').toBeTruthy()
+    const deps = srcdocBlock![1]
+    expect(deps).not.toMatch(/styleOverridesCss/)
+  })
+
+  it('post-mount useEffect syncs style_overrides via pushPreviewCss', () => {
+    // Must call pushPreviewCss inside a useEffect that depends on
+    // section.style_overrides. Keeps the iframe in sync after PATCH
+    // refetch without re-mounting.
+    expect(SECTION_EDITOR_SRC).toMatch(
+      /useEffect\(\(\)\s*=>\s*\{[\s\S]+?pushPreviewCss\(overrides\)[\s\S]+?\},\s*\[section\.style_overrides,\s*pushPreviewCss\]/,
+    )
+  })
+})
+
 describe('.sed-backdrop convention (Commit 6.0.1)', () => {
   // Live-editing drawers (Style, future Structure, etc.) must keep
   // the canvas SHARP and UNDIMMED. The user is editing in real time
