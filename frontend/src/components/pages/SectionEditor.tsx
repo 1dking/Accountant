@@ -229,6 +229,12 @@ function sectionBodyHtml(section: PageSection): string {
 // Commit 6 — client-side mirror of backend compile_section_styles.
 // Used to derive the live-preview CSS string the drawer posts into the
 // iframe on every control change.
+//
+// Commit 6.0.1 — accepts sectionId and prefixes every rule with
+// "#section-{sid}". The iframe-side EDITOR_SCRIPT assigns this same id
+// to <body>, so the selector resolves and — critically — beats Tailwind
+// utility classes on specificity (id selector wins over class). Mirrors
+// compile_page output byte-for-byte so editor preview = published render.
 // ---------------------------------------------------------------------------
 
 const CSS_VALUE_REJECT = /[{};<>]/
@@ -239,8 +245,10 @@ function camelToKebab(name: string): string {
 
 export function compileStyleOverridesPreview(
   overrides: Record<string, Record<string, string | number>> | null | undefined,
+  sectionId: string,
 ): string {
   if (!overrides) return ''
+  const scope = `#section-${sectionId}`
   const rules: string[] = []
   for (const selector of Object.keys(overrides)) {
     const props = overrides[selector]
@@ -261,10 +269,13 @@ export function compileStyleOverridesPreview(
       decls.push(`  ${cssProp}: ${v};`)
     }
     if (!decls.length) continue
-    // Preview CSS is injected INSIDE the iframe — selector doesn't
-    // need the #section-{sid} prefix because the iframe scope is
-    // already isolated to one section's content.
-    const target = selector === 'section' ? 'body > *' : selector
+    // Selector mapping mirrors backend _compile_section_styles:
+    //   "section" → "#section-{sid}, #section-{sid} > section"
+    //   anything else → "#section-{sid} {selector}"
+    // The wrapper id is on <body> in the iframe, set by EDITOR_SCRIPT.
+    const target = selector === 'section'
+      ? `${scope}, ${scope} > section`
+      : `${scope} ${selector}`
     rules.push(target + ' {\n' + decls.join('\n') + '\n}')
   }
   return rules.join('\n')
@@ -742,6 +753,15 @@ const EDITOR_SCRIPT = `
   window.addEventListener('load', postSize);
   postSize();
 
+  // Commit 6.0.1 — assign a stable id to the iframe body so the
+  // style-overrides preview rules can be scoped exactly like
+  // compile_page emits them on the published page:
+  //   #section-{sid} h1 { ... }
+  // The id-selector beats Tailwind utility classes on specificity
+  // (0,1,0,1 > 0,0,1,0). Without this, bare h1/p/etc rules lose to
+  // .text-5xl / .font-extrabold / .text-white on the same element.
+  document.body.id = 'section-' + window.__sectionId;
+
   // Commit 6 — live style preview channel. Parent posts a CSS string
   // built from the drawer's pending style_overrides; we inject (or
   // replace) a <style id="se-overrides"> in the iframe head so the
@@ -961,7 +981,7 @@ function SectionBlock({
     win.postMessage({
       type: 'style-overrides-preview',
       sectionId,
-      css: compileStyleOverridesPreview(overrides),
+      css: compileStyleOverridesPreview(overrides, sectionId),
     }, '*')
   }, [sectionId])
 

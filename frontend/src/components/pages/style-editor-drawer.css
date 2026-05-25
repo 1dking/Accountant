@@ -22,10 +22,19 @@
   --sed-ease: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
+/* Commit 6.0.1 — Live-editing drawers do NOT use modal-style
+ * backdrop blur. Users must see the canvas sharply to evaluate
+ * their changes in real-time. Click-catcher only, no visual
+ * treatment.
+ *
+ * Modal pattern (with blur + dim) is correct for picker UIs where
+ * the user chooses then closes — see AnimationPickerModal's
+ * .ap-backdrop. This convention applies to all future live-editing
+ * surfaces (StructureDrawer in Commit 6.1, etc.). */
 .sed-backdrop {
-  background: rgba(8, 10, 20, 0.6);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
+  /* Transparent click-catcher — outside click still closes the
+     drawer, but the canvas behind stays sharp and undimmed. */
+  background: transparent;
 }
 
 .sed-drawer {
