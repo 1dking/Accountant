@@ -1214,6 +1214,7 @@ async def handle_egress_completion(
     duration_seconds: int | None,
     file_size: int | None,
     status: str,
+    settings: "Settings | None" = None,
 ) -> MeetingRecording | None:
     """Idempotent completion handler. Called from both the webhook
     receiver and the reconciliation job — same code path either way.
@@ -1262,6 +1263,21 @@ async def handle_egress_completion(
         "meeting.egress_completed recording_id=%s egress_id=%s status=%s",
         rec.id, egress_id, rec.status.value,
     )
+
+    # Commit 11 — when a recording becomes AVAILABLE, kick off
+    # AssemblyAI transcription. submit_meeting_transcription is
+    # best-effort + idempotent; failure here doesn't roll back the
+    # recording-completion state change above.
+    if rec.status == RecordingStatus.AVAILABLE and settings is not None:
+        try:
+            from app.meetings.transcription import submit_meeting_transcription
+            await submit_meeting_transcription(db, rec, settings)
+        except Exception as exc:
+            logger.warning(
+                "meeting.transcription_kickoff_failed recording_id=%s err=%s",
+                rec.id, str(exc)[:200],
+            )
+
     return rec
 
 
@@ -1319,6 +1335,7 @@ async def reconcile_egresses(db: AsyncSession, settings: Settings) -> int:
             duration_seconds=completion.get("duration_seconds"),
             file_size=completion.get("file_size"),
             status=completion["status"],
+            settings=settings,
         )
         if rec is not None and rec.status == RecordingStatus.AVAILABLE:
             updated += 1

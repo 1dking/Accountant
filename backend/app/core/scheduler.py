@@ -115,6 +115,23 @@ async def _reconcile_meeting_egresses() -> None:
         logger.exception("Error in meeting egress reconciliation")
 
 
+async def _poll_meeting_transcriptions() -> None:
+    """Job: poll AssemblyAI for completion on any PROCESSING transcripts
+    (Commit 11). Runs every 2 minutes — AssemblyAI's nano tier finishes
+    a 45-min recording in ~2-3 min, so this catches most completions
+    within one tick of finishing."""
+    if _settings is None or not _settings.assemblyai_api_key:
+        return
+    try:
+        async with _session_factory() as db:
+            from app.meetings.transcription import poll_pending_transcriptions
+            result = await poll_pending_transcriptions(db, _settings)
+            if result["polled"] > 0:
+                logger.info("meeting.transcription_poll.tick %s", result)
+    except Exception:
+        logger.exception("Error in meeting transcription poll")
+
+
 async def _sync_plaid_transactions() -> None:
     """Job: sync transactions from connected bank accounts."""
     try:
@@ -339,6 +356,13 @@ def setup_scheduler(session_factory: Any, settings: Any = None) -> None:
         _reconcile_meeting_egresses,
         IntervalTrigger(minutes=5),
         id="reconcile_meeting_egresses",
+        replace_existing=True,
+    )
+
+    scheduler.add_job(
+        _poll_meeting_transcriptions,
+        IntervalTrigger(minutes=2),
+        id="poll_meeting_transcriptions",
         replace_existing=True,
     )
 

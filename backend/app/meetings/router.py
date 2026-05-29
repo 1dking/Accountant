@@ -16,7 +16,10 @@ from app.core.exceptions import ValidationError
 from app.dependencies import get_current_user, get_current_user_or_token, get_db, require_role
 from app.documents.storage import LocalStorage, StorageBackend
 from app.meetings import service
-from app.meetings.models import MeetingRecording, MeetingStatus, RecordingStatus
+from app.meetings.models import (
+    MeetingRecording, MeetingStatus, RecordingTranscript,
+    RecordingStatus, TranscriptStatus,
+)
 from app.meetings.schemas import (
     GuestJoinRequest,
     InstantMeetingCreate,
@@ -51,6 +54,48 @@ def get_storage(request: Request) -> StorageBackend:
 # ---------------------------------------------------------------------------
 # Meeting CRUD endpoints
 # ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# Commit 11 — Transcript endpoint
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{meeting_id}/transcript")
+async def get_meeting_transcript(
+    meeting_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    """Return the latest AVAILABLE transcript for the meeting (most
+    recent recording), if any. Returns 404 when no transcript exists
+    yet — the UI uses this to show 'Transcript pending…' messaging."""
+    # Authorize on the meeting (host-only via service.get_meeting).
+    meeting = await service.get_meeting(db, meeting_id, current_user)
+    rows = await db.execute(
+        select(RecordingTranscript)
+        .where(RecordingTranscript.meeting_id == meeting.id)
+        .order_by(RecordingTranscript.created_at.desc())
+    )
+    transcript = rows.scalars().first()
+    if transcript is None:
+        raise HTTPException(status_code=404, detail="No transcript yet")
+    return {
+        "data": {
+            "id": str(transcript.id),
+            "meeting_id": str(transcript.meeting_id),
+            "recording_id": str(transcript.recording_id),
+            "status": transcript.status.value,
+            "provider": transcript.provider,
+            "full_text": transcript.full_text,
+            "segments": transcript.segments_json or [],
+            "language": transcript.language,
+            "duration_seconds": transcript.duration_seconds,
+            "error_message": transcript.error_message,
+            "created_at": transcript.created_at.isoformat() if transcript.created_at else None,
+            "updated_at": transcript.updated_at.isoformat() if transcript.updated_at else None,
+        }
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -763,6 +808,7 @@ async def livekit_webhook(
         duration_seconds=completion.get("duration_seconds"),
         file_size=completion.get("file_size"),
         status=completion["status"],
+        settings=settings,
     )
     return {"received": True}
 

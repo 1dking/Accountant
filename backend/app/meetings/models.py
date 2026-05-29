@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
+    JSON,
     BigInteger,
     Boolean,
     DateTime,
@@ -51,6 +52,21 @@ class LobbyStatus(str, enum.Enum):
 
 class RecordingStatus(str, enum.Enum):
     RECORDING = "recording"
+    PROCESSING = "processing"
+    AVAILABLE = "available"
+    FAILED = "failed"
+
+
+class TranscriptStatus(str, enum.Enum):
+    """Commit 11 — meeting transcription lifecycle.
+
+    PENDING    — row created, submission to AssemblyAI not yet attempted
+    PROCESSING — submitted; AssemblyAI is doing the work; provider_id
+                 holds the AssemblyAI transcript id we poll
+    AVAILABLE  — completed; full_text + segments_json populated
+    FAILED     — terminal error from AssemblyAI; error_message has it
+    """
+    PENDING = "pending"
     PROCESSING = "processing"
     AVAILABLE = "available"
     FAILED = "failed"
@@ -184,3 +200,49 @@ class MeetingRecording(TimestampMixin, Base):
     meeting: Mapped[Meeting] = relationship(
         "Meeting", back_populates="recordings", lazy="selectin"
     )
+
+
+class RecordingTranscript(TimestampMixin, Base):
+    """Commit 11 — server-side transcription of a meeting recording.
+
+    Distinct from app/brain/models.py's MeetingTranscript, which is a
+    fully-realized AI summary artifact (full_text + summary +
+    action_items + financial_commitments) attached to brain memory.
+    THIS model tracks the LiveKit-Egress → AssemblyAI pipeline state
+    (PENDING/PROCESSING/AVAILABLE/FAILED) for a single recording, and
+    holds the raw transcript + segments. A future commit may bridge
+    the two (RecordingTranscript.full_text → MeetingTranscript via the
+    brain summarizer).
+
+    One row per recording, created when the recording becomes
+    AVAILABLE. Submission to AssemblyAI fires asynchronously; a
+    scheduler job polls PROCESSING rows for completion every ~2 min.
+
+    AssemblyAI returns utterances with speaker labels (A, B, C, ...) +
+    millisecond start/end times; we normalize to seconds and store as
+    segments_json. The full_text column will support Postgres FTS in
+    Commit 13.
+    """
+    __tablename__ = "recording_transcripts"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    meeting_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("meetings.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    recording_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("meeting_recordings.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    status: Mapped[TranscriptStatus] = mapped_column(
+        Enum(TranscriptStatus), default=TranscriptStatus.PENDING, nullable=False,
+    )
+    provider: Mapped[str] = mapped_column(String(32), default="assemblyai", nullable=False)
+    provider_id: Mapped[str | None] = mapped_column(
+        String(64), nullable=True, index=True,
+    )
+    full_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    segments_json: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    language: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    duration_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)

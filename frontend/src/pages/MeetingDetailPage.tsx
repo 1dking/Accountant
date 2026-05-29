@@ -11,10 +11,107 @@ import { toast } from 'sonner'
 import {
   getMeeting, cancelMeeting, endMeeting, addParticipant,
   removeParticipant, getRecordingStreamUrl, deleteRecording,
-  getCalendarUrls, sendMeetingInvites,
+  getCalendarUrls, sendMeetingInvites, getMeetingTranscript,
 } from '@/api/meetings'
 import { coachApi } from '@/api/coach'
 import type { MeetingStatus, MeetingParticipant } from '@/types/models'
+
+/** Commit 11 — Transcript section.
+ *
+ * Polls /meetings/{id}/transcript every 8 sec while the row is still
+ * PROCESSING. Renders speaker-labeled segments once AVAILABLE; falls
+ * back to a friendly "transcript is being generated" while pending.
+ * Hides itself entirely when the meeting has no recording yet (404).
+ */
+function TranscriptSection({ meetingId }: { meetingId: string }) {
+  const q = useQuery({
+    queryKey: ['meeting-transcript', meetingId],
+    queryFn: async () => (await getMeetingTranscript(meetingId)).data,
+    // Poll only while still processing; stop once available/failed.
+    refetchInterval: (query) => {
+      const d = query.state.data as any
+      if (!d) return 8000
+      if (d.status === 'available' || d.status === 'failed') return false
+      return 8000
+    },
+    retry: false,
+  })
+
+  // 404 = no transcript yet (no recording). Hide the section.
+  if (q.isError) return null
+  if (q.isLoading) return null
+
+  const t = q.data
+  if (!t) return null
+
+  return (
+    <div className="mb-6 p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+          Transcript
+        </p>
+        {t.status !== 'available' && t.status !== 'failed' && (
+          <span className="inline-flex items-center gap-1.5 text-xs text-cyan-700 dark:text-cyan-300">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            {t.status === 'pending' ? 'Queued…' : 'Transcribing…'}
+          </span>
+        )}
+        {t.status === 'available' && t.segments.length > 0 && (
+          <span className="text-xs text-gray-500 dark:text-gray-400">
+            {t.language ? `${t.language.toUpperCase()} · ` : ''}
+            {t.segments.length} segments
+          </span>
+        )}
+      </div>
+
+      {t.status === 'failed' && (
+        <p className="text-sm text-red-600 dark:text-red-400">
+          Transcription failed{t.error_message ? `: ${t.error_message}` : ''}.
+        </p>
+      )}
+
+      {t.status === 'available' && t.segments.length === 0 && (
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          No spoken audio detected in this recording.
+        </p>
+      )}
+
+      {t.status === 'available' && t.segments.length > 0 && (
+        <div className="max-h-96 overflow-y-auto space-y-3 pr-2">
+          {t.segments.map((seg, i) => (
+            <div key={i} className="flex gap-3">
+              <div className="flex-shrink-0 w-16 text-xs text-gray-400 dark:text-gray-500 font-mono tabular-nums pt-0.5">
+                {fmtTime(seg.start)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 mb-0.5">
+                  Speaker {seg.speaker}
+                </div>
+                <div className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed">
+                  {seg.text}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {(t.status === 'pending' || t.status === 'processing') && (
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          This usually takes ~2-3 minutes after the meeting ends.
+        </p>
+      )}
+    </div>
+  )
+}
+
+function fmtTime(seconds: number): string {
+  const s = Math.floor(seconds)
+  const m = Math.floor(s / 60)
+  const r = s % 60
+  return `${m}:${String(r).padStart(2, '0')}`
+}
+
 
 /** Commit 9 — Calendar invite section.
  *
@@ -568,6 +665,10 @@ export default function MeetingDetailPage() {
       {meeting.status !== 'cancelled' && meeting.status !== 'completed' && (
         <CalendarInviteSection meetingId={meeting.id} />
       )}
+
+      {/* Commit 11 — AI transcript (auto-generated when the meeting
+          recording finishes; hidden until a recording exists). */}
+      <TranscriptSection meetingId={meeting.id} />
 
       {/* Action Buttons */}
       <div className="flex gap-2 mb-6">

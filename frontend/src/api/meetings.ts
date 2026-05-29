@@ -239,6 +239,36 @@ export async function sendMeetingInvites(meetingId: string) {
   return api.post<ApiResponse<SendInvitesResult>>(`/meetings/${meetingId}/send-invites`)
 }
 
+// ---------------------------------------------------------------------------
+// Commit 11 — transcript
+// ---------------------------------------------------------------------------
+
+export interface TranscriptSegment {
+  start: number
+  end: number
+  text: string
+  speaker: string
+}
+
+export interface RecordingTranscript {
+  id: string
+  meeting_id: string
+  recording_id: string
+  status: 'pending' | 'processing' | 'available' | 'failed'
+  provider: string
+  full_text: string | null
+  segments: TranscriptSegment[]
+  language: string | null
+  duration_seconds: number | null
+  error_message: string | null
+  created_at: string | null
+  updated_at: string | null
+}
+
+export async function getMeetingTranscript(meetingId: string) {
+  return api.get<ApiResponse<RecordingTranscript>>(`/meetings/${meetingId}/transcript`)
+}
+
 export async function uploadRecording(meetingId: string, file: Blob): Promise<ApiResponse<MeetingRecording>> {
   const formData = new FormData()
   formData.append('file', file, `recording-${Date.now()}.webm`)
