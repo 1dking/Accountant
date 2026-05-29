@@ -21,9 +21,23 @@ from app.meetings.models import (
     MeetingParticipant,
     MeetingRecording,
     MeetingStatus,
+    MeetingTemplate,
     ParticipantRole,
     RecordingStatus,
 )
+
+
+# Commit 16 — Template-driven defaults applied at create time when the
+# caller doesn't explicitly override. Keep the data simple: just what
+# the template would have selected on the picker, no AI prompt
+# overrides here (those live in summarization/quote_draft modules
+# where they're closer to the place they're consumed).
+TEMPLATE_DEFAULTS = {
+    MeetingTemplate.DISCOVERY_CALL: {"record_meeting_default": True},
+    MeetingTemplate.CLIENT_REVIEW:  {"record_meeting_default": True},
+    MeetingTemplate.INTERNAL_SYNC:  {"record_meeting_default": False},
+    MeetingTemplate.GENERIC:        {"record_meeting_default": False},
+}
 from app.meetings.schemas import (
     JoinTokenResponse,
     MeetingCreate,
@@ -144,6 +158,14 @@ async def create_meeting(
     room_name = f"meeting-{uuid.uuid4().hex[:16]}"
     slug = await _generate_unique_slug(db)
 
+    # Commit 16 — template-driven defaults. If the caller omitted
+    # record_meeting (default False) but picked a template that
+    # implies recording (e.g. DISCOVERY_CALL), promote it to True.
+    record_meeting = data.record_meeting
+    template = getattr(data, "template", MeetingTemplate.GENERIC)
+    if not record_meeting and template in TEMPLATE_DEFAULTS:
+        record_meeting = TEMPLATE_DEFAULTS[template]["record_meeting_default"]
+
     meeting = Meeting(
         title=data.title,
         description=data.description,
@@ -152,7 +174,8 @@ async def create_meeting(
         scheduled_start=data.scheduled_start,
         scheduled_end=data.scheduled_end,
         livekit_room_name=room_name,
-        record_meeting=data.record_meeting,
+        record_meeting=record_meeting,
+        template=template,
         created_by=user.id,
         contact_id=data.contact_id,
     )
@@ -993,6 +1016,8 @@ async def start_instant_meeting(
     settings: Settings,
     *,
     title: str | None = None,
+    record_meeting: bool = False,
+    template: MeetingTemplate = MeetingTemplate.GENERIC,
 ) -> tuple[Meeting, dict]:
     """Create-and-start in one step. Stamps scheduled_start=now() and
     flips to IN_PROGRESS so the host can join the room URL immediately.
@@ -1000,13 +1025,18 @@ async def start_instant_meeting(
     Returns (meeting, host_token_payload). The host_token_payload has
     the same shape as start_meeting's return so the frontend can
     redirect into the room with one fewer round trip.
+
+    Commit 16 — template + record_meeting plumbed through. Template
+    biases the AI pipeline; record_meeting can also be set explicitly
+    when the host wants recording on a generic instant call.
     """
     from app.meetings.schemas import MeetingCreate
     now = datetime.now(timezone.utc)
     data = MeetingCreate(
         title=title or "Instant meeting",
         scheduled_start=now,
-        record_meeting=False,
+        record_meeting=record_meeting,
+        template=template,
         participant_emails=[],
         create_calendar_event=False,
     )

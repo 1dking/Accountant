@@ -9,6 +9,12 @@ export interface MeetingFilters {
   page_size?: number
 }
 
+export type MeetingTemplate =
+  | 'generic'
+  | 'discovery_call'
+  | 'client_review'
+  | 'internal_sync'
+
 export interface MeetingCreateData {
   title: string
   scheduled_start: string
@@ -16,6 +22,9 @@ export interface MeetingCreateData {
   description?: string
   contact_id?: string
   record_meeting?: boolean
+  /** Commit 16 — biases the AI pipeline. DISCOVERY_CALL auto-enables
+   *  recording; INTERNAL_SYNC skips quote-draft entirely. */
+  template?: MeetingTemplate
   participant_emails?: string[]
 }
 
@@ -130,6 +139,7 @@ export interface InstantMeetingResponse {
 export async function startInstantMeeting(opts: {
   title?: string
   record_meeting?: boolean
+  template?: MeetingTemplate
 } = {}) {
   return api.post<ApiResponse<InstantMeetingResponse>>('/meetings/instant', opts)
 }

@@ -33,6 +33,25 @@ class MeetingStatus(str, enum.Enum):
     CANCELLED = "cancelled"
 
 
+class MeetingTemplate(str, enum.Enum):
+    """Commit 16 — meeting templates that bias the downstream AI
+    pipeline. Affects:
+      - record_meeting default at creation time
+      - summary prompt (template-specific focus areas)
+      - quote draft prompt (skipped entirely for internal syncs)
+
+    Adding a new template? Update:
+      1. This enum
+      2. TEMPLATE_DEFAULTS in service.py
+      3. summary prompt logic in summarization.py
+      4. (optional) quote draft skip logic in quote_draft.py
+    """
+    GENERIC = "generic"               # default — no biases
+    DISCOVERY_CALL = "discovery_call" # new-client sales call
+    CLIENT_REVIEW = "client_review"   # existing-client periodic review
+    INTERNAL_SYNC = "internal_sync"   # team / no recording / no quote
+
+
 class ParticipantRole(str, enum.Enum):
     HOST = "host"
     PARTICIPANT = "participant"
@@ -142,6 +161,13 @@ class Meeting(TimestampMixin, Base):
     )
     record_meeting: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False
+    )
+    # Commit 16 — meeting template biases the downstream AI pipeline.
+    # Default is GENERIC for legacy rows; new rows set explicitly via
+    # the picker on MeetingsPage.
+    template: Mapped[MeetingTemplate] = mapped_column(
+        Enum(MeetingTemplate), default=MeetingTemplate.GENERIC, nullable=False,
+        server_default=MeetingTemplate.GENERIC.value,
     )
     created_by: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False

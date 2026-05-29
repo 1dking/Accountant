@@ -20,8 +20,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings
 from app.meetings.models import (
-    Meeting, MeetingQuoteDraft, MeetingSummary, QuoteDraftStatus,
-    RecordingTranscript, SummaryStatus, TranscriptStatus,
+    Meeting, MeetingQuoteDraft, MeetingSummary, MeetingTemplate,
+    QuoteDraftStatus, RecordingTranscript, SummaryStatus, TranscriptStatus,
 )
 
 logger = logging.getLogger(__name__)
@@ -139,6 +139,39 @@ async def submit_quote_draft(
     )).scalar_one_or_none()
     if transcript is None or transcript.status != TranscriptStatus.AVAILABLE:
         return None
+
+    # Commit 16 — INTERNAL_SYNC template never produces a quote draft.
+    # Save the Claude call cost; persist a SKIPPED row so the
+    # scheduler doesn't re-attempt.
+    meeting = (await db.execute(
+        select(Meeting).where(Meeting.id == summary.meeting_id)
+    )).scalar_one_or_none()
+    template = meeting.template if meeting else MeetingTemplate.GENERIC
+    if template == MeetingTemplate.INTERNAL_SYNC:
+        existing = await db.execute(
+            select(MeetingQuoteDraft).where(MeetingQuoteDraft.summary_id == summary.id)
+        )
+        existing_row = existing.scalar_one_or_none()
+        if existing_row is not None and existing_row.status not in (
+            QuoteDraftStatus.FAILED, QuoteDraftStatus.PENDING,
+        ):
+            return existing_row
+        if existing_row is None:
+            row = MeetingQuoteDraft(
+                meeting_id=summary.meeting_id,
+                summary_id=summary.id,
+                status=QuoteDraftStatus.SKIPPED,
+                notes="Internal sync — no quote draft generated.",
+            )
+            db.add(row)
+        else:
+            row = existing_row
+            row.status = QuoteDraftStatus.SKIPPED
+            row.notes = "Internal sync — no quote draft generated."
+            row.error_message = None
+        await db.commit()
+        await db.refresh(row)
+        return row
 
     # Idempotency
     existing = await db.execute(

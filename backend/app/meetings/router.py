@@ -400,7 +400,10 @@ async def create_instant_meeting(
     """
     settings = request.app.state.settings
     meeting, token_payload = await service.start_instant_meeting(
-        db, current_user, settings, title=body.title,
+        db, current_user, settings,
+        title=body.title,
+        record_meeting=body.record_meeting,
+        template=body.template,
     )
     return {
         "data": {

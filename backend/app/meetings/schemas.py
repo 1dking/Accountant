@@ -6,7 +6,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.meetings.models import (
-    LobbyStatus, MeetingStatus, ParticipantRole, RecordingStatus,
+    LobbyStatus, MeetingStatus, MeetingTemplate, ParticipantRole, RecordingStatus,
 )
 
 
@@ -24,6 +24,9 @@ class MeetingCreate(BaseModel):
     scheduled_end: datetime | None = None
     contact_id: uuid.UUID | None = None
     record_meeting: bool = False
+    # Commit 16 — template biases AI behavior. When omitted, defaults
+    # to GENERIC. The host picks via the dropdown in NewMeetingPage.
+    template: MeetingTemplate = MeetingTemplate.GENERIC
     room_type: str = "group-small"
     participant_emails: list[str] = Field(default_factory=list)
     create_calendar_event: bool = True
@@ -35,6 +38,9 @@ class InstantMeetingCreate(BaseModel):
     on creation — host shares the slug URL to invite ad-hoc."""
     title: str | None = Field(None, max_length=255)
     record_meeting: bool = False
+    # Commit 16 — template available on instant meetings too. The new-
+    # meeting dropdown can pre-select Discovery vs Internal Sync.
+    template: MeetingTemplate = MeetingTemplate.GENERIC
 
 
 class MeetingUpdate(BaseModel):
@@ -119,6 +125,7 @@ class MeetingResponse(BaseModel):
     actual_end: datetime | None
     livekit_room_name: str
     record_meeting: bool
+    template: MeetingTemplate = MeetingTemplate.GENERIC
     created_by: uuid.UUID
     contact_id: uuid.UUID | None
     calendar_event_id: uuid.UUID | None
@@ -138,6 +145,7 @@ class MeetingListItem(BaseModel):
     scheduled_start: datetime | None
     scheduled_end: datetime | None
     record_meeting: bool
+    template: MeetingTemplate = MeetingTemplate.GENERIC
     contact_id: uuid.UUID | None
     participant_count: int = 0
     created_at: datetime

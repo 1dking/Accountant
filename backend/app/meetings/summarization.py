@@ -22,7 +22,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings
 from app.meetings.models import (
-    MeetingSummary, RecordingTranscript, SummaryStatus, TranscriptStatus,
+    Meeting, MeetingSummary, MeetingTemplate, RecordingTranscript,
+    SummaryStatus, TranscriptStatus,
 )
 
 logger = logging.getLogger(__name__)
@@ -32,7 +33,7 @@ logger = logging.getLogger(__name__)
 # Prompt
 # ---------------------------------------------------------------------------
 
-SUMMARIZATION_PROMPT = """You are an accountant's AI assistant. Read the meeting transcript below and produce a structured summary suitable for the host's records and the client's follow-up.
+_BASE_PROMPT = """You are an accountant's AI assistant. Read the meeting transcript below and produce a structured summary suitable for the host's records and the client's follow-up.
 
 Output STRICT JSON with this schema (no preamble, no markdown fences):
 
@@ -53,14 +54,44 @@ Rules:
 - action_items: only items that imply someone WILL DO something. Skip vague aspirations. Include the assignee when the transcript identifies them.
 - next_steps: 1-4 entries, future-looking.
 - If the transcript is too short or off-topic to summarize, return empty arrays + a summary like "No meaningful content".
-
+{TEMPLATE_GUIDANCE}
 Transcript:
 ---
 {TRANSCRIPT_TEXT}
 ---"""
 
+# Commit 16 — template-specific guidance lines folded into the prompt.
+# Adding a new template? Add an entry here too.
+_TEMPLATE_GUIDANCE = {
+    MeetingTemplate.DISCOVERY_CALL: (
+        "\nThis is a DISCOVERY CALL with a prospective client. Lean into:\n"
+        "- the client's stated pain points / current accounting setup\n"
+        "- scope items they're hoping to outsource\n"
+        "- any pricing, hours, or rate signals (these power the quote draft downstream)\n"
+        "- decision-maker identification + timeline / urgency\n"
+    ),
+    MeetingTemplate.CLIENT_REVIEW: (
+        "\nThis is a REVIEW with an existing client. Lean into:\n"
+        "- financial deltas vs prior period (cash, AR, AP, runway)\n"
+        "- decisions made about budget, hiring, capex\n"
+        "- next-period commitments and the actions that ladder to them\n"
+        "- any concerns the client raised that warrant a follow-up\n"
+    ),
+    MeetingTemplate.INTERNAL_SYNC: (
+        "\nThis is an INTERNAL TEAM SYNC. Lean into:\n"
+        "- decisions made and who owns each follow-up\n"
+        "- blockers identified and who can unblock them\n"
+        "- explicit assignments — note the assignee for every action item\n"
+        "Skip client-facing language; this stays internal.\n"
+    ),
+    MeetingTemplate.GENERIC: "",
+}
 
-def _build_messages(transcript_text: str) -> list[dict]:
+
+SUMMARIZATION_PROMPT = _BASE_PROMPT  # kept for any external reference
+
+
+def _build_messages(transcript_text: str, template: MeetingTemplate = MeetingTemplate.GENERIC) -> list[dict]:
     """Stitch the transcript into the prompt. We pass the full text;
     Claude's context window is plenty for a 45-min meeting (~10K
     tokens). Longer meetings will get truncated to the last 80K chars,
@@ -70,10 +101,13 @@ def _build_messages(transcript_text: str) -> list[dict]:
             "[... transcript truncated to last 80K chars ...]\n"
             + transcript_text[-80_000:]
         )
-    return [{
-        "role": "user",
-        "content": SUMMARIZATION_PROMPT.replace("{TRANSCRIPT_TEXT}", transcript_text),
-    }]
+    guidance = _TEMPLATE_GUIDANCE.get(template, "")
+    prompt = (
+        _BASE_PROMPT
+        .replace("{TEMPLATE_GUIDANCE}", guidance)
+        .replace("{TRANSCRIPT_TEXT}", transcript_text)
+    )
+    return [{"role": "user", "content": prompt}]
 
 
 # ---------------------------------------------------------------------------
@@ -159,8 +193,14 @@ async def submit_summary(
     await db.commit()
     await db.refresh(row)
 
+    # Commit 16 — fetch the meeting to know which template prompt to use.
+    meeting = (await db.execute(
+        select(Meeting).where(Meeting.id == transcript.meeting_id)
+    )).scalar_one_or_none()
+    template = meeting.template if meeting else MeetingTemplate.GENERIC
+
     try:
-        result = await _call_claude(transcript.full_text, settings)
+        result = await _call_claude(transcript.full_text, settings, template)
     except Exception as exc:
         row.status = SummaryStatus.FAILED
         row.error_message = str(exc)[:500]
@@ -223,12 +263,16 @@ async def submit_summary(
     return row
 
 
-async def _call_claude(transcript_text: str, settings: Settings) -> dict[str, Any]:
+async def _call_claude(
+    transcript_text: str, settings: Settings,
+    template: MeetingTemplate = MeetingTemplate.GENERIC,
+) -> dict[str, Any]:
     """Single Claude call returning parsed JSON + token usage. Raises
-    on any error (caller maps to FAILED status)."""
+    on any error (caller maps to FAILED status). Commit 16 — accepts
+    the meeting template so the prompt picks up the right guidance."""
     import anthropic
     client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
-    messages = _build_messages(transcript_text)
+    messages = _build_messages(transcript_text, template)
     resp = await client.messages.create(
         model=settings.anthropic_model,
         max_tokens=4096,

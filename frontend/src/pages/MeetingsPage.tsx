@@ -4,7 +4,7 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
   Video, Plus, Users, Calendar, Clock, Loader2,
-  ChevronDown, Zap, Search, X,
+  ChevronDown, Zap, Search, X, Briefcase,
 } from 'lucide-react'
 import {
   listMeetings, startInstantMeeting, searchMeetingTranscripts,
@@ -64,7 +64,8 @@ function NewMeetingButton() {
   const containerRef = useRef<HTMLDivElement>(null)
 
   const instantMut = useMutation({
-    mutationFn: () => startInstantMeeting(),
+    mutationFn: (template: 'generic' | 'discovery_call' | 'internal_sync') =>
+      startInstantMeeting({ template }),
     onSuccess: (res) => {
       const meetingId = res.data.meeting.id
       navigate(`/meetings/${meetingId}/room?action=join`)
@@ -97,22 +98,49 @@ function NewMeetingButton() {
         <ChevronDown className="h-3.5 w-3.5 -mr-1 opacity-80" />
       </button>
       {open && (
-        <div className="absolute right-0 mt-1.5 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl z-30 overflow-hidden">
+        <div className="absolute right-0 mt-1.5 w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl z-30 overflow-hidden">
+          <div className="px-4 pt-3 pb-1.5 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+            Start instant
+          </div>
           <button
-            onClick={() => { setOpen(false); instantMut.mutate() }}
-            className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-start gap-3 transition-colors"
+            onClick={() => { setOpen(false); instantMut.mutate('discovery_call') }}
+            className="w-full text-left px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-start gap-3 transition-colors"
+          >
+            <Briefcase className="h-4 w-4 text-emerald-500 mt-0.5 flex-shrink-0" />
+            <div>
+              <div className="text-sm font-medium text-gray-900 dark:text-gray-100">Discovery call</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                Records + drafts a quote
+              </div>
+            </div>
+          </button>
+          <button
+            onClick={() => { setOpen(false); instantMut.mutate('internal_sync') }}
+            className="w-full text-left px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-start gap-3 transition-colors"
+          >
+            <Users className="h-4 w-4 text-violet-500 mt-0.5 flex-shrink-0" />
+            <div>
+              <div className="text-sm font-medium text-gray-900 dark:text-gray-100">Internal sync</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                No recording, no quote draft
+              </div>
+            </div>
+          </button>
+          <button
+            onClick={() => { setOpen(false); instantMut.mutate('generic') }}
+            className="w-full text-left px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-start gap-3 transition-colors"
           >
             <Zap className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
             <div>
-              <div className="text-sm font-medium text-gray-900 dark:text-gray-100">Start instant meeting</div>
+              <div className="text-sm font-medium text-gray-900 dark:text-gray-100">Quick meeting</div>
               <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                Get a shareable link right now
+                Generic — no AI bias
               </div>
             </div>
           </button>
           <button
             onClick={() => { setOpen(false); navigate('/meetings/new') }}
-            className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-start gap-3 transition-colors border-t border-gray-100 dark:border-gray-700"
+            className="w-full text-left px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-start gap-3 transition-colors border-t border-gray-100 dark:border-gray-700"
           >
             <Calendar className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
             <div>
