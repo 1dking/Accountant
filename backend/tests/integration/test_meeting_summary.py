@@ -98,7 +98,7 @@ async def available_transcript(
 
 def _patch_claude(monkeypatch, response: dict | str, *, usage=None):
     """Patch the internal _call_claude helper so tests don't hit Anthropic."""
-    async def fake_call(text, settings):
+    async def fake_call(text, settings, template=None):
         if isinstance(response, Exception):
             raise response
         # Mimic the real return shape including observability metadata
@@ -224,7 +224,7 @@ async def test_submit_is_idempotent(
     settings_with_anthropic, monkeypatch,
 ):
     calls = {"count": 0}
-    async def fake_call(text, settings):
+    async def fake_call(text, settings, template=None):
         calls["count"] += 1
         return {"summary": "ok", "topics": [], "action_items": [], "next_steps": []}
     monkeypatch.setattr(summarization, "_call_claude", fake_call)
