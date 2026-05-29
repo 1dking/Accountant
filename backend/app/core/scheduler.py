@@ -94,6 +94,27 @@ async def _recover_orphan_voicemails() -> None:
         logger.exception("Error in voicemail orphan recovery")
 
 
+async def _reconcile_meeting_egresses() -> None:
+    """Job: backstop for LiveKit Egress webhook delivery failures
+    (Commit 7). Lists completed egresses, fills in any MeetingRecording
+    rows the webhook missed. Idempotent — safe to overlap. Runs every
+    5 minutes."""
+    if _settings is None:
+        return
+    # Cheap check before doing real work — skip the job entirely on
+    # deployments that don't have LiveKit configured (dev boxes, etc).
+    if not _settings.livekit_url or not _settings.livekit_api_key:
+        return
+    try:
+        async with _session_factory() as db:
+            from app.meetings.service import reconcile_egresses
+            updated = await reconcile_egresses(db, _settings)
+            if updated > 0:
+                logger.info("meeting.reconcile_egresses.tick updated=%d", updated)
+    except Exception:
+        logger.exception("Error in meeting egress reconciliation")
+
+
 async def _sync_plaid_transactions() -> None:
     """Job: sync transactions from connected bank accounts."""
     try:
@@ -311,6 +332,13 @@ def setup_scheduler(session_factory: Any, settings: Any = None) -> None:
         _recover_orphan_voicemails,
         IntervalTrigger(minutes=15),
         id="recover_orphan_voicemails",
+        replace_existing=True,
+    )
+
+    scheduler.add_job(
+        _reconcile_meeting_egresses,
+        IntervalTrigger(minutes=5),
+        id="reconcile_meeting_egresses",
         replace_existing=True,
     )
 

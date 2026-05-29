@@ -151,10 +151,50 @@ function RecordingControls({ meetingId }: { meetingId: string }) {
   )
 }
 
-function MeetingStage({ meetingId, onEndMeeting, endingMeeting }: {
+function ServerRecordingIndicator() {
+  // Commit 7 — when meeting.record_meeting=true, the backend started
+  // a LiveKit Egress on start_meeting. The client doesn't need to do
+  // anything; this indicator just tells the user recording is on.
+  return (
+    <span
+      title="Server-side recording is active for this meeting"
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '6px',
+        padding: '6px 12px',
+        background: 'rgba(220, 38, 38, 0.18)',
+        border: '1px solid rgba(220, 38, 38, 0.45)',
+        borderRadius: '999px',
+        color: '#fecaca',
+        fontSize: '12px',
+        fontWeight: 500,
+      }}
+    >
+      <span
+        style={{
+          width: 8, height: 8, borderRadius: '50%',
+          background: '#dc2626',
+          boxShadow: '0 0 0 0 rgba(220, 38, 38, 0.6)',
+          animation: 'mrp-rec-pulse 1.6s ease-in-out infinite',
+        }}
+      />
+      Recording
+      {/* Keyframes injected inline so we don't need a global CSS file
+          change for one-off pulse animation. */}
+      <style>{`@keyframes mrp-rec-pulse {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.55); }
+        50% { box-shadow: 0 0 0 5px rgba(220, 38, 38, 0); }
+      }`}</style>
+    </span>
+  )
+}
+
+function MeetingStage({ meetingId, onEndMeeting, endingMeeting, recordMeeting }: {
   meetingId: string
   onEndMeeting: () => void
   endingMeeting: boolean
+  recordMeeting: boolean
 }) {
   const tracks = useTracks(
     [
@@ -171,11 +211,22 @@ function MeetingStage({ meetingId, onEndMeeting, endingMeeting }: {
         <GridLayout tracks={tracks} style={{ height: '100%' }}>
           <ParticipantTile />
         </GridLayout>
+        {/* Recording indicator — top-right corner of the stage when
+            server-side Egress is recording (Commit 7). */}
+        {recordMeeting && (
+          <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 10 }}>
+            <ServerRecordingIndicator />
+          </div>
+        )}
       </div>
 
       <RoomAudioRenderer />
 
-      {/* LiveKit built-in controls + our extras */}
+      {/* LiveKit built-in controls + our extras.
+          When the meeting is set to record, the SERVER handles
+          recording via LiveKit Egress — we hide the client-side
+          MediaRecorder controls so the user isn't presented with
+          a redundant (and less reliable) parallel path. */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.5rem', background: '#1f2937' }}>
         <ControlBar
           variation="minimal"
@@ -187,7 +238,7 @@ function MeetingStage({ meetingId, onEndMeeting, endingMeeting }: {
             chat: true,
           }}
         />
-        <RecordingControls meetingId={meetingId} />
+        {!recordMeeting && <RecordingControls meetingId={meetingId} />}
         <button
           onClick={onEndMeeting}
           disabled={endingMeeting}
@@ -210,6 +261,7 @@ export default function MeetingRoomPage() {
 
   const [token, setToken] = useState<string | null>(null)
   const [roomName, setRoomName] = useState<string | null>(null)
+  const [recordMeeting, setRecordMeeting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [connecting, setConnecting] = useState(true)
 
@@ -237,6 +289,7 @@ export default function MeetingRoomPage() {
       .then((res) => {
         setToken(res.data.token)
         setRoomName(res.data.room_name)
+        setRecordMeeting(Boolean(res.data.record_meeting))
       })
       .catch((err) => {
         setError(err?.message || 'Failed to connect to meeting')
@@ -316,6 +369,7 @@ export default function MeetingRoomPage() {
           meetingId={id!}
           onEndMeeting={handleEndMeeting}
           endingMeeting={endMut.isPending}
+          recordMeeting={recordMeeting}
         />
       </LiveKitRoom>
     </div>

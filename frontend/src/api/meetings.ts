@@ -32,6 +32,10 @@ export interface LiveKitTokenResponse {
   token: string
   room_name: string
   identity: string
+  /** Commit 7 — when true, the backend has started server-side
+   *  recording via LiveKit Egress. Client should hide the manual
+   *  Record button and show a "Recording" indicator instead. */
+  record_meeting?: boolean
 }
 
 export interface RecordingsByContact {

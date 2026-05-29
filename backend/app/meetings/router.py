@@ -477,8 +477,60 @@ async def remove_participant(
 
 
 # ---------------------------------------------------------------------------
-# Webhook endpoint
+# LiveKit Egress webhook (Commit 7)
 # ---------------------------------------------------------------------------
+
+
+@router.post("/livekit-webhook", include_in_schema=False)
+async def livekit_webhook(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    """Receive LiveKit webhook events.
+
+    Only egress_ended / egress_updated completion events are acted on
+    in this commit — we use them to flip the matching MeetingRecording
+    row from RECORDING/PROCESSING to AVAILABLE with the final storage
+    path + duration + size. Other event types (room_started,
+    participant_joined, etc.) are accepted and 200 OK'd but ignored.
+
+    Authorization: LiveKit signs each payload with a JWT-shaped token
+    in the Authorization header. verify_webhook reconstitutes and
+    HMAC-checks it; signature failures → 401.
+
+    Idempotency: handle_egress_completion is a no-op for already-
+    AVAILABLE rows, so duplicate deliveries (LiveKit retries on 5xx)
+    are safe.
+    """
+    settings = request.app.state.settings
+    raw_body = await request.body()
+    auth_header = request.headers.get("authorization") or request.headers.get(
+        "Authorization"
+    )
+
+    from app.meetings import livekit_egress
+    try:
+        event = livekit_egress.verify_webhook(raw_body, auth_header, settings)
+    except ValidationError as exc:
+        # 401 — bad signature, missing header, etc. Don't echo the
+        # error text to the wire (could leak signing details).
+        logger.warning("meeting.webhook_rejected reason=%s", str(exc)[:120])
+        raise HTTPException(status_code=401, detail="Invalid webhook signature")
+
+    completion = livekit_egress.extract_egress_completion(event)
+    if completion is None:
+        # Non-egress event, or still-running egress — accept and move on.
+        return {"received": True}
+
+    await service.handle_egress_completion(
+        db,
+        egress_id=completion["egress_id"],
+        storage_path=completion.get("storage_path"),
+        duration_seconds=completion.get("duration_seconds"),
+        file_size=completion.get("file_size"),
+        status=completion["status"],
+    )
+    return {"received": True}
 
 
 # ---------------------------------------------------------------------------

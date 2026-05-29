@@ -139,3 +139,6 @@ class JoinTokenResponse(BaseModel):
     token: str
     room_name: str
     identity: str
+    # Commit 7 — surface record_meeting so the client hides the manual
+    # Record button when server-side Egress is handling recording.
+    record_meeting: bool = False

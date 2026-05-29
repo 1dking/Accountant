@@ -347,6 +347,43 @@ async def start_meeting(
         name=user.full_name or user.email,
     )
 
+    # Commit 7 — auto-start server-side recording via LiveKit Egress when
+    # the meeting is flagged record_meeting=True. We only kick the egress
+    # off the first time the meeting transitions to IN_PROGRESS (above);
+    # subsequent re-joins won't double-record because we check for an
+    # existing RECORDING-state row on this meeting.
+    if meeting.record_meeting:
+        existing = await db.execute(
+            select(MeetingRecording).where(
+                MeetingRecording.meeting_id == meeting.id,
+                MeetingRecording.status == RecordingStatus.RECORDING,
+            )
+        )
+        if existing.scalar_one_or_none() is None:
+            try:
+                from app.meetings import livekit_egress
+                egress_id, output_path = await livekit_egress.start_room_recording(
+                    meeting.livekit_room_name, settings,
+                )
+                rec = MeetingRecording(
+                    meeting_id=meeting.id,
+                    status=RecordingStatus.RECORDING,
+                    storage_path=output_path,
+                    egress_id=egress_id,
+                    mime_type="video/mp4",
+                    started_by=user.id,
+                )
+                db.add(rec)
+                await db.commit()
+            except Exception as exc:
+                # Don't block the meeting on recording-start failure —
+                # the user can still meet, just without recording. Log
+                # loudly so it shows up in monitoring.
+                logger.warning(
+                    "meeting.egress_autostart_failed meeting_id=%s err=%s",
+                    meeting.id, str(exc)[:200],
+                )
+
     await log_activity(
         db,
         user_id=user.id,
@@ -360,6 +397,7 @@ async def start_meeting(
         "token": token,
         "room_name": meeting.livekit_room_name,
         "identity": identity,
+        "record_meeting": meeting.record_meeting,
     }
 
 
@@ -406,6 +444,7 @@ async def join_meeting(
         token=token,
         room_name=meeting.livekit_room_name,
         identity=identity,
+        record_meeting=meeting.record_meeting,
     )
 
 
@@ -472,6 +511,7 @@ async def join_meeting_as_guest(
         token=token,
         room_name=meeting.livekit_room_name,
         identity=identity,
+        record_meeting=meeting.record_meeting,
     )
 
 
@@ -491,6 +531,29 @@ async def end_meeting(
     meeting.actual_end = datetime.now(timezone.utc)
     await db.commit()
     await db.refresh(meeting)
+
+    # Commit 7 — stop any in-flight egresses for this meeting so the
+    # MP4 finalizes and the egress_ended webhook fires. We move the
+    # recording row to PROCESSING here; the webhook (or reconciliation)
+    # will move it to AVAILABLE once the upload completes.
+    active_recs = await db.execute(
+        select(MeetingRecording).where(
+            MeetingRecording.meeting_id == meeting.id,
+            MeetingRecording.status == RecordingStatus.RECORDING,
+            MeetingRecording.egress_id.is_not(None),
+        )
+    )
+    for rec in active_recs.scalars().all():
+        try:
+            from app.meetings import livekit_egress
+            await livekit_egress.stop_room_recording(rec.egress_id, settings)
+        except Exception as exc:
+            logger.warning(
+                "meeting.egress_stop_failed recording_id=%s err=%s",
+                rec.id, str(exc)[:200],
+            )
+        rec.status = RecordingStatus.PROCESSING
+    await db.commit()
 
     # Reload with relationships
     result = await db.execute(
@@ -857,3 +920,126 @@ async def remove_participant(
         resource_id=str(participant_id),
         details={"meeting_id": str(meeting_id)},
     )
+
+
+# ---------------------------------------------------------------------------
+# LiveKit Egress — webhook + reconciliation (Commit 7)
+# ---------------------------------------------------------------------------
+
+
+async def handle_egress_completion(
+    db: AsyncSession,
+    egress_id: str,
+    storage_path: str | None,
+    duration_seconds: int | None,
+    file_size: int | None,
+    status: str,
+) -> MeetingRecording | None:
+    """Idempotent completion handler. Called from both the webhook
+    receiver and the reconciliation job — same code path either way.
+
+    Looks up MeetingRecording by egress_id. If found and still in
+    RECORDING / PROCESSING state, transitions to AVAILABLE (or FAILED)
+    and stamps the storage path + duration + file size. Already-
+    AVAILABLE rows are no-ops, so calling this twice (webhook +
+    reconciliation) is safe.
+
+    Returns the row that was updated, or None if no matching row
+    exists (orphan — typically a reconciliation backstop catching an
+    egress for a meeting that was deleted before the egress finished).
+    """
+    result = await db.execute(
+        select(MeetingRecording).where(MeetingRecording.egress_id == egress_id)
+    )
+    rec = result.scalar_one_or_none()
+    if rec is None:
+        logger.info(
+            "meeting.egress_completion_orphan egress_id=%s — no recording row",
+            egress_id,
+        )
+        return None
+
+    # Idempotency — already terminal, nothing to do.
+    if rec.status in (RecordingStatus.AVAILABLE, RecordingStatus.FAILED):
+        return rec
+
+    if status == "complete":
+        rec.status = RecordingStatus.AVAILABLE
+    else:
+        rec.status = RecordingStatus.FAILED
+
+    if storage_path:
+        rec.storage_path = storage_path
+    if duration_seconds is not None:
+        rec.duration_seconds = duration_seconds
+    if file_size is not None:
+        rec.file_size = file_size
+
+    await db.commit()
+    await db.refresh(rec)
+
+    logger.info(
+        "meeting.egress_completed recording_id=%s egress_id=%s status=%s",
+        rec.id, egress_id, rec.status.value,
+    )
+    return rec
+
+
+async def reconcile_egresses(db: AsyncSession, settings: Settings) -> int:
+    """Backstop for webhook delivery failures (Commit 7).
+
+    Lists completed LiveKit egresses, finds ones that don't have an
+    AVAILABLE-state MeetingRecording, and calls handle_egress_completion
+    to fill them in. Scheduled to run every 5 minutes — overlapping
+    runs are safe because handle_egress_completion is idempotent.
+
+    Returns the number of rows it actually MOVED to AVAILABLE/FAILED
+    on this tick (for observability). Rows already in a terminal state
+    are skipped here so the metric reflects real work, not no-ops.
+    """
+    try:
+        from app.meetings import livekit_egress
+        items = await livekit_egress.list_completed_egresses(settings)
+    except Exception as exc:
+        logger.warning(
+            "meeting.reconcile_egresses.list_failed err=%s", str(exc)[:200],
+        )
+        return 0
+
+    updated = 0
+    for item in items:
+        completion = livekit_egress.extract_egress_completion(
+            type("EvtShim", (), {
+                "event": "egress_ended",
+                "egress_info": item,
+            })()
+        )
+        if not completion:
+            continue
+        # Pre-check: skip rows already in a terminal state so this
+        # counter measures actual reconciliation work (not no-ops the
+        # webhook already handled). handle_egress_completion is still
+        # idempotent if we did call it — this is just for the metric.
+        existing = await db.execute(
+            select(MeetingRecording).where(
+                MeetingRecording.egress_id == completion["egress_id"],
+            )
+        )
+        existing_rec = existing.scalar_one_or_none()
+        if existing_rec is None:
+            continue  # orphan — meeting deleted before egress finished
+        if existing_rec.status in (
+            RecordingStatus.AVAILABLE, RecordingStatus.FAILED,
+        ):
+            continue  # webhook already completed this row
+        rec = await handle_egress_completion(
+            db,
+            egress_id=completion["egress_id"],
+            storage_path=completion.get("storage_path"),
+            duration_seconds=completion.get("duration_seconds"),
+            file_size=completion.get("file_size"),
+            status=completion["status"],
+        )
+        if rec is not None and rec.status == RecordingStatus.AVAILABLE:
+            updated += 1
+    return updated
