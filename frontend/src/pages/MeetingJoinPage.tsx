@@ -19,11 +19,12 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router'
 import {
   LiveKitRoom, GridLayout, ParticipantTile, RoomAudioRenderer,
-  ControlBar, useTracks,
+  ControlBar, useTracks, type LocalUserChoices,
 } from '@livekit/components-react'
 import '@livekit/components-styles'
 import { Track } from 'livekit-client'
 import { Loader2, DoorOpen } from 'lucide-react'
+import PreJoinGate from '@/components/meetings/PreJoinGate'
 import {
   getPublicMeetingInfo,
   knockAtLobby,
@@ -52,6 +53,9 @@ export default function MeetingJoinPage() {
   const [knockBusy, setKnockBusy] = useState(false)
   const [lobbyId, setLobbyId] = useState<string | null>(null)
   const [livekit, setLivekit] = useState<LobbyStatusPollResponse | null>(null)
+  // Commit 10 — admitted guest passes through the device-check +
+  // consent gate before connecting to the LiveKit room.
+  const [userChoices, setUserChoices] = useState<LocalUserChoices | null>(null)
 
   // Step 1: load the public meeting info
   useEffect(() => {
@@ -178,6 +182,19 @@ export default function MeetingJoinPage() {
   }
 
   if (stage === 'admitted' && livekit?.token) {
+    // Commit 10 — gate the room behind device-check + consent. Guest
+    // sees their camera preview, picks devices, and (if record_meeting)
+    // explicitly consents before the LiveKitRoom connect fires.
+    if (!userChoices) {
+      return (
+        <PreJoinGate
+          recordMeeting={Boolean(livekit.record_meeting)}
+          defaultUserName={name}
+          meetingTitle={meeting?.title}
+          onJoin={setUserChoices}
+        />
+      )
+    }
     return (
       <div style={{ height: '100vh', background: '#111827' }}>
         <LiveKitRoom
@@ -185,6 +202,8 @@ export default function MeetingJoinPage() {
           token={livekit.token}
           connect={true}
           onDisconnected={() => navigate('/')}
+          audio={userChoices.audioEnabled ? { deviceId: userChoices.audioDeviceId } : false}
+          video={userChoices.videoEnabled ? { deviceId: userChoices.videoDeviceId } : false}
           data-lk-theme="default"
           style={{ height: '100%' }}
         >

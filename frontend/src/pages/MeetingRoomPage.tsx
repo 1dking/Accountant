@@ -20,6 +20,8 @@ import {
   startMeeting, joinMeeting, endMeeting, uploadRecording,
   listLobby, admitFromLobby, denyFromLobby,
 } from '@/api/meetings'
+import PreJoinGate from '@/components/meetings/PreJoinGate'
+import type { LocalUserChoices } from '@livekit/components-react'
 
 const LIVEKIT_URL =
   import.meta.env.VITE_LIVEKIT_URL ||
@@ -387,8 +389,15 @@ export default function MeetingRoomPage() {
   const [token, setToken] = useState<string | null>(null)
   const [roomName, setRoomName] = useState<string | null>(null)
   const [recordMeeting, setRecordMeeting] = useState(false)
+  // Title isn't returned by start/join token endpoints today; the
+  // PreJoinGate handles undefined cleanly. Leave the state as a
+  // forward-compat hook for when we add title to those responses.
+  const [meetingTitle] = useState<string | undefined>(undefined)
   const [error, setError] = useState<string | null>(null)
   const [connecting, setConnecting] = useState(true)
+  // Commit 10 — user has passed the device-check + recording consent
+  // gate. Until then, render PreJoinGate instead of LiveKitRoom.
+  const [userChoices, setUserChoices] = useState<LocalUserChoices | null>(null)
 
   const action = searchParams.get('action') || 'start'
 
@@ -480,6 +489,19 @@ export default function MeetingRoomPage() {
     )
   }
 
+  // Commit 10 — show PreJoinGate until the user has previewed devices
+  // (and, if record_meeting=true, explicitly consented). Then drop
+  // into LiveKitRoom with their chosen camera/mic.
+  if (!userChoices) {
+    return (
+      <PreJoinGate
+        recordMeeting={recordMeeting}
+        meetingTitle={meetingTitle}
+        onJoin={setUserChoices}
+      />
+    )
+  }
+
   return (
     <div style={{ height: '100vh', background: '#111827' }}>
       <LiveKitRoom
@@ -487,6 +509,8 @@ export default function MeetingRoomPage() {
         token={token}
         connect={true}
         onDisconnected={handleDisconnect}
+        audio={userChoices.audioEnabled ? { deviceId: userChoices.audioDeviceId } : false}
+        video={userChoices.videoEnabled ? { deviceId: userChoices.videoDeviceId } : false}
         data-lk-theme="default"
         style={{ height: '100%' }}
       >
