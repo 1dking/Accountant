@@ -132,6 +132,23 @@ async def _poll_meeting_transcriptions() -> None:
         logger.exception("Error in meeting transcription poll")
 
 
+async def _drive_meeting_summaries() -> None:
+    """Job: drive Claude summaries for any AVAILABLE transcripts that
+    don't yet have one (Commit 12). Backstop for the inline kickoff
+    in transcription._poll_one — catches summaries the inline path
+    missed (Claude outage, restart mid-batch, etc.). Every 5 minutes."""
+    if _settings is None or not _settings.anthropic_api_key:
+        return
+    try:
+        async with _session_factory() as db:
+            from app.meetings.summarization import drive_pending_summaries
+            result = await drive_pending_summaries(db, _settings)
+            if result["processed"] > 0 or result["failed"] > 0:
+                logger.info("meeting.summary_drive.tick %s", result)
+    except Exception:
+        logger.exception("Error in meeting summary drive")
+
+
 async def _sync_plaid_transactions() -> None:
     """Job: sync transactions from connected bank accounts."""
     try:
@@ -363,6 +380,13 @@ def setup_scheduler(session_factory: Any, settings: Any = None) -> None:
         _poll_meeting_transcriptions,
         IntervalTrigger(minutes=2),
         id="poll_meeting_transcriptions",
+        replace_existing=True,
+    )
+
+    scheduler.add_job(
+        _drive_meeting_summaries,
+        IntervalTrigger(minutes=5),
+        id="drive_meeting_summaries",
         replace_existing=True,
     )
 

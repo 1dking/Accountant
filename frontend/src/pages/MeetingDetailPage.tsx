@@ -12,9 +12,138 @@ import {
   getMeeting, cancelMeeting, endMeeting, addParticipant,
   removeParticipant, getRecordingStreamUrl, deleteRecording,
   getCalendarUrls, sendMeetingInvites, getMeetingTranscript,
+  getMeetingSummary,
 } from '@/api/meetings'
 import { coachApi } from '@/api/coach'
 import type { MeetingStatus, MeetingParticipant } from '@/types/models'
+
+/** Commit 12 — AI summary section.
+ *
+ * Renders the Claude-generated summary, key topics + decisions, action
+ * items, and next steps. Polls every 10 sec while pending/processing;
+ * stops once available/failed. Hidden when 404 (no transcript yet, so
+ * nothing to summarize). */
+function SummarySection({ meetingId }: { meetingId: string }) {
+  const q = useQuery({
+    queryKey: ['meeting-summary', meetingId],
+    queryFn: async () => (await getMeetingSummary(meetingId)).data,
+    refetchInterval: (query) => {
+      const d = query.state.data as any
+      if (!d) return 10000
+      if (d.status === 'available' || d.status === 'failed') return false
+      return 10000
+    },
+    retry: false,
+  })
+
+  if (q.isError) return null
+  if (q.isLoading) return null
+  const s = q.data
+  if (!s) return null
+
+  return (
+    <div className="mb-6 p-4 bg-gradient-to-br from-indigo-50 to-violet-50 dark:from-indigo-950/40 dark:to-violet-950/40 border border-indigo-200 dark:border-indigo-800 rounded-xl">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 uppercase tracking-wider">
+          AI summary
+        </p>
+        {s.status !== 'available' && s.status !== 'failed' && (
+          <span className="inline-flex items-center gap-1.5 text-xs text-indigo-700 dark:text-indigo-300">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            Generating…
+          </span>
+        )}
+      </div>
+
+      {s.status === 'failed' && (
+        <p className="text-sm text-red-600 dark:text-red-400">
+          Summary failed{s.error_message ? `: ${s.error_message}` : ''}.
+        </p>
+      )}
+
+      {s.status === 'available' && (
+        <>
+          {s.summary_text && (
+            <p className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed mb-4">
+              {s.summary_text}
+            </p>
+          )}
+
+          {s.action_items.length > 0 && (
+            <div className="mb-4">
+              <h4 className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <CheckCircle2 className="h-3.5 w-3.5" /> Action items ({s.action_items.length})
+              </h4>
+              <ul className="space-y-1.5">
+                {s.action_items.map((ai, i) => (
+                  <li key={i} className="text-sm text-gray-800 dark:text-gray-200 flex items-start gap-2">
+                    <span className="text-indigo-500 mt-1">•</span>
+                    <span className="flex-1">
+                      {ai.text}
+                      {(ai.assignee || ai.due_hint) && (
+                        <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                          {ai.assignee && <span>· {ai.assignee}</span>}
+                          {ai.due_hint && <span> · {ai.due_hint}</span>}
+                        </span>
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {s.topics.length > 0 && (
+            <div className="mb-4">
+              <h4 className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <MessageSquare className="h-3.5 w-3.5" /> Topics
+              </h4>
+              <ul className="space-y-1.5">
+                {s.topics.map((t, i) => (
+                  <li key={i} className="text-sm text-gray-800 dark:text-gray-200">
+                    <span className="font-medium">{t.topic}</span>
+                    {t.decision && (
+                      <span className="text-gray-600 dark:text-gray-400"> — {t.decision}</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {s.next_steps.length > 0 && (
+            <div>
+              <h4 className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <Target className="h-3.5 w-3.5" /> Next steps
+              </h4>
+              <ul className="space-y-1.5">
+                {s.next_steps.map((ns, i) => (
+                  <li key={i} className="text-sm text-gray-800 dark:text-gray-200 flex items-start gap-2">
+                    <span className="text-indigo-500 mt-1">→</span>
+                    <span>{ns}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {!s.summary_text && s.topics.length === 0 && s.action_items.length === 0 && (
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              No spoken content to summarize.
+            </p>
+          )}
+        </>
+      )}
+
+      {(s.status === 'pending' || s.status === 'processing') && (
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          Reading the transcript and pulling out the key points…
+        </p>
+      )}
+    </div>
+  )
+}
+
 
 /** Commit 11 — Transcript section.
  *
@@ -665,6 +794,11 @@ export default function MeetingDetailPage() {
       {meeting.status !== 'cancelled' && meeting.status !== 'completed' && (
         <CalendarInviteSection meetingId={meeting.id} />
       )}
+
+      {/* Commit 12 — Claude-generated summary + action items + next
+          steps. Renders above the raw transcript so the user sees
+          the high-value AI synthesis first. */}
+      <SummarySection meetingId={meeting.id} />
 
       {/* Commit 11 — AI transcript (auto-generated when the meeting
           recording finishes; hidden until a recording exists). */}

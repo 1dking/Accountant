@@ -269,6 +269,41 @@ export async function getMeetingTranscript(meetingId: string) {
   return api.get<ApiResponse<RecordingTranscript>>(`/meetings/${meetingId}/transcript`)
 }
 
+// ---------------------------------------------------------------------------
+// Commit 12 — Claude summary + action items
+// ---------------------------------------------------------------------------
+
+export interface SummaryActionItem {
+  text: string
+  assignee: string | null
+  due_hint: string | null
+}
+
+export interface SummaryTopic {
+  topic: string
+  decision: string | null
+}
+
+export interface MeetingSummary {
+  id: string
+  meeting_id: string
+  status: 'pending' | 'processing' | 'available' | 'failed'
+  summary_text: string | null
+  topics: SummaryTopic[]
+  action_items: SummaryActionItem[]
+  next_steps: string[]
+  model_used: string | null
+  input_tokens: number | null
+  output_tokens: number | null
+  error_message: string | null
+  created_at: string | null
+  updated_at: string | null
+}
+
+export async function getMeetingSummary(meetingId: string) {
+  return api.get<ApiResponse<MeetingSummary>>(`/meetings/${meetingId}/summary`)
+}
+
 export async function uploadRecording(meetingId: string, file: Blob): Promise<ApiResponse<MeetingRecording>> {
   const formData = new FormData()
   formData.append('file', file, `recording-${Date.now()}.webm`)

@@ -72,6 +72,15 @@ class TranscriptStatus(str, enum.Enum):
     FAILED = "failed"
 
 
+class SummaryStatus(str, enum.Enum):
+    """Commit 12 — Claude summarization lifecycle. Same shape as
+    TranscriptStatus so the UI can render both with one component."""
+    PENDING = "pending"
+    PROCESSING = "processing"
+    AVAILABLE = "available"
+    FAILED = "failed"
+
+
 # ---------------------------------------------------------------------------
 # Models
 # ---------------------------------------------------------------------------
@@ -245,4 +254,45 @@ class RecordingTranscript(TimestampMixin, Base):
     segments_json: Mapped[list | None] = mapped_column(JSON, nullable=True)
     language: Mapped[str | None] = mapped_column(String(8), nullable=True)
     duration_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class MeetingSummary(TimestampMixin, Base):
+    """Commit 12 — Claude-generated meeting summary.
+
+    1:1 with RecordingTranscript. Kicked off when the transcript
+    becomes AVAILABLE; persisted in chunks (summary_text, decisions,
+    topics, action_items). Stored as JSON so the frontend can render
+    structured sections without re-parsing.
+
+    Cost tracked via input_tokens/output_tokens for per-meeting
+    profitability reporting.
+    """
+    __tablename__ = "meeting_summaries"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    meeting_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("meetings.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    recording_transcript_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("recording_transcripts.id", ondelete="CASCADE"),
+        nullable=False, unique=True, index=True,
+    )
+    status: Mapped[SummaryStatus] = mapped_column(
+        Enum(SummaryStatus), default=SummaryStatus.PENDING, nullable=False,
+    )
+    # The full prose summary (2-3 sentences, surfaced at the top of
+    # the UI). Empty/none when status != AVAILABLE.
+    summary_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # list[{"text": str, "assignee": str | None, "due_hint": str | None}]
+    action_items_json: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    # list[{"topic": str, "decision": str | None}]
+    topics_json: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    # list[str] — single-sentence next steps
+    next_steps_json: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    # Audit + cost trail
+    model_used: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)

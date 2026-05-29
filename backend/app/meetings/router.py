@@ -17,8 +17,8 @@ from app.dependencies import get_current_user, get_current_user_or_token, get_db
 from app.documents.storage import LocalStorage, StorageBackend
 from app.meetings import service
 from app.meetings.models import (
-    MeetingRecording, MeetingStatus, RecordingTranscript,
-    RecordingStatus, TranscriptStatus,
+    MeetingRecording, MeetingStatus, MeetingSummary, RecordingTranscript,
+    RecordingStatus, SummaryStatus, TranscriptStatus,
 )
 from app.meetings.schemas import (
     GuestJoinRequest,
@@ -59,6 +59,43 @@ def get_storage(request: Request) -> StorageBackend:
 # ---------------------------------------------------------------------------
 # Commit 11 — Transcript endpoint
 # ---------------------------------------------------------------------------
+
+
+@router.get("/{meeting_id}/summary")
+async def get_meeting_summary(
+    meeting_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    """Return the Claude-generated summary for the meeting's latest
+    available transcript (Commit 12). 404 when none exists yet — the
+    UI uses that to show 'summary pending' messaging."""
+    meeting = await service.get_meeting(db, meeting_id, current_user)
+    rows = await db.execute(
+        select(MeetingSummary)
+        .where(MeetingSummary.meeting_id == meeting.id)
+        .order_by(MeetingSummary.created_at.desc())
+    )
+    summary = rows.scalars().first()
+    if summary is None:
+        raise HTTPException(status_code=404, detail="No summary yet")
+    return {
+        "data": {
+            "id": str(summary.id),
+            "meeting_id": str(summary.meeting_id),
+            "status": summary.status.value,
+            "summary_text": summary.summary_text,
+            "topics": summary.topics_json or [],
+            "action_items": summary.action_items_json or [],
+            "next_steps": summary.next_steps_json or [],
+            "model_used": summary.model_used,
+            "input_tokens": summary.input_tokens,
+            "output_tokens": summary.output_tokens,
+            "error_message": summary.error_message,
+            "created_at": summary.created_at.isoformat() if summary.created_at else None,
+            "updated_at": summary.updated_at.isoformat() if summary.updated_at else None,
+        }
+    }
 
 
 @router.get("/{meeting_id}/transcript")

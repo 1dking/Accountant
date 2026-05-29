@@ -222,6 +222,18 @@ async def _poll_one(
             "meeting.transcription_completed transcript_id=%s segments=%d",
             row.provider_id, len(segments),
         )
+        # Commit 12 — kick off Claude summary now that the transcript
+        # is available. Best-effort: failure here doesn't roll back
+        # the transcript completion. The scheduler will re-drive any
+        # missed summaries on its tick.
+        try:
+            from app.meetings.summarization import submit_summary
+            await submit_summary(db, row, settings)
+        except Exception as exc:
+            logger.warning(
+                "meeting.summary_kickoff_failed transcript_id=%s err=%s",
+                row.id, str(exc)[:200],
+            )
         return True
 
     if aai_status == "error":
