@@ -208,6 +208,18 @@ async def submit_summary(
             row.id, str(exc)[:200],
         )
 
+    # Commit 15 — quote/invoice draft (best-effort; never auto-sent).
+    # Claude analyzes the transcript + summary and either drafts a
+    # proposal or SKIPs when there's no scope/pricing content.
+    try:
+        from app.meetings.quote_draft import submit_quote_draft
+        await submit_quote_draft(db, row, settings)
+    except Exception as exc:
+        logger.warning(
+            "meeting.quote_draft_kickoff_failed summary_id=%s err=%s",
+            row.id, str(exc)[:200],
+        )
+
     return row
 
 

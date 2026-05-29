@@ -12,10 +12,157 @@ import {
   getMeeting, cancelMeeting, endMeeting, addParticipant,
   removeParticipant, getRecordingStreamUrl, deleteRecording,
   getCalendarUrls, sendMeetingInvites, getMeetingTranscript,
-  getMeetingSummary,
+  getMeetingSummary, getMeetingQuoteDraft, reviewMeetingQuoteDraft,
 } from '@/api/meetings'
 import { coachApi } from '@/api/coach'
 import type { MeetingStatus, MeetingParticipant } from '@/types/models'
+
+/** Commit 15 — AI quote/invoice draft.
+ *
+ * Surfaces ONLY when Claude detected scope + pricing in the transcript.
+ * Renders the draft with an explicit review gate — the host must click
+ * "I've reviewed this" before the data flows anywhere external. NEVER
+ * auto-sends. Hidden entirely when status is SKIPPED or 404. */
+function QuoteDraftSection({ meetingId }: { meetingId: string }) {
+  const qc = useQueryClient()
+  const q = useQuery({
+    queryKey: ['meeting-quote-draft', meetingId],
+    queryFn: async () => (await getMeetingQuoteDraft(meetingId)).data,
+    refetchInterval: (query) => {
+      const d = query.state.data as any
+      if (!d) return 12000
+      if (d.status === 'pending' || d.status === 'processing') return 12000
+      return false
+    },
+    retry: false,
+  })
+  const reviewMut = useMutation({
+    mutationFn: () => reviewMeetingQuoteDraft(meetingId),
+    onSuccess: () => {
+      toast.success('Marked as reviewed')
+      qc.invalidateQueries({ queryKey: ['meeting-quote-draft', meetingId] })
+    },
+    onError: (e: any) => toast.error(`Review failed: ${e?.message || 'unknown'}`),
+  })
+
+  if (q.isError) return null
+  if (q.isLoading) return null
+  const d = q.data
+  if (!d) return null
+  // SKIPPED / FAILED states aren't worth showing inline — Claude
+  // determined there's no quote here.
+  if (d.status === 'skipped' || d.status === 'failed') return null
+
+  const confidenceColor = d.confidence === 'high'
+    ? 'text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950 border-emerald-300 dark:border-emerald-800'
+    : d.confidence === 'medium'
+    ? 'text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950 border-amber-300 dark:border-amber-800'
+    : 'text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600'
+
+  return (
+    <div className="mb-6 p-4 bg-gradient-to-br from-amber-50 to-rose-50 dark:from-amber-950/40 dark:to-rose-950/40 border border-amber-200 dark:border-amber-800 rounded-xl">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs font-semibold text-amber-700 dark:text-amber-300 uppercase tracking-wider">
+          AI quote draft
+        </p>
+        {d.status !== 'available' && d.status !== 'reviewed' && (
+          <span className="inline-flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-300">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            Drafting…
+          </span>
+        )}
+        {d.confidence && (d.status === 'available' || d.status === 'reviewed') && (
+          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border uppercase tracking-wider ${confidenceColor}`}>
+            {d.confidence} confidence
+          </span>
+        )}
+      </div>
+
+      {(d.status === 'pending' || d.status === 'processing') && (
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          Claude is checking whether the meeting discussed scope + pricing…
+        </p>
+      )}
+
+      {(d.status === 'available' || d.status === 'reviewed') && (
+        <>
+          {d.draft_title && (
+            <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-1">
+              {d.draft_title}
+            </h3>
+          )}
+          {d.draft_summary && (
+            <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
+              {d.draft_summary}
+            </p>
+          )}
+          {d.line_items.length > 0 && (
+            <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden mb-3">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 dark:bg-gray-800 text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <tr>
+                    <th className="text-left px-3 py-2">Description</th>
+                    <th className="text-right px-3 py-2 w-16">Qty</th>
+                    <th className="text-right px-3 py-2 w-20">Unit</th>
+                    <th className="text-right px-3 py-2 w-20">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {d.line_items.map((li, i) => (
+                    <tr key={i} className="border-t border-gray-100 dark:border-gray-800">
+                      <td className="px-3 py-2 text-gray-900 dark:text-gray-100">{li.description}</td>
+                      <td className="px-3 py-2 text-right text-gray-700 dark:text-gray-300">{li.quantity}</td>
+                      <td className="px-3 py-2 text-right text-gray-700 dark:text-gray-300">
+                        {(d.currency || 'USD')} {li.unit_price.toFixed(2)}
+                      </td>
+                      <td className="px-3 py-2 text-right font-medium text-gray-900 dark:text-gray-100">
+                        {(d.currency || 'USD')} {li.total.toFixed(2)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="bg-gray-50 dark:bg-gray-800 border-t-2 border-gray-200 dark:border-gray-700">
+                  <tr>
+                    <td colSpan={3} className="px-3 py-2 text-right text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Estimated total</td>
+                    <td className="px-3 py-2 text-right text-base font-bold text-gray-900 dark:text-gray-100">
+                      {(d.currency || 'USD')} {(d.estimated_total ?? 0).toFixed(2)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
+          {d.notes && (
+            <p className="text-xs text-gray-600 dark:text-gray-400 italic mb-3">
+              {d.notes}
+            </p>
+          )}
+          <div className="flex items-center justify-between gap-3 pt-2 border-t border-amber-200 dark:border-amber-800">
+            <p className="text-xs text-amber-800 dark:text-amber-200 leading-snug">
+              <strong>Review before sending.</strong> AI-generated drafts may misread numbers.
+              Verify every line item against the transcript.
+            </p>
+            {d.status === 'reviewed' ? (
+              <span className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700 dark:text-emerald-300">
+                <CheckCircle2 className="h-4 w-4" /> Reviewed
+              </span>
+            ) : (
+              <button
+                onClick={() => reviewMut.mutate()}
+                disabled={reviewMut.isPending}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50 rounded-lg whitespace-nowrap transition-colors"
+              >
+                {reviewMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                I've reviewed this
+              </button>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 
 /** Commit 12 — AI summary section.
  *
@@ -794,6 +941,10 @@ export default function MeetingDetailPage() {
       {meeting.status !== 'cancelled' && meeting.status !== 'completed' && (
         <CalendarInviteSection meetingId={meeting.id} />
       )}
+
+      {/* Commit 15 — AI quote/invoice draft when Claude detected
+          scope + pricing. Highest-liability: explicit review gate. */}
+      <QuoteDraftSection meetingId={meeting.id} />
 
       {/* Commit 12 — Claude-generated summary + action items + next
           steps. Renders above the raw transcript so the user sees

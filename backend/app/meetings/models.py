@@ -81,6 +81,27 @@ class SummaryStatus(str, enum.Enum):
     FAILED = "failed"
 
 
+class QuoteDraftStatus(str, enum.Enum):
+    """Commit 15 — quote/invoice draft lifecycle.
+
+    PENDING    — row created, Claude call not attempted
+    PROCESSING — Claude call in flight
+    AVAILABLE  — draft persisted, awaiting host review
+    SKIPPED    — Claude determined no scope/pricing was discussed;
+                 we keep a row so the scheduler doesn't re-attempt
+    REVIEWED   — host clicked Review (audit trail; doesn't send)
+    SENT       — host promoted to a real proposal; sent to client
+    FAILED     — terminal error; error_message has it
+    """
+    PENDING = "pending"
+    PROCESSING = "processing"
+    AVAILABLE = "available"
+    SKIPPED = "skipped"
+    REVIEWED = "reviewed"
+    SENT = "sent"
+    FAILED = "failed"
+
+
 # ---------------------------------------------------------------------------
 # Models
 # ---------------------------------------------------------------------------
@@ -295,4 +316,64 @@ class MeetingSummary(TimestampMixin, Base):
     model_used: Mapped[str | None] = mapped_column(String(64), nullable=True)
     input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class MeetingQuoteDraft(TimestampMixin, Base):
+    """Commit 15 — AI-drafted proposal/quote inferred from a meeting.
+
+    Generated AFTER MeetingSummary completes when the transcript +
+    summary suggest scope and/or pricing were discussed. NEVER auto-
+    sent: the host must explicitly review and promote to a real
+    Proposal record (in app/proposals). This is the highest-liability
+    surface in the pipeline — a $5,000 quote when the client said
+    $500 is a real exposure, so the review gate is mandatory.
+
+    1:1 with MeetingSummary (one draft per AI summary). Confidence
+    field surfaces how explicit the discussion was so the host can
+    triage: 'high' = exact numbers spoken; 'low' = inferred from
+    vague language.
+    """
+    __tablename__ = "meeting_quote_drafts"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    meeting_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("meetings.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    summary_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("meeting_summaries.id", ondelete="CASCADE"),
+        nullable=False, unique=True, index=True,
+    )
+    status: Mapped[QuoteDraftStatus] = mapped_column(
+        Enum(QuoteDraftStatus), default=QuoteDraftStatus.PENDING, nullable=False,
+    )
+    # Core draft content — null when status is SKIPPED/PENDING/FAILED.
+    draft_title: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    draft_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # list[{"description": str, "quantity": float, "unit_price": float,
+    #       "total": float}]
+    line_items_json: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    estimated_total: Mapped[float | None] = mapped_column(nullable=True)
+    currency: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # 'high' / 'medium' / 'low' — how explicit was the discussion.
+    confidence: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    # Audit + cost trail
+    model_used: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Review trail
+    reviewed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True,
+    )
+    reviewed_by: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True,
+    )
+    sent_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True,
+    )
+    promoted_proposal_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("proposals.id", ondelete="SET NULL"), nullable=True,
+    )
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)

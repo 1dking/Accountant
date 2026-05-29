@@ -322,6 +322,50 @@ export async function searchMeetingTranscripts(q: string, limit = 10) {
   return api.get<ApiListResponse<TranscriptSearchHit>>(`/meetings/search?${params}`)
 }
 
+// ---------------------------------------------------------------------------
+// Commit 15 — AI quote/invoice draft + review gate
+// ---------------------------------------------------------------------------
+
+export interface QuoteLineItem {
+  description: string
+  quantity: number
+  unit_price: number
+  total: number
+}
+
+export interface MeetingQuoteDraft {
+  id: string
+  meeting_id: string
+  summary_id: string
+  status: 'pending' | 'processing' | 'available' | 'skipped' | 'reviewed' | 'sent' | 'failed'
+  draft_title: string | null
+  draft_summary: string | null
+  line_items: QuoteLineItem[]
+  estimated_total: number | null
+  currency: string | null
+  notes: string | null
+  confidence: 'high' | 'medium' | 'low' | null
+  model_used: string | null
+  input_tokens: number | null
+  output_tokens: number | null
+  reviewed_at: string | null
+  sent_at: string | null
+  promoted_proposal_id: string | null
+  error_message: string | null
+  created_at: string | null
+  updated_at: string | null
+}
+
+export async function getMeetingQuoteDraft(meetingId: string) {
+  return api.get<ApiResponse<MeetingQuoteDraft>>(`/meetings/${meetingId}/quote-draft`)
+}
+
+export async function reviewMeetingQuoteDraft(meetingId: string) {
+  return api.post<ApiResponse<{ reviewed_at: string }>>(
+    `/meetings/${meetingId}/quote-draft/review`,
+  )
+}
+
 export async function uploadRecording(meetingId: string, file: Blob): Promise<ApiResponse<MeetingRecording>> {
   const formData = new FormData()
   formData.append('file', file, `recording-${Date.now()}.webm`)

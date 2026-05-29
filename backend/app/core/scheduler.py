@@ -149,6 +149,22 @@ async def _drive_meeting_summaries() -> None:
         logger.exception("Error in meeting summary drive")
 
 
+async def _drive_meeting_quote_drafts() -> None:
+    """Job: backstop for the inline kickoff of quote drafts (Commit 15).
+    Finds AVAILABLE summaries that don't yet have a draft and queues
+    them. Every 5 minutes."""
+    if _settings is None or not _settings.anthropic_api_key:
+        return
+    try:
+        async with _session_factory() as db:
+            from app.meetings.quote_draft import drive_pending_quote_drafts
+            result = await drive_pending_quote_drafts(db, _settings)
+            if result["processed"] > 0 or result["skipped"] > 0 or result["failed"] > 0:
+                logger.info("meeting.quote_draft_drive.tick %s", result)
+    except Exception:
+        logger.exception("Error in meeting quote draft drive")
+
+
 async def _sync_plaid_transactions() -> None:
     """Job: sync transactions from connected bank accounts."""
     try:
@@ -387,6 +403,13 @@ def setup_scheduler(session_factory: Any, settings: Any = None) -> None:
         _drive_meeting_summaries,
         IntervalTrigger(minutes=5),
         id="drive_meeting_summaries",
+        replace_existing=True,
+    )
+
+    scheduler.add_job(
+        _drive_meeting_quote_drafts,
+        IntervalTrigger(minutes=5),
+        id="drive_meeting_quote_drafts",
         replace_existing=True,
     )
 

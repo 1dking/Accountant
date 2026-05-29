@@ -17,8 +17,9 @@ from app.dependencies import get_current_user, get_current_user_or_token, get_db
 from app.documents.storage import LocalStorage, StorageBackend
 from app.meetings import service
 from app.meetings.models import (
-    Meeting, MeetingRecording, MeetingStatus, MeetingSummary,
-    RecordingTranscript, RecordingStatus, SummaryStatus, TranscriptStatus,
+    Meeting, MeetingQuoteDraft, MeetingRecording, MeetingStatus,
+    MeetingSummary, QuoteDraftStatus, RecordingStatus,
+    RecordingTranscript, SummaryStatus, TranscriptStatus,
 )
 from app.meetings.schemas import (
     GuestJoinRequest,
@@ -135,6 +136,88 @@ async def search_meeting_transcripts(
         })
 
     return {"data": results, "meta": {"query": q, "total": len(results)}}
+
+
+@router.get("/{meeting_id}/quote-draft")
+async def get_meeting_quote_draft(
+    meeting_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    """Commit 15 — return the AI-drafted proposal/quote for the
+    meeting's latest summary, if any. 404 when no draft exists.
+
+    Auth: host-only (via service.get_meeting). Quote drafts contain
+    pricing data; never expose to participants.
+    """
+    meeting = await service.get_meeting(db, meeting_id, current_user)
+    rows = await db.execute(
+        select(MeetingQuoteDraft)
+        .where(MeetingQuoteDraft.meeting_id == meeting.id)
+        .order_by(MeetingQuoteDraft.created_at.desc())
+    )
+    draft = rows.scalars().first()
+    if draft is None:
+        raise HTTPException(status_code=404, detail="No quote draft yet")
+    return {
+        "data": {
+            "id": str(draft.id),
+            "meeting_id": str(draft.meeting_id),
+            "summary_id": str(draft.summary_id),
+            "status": draft.status.value,
+            "draft_title": draft.draft_title,
+            "draft_summary": draft.draft_summary,
+            "line_items": draft.line_items_json or [],
+            "estimated_total": draft.estimated_total,
+            "currency": draft.currency,
+            "notes": draft.notes,
+            "confidence": draft.confidence,
+            "model_used": draft.model_used,
+            "input_tokens": draft.input_tokens,
+            "output_tokens": draft.output_tokens,
+            "reviewed_at": draft.reviewed_at.isoformat() if draft.reviewed_at else None,
+            "sent_at": draft.sent_at.isoformat() if draft.sent_at else None,
+            "promoted_proposal_id": str(draft.promoted_proposal_id) if draft.promoted_proposal_id else None,
+            "error_message": draft.error_message,
+            "created_at": draft.created_at.isoformat() if draft.created_at else None,
+            "updated_at": draft.updated_at.isoformat() if draft.updated_at else None,
+        }
+    }
+
+
+@router.post("/{meeting_id}/quote-draft/review")
+async def review_meeting_quote_draft(
+    meeting_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.ACCOUNTANT]))],
+) -> dict:
+    """Mark the quote draft as REVIEWED — audit trail only. Does NOT
+    send anything to the client; promote-to-proposal is a separate
+    endpoint to keep the review-vs-send gate distinct.
+    """
+    from datetime import datetime, timezone
+    meeting = await service.get_meeting(db, meeting_id, current_user)
+    rows = await db.execute(
+        select(MeetingQuoteDraft)
+        .where(MeetingQuoteDraft.meeting_id == meeting.id)
+        .order_by(MeetingQuoteDraft.created_at.desc())
+    )
+    draft = rows.scalars().first()
+    if draft is None:
+        raise HTTPException(status_code=404, detail="No quote draft to review")
+    if draft.status not in (
+        QuoteDraftStatus.AVAILABLE, QuoteDraftStatus.REVIEWED,
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot review a draft in status '{draft.status.value}'",
+        )
+    draft.status = QuoteDraftStatus.REVIEWED
+    draft.reviewed_at = datetime.now(timezone.utc)
+    draft.reviewed_by = current_user.id
+    await db.commit()
+    await db.refresh(draft)
+    return {"data": {"reviewed_at": draft.reviewed_at.isoformat()}}
 
 
 @router.get("/{meeting_id}/summary")
