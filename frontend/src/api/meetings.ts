@@ -304,6 +304,24 @@ export async function getMeetingSummary(meetingId: string) {
   return api.get<ApiResponse<MeetingSummary>>(`/meetings/${meetingId}/summary`)
 }
 
+// ---------------------------------------------------------------------------
+// Commit 13 — searchable transcript across all meetings
+// ---------------------------------------------------------------------------
+
+export interface TranscriptSearchHit {
+  meeting_id: string
+  meeting_title: string
+  meeting_slug: string | null
+  snippet: string
+  match_time_seconds: number | null
+  scheduled_start: string | null
+}
+
+export async function searchMeetingTranscripts(q: string, limit = 10) {
+  const params = new URLSearchParams({ q, limit: String(limit) })
+  return api.get<ApiListResponse<TranscriptSearchHit>>(`/meetings/search?${params}`)
+}
+
 export async function uploadRecording(meetingId: string, file: Blob): Promise<ApiResponse<MeetingRecording>> {
   const formData = new FormData()
   formData.append('file', file, `recording-${Date.now()}.webm`)

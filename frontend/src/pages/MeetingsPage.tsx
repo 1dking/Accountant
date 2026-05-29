@@ -4,10 +4,11 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
   Video, Plus, Users, Calendar, Clock, Loader2,
-  ChevronDown, Zap,
+  ChevronDown, Zap, Search, X,
 } from 'lucide-react'
 import {
-  listMeetings, startInstantMeeting, type MeetingFilters,
+  listMeetings, startInstantMeeting, searchMeetingTranscripts,
+  type MeetingFilters,
 } from '@/api/meetings'
 import type { MeetingListItem, MeetingStatus } from '@/types/models'
 
@@ -128,18 +129,133 @@ function NewMeetingButton() {
 }
 
 
+/** Commit 13 — transcript search bar.
+ *
+ * 250ms debounce against the user's typing; only fires for queries
+ * 2+ chars. Results render as their own list when active. Clearing
+ * the input falls back to the standard meetings list. */
+function TranscriptSearchBar({
+  query, setQuery,
+}: { query: string; setQuery: (v: string) => void }) {
+  return (
+    <div className="relative mb-4">
+      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500 pointer-events-none" />
+      <input
+        type="text"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder='Search across all meeting transcripts…'
+        className="w-full pl-9 pr-9 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+      />
+      {query && (
+        <button
+          onClick={() => setQuery('')}
+          className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+          title="Clear search"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      )}
+    </div>
+  )
+}
+
+
+function SearchResults({
+  query, navigate,
+}: { query: string; navigate: ReturnType<typeof useNavigate> }) {
+  const [debouncedQ, setDebouncedQ] = useState(query)
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQ(query), 250)
+    return () => clearTimeout(t)
+  }, [query])
+
+  const q = useQuery({
+    queryKey: ['meeting-search', debouncedQ],
+    queryFn: () => searchMeetingTranscripts(debouncedQ),
+    enabled: debouncedQ.trim().length >= 2,
+  })
+
+  if (debouncedQ.trim().length < 2) {
+    return (
+      <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-12">
+        Type 2+ characters to search transcripts.
+      </p>
+    )
+  }
+  if (q.isLoading) {
+    return <Loader2 className="h-5 w-5 animate-spin text-gray-400 mx-auto mt-8" />
+  }
+  const hits = q.data?.data ?? []
+  if (hits.length === 0) {
+    return (
+      <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-12">
+        No transcripts match <span className="font-mono">"{debouncedQ}"</span>.
+      </p>
+    )
+  }
+
+  function fmtTs(t: string | null): string {
+    if (!t) return ''
+    const d = new Date(t)
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+        {hits.length} match{hits.length === 1 ? '' : 'es'} for "{debouncedQ}"
+      </p>
+      {hits.map((h) => (
+        <button
+          key={h.meeting_id}
+          onClick={() => navigate(`/meetings/${h.meeting_id}`)}
+          className="w-full text-left p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700 rounded-lg transition-colors"
+        >
+          <div className="flex items-center justify-between mb-1.5">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+              {h.meeting_title}
+            </h3>
+            {h.scheduled_start && (
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                {fmtTs(h.scheduled_start)}
+              </span>
+            )}
+          </div>
+          <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+            {h.snippet}
+          </p>
+          {h.match_time_seconds != null && (
+            <p className="text-xs text-blue-600 dark:text-blue-400 mt-1.5 font-mono">
+              at {Math.floor(h.match_time_seconds / 60)}:
+              {String(Math.floor(h.match_time_seconds % 60)).padStart(2, '0')}
+            </p>
+          )}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+
 export default function MeetingsPage() {
   const navigate = useNavigate()
   const [statusTab, setStatusTab] = useState('scheduled')
   const [filters, setFilters] = useState<MeetingFilters>({ page: 1, page_size: 25 })
+  // Commit 13 — search query state. When non-empty, we show the
+  // SearchResults panel instead of the standard meetings list.
+  const [searchQuery, setSearchQuery] = useState('')
 
   const { data, isLoading } = useQuery({
     queryKey: ['meetings', { ...filters, status: statusTab }],
     queryFn: () => listMeetings({ ...filters, status: statusTab }),
+    enabled: searchQuery.trim().length < 2,
   })
 
   const meetings: MeetingListItem[] = data?.data ?? []
   const meta = data?.meta
+  const searching = searchQuery.trim().length >= 2
 
   return (
     <div className="p-6">
@@ -149,7 +265,13 @@ export default function MeetingsPage() {
         <NewMeetingButton />
       </div>
 
-      {/* Tab bar */}
+      <TranscriptSearchBar query={searchQuery} setQuery={setSearchQuery} />
+
+      {searching && <SearchResults query={searchQuery} navigate={navigate} />}
+
+      {/* Standard meetings list — hidden while searching transcripts. */}
+      {!searching && (
+      <>
       <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1 mb-6 w-fit">
         {STATUS_TABS.map((tab) => (
           <button
@@ -268,6 +390,8 @@ export default function MeetingsPage() {
             </button>
           </div>
         </div>
+      )}
+      </>
       )}
     </div>
   )

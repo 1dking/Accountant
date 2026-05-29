@@ -17,8 +17,8 @@ from app.dependencies import get_current_user, get_current_user_or_token, get_db
 from app.documents.storage import LocalStorage, StorageBackend
 from app.meetings import service
 from app.meetings.models import (
-    MeetingRecording, MeetingStatus, MeetingSummary, RecordingTranscript,
-    RecordingStatus, SummaryStatus, TranscriptStatus,
+    Meeting, MeetingRecording, MeetingStatus, MeetingSummary,
+    RecordingTranscript, RecordingStatus, SummaryStatus, TranscriptStatus,
 )
 from app.meetings.schemas import (
     GuestJoinRequest,
@@ -59,6 +59,82 @@ def get_storage(request: Request) -> StorageBackend:
 # ---------------------------------------------------------------------------
 # Commit 11 — Transcript endpoint
 # ---------------------------------------------------------------------------
+
+
+@router.get("/search")
+async def search_meeting_transcripts(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    q: str = Query(..., min_length=2, max_length=200),
+    limit: int = Query(10, ge=1, le=50),
+) -> dict:
+    """Commit 13 — full-text search across the user's meeting
+    transcripts. Returns meeting_id + title + a 200-char snippet
+    centered on the first match.
+
+    Uses ILIKE for engine-agnostic matching (SQLite + Postgres);
+    a tsvector index can be added in a Postgres-conditional migration
+    later if perf becomes an issue (single-tenant accounting practice
+    is unlikely to outgrow this at any plausible volume).
+
+    Scoped to meetings the caller owns — non-host transcripts never
+    leak.
+    """
+    from sqlalchemy import or_, and_
+
+    pattern = f"%{q}%"
+    rows = await db.execute(
+        select(RecordingTranscript, Meeting)
+        .join(Meeting, RecordingTranscript.meeting_id == Meeting.id)
+        .where(
+            and_(
+                Meeting.created_by == current_user.id,
+                RecordingTranscript.status == TranscriptStatus.AVAILABLE,
+                or_(
+                    RecordingTranscript.full_text.ilike(pattern),
+                ),
+            )
+        )
+        .order_by(RecordingTranscript.created_at.desc())
+        .limit(limit)
+    )
+
+    results = []
+    q_lower = q.lower()
+    for transcript, meeting in rows.all():
+        text = transcript.full_text or ""
+        idx = text.lower().find(q_lower)
+        if idx < 0:
+            continue
+        # 200-char snippet centered on the match, with ellipses where
+        # truncated. Keeps the UI predictable in width.
+        start = max(0, idx - 80)
+        end = min(len(text), idx + len(q) + 120)
+        snippet = text[start:end]
+        if start > 0:
+            snippet = "…" + snippet
+        if end < len(text):
+            snippet = snippet + "…"
+
+        # Best-effort segment lookup — find the segment whose text
+        # contains the match; surface the timestamp so the UI can
+        # jump to it.
+        match_time: float | None = None
+        for seg in (transcript.segments_json or []):
+            if q_lower in (seg.get("text") or "").lower():
+                match_time = seg.get("start")
+                break
+
+        results.append({
+            "meeting_id": str(meeting.id),
+            "meeting_title": meeting.title,
+            "meeting_slug": meeting.slug,
+            "snippet": snippet,
+            "match_time_seconds": match_time,
+            "scheduled_start": meeting.scheduled_start.isoformat() if meeting.scheduled_start else None,
+        })
+
+    return {"data": results, "meta": {"query": q, "total": len(results)}}
 
 
 @router.get("/{meeting_id}/summary")
