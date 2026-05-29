@@ -48,6 +48,7 @@ import MeetingsPage from '@/pages/MeetingsPage'
 import NewMeetingPage from '@/pages/NewMeetingPage'
 import MeetingDetailPage from '@/pages/MeetingDetailPage'
 import MeetingRoomPage from '@/pages/MeetingRoomPage'
+import MeetingJoinPage from '@/pages/MeetingJoinPage'
 import MeetingGuestJoinPage from '@/pages/MeetingGuestJoinPage'
 import RecordingsPage from '@/pages/RecordingsPage'
 import GoogleCallbackPage from '@/pages/GoogleCallbackPage'
@@ -252,6 +253,9 @@ export default function App() {
             <Route path="/p/:token" element={<PublicDocumentPage />} />
             <Route path="/proposals/sign/:token" element={<ProposalSigningPage />} />
             <Route path="/meetings/:id/guest" element={<MeetingGuestJoinPage />} />
+            {/* Commit 8 — Google-Meet-style public meeting URL.
+                Guests land here, enter name + email, knock the lobby. */}
+            <Route path="/m/:slug" element={<MeetingJoinPage />} />
             {/* Public booking management */}
             <Route path="/booking/reschedule/:token" element={<ReschedulePage />} />
             <Route path="/booking/cancel/:token" element={<CancelBookingPage />} />

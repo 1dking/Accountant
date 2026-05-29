@@ -5,7 +5,9 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.meetings.models import MeetingStatus, ParticipantRole, RecordingStatus
+from app.meetings.models import (
+    LobbyStatus, MeetingStatus, ParticipantRole, RecordingStatus,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -16,13 +18,23 @@ from app.meetings.models import MeetingStatus, ParticipantRole, RecordingStatus
 class MeetingCreate(BaseModel):
     title: str = Field(min_length=1, max_length=255)
     description: str | None = None
-    scheduled_start: datetime
+    # Commit 8 — optional so the same schema covers instant meetings
+    # (omit → use now()) and scheduled meetings.
+    scheduled_start: datetime | None = None
     scheduled_end: datetime | None = None
     contact_id: uuid.UUID | None = None
     record_meeting: bool = False
     room_type: str = "group-small"
     participant_emails: list[str] = Field(default_factory=list)
     create_calendar_event: bool = True
+
+
+class InstantMeetingCreate(BaseModel):
+    """Commit 8 — Google-Meet "+ New meeting" button. Title is optional;
+    backend defaults to 'Instant meeting' if omitted. No participants
+    on creation — host shares the slug URL to invite ad-hoc."""
+    title: str | None = Field(None, max_length=255)
+    record_meeting: bool = False
 
 
 class MeetingUpdate(BaseModel):
@@ -56,6 +68,9 @@ class MeetingParticipantResponse(BaseModel):
     guest_name: str | None
     guest_email: str | None
     role: ParticipantRole
+    # Commit 8 — surface lobby state so the host's lobby panel can
+    # render Admit/Deny without a separate fetch.
+    lobby_status: LobbyStatus | None = None
     join_token: str | None
     joined_at: datetime | None
     left_at: datetime | None
@@ -95,7 +110,10 @@ class MeetingResponse(BaseModel):
     title: str
     description: str | None
     status: MeetingStatus
-    scheduled_start: datetime
+    # Commit 8 — shareable Google-Meet-style slug. Always present for
+    # new rows; legacy rows are backfilled by the migration.
+    slug: str | None = None
+    scheduled_start: datetime | None
     scheduled_end: datetime | None
     actual_start: datetime | None
     actual_end: datetime | None
@@ -116,7 +134,8 @@ class MeetingListItem(BaseModel):
     id: uuid.UUID
     title: str
     status: MeetingStatus
-    scheduled_start: datetime
+    slug: str | None = None
+    scheduled_start: datetime | None
     scheduled_end: datetime | None
     record_meeting: bool
     contact_id: uuid.UUID | None
@@ -124,6 +143,42 @@ class MeetingListItem(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ---------------------------------------------------------------------------
+# Commit 8 — lobby flow schemas (Google-Meet-style guest knock + admit)
+# ---------------------------------------------------------------------------
+
+
+class PublicMeetingInfo(BaseModel):
+    """Minimal meeting metadata exposed to unauthenticated callers via
+    /api/meetings/public/{slug}. Deliberately excludes
+    livekit_room_name, participant emails, recordings, etc."""
+    slug: str
+    title: str
+    status: MeetingStatus
+    scheduled_start: datetime | None
+    host_name: str | None = None  # display only
+
+
+class LobbyKnockRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    email: str = Field(min_length=3, max_length=255)
+
+
+class LobbyKnockResponse(BaseModel):
+    lobby_id: uuid.UUID
+    status: LobbyStatus
+
+
+class LobbyStatusPollResponse(BaseModel):
+    """Guest's polling response. status='waiting' carries no token;
+    'admitted' carries a freshly-issued LiveKit token + room name."""
+    status: str  # "waiting" | "admitted" | "denied" | "ended"
+    token: str | None = None
+    room_name: str | None = None
+    identity: str | None = None
+    record_meeting: bool = False
 
 
 # ---------------------------------------------------------------------------

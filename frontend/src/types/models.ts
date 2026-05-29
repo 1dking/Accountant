@@ -1080,7 +1080,12 @@ export interface Meeting {
   title: string
   description: string | null
   status: MeetingStatus
-  scheduled_start: string
+  // Commit 8 — shareable Google-Meet-style shortcode (abc-defg-hij).
+  // Backfilled for legacy rows by the alembic migration.
+  slug: string | null
+  // Commit 8 — instant meetings stamp now(); legacy rows may have a
+  // non-null value, new instant rows always do.
+  scheduled_start: string | null
   scheduled_end: string | null
   actual_start: string | null
   actual_end: string | null
@@ -1099,7 +1104,8 @@ export interface MeetingListItem {
   id: string
   title: string
   status: MeetingStatus
-  scheduled_start: string
+  slug: string | null
+  scheduled_start: string | null
   scheduled_end: string | null
   contact_id: string | null
   record_meeting: boolean

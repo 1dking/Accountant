@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Circle, Square, Loader2, Upload, PhoneOff } from 'lucide-react'
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
+import {
+  Circle, Square, Loader2, Upload, PhoneOff,
+  UserPlus, UserMinus, Bell,
+} from 'lucide-react'
 import {
   LiveKitRoom,
   GridLayout,
@@ -13,7 +16,10 @@ import {
 } from '@livekit/components-react'
 import '@livekit/components-styles'
 import { Track } from 'livekit-client'
-import { startMeeting, joinMeeting, endMeeting, uploadRecording } from '@/api/meetings'
+import {
+  startMeeting, joinMeeting, endMeeting, uploadRecording,
+  listLobby, admitFromLobby, denyFromLobby,
+} from '@/api/meetings'
 
 const LIVEKIT_URL =
   import.meta.env.VITE_LIVEKIT_URL ||
@@ -190,6 +196,122 @@ function ServerRecordingIndicator() {
   )
 }
 
+/** Commit 8 — Host-side lobby panel.
+ *
+ * Polls /lobby every 3 sec while at least one guest is waiting (and
+ * every 8 sec otherwise to catch fresh knocks). Renders waiting
+ * guests with Admit / Deny buttons.
+ *
+ * Pulses on the panel border when someone is newly waiting so the host
+ * notices even if their attention is on the video stage. */
+function LobbyPanel({ meetingId }: { meetingId: string }) {
+  const qc = useQueryClient()
+  const [hasWaiting, setHasWaiting] = useState(false)
+
+  const lobbyQ = useQuery({
+    queryKey: ['meeting-lobby', meetingId],
+    queryFn: async () => (await listLobby(meetingId)).data || [],
+    refetchInterval: hasWaiting ? 3000 : 8000,
+  })
+
+  useEffect(() => {
+    setHasWaiting((lobbyQ.data?.length ?? 0) > 0)
+  }, [lobbyQ.data])
+
+  const admitMut = useMutation({
+    mutationFn: (lobbyId: string) => admitFromLobby(meetingId, lobbyId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['meeting-lobby', meetingId] }),
+  })
+  const denyMut = useMutation({
+    mutationFn: (lobbyId: string) => denyFromLobby(meetingId, lobbyId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['meeting-lobby', meetingId] }),
+  })
+
+  const waiting = lobbyQ.data ?? []
+  if (waiting.length === 0) return null
+
+  return (
+    <div style={{
+      position: 'absolute', top: 12, left: 12, zIndex: 10,
+      minWidth: 280, maxWidth: 360,
+      background: 'rgba(15, 18, 32, 0.94)',
+      backdropFilter: 'blur(20px) saturate(180%)',
+      WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+      border: '1px solid rgba(99, 102, 241, 0.45)',
+      borderRadius: 12,
+      boxShadow: '0 16px 40px rgba(0, 0, 0, 0.5)',
+      padding: 12,
+      color: 'white',
+      animation: 'mrp-lobby-pulse 2s ease-in-out infinite',
+    }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 6,
+        fontSize: 11, fontWeight: 600, letterSpacing: '0.06em',
+        textTransform: 'uppercase', color: 'rgba(199, 210, 254, 0.9)',
+        marginBottom: 8,
+      }}>
+        <Bell className="h-3.5 w-3.5" />
+        Waiting to join · {waiting.length}
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {waiting.map((p: any) => (
+          <div key={p.id} style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            gap: 8, padding: '6px 8px',
+            background: 'rgba(255, 255, 255, 0.04)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: 8,
+          }}>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ fontSize: 13, fontWeight: 500, color: 'white', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {p.guest_name || 'Guest'}
+              </div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.50)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {p.guest_email}
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 4 }}>
+              <button
+                onClick={() => admitMut.mutate(p.id)}
+                disabled={admitMut.isPending}
+                title="Admit"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 3,
+                  padding: '5px 9px', fontSize: 11, fontWeight: 500,
+                  background: 'rgba(16, 185, 129, 0.22)',
+                  border: '1px solid rgba(16, 185, 129, 0.5)',
+                  borderRadius: 6, color: '#a7f3d0', cursor: 'pointer',
+                }}
+              >
+                <UserPlus className="h-3 w-3" /> Admit
+              </button>
+              <button
+                onClick={() => denyMut.mutate(p.id)}
+                disabled={denyMut.isPending}
+                title="Deny"
+                style={{
+                  display: 'inline-flex', alignItems: 'center',
+                  padding: '5px 7px', fontSize: 11,
+                  background: 'rgba(239, 68, 68, 0.18)',
+                  border: '1px solid rgba(239, 68, 68, 0.4)',
+                  borderRadius: 6, color: '#fecaca', cursor: 'pointer',
+                }}
+              >
+                <UserMinus className="h-3 w-3" />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+      <style>{`@keyframes mrp-lobby-pulse {
+        0%, 100% { box-shadow: 0 16px 40px rgba(0,0,0,0.5), 0 0 0 0 rgba(99,102,241,0.45); }
+        50%      { box-shadow: 0 16px 40px rgba(0,0,0,0.5), 0 0 0 6px rgba(99,102,241,0); }
+      }`}</style>
+    </div>
+  )
+}
+
+
 function MeetingStage({ meetingId, onEndMeeting, endingMeeting, recordMeeting }: {
   meetingId: string
   onEndMeeting: () => void
@@ -218,6 +340,9 @@ function MeetingStage({ meetingId, onEndMeeting, endingMeeting, recordMeeting }:
             <ServerRecordingIndicator />
           </div>
         )}
+        {/* Commit 8 — Host's lobby panel: shows waiting guests with
+            Admit/Deny buttons. Polls every 3s when someone's waiting. */}
+        <LobbyPanel meetingId={meetingId} />
       </div>
 
       <RoomAudioRenderer />

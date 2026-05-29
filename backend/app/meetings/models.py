@@ -37,6 +37,18 @@ class ParticipantRole(str, enum.Enum):
     PARTICIPANT = "participant"
 
 
+class LobbyStatus(str, enum.Enum):
+    """Commit 8 — Google-Meet-style lobby state for guest participants.
+
+    NULL on the column means the participant was added directly to the
+    meeting (host, or pre-Commit-8 row). Guest-knock flow uses the
+    other states.
+    """
+    WAITING = "waiting"   # knocked, host hasn't decided yet
+    ADMITTED = "admitted" # host approved; guest poll returns the LK token
+    DENIED = "denied"     # host rejected; final terminal state
+
+
 class RecordingStatus(str, enum.Enum):
     RECORDING = "recording"
     PROCESSING = "processing"
@@ -58,8 +70,17 @@ class Meeting(TimestampMixin, Base):
     status: Mapped[MeetingStatus] = mapped_column(
         Enum(MeetingStatus), default=MeetingStatus.SCHEDULED, nullable=False
     )
-    scheduled_start: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False
+    # Commit 8 — Google-Meet-style shareable shortcode. Unique 11-char
+    # form abc-defg-hij. Nullable to keep pre-Commit-8 rows valid until
+    # the backfill migration runs; new rows always get a slug.
+    slug: Mapped[str | None] = mapped_column(
+        String(20), unique=True, index=True, nullable=True
+    )
+    # Commit 8 — Instant meetings stamp scheduled_start=now(); the
+    # column becomes nullable to support legacy/template rows that
+    # don't have a planned start.
+    scheduled_start: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
     )
     scheduled_end: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
@@ -112,6 +133,12 @@ class MeetingParticipant(Base):
     guest_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     role: Mapped[ParticipantRole] = mapped_column(
         Enum(ParticipantRole), default=ParticipantRole.PARTICIPANT, nullable=False
+    )
+    # Commit 8 — Google-Meet-style lobby state. NULL = participant
+    # bypasses the lobby (host, or already-in-meeting). The guest-knock
+    # endpoint sets WAITING; host admit/deny sets the terminal state.
+    lobby_status: Mapped["LobbyStatus | None"] = mapped_column(
+        Enum(LobbyStatus), nullable=True
     )
     join_token: Mapped[str | None] = mapped_column(
         String(500), nullable=True, unique=True

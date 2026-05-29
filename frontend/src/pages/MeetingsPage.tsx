@@ -1,8 +1,14 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
-import { useQuery } from '@tanstack/react-query'
-import { Video, Plus, Users, Calendar, Clock, Loader2 } from 'lucide-react'
-import { listMeetings, type MeetingFilters } from '@/api/meetings'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { toast } from 'sonner'
+import {
+  Video, Plus, Users, Calendar, Clock, Loader2,
+  ChevronDown, Zap,
+} from 'lucide-react'
+import {
+  listMeetings, startInstantMeeting, type MeetingFilters,
+} from '@/api/meetings'
 import type { MeetingListItem, MeetingStatus } from '@/types/models'
 
 const STATUS_TABS: { value: string; label: string }[] = [
@@ -44,6 +50,84 @@ function formatTime(iso: string): string {
   return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
 }
 
+/** Commit 8 — "+ New meeting" dropdown.
+ *
+ * Google Meet-style: one button with two options.
+ *   - Start instant meeting → POST /meetings/instant → navigate
+ *     straight to the room.
+ *   - Schedule for later → existing NewMeetingPage form.
+ */
+function NewMeetingButton() {
+  const navigate = useNavigate()
+  const [open, setOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  const instantMut = useMutation({
+    mutationFn: () => startInstantMeeting(),
+    onSuccess: (res) => {
+      const meetingId = res.data.meeting.id
+      navigate(`/meetings/${meetingId}/room?action=join`)
+    },
+    onError: (e: any) =>
+      toast.error(`Couldn't start meeting: ${e?.message || 'unknown'}`),
+  })
+
+  // Click-outside close
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e: MouseEvent) => {
+      if (!containerRef.current?.contains(e.target as Node)) setOpen(false)
+    }
+    window.addEventListener('mousedown', onDoc)
+    return () => window.removeEventListener('mousedown', onDoc)
+  }, [open])
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        onClick={() => setOpen(v => !v)}
+        disabled={instantMut.isPending}
+        className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+      >
+        {instantMut.isPending
+          ? <Loader2 className="h-4 w-4 animate-spin" />
+          : <Plus className="h-4 w-4" />}
+        New meeting
+        <ChevronDown className="h-3.5 w-3.5 -mr-1 opacity-80" />
+      </button>
+      {open && (
+        <div className="absolute right-0 mt-1.5 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl z-30 overflow-hidden">
+          <button
+            onClick={() => { setOpen(false); instantMut.mutate() }}
+            className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-start gap-3 transition-colors"
+          >
+            <Zap className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
+            <div>
+              <div className="text-sm font-medium text-gray-900 dark:text-gray-100">Start instant meeting</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                Get a shareable link right now
+              </div>
+            </div>
+          </button>
+          <button
+            onClick={() => { setOpen(false); navigate('/meetings/new') }}
+            className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-start gap-3 transition-colors border-t border-gray-100 dark:border-gray-700"
+          >
+            <Calendar className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
+            <div>
+              <div className="text-sm font-medium text-gray-900 dark:text-gray-100">Schedule for later</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                Pick a date + invite participants
+              </div>
+            </div>
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+
 export default function MeetingsPage() {
   const navigate = useNavigate()
   const [statusTab, setStatusTab] = useState('scheduled')
@@ -62,13 +146,7 @@ export default function MeetingsPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Meetings</h1>
-        <button
-          onClick={() => navigate('/meetings/new')}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="h-4 w-4" />
-          Schedule Meeting
-        </button>
+        <NewMeetingButton />
       </div>
 
       {/* Tab bar */}
@@ -123,10 +201,12 @@ export default function MeetingsPage() {
               </div>
 
               <div className="space-y-2 text-xs text-gray-500 dark:text-gray-400">
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-3.5 w-3.5" />
-                  <span>{formatDateTime(meeting.scheduled_start)}</span>
-                </div>
+                {meeting.scheduled_start && (
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-3.5 w-3.5" />
+                    <span>{formatDateTime(meeting.scheduled_start)}</span>
+                  </div>
+                )}
                 {meeting.scheduled_end && (
                   <div className="flex items-center gap-2">
                     <Clock className="h-3.5 w-3.5" />

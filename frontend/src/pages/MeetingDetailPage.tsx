@@ -15,6 +15,45 @@ import {
 import { coachApi } from '@/api/coach'
 import type { MeetingStatus, MeetingParticipant } from '@/types/models'
 
+/** Commit 8 — shareable meeting URL display + copy button.
+ *
+ * Renders right under the meeting title on MeetingDetailPage. The URL
+ * is the public guest-join page (/m/:slug); recipients enter name +
+ * email matching their invite, then knock the lobby. */
+function ShareLinkRow({ slug }: { slug: string }) {
+  const [copied, setCopied] = useState(false)
+  const url = `${window.location.origin}/m/${slug}`
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      toast.success('Meeting link copied')
+      setTimeout(() => setCopied(false), 1800)
+    } catch {
+      toast.error('Could not copy link')
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2 mt-2 text-xs text-gray-500 dark:text-gray-400">
+      <span className="font-medium">Share link:</span>
+      <code className="px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded font-mono text-[11px] text-gray-700 dark:text-gray-300 truncate max-w-md">
+        {url}
+      </code>
+      <button
+        onClick={handleCopy}
+        className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 rounded transition-colors"
+        title="Copy to clipboard"
+      >
+        <Copy className="h-3.5 w-3.5" />
+        {copied ? 'Copied!' : 'Copy'}
+      </button>
+    </div>
+  )
+}
+
+
 function StatusBadge({ status }: { status: MeetingStatus }) {
   const config: Record<MeetingStatus, { bg: string; text: string; label: string; pulse?: boolean }> = {
     scheduled: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Scheduled' },
@@ -440,6 +479,11 @@ export default function MeetingDetailPage() {
             <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{meeting.title}</h1>
             <StatusBadge status={meeting.status} />
           </div>
+          {/* Commit 8 — shareable meeting URL. Guest visits this URL
+              and goes through the email-match + knock flow. */}
+          {meeting.slug && meeting.status !== 'cancelled' && (
+            <ShareLinkRow slug={meeting.slug} />
+          )}
         </div>
       </div>
 
@@ -489,13 +533,15 @@ export default function MeetingDetailPage() {
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5 mb-6">
         <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">Meeting Details</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Scheduled Start</p>
-            <p className="text-sm text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
-              <Calendar className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500" />
-              {formatDateTime(meeting.scheduled_start)}
-            </p>
-          </div>
+          {meeting.scheduled_start && (
+            <div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Scheduled Start</p>
+              <p className="text-sm text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
+                <Calendar className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500" />
+                {formatDateTime(meeting.scheduled_start)}
+              </p>
+            </div>
+          )}
           {meeting.scheduled_end && (
             <div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Scheduled End</p>

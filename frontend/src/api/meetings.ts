@@ -118,6 +118,103 @@ export function getRecordingStreamUrl(recordingId: string): string {
   return `/api/meetings/recordings/${recordingId}/stream?token=${encodeURIComponent(token)}`
 }
 
+// ---------------------------------------------------------------------------
+// Commit 8 — Google-Meet-style instant + slug + lobby flow
+// ---------------------------------------------------------------------------
+
+export interface InstantMeetingResponse {
+  meeting: Meeting
+  join: LiveKitTokenResponse
+}
+
+export async function startInstantMeeting(opts: {
+  title?: string
+  record_meeting?: boolean
+} = {}) {
+  return api.post<ApiResponse<InstantMeetingResponse>>('/meetings/instant', opts)
+}
+
+export interface PublicMeetingInfo {
+  slug: string
+  title: string
+  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled'
+  scheduled_start: string | null
+  host_name: string | null
+}
+
+export async function getPublicMeetingInfo(slug: string) {
+  // No auth — guest pre-join page. Use plain fetch so the api client
+  // doesn't attach a bearer token.
+  const resp = await fetch(`/api/meetings/public/${encodeURIComponent(slug)}`)
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => null)
+    throw new Error(body?.error?.message || `Meeting not found (${resp.status})`)
+  }
+  return resp.json() as Promise<ApiResponse<PublicMeetingInfo>>
+}
+
+export interface LobbyKnockResponse {
+  lobby_id: string
+  status: 'waiting' | 'admitted' | 'denied'
+}
+
+export async function knockAtLobby(slug: string, name: string, email: string) {
+  const resp = await fetch(`/api/meetings/public/${encodeURIComponent(slug)}/knock`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, email }),
+  })
+  if (resp.status === 403) {
+    // Special-cased so the UI can render the friendly "not on the
+    // invite list" message inline instead of a generic error toast.
+    const body = await resp.json().catch(() => null)
+    throw new Error(
+      body?.error?.message
+        || "We can't find an invite for that email on this meeting.",
+    )
+  }
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => null)
+    throw new Error(body?.error?.message || `Knock failed (${resp.status})`)
+  }
+  return resp.json() as Promise<ApiResponse<LobbyKnockResponse>>
+}
+
+export interface LobbyStatusPollResponse {
+  status: 'waiting' | 'admitted' | 'denied' | 'ended'
+  token?: string
+  room_name?: string
+  identity?: string
+  record_meeting?: boolean
+}
+
+export async function pollLobbyStatus(slug: string, lobbyId: string) {
+  const resp = await fetch(
+    `/api/meetings/public/${encodeURIComponent(slug)}/lobby/${encodeURIComponent(lobbyId)}`,
+  )
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => null)
+    throw new Error(body?.error?.message || `Lobby poll failed (${resp.status})`)
+  }
+  return resp.json() as Promise<ApiResponse<LobbyStatusPollResponse>>
+}
+
+export async function listLobby(meetingId: string) {
+  return api.get<ApiListResponse<MeetingParticipant>>(`/meetings/${meetingId}/lobby`)
+}
+
+export async function admitFromLobby(meetingId: string, lobbyId: string) {
+  return api.post<ApiResponse<MeetingParticipant>>(
+    `/meetings/${meetingId}/lobby/${lobbyId}/admit`,
+  )
+}
+
+export async function denyFromLobby(meetingId: string, lobbyId: string) {
+  return api.post<ApiResponse<MeetingParticipant>>(
+    `/meetings/${meetingId}/lobby/${lobbyId}/deny`,
+  )
+}
+
 export async function uploadRecording(meetingId: string, file: Blob): Promise<ApiResponse<MeetingRecording>> {
   const formData = new FormData()
   formData.append('file', file, `recording-${Date.now()}.webm`)

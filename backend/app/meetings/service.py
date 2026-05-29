@@ -16,6 +16,7 @@ from app.core.authorization import apply_ownership_filter, authorize_owner
 from app.core.exceptions import ForbiddenError, NotFoundError, ValidationError
 from app.core.pagination import PaginationParams, build_pagination_meta
 from app.meetings.models import (
+    LobbyStatus,
     Meeting,
     MeetingParticipant,
     MeetingRecording,
@@ -102,19 +103,52 @@ def generate_livekit_token(
 # ---------------------------------------------------------------------------
 
 
+_SLUG_ALPHABET = "abcdefghijkmnpqrstuvwxyz"  # l, o removed (ambiguous)
+
+
+def _generate_slug() -> str:
+    """Generate an unverified slug — abc-defg-hij. Caller is responsible
+    for collision-retry against the DB."""
+    s = "".join(secrets.choice(_SLUG_ALPHABET) for _ in range(10))
+    return f"{s[0:3]}-{s[3:7]}-{s[7:10]}"
+
+
+async def _generate_unique_slug(db: AsyncSession, max_tries: int = 8) -> str:
+    """Generate a slug guaranteed not to collide with an existing row.
+    Eight tries at ~50 bits of entropy is more than enough; we raise on
+    the (mathematically impossible) eighth-collision case to surface a
+    real bug if it ever happens."""
+    for _ in range(max_tries):
+        candidate = _generate_slug()
+        existing = await db.execute(
+            select(Meeting.id).where(Meeting.slug == candidate)
+        )
+        if existing.scalar_one_or_none() is None:
+            return candidate
+    raise RuntimeError("Could not generate a unique meeting slug after 8 tries")
+
+
 async def create_meeting(
     db: AsyncSession,
     user: User,
     data: MeetingCreate,
     settings: Settings,
 ) -> Meeting:
-    """Create a new meeting with host participant and optional guest invites."""
+    """Create a new meeting with host participant and optional guest invites.
+
+    Commit 8 — scheduled_start is now optional. When omitted, the
+    meeting is treated as a draft that hasn't been scheduled yet; the
+    host can still share the slug URL. For "start right now," use
+    start_instant_meeting which both creates and starts in one step.
+    """
     room_name = f"meeting-{uuid.uuid4().hex[:16]}"
+    slug = await _generate_unique_slug(db)
 
     meeting = Meeting(
         title=data.title,
         description=data.description,
         status=MeetingStatus.SCHEDULED,
+        slug=slug,
         scheduled_start=data.scheduled_start,
         scheduled_end=data.scheduled_end,
         livekit_room_name=room_name,
@@ -920,6 +954,238 @@ async def remove_participant(
         resource_id=str(participant_id),
         details={"meeting_id": str(meeting_id)},
     )
+
+
+# ---------------------------------------------------------------------------
+# Commit 8 — Google-Meet-style instant + lobby flow
+# ---------------------------------------------------------------------------
+
+
+async def start_instant_meeting(
+    db: AsyncSession,
+    user: User,
+    settings: Settings,
+    *,
+    title: str | None = None,
+) -> tuple[Meeting, dict]:
+    """Create-and-start in one step. Stamps scheduled_start=now() and
+    flips to IN_PROGRESS so the host can join the room URL immediately.
+
+    Returns (meeting, host_token_payload). The host_token_payload has
+    the same shape as start_meeting's return so the frontend can
+    redirect into the room with one fewer round trip.
+    """
+    from app.meetings.schemas import MeetingCreate
+    now = datetime.now(timezone.utc)
+    data = MeetingCreate(
+        title=title or "Instant meeting",
+        scheduled_start=now,
+        record_meeting=False,
+        participant_emails=[],
+        create_calendar_event=False,
+    )
+    meeting = await create_meeting(db, user, data, settings)
+    token_payload = await start_meeting(db, meeting.id, user, settings)
+    # Reload so the caller sees the updated status / actual_start.
+    meeting = await get_meeting(db, meeting.id, user)
+    return meeting, token_payload
+
+
+async def get_meeting_by_slug_public(
+    db: AsyncSession, slug: str,
+) -> Meeting:
+    """Public lookup for the pre-join page — no auth, returns the
+    Meeting row but the router strips sensitive fields before serving.
+    """
+    result = await db.execute(
+        select(Meeting)
+        .options(selectinload(Meeting.participants))
+        .where(Meeting.slug == slug)
+    )
+    meeting = result.scalar_one_or_none()
+    if meeting is None:
+        raise NotFoundError("Meeting", slug)
+    return meeting
+
+
+def _normalize_email(email: str) -> str:
+    return (email or "").strip().lower()
+
+
+async def knock_at_lobby(
+    db: AsyncSession,
+    slug: str,
+    name: str,
+    email: str,
+) -> MeetingParticipant:
+    """Guest entry point — verify email matches an invite, upsert a
+    WAITING participant, return the lobby ID.
+
+    Email match is case-insensitive on both sides. Re-knocking from
+    the same email updates the existing row (refreshes name, resets
+    DENIED → WAITING if the host wants to reconsider). Non-matching
+    email → ValidationError mapped to 403 by the router.
+    """
+    meeting = await get_meeting_by_slug_public(db, slug)
+    if meeting.status in (MeetingStatus.COMPLETED, MeetingStatus.CANCELLED):
+        raise ValidationError("This meeting is not joinable.")
+
+    target = _normalize_email(email)
+    if not target:
+        raise ValidationError("Email is required to knock.")
+
+    # Find a matching participant by email. participant_emails added at
+    # create-time set guest_email; an authenticated user might also be
+    # invited (user_id set, no guest_email) — we'll cover that path
+    # later via separate user-auth join.
+    existing = None
+    for p in meeting.participants:
+        if p.guest_email and _normalize_email(p.guest_email) == target:
+            existing = p
+            break
+
+    if existing is None:
+        # Not on the invite list — Google-Meet-Workspace-style strict
+        # match. Don't leak whether the meeting exists vs. just the
+        # invitee list; same 403 either way.
+        raise ValidationError("This email isn't on the meeting's invite list.")
+
+    # Upsert the lobby state. Use the passed name if non-empty (lets
+    # guests fix their own typos by re-knocking).
+    if name and name.strip():
+        existing.guest_name = name.strip()
+    existing.lobby_status = LobbyStatus.WAITING
+    # Bump joined_at sentinel — we use it as last-knock-at for the
+    # host's lobby panel ordering. Reset on actual room join later.
+    existing.joined_at = None
+    existing.left_at = None
+    await db.commit()
+    await db.refresh(existing)
+    return existing
+
+
+async def get_lobby_status(
+    db: AsyncSession,
+    slug: str,
+    lobby_id: uuid.UUID,
+    settings: Settings,
+) -> dict:
+    """Polled by the guest browser ~every 2-3 sec while in the lobby.
+    Returns a small envelope with the current state and, on ADMITTED,
+    a freshly-issued LiveKit token the guest can connect with."""
+    meeting = await get_meeting_by_slug_public(db, slug)
+    participant = next(
+        (p for p in meeting.participants if p.id == lobby_id), None,
+    )
+    if participant is None:
+        raise NotFoundError("LobbyEntry", str(lobby_id))
+
+    status = participant.lobby_status
+
+    if status == LobbyStatus.DENIED:
+        return {"status": "denied"}
+
+    if status == LobbyStatus.ADMITTED:
+        # Don't gate on meeting.status — host may have admitted before
+        # technically pressing "start"; LiveKit handles auto-room-create
+        # at first join. We still gate on COMPLETED/CANCELLED.
+        if meeting.status == MeetingStatus.COMPLETED:
+            return {"status": "ended"}
+        if meeting.status == MeetingStatus.CANCELLED:
+            return {"status": "denied"}
+        # Fresh token per poll is fine — they're short-lived JWTs.
+        session_suffix = secrets.token_hex(4)
+        identity = f"guest-{participant.id}-{session_suffix}"
+        token = generate_livekit_token(
+            meeting.livekit_room_name, identity, settings,
+            name=participant.guest_name or "Guest",
+        )
+        # Stamp joined_at the first time we hand out a token so the
+        # host's UI can show "joined N min ago".
+        if participant.joined_at is None:
+            participant.joined_at = datetime.now(timezone.utc)
+            await db.commit()
+        return {
+            "status": "admitted",
+            "token": token,
+            "room_name": meeting.livekit_room_name,
+            "identity": identity,
+            "record_meeting": meeting.record_meeting,
+        }
+
+    return {"status": "waiting"}
+
+
+async def list_lobby(
+    db: AsyncSession, meeting_id: uuid.UUID, user: User,
+) -> list[MeetingParticipant]:
+    """Host-side — return waiting guests so the in-room panel can show
+    Admit/Deny buttons. Ordered by knock time (joined_at == None
+    means "just knocked," sorted last for visibility)."""
+    meeting = await get_meeting(db, meeting_id, user)
+    waiting = [
+        p for p in meeting.participants
+        if p.lobby_status == LobbyStatus.WAITING
+    ]
+    return waiting
+
+
+async def admit_from_lobby(
+    db: AsyncSession,
+    meeting_id: uuid.UUID,
+    lobby_id: uuid.UUID,
+    user: User,
+) -> MeetingParticipant:
+    """Host approves a waiting guest. Idempotent — already-ADMITTED
+    rows are returned unchanged. DENIED rows can be re-admitted by
+    the host (no terminal lock)."""
+    meeting = await get_meeting(db, meeting_id, user)
+    participant = next(
+        (p for p in meeting.participants if p.id == lobby_id), None,
+    )
+    if participant is None:
+        raise NotFoundError("LobbyEntry", str(lobby_id))
+    if participant.lobby_status not in (
+        LobbyStatus.WAITING, LobbyStatus.DENIED, LobbyStatus.ADMITTED,
+    ):
+        raise ValidationError("Participant is not in the lobby.")
+    participant.lobby_status = LobbyStatus.ADMITTED
+    await db.commit()
+    await db.refresh(participant)
+    await log_activity(
+        db, user_id=user.id, action="admitted_from_lobby",
+        resource_type="meeting_participant",
+        resource_id=str(participant.id),
+        details={"meeting_id": str(meeting.id)},
+    )
+    return participant
+
+
+async def deny_from_lobby(
+    db: AsyncSession,
+    meeting_id: uuid.UUID,
+    lobby_id: uuid.UUID,
+    user: User,
+) -> MeetingParticipant:
+    """Host rejects a guest. Marks DENIED; the guest's poll returns
+    'denied' on next tick and the frontend shows a closed-door message.
+    """
+    meeting = await get_meeting(db, meeting_id, user)
+    participant = next(
+        (p for p in meeting.participants if p.id == lobby_id), None,
+    )
+    if participant is None:
+        raise NotFoundError("LobbyEntry", str(lobby_id))
+    participant.lobby_status = LobbyStatus.DENIED
+    await db.commit()
+    await db.refresh(participant)
+    await log_activity(
+        db, user_id=user.id, action="denied_from_lobby",
+        resource_type="meeting_participant",
+        resource_id=str(participant.id),
+        details={"meeting_id": str(meeting.id)},
+    )
+    return participant
 
 
 # ---------------------------------------------------------------------------

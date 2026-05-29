@@ -19,6 +19,10 @@ from app.meetings import service
 from app.meetings.models import MeetingRecording, MeetingStatus, RecordingStatus
 from app.meetings.schemas import (
     GuestJoinRequest,
+    InstantMeetingCreate,
+    LobbyKnockRequest,
+    LobbyKnockResponse,
+    LobbyStatusPollResponse,
     MeetingCreate,
     MeetingListItem,
     MeetingParticipantAdd,
@@ -26,6 +30,7 @@ from app.meetings.schemas import (
     MeetingRecordingResponse,
     MeetingResponse,
     MeetingUpdate,
+    PublicMeetingInfo,
 )
 
 router = APIRouter()
@@ -45,6 +50,153 @@ def get_storage(request: Request) -> StorageBackend:
 
 # ---------------------------------------------------------------------------
 # Meeting CRUD endpoints
+# ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# Commit 8 — Instant meeting + public slug/lobby endpoints.
+#
+# These are declared BEFORE the parameterized /{meeting_id} routes so
+# the literal-path matches ("instant", "public/{slug}") win in
+# FastAPI's path resolution.
+# ---------------------------------------------------------------------------
+
+
+@router.post("/instant", status_code=201)
+async def create_instant_meeting(
+    body: InstantMeetingCreate,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.ACCOUNTANT]))],
+) -> dict:
+    """Create-and-start in one step. Returns the meeting + a host
+    token payload so the client can connect without a second round trip.
+
+    Matches Google Meet's "+ New meeting → Start an instant meeting"
+    flow — host clicks, gets a shareable URL, lands in the room.
+    """
+    settings = request.app.state.settings
+    meeting, token_payload = await service.start_instant_meeting(
+        db, current_user, settings, title=body.title,
+    )
+    return {
+        "data": {
+            "meeting": MeetingResponse.model_validate(meeting).model_dump(mode="json"),
+            "join": token_payload,
+        }
+    }
+
+
+@router.get("/public/{slug}")
+async def public_meeting_info(
+    slug: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    """Public pre-join lookup — no auth. Returns the minimal info the
+    landing page needs to render: title, status, scheduled time.
+    Deliberately excludes livekit_room_name, participant emails,
+    recordings, etc. so a leaked slug doesn't disclose more than the
+    URL already does."""
+    meeting = await service.get_meeting_by_slug_public(db, slug)
+    return {
+        "data": PublicMeetingInfo(
+            slug=meeting.slug or slug,
+            title=meeting.title,
+            status=meeting.status,
+            scheduled_start=meeting.scheduled_start,
+        ).model_dump(mode="json")
+    }
+
+
+@router.post("/public/{slug}/knock", status_code=201)
+async def knock_at_lobby(
+    slug: str,
+    body: LobbyKnockRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    """Guest entry point — submit name + email. Email must match an
+    invited address (case-insensitive). On success, returns the lobby
+    ID the guest's browser polls with."""
+    try:
+        participant = await service.knock_at_lobby(
+            db, slug, body.name, body.email,
+        )
+    except ValidationError as exc:
+        # Translate to 403 so the frontend can surface a friendly
+        # "you're not on the invite list" inline error.
+        raise HTTPException(status_code=403, detail=str(exc))
+    return {
+        "data": LobbyKnockResponse(
+            lobby_id=participant.id,
+            status=participant.lobby_status,
+        ).model_dump(mode="json")
+    }
+
+
+@router.get("/public/{slug}/lobby/{lobby_id}")
+async def poll_lobby_status(
+    slug: str,
+    lobby_id: uuid.UUID,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    """Polled by the guest browser ~every 3 sec. Returns 'waiting'
+    until the host clicks Admit, then returns a LiveKit token the
+    guest can connect with. Returns 'denied' if the host clicks Deny."""
+    settings = request.app.state.settings
+    payload = await service.get_lobby_status(db, slug, lobby_id, settings)
+    return {"data": LobbyStatusPollResponse(**payload).model_dump(mode="json")}
+
+
+@router.get("/{meeting_id}/lobby")
+async def list_lobby(
+    meeting_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.ACCOUNTANT]))],
+) -> dict:
+    """Host-side — list participants currently in the lobby. The
+    in-room lobby panel polls this every ~3 sec to show Admit/Deny."""
+    waiting = await service.list_lobby(db, meeting_id, current_user)
+    return {
+        "data": [
+            MeetingParticipantResponse.model_validate(p).model_dump(mode="json")
+            for p in waiting
+        ]
+    }
+
+
+@router.post("/{meeting_id}/lobby/{lobby_id}/admit")
+async def admit_from_lobby(
+    meeting_id: uuid.UUID,
+    lobby_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.ACCOUNTANT]))],
+) -> dict:
+    participant = await service.admit_from_lobby(
+        db, meeting_id, lobby_id, current_user,
+    )
+    return {
+        "data": MeetingParticipantResponse.model_validate(participant).model_dump(mode="json")
+    }
+
+
+@router.post("/{meeting_id}/lobby/{lobby_id}/deny")
+async def deny_from_lobby(
+    meeting_id: uuid.UUID,
+    lobby_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.ACCOUNTANT]))],
+) -> dict:
+    participant = await service.deny_from_lobby(
+        db, meeting_id, lobby_id, current_user,
+    )
+    return {
+        "data": MeetingParticipantResponse.model_validate(participant).model_dump(mode="json")
+    }
+
+
+# ---------------------------------------------------------------------------
+# CRUD endpoints (continued)
 # ---------------------------------------------------------------------------
 
 
