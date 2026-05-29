@@ -138,6 +138,24 @@ async def search_meeting_transcripts(
     return {"data": results, "meta": {"query": q, "total": len(results)}}
 
 
+@router.get("/{meeting_id}/prior-context")
+async def get_meeting_prior_context(
+    meeting_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    """Commit 17 — cross-meeting context. Returns prior meeting +
+    recent action items + recent topics for the linked contact.
+
+    Returns {"data": {}} when the meeting has no contact_id — UI uses
+    this to hide the section.
+    """
+    meeting = await service.get_meeting(db, meeting_id, current_user)
+    from app.meetings.cross_context import get_prior_context_for_meeting
+    payload = await get_prior_context_for_meeting(db, meeting)
+    return {"data": payload}
+
+
 @router.get("/{meeting_id}/quote-draft")
 async def get_meeting_quote_draft(
     meeting_id: uuid.UUID,

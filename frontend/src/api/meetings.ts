@@ -376,6 +376,34 @@ export async function reviewMeetingQuoteDraft(meetingId: string) {
   )
 }
 
+// ---------------------------------------------------------------------------
+// Commit 17 — cross-meeting context
+// ---------------------------------------------------------------------------
+
+export interface PriorMeetingContext {
+  contact_id?: string
+  last_meeting?: {
+    id: string
+    title: string
+    scheduled_start: string | null
+    actual_end: string | null
+    summary_text: string | null
+  } | null
+  recent_action_items?: Array<{
+    title: string
+    description: string | null
+    source_summary_id: string | null
+    created_at: string | null
+  }>
+  recent_topics?: Array<{ topic: string; decision: string | null }>
+}
+
+export async function getMeetingPriorContext(meetingId: string) {
+  return api.get<ApiResponse<PriorMeetingContext>>(
+    `/meetings/${meetingId}/prior-context`,
+  )
+}
+
 export async function uploadRecording(meetingId: string, file: Blob): Promise<ApiResponse<MeetingRecording>> {
   const formData = new FormData()
   formData.append('file', file, `recording-${Date.now()}.webm`)

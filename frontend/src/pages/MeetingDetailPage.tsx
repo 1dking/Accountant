@@ -13,9 +13,98 @@ import {
   removeParticipant, getRecordingStreamUrl, deleteRecording,
   getCalendarUrls, sendMeetingInvites, getMeetingTranscript,
   getMeetingSummary, getMeetingQuoteDraft, reviewMeetingQuoteDraft,
+  getMeetingPriorContext,
 } from '@/api/meetings'
 import { coachApi } from '@/api/coach'
 import type { MeetingStatus, MeetingParticipant } from '@/types/models'
+
+/** Commit 17 — cross-meeting context.
+ *
+ * Shows the last meeting with the same contact + recent action items
+ * + recent topics. Hidden when the meeting has no contact_id. Great
+ * for accountants reviewing a client meeting — surfaces "last time
+ * we spoke, you committed to X" without opening the prior meeting. */
+function PriorContextSection({ meetingId }: { meetingId: string }) {
+  const q = useQuery({
+    queryKey: ['meeting-prior-context', meetingId],
+    queryFn: async () => (await getMeetingPriorContext(meetingId)).data,
+    retry: false,
+  })
+  if (q.isError || q.isLoading || !q.data) return null
+  const ctx = q.data
+  // Empty payload = no contact_id; hide entirely.
+  if (!ctx.contact_id) return null
+  const hasLast = ctx.last_meeting != null
+  const hasActions = (ctx.recent_action_items?.length ?? 0) > 0
+  const hasTopics = (ctx.recent_topics?.length ?? 0) > 0
+  if (!hasLast && !hasActions && !hasTopics) return null
+
+  function fmtDate(s: string | null | undefined): string {
+    if (!s) return ''
+    return new Date(s).toLocaleDateString('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric',
+    })
+  }
+
+  return (
+    <div className="mb-6 p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl">
+      <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+        <Clock className="h-3.5 w-3.5" /> Prior context
+      </p>
+
+      {hasLast && ctx.last_meeting && (
+        <div className="mb-3">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">
+            Last meeting · {fmtDate(ctx.last_meeting.actual_end || ctx.last_meeting.scheduled_start)}
+          </p>
+          <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
+            {ctx.last_meeting.title}
+          </p>
+          {ctx.last_meeting.summary_text && (
+            <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+              {ctx.last_meeting.summary_text}
+            </p>
+          )}
+        </div>
+      )}
+
+      {hasActions && (
+        <div className="mb-3">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-1.5">
+            Open action items from previous meetings
+          </p>
+          <ul className="space-y-1">
+            {ctx.recent_action_items!.map((ai, i) => (
+              <li key={i} className="text-sm text-gray-800 dark:text-gray-200 flex items-start gap-2">
+                <span className="text-slate-400 mt-1">•</span>
+                <span className="flex-1">{ai.description || ai.title}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {hasTopics && (
+        <div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-1.5">
+            Recent topics
+          </p>
+          <ul className="space-y-1">
+            {ctx.recent_topics!.map((t, i) => (
+              <li key={i} className="text-sm text-gray-800 dark:text-gray-200">
+                <span className="font-medium">{t.topic}</span>
+                {t.decision && (
+                  <span className="text-gray-600 dark:text-gray-400"> — {t.decision}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  )
+}
+
 
 /** Commit 15 — AI quote/invoice draft.
  *
@@ -934,6 +1023,11 @@ export default function MeetingDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Commit 17 — prior-context "last time we spoke" panel.
+          Renders only when the meeting has a contact_id AND there's
+          actually prior data to show. */}
+      <PriorContextSection meetingId={meeting.id} />
 
       {/* Commit 9 — Calendar invite buttons (Google / Outlook / .ics)
           + re-send. Renders for any meeting that hasn't been cancelled
