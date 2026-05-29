@@ -11,9 +11,84 @@ import { toast } from 'sonner'
 import {
   getMeeting, cancelMeeting, endMeeting, addParticipant,
   removeParticipant, getRecordingStreamUrl, deleteRecording,
+  getCalendarUrls, sendMeetingInvites,
 } from '@/api/meetings'
 import { coachApi } from '@/api/coach'
 import type { MeetingStatus, MeetingParticipant } from '@/types/models'
+
+/** Commit 9 — Calendar invite section.
+ *
+ * Three add-to-calendar buttons (Google / Outlook / .ics download)
+ * + a "Re-send invites" button that hits the email-send endpoint
+ * and surfaces a toast with the sent / failed counts.
+ */
+function CalendarInviteSection({ meetingId }: { meetingId: string }) {
+  const urlsQ = useQuery({
+    queryKey: ['meeting-calendar-urls', meetingId],
+    queryFn: async () => (await getCalendarUrls(meetingId)).data,
+  })
+  const sendMut = useMutation({
+    mutationFn: () => sendMeetingInvites(meetingId),
+    onSuccess: (res) => {
+      const r = res.data
+      if (r.failed === 0 && r.sent > 0) {
+        toast.success(`Invites sent (${r.sent})`)
+      } else if (r.sent === 0 && r.failed === 0) {
+        toast('No invitees to send to')
+      } else if (r.failed > 0 && r.sent > 0) {
+        toast(`${r.sent} sent · ${r.failed} failed`)
+      } else {
+        toast.error(`Could not send: ${r.errors[0] || 'unknown error'}`)
+      }
+    },
+    onError: (e: any) => toast.error(`Send failed: ${e?.message || 'unknown'}`),
+  })
+
+  if (urlsQ.isLoading || !urlsQ.data) return null
+  const u = urlsQ.data
+
+  return (
+    <div className="mb-6 p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl">
+      <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
+        Calendar invite
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <a
+          href={u.google}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-lg transition-colors"
+        >
+          <Calendar className="h-3.5 w-3.5" /> Add to Google Calendar
+        </a>
+        <a
+          href={u.outlook}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-lg transition-colors"
+        >
+          <Calendar className="h-3.5 w-3.5" /> Add to Outlook
+        </a>
+        <a
+          href={u.ics_url}
+          download="meeting.ics"
+          className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-lg transition-colors"
+        >
+          <Download className="h-3.5 w-3.5" /> Download .ics
+        </a>
+        <button
+          onClick={() => sendMut.mutate()}
+          disabled={sendMut.isPending}
+          className="ml-auto inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950 hover:bg-indigo-100 dark:hover:bg-indigo-900 border border-indigo-200 dark:border-indigo-800 rounded-lg disabled:opacity-50 transition-colors"
+        >
+          {sendMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+          Re-send invites
+        </button>
+      </div>
+    </div>
+  )
+}
+
 
 /** Commit 8 — shareable meeting URL display + copy button.
  *
@@ -486,6 +561,13 @@ export default function MeetingDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Commit 9 — Calendar invite buttons (Google / Outlook / .ics)
+          + re-send. Renders for any meeting that hasn't been cancelled
+          or completed (no point re-sending invites after the fact). */}
+      {meeting.status !== 'cancelled' && meeting.status !== 'completed' && (
+        <CalendarInviteSection meetingId={meeting.id} />
+      )}
 
       {/* Action Buttons */}
       <div className="flex gap-2 mb-6">

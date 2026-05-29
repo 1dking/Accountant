@@ -215,6 +215,30 @@ export async function denyFromLobby(meetingId: string, lobbyId: string) {
   )
 }
 
+// ---------------------------------------------------------------------------
+// Commit 9 — calendar invite (add-to-calendar URLs + email send)
+// ---------------------------------------------------------------------------
+
+export interface CalendarUrls {
+  google: string
+  outlook: string
+  ics_url: string
+}
+
+export async function getCalendarUrls(meetingId: string) {
+  return api.get<ApiResponse<CalendarUrls>>(`/meetings/${meetingId}/calendar-urls`)
+}
+
+export interface SendInvitesResult {
+  sent: number
+  failed: number
+  errors: string[]
+}
+
+export async function sendMeetingInvites(meetingId: string) {
+  return api.post<ApiResponse<SendInvitesResult>>(`/meetings/${meetingId}/send-invites`)
+}
+
 export async function uploadRecording(meetingId: string, file: Blob): Promise<ApiResponse<MeetingRecording>> {
   const formData = new FormData()
   formData.append('file', file, `recording-${Date.now()}.webm`)

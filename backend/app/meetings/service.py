@@ -200,6 +200,20 @@ async def create_meeting(
         details={"title": meeting.title},
     )
 
+    # Commit 9 — fire-and-forget the invite emails when the caller
+    # asked for them AND there are participants to invite. Failures
+    # here log loudly but never raise; the host can re-send manually
+    # via POST /meetings/{id}/send-invites if anything goes wrong.
+    if data.create_calendar_event and meeting.participants:
+        try:
+            from app.meetings.email_invite import send_meeting_invites
+            await send_meeting_invites(db, meeting, user, settings)
+        except Exception as exc:
+            logger.warning(
+                "meeting.invites_autosend_failed meeting_id=%s err=%s",
+                meeting.id, str(exc)[:200],
+            )
+
     return meeting
 
 

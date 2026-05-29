@@ -6,7 +6,7 @@ import logging
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile, File, WebSocket
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, UploadFile, File, WebSocket
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -51,6 +51,88 @@ def get_storage(request: Request) -> StorageBackend:
 # ---------------------------------------------------------------------------
 # Meeting CRUD endpoints
 # ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# Commit 9 — Calendar invite endpoints (.ics + Google/Outlook URLs +
+# re-send). All host-auth except the .ics download which uses a slug
+# (already-public information).
+# ---------------------------------------------------------------------------
+
+
+@router.get("/public/{slug}/invite.ics")
+async def download_ics(
+    slug: str,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> Response:
+    """Public .ics download — the slug is already a shareable secret,
+    so this matches the same trust level as the public meeting info
+    endpoint. Useful when an invitee wants to manually add the event
+    to a calendar that doesn't support the auto-attached attachment
+    (e.g. an Apple Mail rules issue)."""
+    settings = request.app.state.settings
+    meeting = await service.get_meeting_by_slug_public(db, slug)
+    # We need the host's name + email to populate ORGANIZER. Look up
+    # the host user; fall back to display defaults if not findable.
+    from sqlalchemy import select as _select
+    from app.auth.models import User as _User
+    host = (await db.execute(
+        _select(_User).where(_User.id == meeting.created_by)
+    )).scalar_one_or_none()
+    host_name = host.full_name if host else "Meeting Host"
+    host_email = host.email if host else "no-reply@accountant.ocidm.io"
+
+    from app.meetings.calendar_invite import build_ics
+    body = build_ics(meeting, host_name, host_email, settings.public_base_url)
+    return Response(
+        content=body,
+        media_type="text/calendar; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="meeting.ics"'},
+    )
+
+
+@router.get("/{meeting_id}/calendar-urls")
+async def get_calendar_urls(
+    meeting_id: uuid.UUID,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    """Host-side — return the add-to-Google / add-to-Outlook URLs the
+    MeetingDetailPage renders as buttons. Host-only because the URL
+    embeds the host's email as the implicit ORGANIZER."""
+    settings = request.app.state.settings
+    meeting = await service.get_meeting(db, meeting_id, current_user)
+    from app.meetings.calendar_invite import (
+        google_calendar_url, outlook_calendar_url,
+    )
+    host_email = current_user.email
+    return {
+        "data": {
+            "google": google_calendar_url(meeting, host_email, settings.public_base_url),
+            "outlook": outlook_calendar_url(meeting, host_email, settings.public_base_url),
+            "ics_url": f"/api/meetings/public/{meeting.slug}/invite.ics",
+        }
+    }
+
+
+@router.post("/{meeting_id}/send-invites")
+async def send_invites(
+    meeting_id: uuid.UUID,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.ACCOUNTANT]))],
+) -> dict:
+    """Manually (re-)send the calendar invite to all participants on
+    the meeting. Reuses the same email rendering + SMTP path as the
+    automatic on-create send. Returns counts so the UI can surface
+    'Sent 3 of 4 invites' partial success."""
+    settings = request.app.state.settings
+    meeting = await service.get_meeting(db, meeting_id, current_user)
+    from app.meetings.email_invite import send_meeting_invites
+    result = await send_meeting_invites(db, meeting, current_user, settings)
+    return {"data": result}
 
 
 # ---------------------------------------------------------------------------
