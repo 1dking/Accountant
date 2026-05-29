@@ -22,8 +22,13 @@ from alembic import op
 import sqlalchemy as sa
 
 
+# Merge-and-extend: this revision is a JOIN of two parallel heads that
+# existed in production — z6a7b8c9d0e1 (local lineage) and b1c2d3e8
+# (VPS lineage, section_variant animations). Adding the slug + lobby
+# schema in the same revision unifies them so future migrations have
+# a single linear chain.
 revision: str = "a7b8c9d0e1f2"
-down_revision: Union[str, None] = "z6a7b8c9d0e1"
+down_revision: Union[str, tuple, None] = ("z6a7b8c9d0e1", "b1c2d3e8")
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
