@@ -623,6 +623,18 @@ async def end_meeting(
         details={"title": meeting.title},
     )
 
+    # Commit 14 — log on the linked contact's timeline. Best-effort:
+    # failures here don't block end_meeting. No-op when the meeting
+    # has no contact_id (internal sync, ad-hoc instant call).
+    try:
+        from app.meetings.contact_sync import log_meeting_completed
+        await log_meeting_completed(db, meeting)
+    except Exception as exc:
+        logger.warning(
+            "meeting.contact_timeline_failed meeting_id=%s err=%s",
+            meeting.id, str(exc)[:200],
+        )
+
     return meeting
 
 

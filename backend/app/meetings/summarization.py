@@ -189,6 +189,25 @@ async def submit_summary(
         len(row.action_items_json or []),
         row.input_tokens, row.output_tokens,
     )
+
+    # Commit 14 — log action items on the linked contact's timeline.
+    # Best-effort: failures don't roll back the summary state change.
+    try:
+        # Reload the meeting eagerly (transcript only carries
+        # meeting_id; we need contact_id off the meeting).
+        from app.meetings.models import Meeting as _Meeting
+        meeting = (await db.execute(
+            select(_Meeting).where(_Meeting.id == row.meeting_id)
+        )).scalar_one_or_none()
+        if meeting is not None:
+            from app.meetings.contact_sync import log_action_items_from_summary
+            await log_action_items_from_summary(db, meeting, row)
+    except Exception as exc:
+        logger.warning(
+            "meeting.action_items_log_failed summary_id=%s err=%s",
+            row.id, str(exc)[:200],
+        )
+
     return row
 
 
