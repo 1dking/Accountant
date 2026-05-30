@@ -219,6 +219,16 @@ export async function admitFromLobby(meetingId: string, lobbyId: string) {
   )
 }
 
+/** Commit 19 — Admit-all for large meetings. Calls /admit per row
+ *  in sequence; the backend's per-row admit is the source of truth. */
+export async function admitAllFromLobby(
+  meetingId: string, lobbyIds: string[],
+) {
+  for (const id of lobbyIds) {
+    await admitFromLobby(meetingId, id)
+  }
+}
+
 export async function denyFromLobby(meetingId: string, lobbyId: string) {
   return api.post<ApiResponse<MeetingParticipant>>(
     `/meetings/${meetingId}/lobby/${lobbyId}/deny`,

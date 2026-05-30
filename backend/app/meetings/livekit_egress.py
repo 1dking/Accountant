@@ -93,6 +93,7 @@ async def start_room_recording(
     settings: Settings,
     *,
     output_filename: str | None = None,
+    layout: str = "speaker",
 ) -> tuple[str, str]:
     """Start a RoomCompositeEgress writing MP4 to R2.
 
@@ -100,12 +101,16 @@ async def start_room_recording(
     what we persist on MeetingRecording.storage_path so download/stream
     endpoints can resolve it later.
 
-    The composite layout is "speaker" (focus on dominant speaker, others
-    in a strip) — Granola/Otter style default. Users can swap to grid
-    later via update_layout if we ship a control. The default audio mixer
-    captures every participant's microphone.
+    Commit 19 — layout is configurable:
+      "speaker" (default) — focus on the dominant speaker with a strip
+                            of other tiles. Granola/Otter-style.
+                            Right for ≤4 participants.
+      "grid"              — equal-sized tiles for every face.
+                            Right for workshops, retros, all-hands.
+    LiveKit rejects unknown values; we narrow to the two we expose.
     """
     _require_egress_config(settings)
+    safe_layout = layout if layout in ("speaker", "grid") else "speaker"
     # Path within the bucket — predictable per-meeting-room layout makes
     # debugging / orphan-detection straightforward.
     output_path = output_filename or f"meetings/{room_name}/{room_name}.mp4"
@@ -118,7 +123,7 @@ async def start_room_recording(
 
     req = RoomCompositeEgressRequest(
         room_name=room_name,
-        layout="speaker",
+        layout=safe_layout,
         audio_only=False,
         video_only=False,
         file_outputs=[

@@ -18,7 +18,7 @@ import '@livekit/components-styles'
 import { Track } from 'livekit-client'
 import {
   startMeeting, joinMeeting, endMeeting, uploadRecording,
-  listLobby, admitFromLobby, denyFromLobby,
+  listLobby, admitFromLobby, denyFromLobby, admitAllFromLobby,
 } from '@/api/meetings'
 import PreJoinGate from '@/components/meetings/PreJoinGate'
 import type { LocalUserChoices } from '@livekit/components-react'
@@ -228,6 +228,12 @@ function LobbyPanel({ meetingId }: { meetingId: string }) {
     mutationFn: (lobbyId: string) => denyFromLobby(meetingId, lobbyId),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['meeting-lobby', meetingId] }),
   })
+  // Commit 19 — Admit-all for large meetings. Fires the per-row admit
+  // in sequence; LiveKit handles each token issuance independently.
+  const admitAllMut = useMutation({
+    mutationFn: (ids: string[]) => admitAllFromLobby(meetingId, ids),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['meeting-lobby', meetingId] }),
+  })
 
   const waiting = lobbyQ.data ?? []
   if (waiting.length === 0) return null
@@ -247,15 +253,42 @@ function LobbyPanel({ meetingId }: { meetingId: string }) {
       animation: 'mrp-lobby-pulse 2s ease-in-out infinite',
     }}>
       <div style={{
-        display: 'flex', alignItems: 'center', gap: 6,
-        fontSize: 11, fontWeight: 600, letterSpacing: '0.06em',
-        textTransform: 'uppercase', color: 'rgba(199, 210, 254, 0.9)',
-        marginBottom: 8,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        gap: 8, marginBottom: 8,
       }}>
-        <Bell className="h-3.5 w-3.5" />
-        Waiting to join · {waiting.length}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          fontSize: 11, fontWeight: 600, letterSpacing: '0.06em',
+          textTransform: 'uppercase', color: 'rgba(199, 210, 254, 0.9)',
+        }}>
+          <Bell className="h-3.5 w-3.5" />
+          Waiting · {waiting.length}
+        </div>
+        {/* Commit 19 — Admit-all CTA only when 2+ are waiting */}
+        {waiting.length >= 2 && (
+          <button
+            onClick={() => admitAllMut.mutate(waiting.map((p: any) => p.id))}
+            disabled={admitAllMut.isPending}
+            title="Admit everyone waiting"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 3,
+              padding: '3px 8px', fontSize: 10.5, fontWeight: 600,
+              background: 'rgba(16, 185, 129, 0.22)',
+              border: '1px solid rgba(16, 185, 129, 0.5)',
+              borderRadius: 6, color: '#a7f3d0', cursor: 'pointer',
+              textTransform: 'uppercase', letterSpacing: '0.04em',
+            }}
+          >
+            <UserPlus className="h-3 w-3" /> Admit all
+          </button>
+        )}
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {/* Commit 19 — scrollable list when many guests knock at once.
+          ~6 entries (each ~52px) fit before the scroll kicks in. */}
+      <div style={{
+        display: 'flex', flexDirection: 'column', gap: 6,
+        maxHeight: 320, overflowY: 'auto',
+      }}>
         {waiting.map((p: any) => (
           <div key={p.id} style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',

@@ -169,6 +169,23 @@ class Meeting(TimestampMixin, Base):
         Enum(MeetingTemplate), default=MeetingTemplate.GENERIC, nullable=False,
         server_default=MeetingTemplate.GENERIC.value,
     )
+    # Commit 19 — larger-meeting support.
+    # max_participants caps the LiveKit room at create time. NULL =
+    # use the LiveKit Cloud plan default (Ship plan = 25). Setting
+    # this can only LOWER the cap relative to the plan — the plan
+    # tier is the hard ceiling.
+    max_participants: Mapped[int | None] = mapped_column(
+        Integer, nullable=True,
+    )
+    # recording_layout picks the LiveKit Egress composite mode.
+    # 'speaker' (default) focuses on the dominant speaker with a
+    # strip of other tiles — right for ≤4 participants.
+    # 'grid' shows every face equally — better for workshops, retros,
+    # all-hands. Validated at the boundary; LiveKit rejects unknown
+    # values so we keep the column free-form string + check at use.
+    recording_layout: Mapped[str | None] = mapped_column(
+        String(32), nullable=True,
+    )
     created_by: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )

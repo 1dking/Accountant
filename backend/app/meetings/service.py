@@ -176,6 +176,8 @@ async def create_meeting(
         livekit_room_name=room_name,
         record_meeting=record_meeting,
         template=template,
+        max_participants=getattr(data, "max_participants", None),
+        recording_layout=getattr(data, "recording_layout", None),
         created_by=user.id,
         contact_id=data.contact_id,
     )
@@ -396,9 +398,14 @@ async def start_meeting(
         try:
             from livekit.api import CreateRoomRequest
 
-            await lk_api.room.create_room(
-                CreateRoomRequest(name=meeting.livekit_room_name)
-            )
+            # Commit 19 — pass max_participants when the meeting was
+            # configured with a cap. LiveKit treats 0/None as "use
+            # plan default" (Ship = 25), so we only send the field
+            # when the host opted in.
+            req_kwargs: dict = {"name": meeting.livekit_room_name}
+            if meeting.max_participants:
+                req_kwargs["max_participants"] = meeting.max_participants
+            await lk_api.room.create_room(CreateRoomRequest(**req_kwargs))
         except Exception:
             logger.warning(
                 "LiveKit room creation failed for meeting %s, room may already exist",
@@ -435,6 +442,7 @@ async def start_meeting(
                 from app.meetings import livekit_egress
                 egress_id, output_path = await livekit_egress.start_room_recording(
                     meeting.livekit_room_name, settings,
+                    layout=meeting.recording_layout or "speaker",
                 )
                 rec = MeetingRecording(
                     meeting_id=meeting.id,

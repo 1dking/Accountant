@@ -27,6 +27,12 @@ class MeetingCreate(BaseModel):
     # Commit 16 — template biases AI behavior. When omitted, defaults
     # to GENERIC. The host picks via the dropdown in NewMeetingPage.
     template: MeetingTemplate = MeetingTemplate.GENERIC
+    # Commit 19 — larger-meeting support.
+    # max_participants: optional cap (≤ plan ceiling); NULL = plan default.
+    # recording_layout: 'speaker' (default) or 'grid'. Grid is better
+    # for 6+ participant workshops where every face matters.
+    max_participants: int | None = Field(None, ge=1, le=1000)
+    recording_layout: str | None = Field(None, pattern=r"^(speaker|grid)$")
     room_type: str = "group-small"
     participant_emails: list[str] = Field(default_factory=list)
     create_calendar_event: bool = True
@@ -41,6 +47,9 @@ class InstantMeetingCreate(BaseModel):
     # Commit 16 — template available on instant meetings too. The new-
     # meeting dropdown can pre-select Discovery vs Internal Sync.
     template: MeetingTemplate = MeetingTemplate.GENERIC
+    # Commit 19 — capacity controls (also available on instant rooms).
+    max_participants: int | None = Field(None, ge=1, le=1000)
+    recording_layout: str | None = Field(None, pattern=r"^(speaker|grid)$")
 
 
 class MeetingUpdate(BaseModel):
@@ -126,6 +135,10 @@ class MeetingResponse(BaseModel):
     livekit_room_name: str
     record_meeting: bool
     template: MeetingTemplate = MeetingTemplate.GENERIC
+    # Commit 19 — surface capacity to the UI so the host can see
+    # what they configured at create time.
+    max_participants: int | None = None
+    recording_layout: str | None = None
     created_by: uuid.UUID
     contact_id: uuid.UUID | None
     calendar_event_id: uuid.UUID | None
@@ -146,6 +159,7 @@ class MeetingListItem(BaseModel):
     scheduled_end: datetime | None
     record_meeting: bool
     template: MeetingTemplate = MeetingTemplate.GENERIC
+    max_participants: int | None = None
     contact_id: uuid.UUID | None
     participant_count: int = 0
     created_at: datetime
