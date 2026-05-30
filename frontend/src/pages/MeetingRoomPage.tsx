@@ -13,7 +13,7 @@ import {
   RoomAudioRenderer,
   useTracks,
   useRoomContext,
-  useTrackToggle,
+  useLocalParticipant,
 } from '@livekit/components-react'
 import '@livekit/components-styles'
 import { Track } from 'livekit-client'
@@ -160,49 +160,94 @@ function RecordingControls({ meetingId }: { meetingId: string }) {
   )
 }
 
-/** Commit 19.2 — replaced LiveKit's <ControlBar> with explicit toggle
- *  buttons driven by useTrackToggle. ControlBar was rendering empty
- *  in some browser/permission combos (mic + cam buttons silently
- *  absent). These guarantee visible, working controls.
+/** Commit 19.3 — switched from useTrackToggle to useLocalParticipant
+ *  + explicit setMicrophoneEnabled / setCameraEnabled. The hook
+ *  abstraction wasn't engaging actual track publication for users
+ *  who joined with audio={false}/video={false} via PreJoin. The
+ *  direct API guarantees a real getUserMedia + publish on click.
+ *
+ *  useLocalParticipant's isMicrophoneEnabled / isCameraEnabled are
+ *  reactive — they re-render on track-publish / track-unpublish /
+ *  mute / unmute events fired by the LiveKit room.
  */
 function MicToggleButton() {
-  // useTrackToggle returns { toggle, enabled, pending } — wire to a
-  // custom button with our own iconography + style.
-  const { toggle, enabled } = useTrackToggle({ source: Track.Source.Microphone })
+  const { localParticipant, isMicrophoneEnabled } = useLocalParticipant()
+  const [pending, setPending] = useState(false)
+  const onClick = async () => {
+    if (!localParticipant || pending) return
+    setPending(true)
+    try {
+      await localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled)
+    } catch (e) {
+      // Common failures: permission denied, no device, browser blocked.
+      // Logged so the host can pull from console; toast would be nicer
+      // but the room view doesn't have toast plumbing today.
+      console.error('[meeting] mic toggle failed', e)
+    } finally {
+      setPending(false)
+    }
+  }
   return (
     <button
-      onClick={() => toggle()}
-      style={mrpToggleStyle(enabled)}
-      title={enabled ? 'Mute microphone' : 'Unmute microphone'}
-      aria-label={enabled ? 'Mute microphone' : 'Unmute microphone'}
+      onClick={onClick}
+      disabled={pending}
+      style={mrpToggleStyle(isMicrophoneEnabled)}
+      title={isMicrophoneEnabled ? 'Mute microphone' : 'Unmute microphone'}
+      aria-label={isMicrophoneEnabled ? 'Mute microphone' : 'Unmute microphone'}
     >
-      {enabled ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
+      {isMicrophoneEnabled ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
     </button>
   )
 }
 
 function CamToggleButton() {
-  const { toggle, enabled } = useTrackToggle({ source: Track.Source.Camera })
+  const { localParticipant, isCameraEnabled } = useLocalParticipant()
+  const [pending, setPending] = useState(false)
+  const onClick = async () => {
+    if (!localParticipant || pending) return
+    setPending(true)
+    try {
+      await localParticipant.setCameraEnabled(!isCameraEnabled)
+    } catch (e) {
+      console.error('[meeting] camera toggle failed', e)
+    } finally {
+      setPending(false)
+    }
+  }
   return (
     <button
-      onClick={() => toggle()}
-      style={mrpToggleStyle(enabled)}
-      title={enabled ? 'Stop camera' : 'Start camera'}
-      aria-label={enabled ? 'Stop camera' : 'Start camera'}
+      onClick={onClick}
+      disabled={pending}
+      style={mrpToggleStyle(isCameraEnabled)}
+      title={isCameraEnabled ? 'Stop camera' : 'Start camera'}
+      aria-label={isCameraEnabled ? 'Stop camera' : 'Start camera'}
     >
-      {enabled ? <VideoIcon className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
+      {isCameraEnabled ? <VideoIcon className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
     </button>
   )
 }
 
 function ScreenShareToggleButton() {
-  const { toggle, enabled } = useTrackToggle({ source: Track.Source.ScreenShare })
+  const { localParticipant, isScreenShareEnabled } = useLocalParticipant()
+  const [pending, setPending] = useState(false)
+  const onClick = async () => {
+    if (!localParticipant || pending) return
+    setPending(true)
+    try {
+      await localParticipant.setScreenShareEnabled(!isScreenShareEnabled)
+    } catch (e) {
+      console.error('[meeting] screen share toggle failed', e)
+    } finally {
+      setPending(false)
+    }
+  }
   return (
     <button
-      onClick={() => toggle()}
-      style={mrpToggleStyle(enabled, true)}
-      title={enabled ? 'Stop sharing' : 'Share screen'}
-      aria-label={enabled ? 'Stop sharing' : 'Share screen'}
+      onClick={onClick}
+      disabled={pending}
+      style={mrpToggleStyle(isScreenShareEnabled, !isScreenShareEnabled)}
+      title={isScreenShareEnabled ? 'Stop sharing' : 'Share screen'}
+      aria-label={isScreenShareEnabled ? 'Stop sharing' : 'Share screen'}
     >
       <ScreenShare className="h-4 w-4" />
     </button>
