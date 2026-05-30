@@ -15,6 +15,7 @@
 import { useState } from 'react'
 import { PreJoin, type LocalUserChoices } from '@livekit/components-react'
 import { Circle, ShieldCheck } from 'lucide-react'
+import { usePublicBranding } from '@/hooks/useBranding'
 
 export interface Props {
   recordMeeting: boolean
@@ -28,6 +29,7 @@ export default function PreJoinGate({
 }: Props) {
   const [pendingChoices, setPendingChoices] = useState<LocalUserChoices | null>(null)
   const [consentChecked, setConsentChecked] = useState(false)
+  const { logoUrl, orgName } = usePublicBranding()
 
   const handleSubmit = (vals: LocalUserChoices) => {
     if (recordMeeting) {
@@ -47,6 +49,15 @@ export default function PreJoinGate({
   return (
     <div style={{ minHeight: '100vh', background: '#0f1320', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
       <div style={{ width: '100%', maxWidth: 640 }}>
+        {logoUrl && (
+          <div style={{ textAlign: 'center', marginBottom: 16 }}>
+            <img
+              src={logoUrl}
+              alt={orgName}
+              style={{ maxHeight: 40, objectFit: 'contain', display: 'inline-block' }}
+            />
+          </div>
+        )}
         {meetingTitle && (
           <div style={{ textAlign: 'center', marginBottom: 18 }}>
             <h1 style={{ fontSize: 22, fontWeight: 600, color: 'white', margin: 0 }}>
@@ -68,10 +79,19 @@ export default function PreJoinGate({
           overflow: 'hidden',
         }}>
           <PreJoin
-            defaults={{ username: defaultUserName || '' }}
+            defaults={{
+              username: defaultUserName || '',
+              audioEnabled: true,
+              videoEnabled: true,
+            }}
             onSubmit={handleSubmit}
             joinLabel={recordMeeting ? 'Review & join' : 'Join now'}
-            persistUserChoices={true}
+            // persistUserChoices=true was loading stale "joined muted
+            // last time" state from localStorage, which made every
+            // subsequent meeting silently enter muted+camera-off. The
+            // user's previous-session preference shouldn't override
+            // the current device check.
+            persistUserChoices={false}
             data-lk-theme="default"
           />
         </div>

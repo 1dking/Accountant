@@ -15,16 +15,17 @@
  * If the visitor is already authenticated AND owns this meeting, we
  * skip the email gate and redirect them to the host room view.
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router'
 import {
   LiveKitRoom, GridLayout, ParticipantTile, RoomAudioRenderer,
-  ControlBar, useTracks, type LocalUserChoices,
+  ControlBar, useTracks, useLocalParticipant, type LocalUserChoices,
 } from '@livekit/components-react'
 import '@livekit/components-styles'
 import { Track } from 'livekit-client'
 import { Loader2, DoorOpen } from 'lucide-react'
 import PreJoinGate from '@/components/meetings/PreJoinGate'
+import { usePublicBranding } from '@/hooks/useBranding'
 import {
   getPublicMeetingInfo,
   knockAtLobby,
@@ -44,6 +45,8 @@ type Stage = 'loading' | 'knock' | 'waiting' | 'admitted' | 'denied' | 'ended' |
 export default function MeetingJoinPage() {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
+  const { logoUrl, orgName, branding } = usePublicBranding()
+  const brandColor = branding?.primary_color || '#4f46e5'
 
   const [meeting, setMeeting] = useState<PublicMeetingInfo | null>(null)
   const [stage, setStage] = useState<Stage>('loading')
@@ -202,11 +205,19 @@ export default function MeetingJoinPage() {
           token={livekit.token}
           connect={true}
           onDisconnected={() => navigate('/')}
-          audio={userChoices.audioEnabled ? { deviceId: userChoices.audioDeviceId } : false}
-          video={userChoices.videoEnabled ? { deviceId: userChoices.videoDeviceId } : false}
+          // Always publish mic + camera on connect (see MeetingRoomPage
+          // for the rationale — gating on userChoices.*Enabled left the
+          // in-room toggles unable to reliably acquire tracks). Mute is
+          // applied post-connect by GuestPostConnectMuteSync below.
+          audio={true}
+          video={true}
           data-lk-theme="default"
           style={{ height: '100%' }}
         >
+          <GuestPostConnectMuteSync
+            initialAudioEnabled={userChoices.audioEnabled}
+            initialVideoEnabled={userChoices.videoEnabled}
+          />
           <GuestStage />
         </LiveKitRoom>
       </div>
@@ -217,6 +228,15 @@ export default function MeetingJoinPage() {
   return (
     <div className="min-h-screen bg-gray-900 flex items-center justify-center px-6">
       <div className="max-w-md w-full">
+        {logoUrl && (
+          <div className="flex justify-center mb-5">
+            <img
+              src={logoUrl}
+              alt={orgName}
+              style={{ maxHeight: 44, objectFit: 'contain' }}
+            />
+          </div>
+        )}
         <div className="bg-gray-800 rounded-xl shadow-2xl p-8">
           <div className="flex items-center gap-3 mb-6">
             <div className="h-10 w-10 rounded-full bg-indigo-500/20 border border-indigo-400/40 flex items-center justify-center">
@@ -264,7 +284,8 @@ export default function MeetingJoinPage() {
               <button
                 type="submit"
                 disabled={knockBusy || !name.trim() || !email.trim()}
-                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 rounded-lg transition"
+                style={{ background: brandColor }}
+                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 rounded-lg transition"
               >
                 {knockBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 Ask to join
@@ -285,11 +306,33 @@ export default function MeetingJoinPage() {
           )}
         </div>
         <p className="text-xs text-gray-500 text-center mt-4">
-          Powered by OCIDM Accountant
+          Powered by {orgName}
         </p>
       </div>
     </div>
   )
+}
+
+function GuestPostConnectMuteSync({
+  initialAudioEnabled,
+  initialVideoEnabled,
+}: {
+  initialAudioEnabled: boolean
+  initialVideoEnabled: boolean
+}) {
+  const { localParticipant } = useLocalParticipant()
+  const didSyncRef = useRef(false)
+  useEffect(() => {
+    if (didSyncRef.current || !localParticipant) return
+    didSyncRef.current = true
+    if (!initialAudioEnabled) {
+      void localParticipant.setMicrophoneEnabled(false).catch(() => {})
+    }
+    if (!initialVideoEnabled) {
+      void localParticipant.setCameraEnabled(false).catch(() => {})
+    }
+  }, [localParticipant, initialAudioEnabled, initialVideoEnabled])
+  return null
 }
 
 function GuestStage() {

@@ -16,7 +16,38 @@ import {
   getMeetingPriorContext,
 } from '@/api/meetings'
 import { coachApi } from '@/api/coach'
+import { useBranding } from '@/hooks/useBranding'
 import type { MeetingStatus, MeetingParticipant } from '@/types/models'
+
+/** Branded in-app recording player.
+ *
+ * Cost-free white-label trick: the MP4 file in R2 stays raw (downloads
+ * are unbranded). We overlay the logo on top of the <video> element at
+ * the player level via absolute positioning. No LiveKit custom-template
+ * compositor fees, no FFmpeg pass — just CSS.
+ */
+function BrandedRecordingPlayer({ src }: { src: string }) {
+  const { logoUrl, orgName } = useBranding()
+  return (
+    <div className="mt-2 rounded-lg overflow-hidden bg-black" style={{ position: 'relative' }}>
+      <video src={src} controls autoPlay className="w-full max-h-96">
+        Your browser does not support the video element.
+      </video>
+      {logoUrl && (
+        <img
+          src={logoUrl}
+          alt={orgName}
+          style={{
+            position: 'absolute', top: 12, right: 12,
+            height: 32, maxWidth: 140, objectFit: 'contain',
+            opacity: 0.9, pointerEvents: 'none',
+            filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))',
+          }}
+        />
+      )}
+    </div>
+  )
+}
 
 /** Commit 17 — cross-meeting context.
  *
@@ -1295,16 +1326,7 @@ export default function MeetingDetailPage() {
 
                 {/* Inline video player */}
                 {playingRecordingId === rec.id && rec.status === 'available' && (
-                  <div className="mt-2 rounded-lg overflow-hidden bg-black">
-                    <video
-                      src={getRecordingStreamUrl(rec.id)}
-                      controls
-                      autoPlay
-                      className="w-full max-h-96"
-                    >
-                      Your browser does not support the video element.
-                    </video>
-                  </div>
+                  <BrandedRecordingPlayer src={getRecordingStreamUrl(rec.id)} />
                 )}
               </div>
             ))}

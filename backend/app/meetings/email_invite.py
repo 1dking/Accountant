@@ -23,21 +23,53 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import User
+from app.branding.service import get_public_branding
 from app.config import Settings
 from app.email.service import resolve_smtp_config, send_email
 from app.meetings.calendar_invite import (
     build_ics, google_calendar_url, outlook_calendar_url,
 )
 from app.meetings.models import Meeting
+from app.settings.service import get_company_settings
 
 logger = logging.getLogger(__name__)
 
 
-def build_invite_body(
+async def _load_brand(db: AsyncSession) -> dict:
+    """Pull logo / brand color / company name for the email render.
+
+    Falls back to OCIDM defaults so the template never breaks if the
+    user hasn't configured anything yet.
+    """
+    brand = {
+        "logo_url": None,
+        "primary_color": "#4f46e5",
+        "company_name": "OCIDM Accountant",
+        "header_html": None,
+        "footer_html": None,
+    }
+    try:
+        b = await get_public_branding(db)
+        if b is not None:
+            brand["logo_url"] = b.logo_image_url or b.logo_url or None
+            if b.primary_color:
+                brand["primary_color"] = b.primary_color
+            brand["header_html"] = b.email_header_html or None
+            brand["footer_html"] = b.email_footer_html or None
+        cs = await get_company_settings(db)
+        if cs is not None and cs.company_name:
+            brand["company_name"] = cs.company_name
+    except Exception as exc:
+        logger.warning("meeting.invite_branding_load_failed err=%s", str(exc)[:200])
+    return brand
+
+
+async def build_invite_body(
     meeting: Any,
     host_name: str,
     host_email: str,
     public_base_url: str,
+    db: AsyncSession | None = None,
 ) -> str:
     """HTML body for the invite email. Keep CSS inline + minimal —
     Gmail / Outlook / Apple Mail strip most stylesheets."""
@@ -61,26 +93,45 @@ def build_invite_body(
             f'{meeting.scheduled_start.strftime("%A, %B %d at %I:%M %p UTC")}</p>'
         )
 
+    brand = await _load_brand(db) if db is not None else {
+        "logo_url": None, "primary_color": "#4f46e5",
+        "company_name": "OCIDM Accountant",
+        "header_html": None, "footer_html": None,
+    }
+    brand_color = brand["primary_color"] or "#4f46e5"
+    company_name = html_escape(brand["company_name"] or "OCIDM Accountant")
+    logo_html = ""
+    if brand["logo_url"]:
+        logo_html = (
+            f'<img src="{html_escape(brand["logo_url"])}" alt="{company_name}" '
+            f'style="max-height:40px;margin:0 0 18px;display:block;" />'
+        )
+    header_html = brand["header_html"] or ""
+    footer_html = brand["footer_html"] or ""
+
     return f"""<!doctype html>
 <html><body style="font-family:-apple-system,Segoe UI,sans-serif;background:#f9fafb;padding:24px;margin:0;">
+  {header_html}
   <table cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">
     <tr><td style="padding:32px 32px 24px;">
+      {logo_html}
       <h1 style="margin:0 0 6px;color:#111827;font-size:20px;font-weight:600;">{title}</h1>
       <p style="margin:0 0 20px;color:#6b7280;font-size:13px;">Invited by {host}</p>
       {when_html}
       {description_html}
-      <a href="{html_escape(join_url)}" style="display:inline-block;padding:12px 24px;background:#4f46e5;color:#ffffff;font-weight:600;font-size:14px;text-decoration:none;border-radius:8px;margin:8px 0 24px;">Join meeting</a>
+      <a href="{html_escape(join_url)}" style="display:inline-block;padding:12px 24px;background:{brand_color};color:#ffffff;font-weight:600;font-size:14px;text-decoration:none;border-radius:8px;margin:8px 0 24px;">Join meeting</a>
       <p style="margin:0 0 8px;color:#6b7280;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Add to your calendar</p>
       <p style="margin:0 0 16px;font-size:13px;">
-        <a href="{html_escape(g_url)}" style="color:#4f46e5;text-decoration:none;margin-right:14px;">Google Calendar</a>
-        <a href="{html_escape(o_url)}" style="color:#4f46e5;text-decoration:none;margin-right:14px;">Outlook</a>
+        <a href="{html_escape(g_url)}" style="color:{brand_color};text-decoration:none;margin-right:14px;">Google Calendar</a>
+        <a href="{html_escape(o_url)}" style="color:{brand_color};text-decoration:none;margin-right:14px;">Outlook</a>
         <span style="color:#9ca3af;">(.ics file attached)</span>
       </p>
       <p style="margin:24px 0 0;padding-top:16px;border-top:1px solid #f3f4f6;color:#9ca3af;font-size:11px;">
-        Powered by OCIDM Accountant. The meeting link only works for invited email addresses.
+        Powered by {company_name}. The meeting link only works for invited email addresses.
       </p>
     </td></tr>
   </table>
+  {footer_html}
 </body></html>"""
 
 
@@ -129,7 +180,9 @@ async def send_meeting_invites(
     ics_body = build_ics(meeting, host_name, host_email, public_base_url)
     ics_bytes = ics_body.encode("utf-8")
     attachments = [("meeting.ics", ics_bytes, "text/calendar")]
-    html_body = build_invite_body(meeting, host_name, host_email, public_base_url)
+    html_body = await build_invite_body(
+        meeting, host_name, host_email, public_base_url, db=db,
+    )
     subject = f"Invitation: {meeting.title}"
 
     async def _one(addr: str) -> tuple[str, Exception | None]:

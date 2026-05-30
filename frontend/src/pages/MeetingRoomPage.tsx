@@ -22,6 +22,7 @@ import {
   listLobby, admitFromLobby, denyFromLobby, admitAllFromLobby,
 } from '@/api/meetings'
 import PreJoinGate from '@/components/meetings/PreJoinGate'
+import { useBranding } from '@/hooks/useBranding'
 import type { LocalUserChoices } from '@livekit/components-react'
 
 const LIVEKIT_URL =
@@ -158,6 +159,34 @@ function RecordingControls({ meetingId }: { meetingId: string }) {
       )}
     </div>
   )
+}
+
+/** Honors the PreJoin "start muted" intent without using
+ *  audio={false}/video={false} on LiveKitRoom (which leaves no tracks
+ *  to toggle later). Tracks are always published on connect; this
+ *  component mutes them once if the user toggled off in PreJoin.
+ *  Runs exactly once per connection.
+ */
+function PostConnectMuteSync({
+  initialAudioEnabled,
+  initialVideoEnabled,
+}: {
+  initialAudioEnabled: boolean
+  initialVideoEnabled: boolean
+}) {
+  const { localParticipant } = useLocalParticipant()
+  const didSyncRef = useRef(false)
+  useEffect(() => {
+    if (didSyncRef.current || !localParticipant) return
+    didSyncRef.current = true
+    if (!initialAudioEnabled) {
+      void localParticipant.setMicrophoneEnabled(false).catch(() => {})
+    }
+    if (!initialVideoEnabled) {
+      void localParticipant.setCameraEnabled(false).catch(() => {})
+    }
+  }, [localParticipant, initialAudioEnabled, initialVideoEnabled])
+  return null
 }
 
 /** Commit 19.3 — switched from useTrackToggle to useLocalParticipant
@@ -479,6 +508,7 @@ function MeetingStage({ meetingId, onEndMeeting, endingMeeting, recordMeeting }:
     ],
     { onlySubscribed: false },
   )
+  const { logoUrl, orgName } = useBranding()
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -487,6 +517,18 @@ function MeetingStage({ meetingId, onEndMeeting, endingMeeting, recordMeeting }:
         <GridLayout tracks={tracks} style={{ height: '100%' }}>
           <ParticipantTile />
         </GridLayout>
+        {logoUrl && (
+          <img
+            src={logoUrl}
+            alt={orgName}
+            style={{
+              position: 'absolute', top: 12, left: 12, zIndex: 10,
+              height: 28, maxWidth: 140, objectFit: 'contain',
+              opacity: 0.85, pointerEvents: 'none',
+              filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))',
+            }}
+          />
+        )}
         {/* Recording indicator — top-right corner of the stage when
             server-side Egress is recording (Commit 7). */}
         {recordMeeting && (
@@ -663,11 +705,23 @@ export default function MeetingRoomPage() {
         token={token}
         connect={true}
         onDisconnected={handleDisconnect}
-        audio={userChoices.audioEnabled ? { deviceId: userChoices.audioDeviceId } : false}
-        video={userChoices.videoEnabled ? { deviceId: userChoices.videoDeviceId } : false}
+        // Always publish mic + camera on connect — simplest possible
+        // form so the LK SDK picks the OS default device deterministically.
+        // Gating on userChoices.*Enabled previously meant LiveKitRoom
+        // started with audio=false/video=false (no tracks), and the
+        // in-room toggles' setMicrophoneEnabled(true) silently failed
+        // when the PreJoin preview hadn't fully released the device
+        // handle. Tracks are now always published; PostConnectMuteSync
+        // re-mutes them after connect if the user wanted to start muted.
+        audio={true}
+        video={true}
         data-lk-theme="default"
         style={{ height: '100%' }}
       >
+        <PostConnectMuteSync
+          initialAudioEnabled={userChoices.audioEnabled}
+          initialVideoEnabled={userChoices.videoEnabled}
+        />
         <MeetingStage
           meetingId={id!}
           onEndMeeting={handleEndMeeting}

@@ -180,8 +180,9 @@ def test_outlook_calendar_url_compose_with_params(scheduled_meeting):
 # ---------------------------------------------------------------------------
 
 
-def test_build_invite_body_contains_join_url_and_calendar_links(scheduled_meeting):
-    html = build_invite_body(
+async def test_build_invite_body_contains_join_url_and_calendar_links(scheduled_meeting):
+    # db omitted → render falls back to OCIDM defaults (no brand row).
+    html = await build_invite_body(
         scheduled_meeting, "Alice Host", "alice@example.com",
         "https://accountant.ocidm.io",
     )
