@@ -4,15 +4,16 @@ import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
 import {
   Circle, Square, Loader2, Upload, PhoneOff,
   UserPlus, UserMinus, Bell,
+  Mic, MicOff, Video as VideoIcon, VideoOff, ScreenShare,
 } from 'lucide-react'
 import {
   LiveKitRoom,
   GridLayout,
   ParticipantTile,
   RoomAudioRenderer,
-  ControlBar,
   useTracks,
   useRoomContext,
+  useTrackToggle,
 } from '@livekit/components-react'
 import '@livekit/components-styles'
 import { Track } from 'livekit-client'
@@ -158,6 +159,79 @@ function RecordingControls({ meetingId }: { meetingId: string }) {
     </div>
   )
 }
+
+/** Commit 19.2 — replaced LiveKit's <ControlBar> with explicit toggle
+ *  buttons driven by useTrackToggle. ControlBar was rendering empty
+ *  in some browser/permission combos (mic + cam buttons silently
+ *  absent). These guarantee visible, working controls.
+ */
+function MicToggleButton() {
+  // useTrackToggle returns { toggle, enabled, pending } — wire to a
+  // custom button with our own iconography + style.
+  const { toggle, enabled } = useTrackToggle({ source: Track.Source.Microphone })
+  return (
+    <button
+      onClick={() => toggle()}
+      style={mrpToggleStyle(enabled)}
+      title={enabled ? 'Mute microphone' : 'Unmute microphone'}
+      aria-label={enabled ? 'Mute microphone' : 'Unmute microphone'}
+    >
+      {enabled ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
+    </button>
+  )
+}
+
+function CamToggleButton() {
+  const { toggle, enabled } = useTrackToggle({ source: Track.Source.Camera })
+  return (
+    <button
+      onClick={() => toggle()}
+      style={mrpToggleStyle(enabled)}
+      title={enabled ? 'Stop camera' : 'Start camera'}
+      aria-label={enabled ? 'Stop camera' : 'Start camera'}
+    >
+      {enabled ? <VideoIcon className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
+    </button>
+  )
+}
+
+function ScreenShareToggleButton() {
+  const { toggle, enabled } = useTrackToggle({ source: Track.Source.ScreenShare })
+  return (
+    <button
+      onClick={() => toggle()}
+      style={mrpToggleStyle(enabled, true)}
+      title={enabled ? 'Stop sharing' : 'Share screen'}
+      aria-label={enabled ? 'Stop sharing' : 'Share screen'}
+    >
+      <ScreenShare className="h-4 w-4" />
+    </button>
+  )
+}
+
+
+function mrpToggleStyle(enabled: boolean, neutral = false): React.CSSProperties {
+  if (neutral) {
+    return {
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      width: 40, height: 40, borderRadius: '9999px',
+      background: 'rgba(255, 255, 255, 0.10)', color: 'white',
+      border: '1px solid rgba(255, 255, 255, 0.18)',
+      cursor: 'pointer',
+    }
+  }
+  return {
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    width: 40, height: 40, borderRadius: '9999px',
+    background: enabled ? 'rgba(99, 102, 241, 0.35)' : 'rgba(239, 68, 68, 0.30)',
+    color: 'white',
+    border: enabled
+      ? '1px solid rgba(99, 102, 241, 0.65)'
+      : '1px solid rgba(239, 68, 68, 0.55)',
+    cursor: 'pointer',
+  }
+}
+
 
 function ServerRecordingIndicator() {
   // Commit 7 — when meeting.record_meeting=true, the backend started
@@ -382,28 +456,30 @@ function MeetingStage({ meetingId, onEndMeeting, endingMeeting, recordMeeting }:
 
       <RoomAudioRenderer />
 
-      {/* LiveKit built-in controls + our extras.
-          When the meeting is set to record, the SERVER handles
-          recording via LiveKit Egress — we hide the client-side
-          MediaRecorder controls so the user isn't presented with
-          a redundant (and less reliable) parallel path. */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.5rem', background: '#1f2937' }}>
-        <ControlBar
-          variation="minimal"
-          controls={{
-            microphone: true,
-            camera: true,
-            screenShare: true,
-            leave: false,
-            chat: true,
-          }}
-        />
+      {/* Commit 19.2 — Custom control bar using LiveKit's TrackToggle
+          hook directly instead of <ControlBar>. ControlBar was rendering
+          empty in some browser/permission combos (mic + cam buttons
+          silently absent). Explicit toggles guarantee visible controls.
+          When record_meeting=true the server handles recording via
+          Egress, so we hide the client-side MediaRecorder controls. */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        gap: '0.5rem', padding: '0.75rem', background: '#1f2937',
+      }}>
+        <MicToggleButton />
+        <CamToggleButton />
+        <ScreenShareToggleButton />
         {!recordMeeting && <RecordingControls meetingId={meetingId} />}
         <button
           onClick={onEndMeeting}
           disabled={endingMeeting}
-          className="lk-button lk-disconnect-button"
-          style={{ background: '#dc2626', color: 'white', borderRadius: '9999px', padding: '0.5rem 1rem' }}
+          style={{
+            background: '#dc2626', color: 'white', borderRadius: '9999px',
+            padding: '0.5rem 1rem', border: 'none',
+            display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+            fontSize: 13, fontWeight: 500, cursor: 'pointer',
+            opacity: endingMeeting ? 0.6 : 1,
+          }}
         >
           <PhoneOff className="h-4 w-4" />
           {endingMeeting ? 'Ending...' : 'End Meeting'}
