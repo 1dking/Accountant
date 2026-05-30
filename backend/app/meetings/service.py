@@ -486,11 +486,34 @@ async def join_meeting(
     user: User,
     settings: Settings,
 ) -> JoinTokenResponse:
-    """Join an in-progress meeting as an authenticated user."""
+    """Join an in-progress meeting as an authenticated user.
+
+    Commit 19.1 — host-auto-start. When the caller is the meeting's
+    host (created_by) AND the meeting is still SCHEDULED, transparently
+    promote it to IN_PROGRESS first. Fixes the UX where the host clicks
+    "Join Meeting" on a scheduled meeting and gets a "not in progress"
+    error — they're the host, of course they can start it.
+
+    Non-host callers on a SCHEDULED meeting still get the "not in
+    progress" error; they have to wait for the host.
+    """
     meeting = await get_meeting(db, meeting_id, user)
 
+    if meeting.status == MeetingStatus.SCHEDULED and meeting.created_by == user.id:
+        # Host calling join on a scheduled meeting → start it. This
+        # creates the LiveKit room + flips status + stamps actual_start
+        # + kicks off Egress if record_meeting=True.
+        await start_meeting(db, meeting_id, user, settings)
+        # start_meeting refreshes the row; re-read so we have the
+        # IN_PROGRESS state below.
+        meeting = await get_meeting(db, meeting_id, user)
+
     if meeting.status != MeetingStatus.IN_PROGRESS:
-        raise ValidationError("Meeting is not currently in progress.")
+        raise ValidationError(
+            "Meeting hasn't started yet — please wait for the host."
+            if meeting.status == MeetingStatus.SCHEDULED
+            else "Meeting is not currently in progress."
+        )
 
     # Find or create participant record
     result = await db.execute(
