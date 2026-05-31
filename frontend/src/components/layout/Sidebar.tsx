@@ -265,11 +265,18 @@ export default function Sidebar() {
                       <button
                         key={item.path}
                         onClick={() => handleNavigate(item.path)}
+                        // Commit 26 — active state tints with the brand
+                        // primary color via the --brand-primary CSS var
+                        // set by BrandThemeProvider. color-mix gives us
+                        // a subtle background tint without needing a
+                        // pre-baked Tailwind palette per brand.
+                        style={active ? {
+                          color: 'var(--brand-primary)',
+                          backgroundColor: 'color-mix(in srgb, var(--brand-primary) 14%, transparent)',
+                        } : undefined}
                         className={cn(
                           'w-full flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors',
-                          active
-                            ? 'bg-blue-50/70 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
+                          !active && 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100',
                         )}
                       >
                         <Icon className="h-4 w-4" />
@@ -305,11 +312,14 @@ export default function Sidebar() {
         {/* Settings link */}
         <button
           onClick={() => handleNavigate('/settings')}
+          style={location.pathname.startsWith('/settings') ? {
+            color: 'var(--brand-primary)',
+            backgroundColor: 'color-mix(in srgb, var(--brand-primary) 14%, transparent)',
+          } : undefined}
           className={cn(
             'w-full flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors',
-            location.pathname.startsWith('/settings')
-              ? 'bg-blue-50/70 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
+            !location.pathname.startsWith('/settings') &&
+              'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100',
           )}
         >
           <Settings className="h-4 w-4" /> Settings
@@ -323,11 +333,14 @@ export default function Sidebar() {
         </button>
         <button
           onClick={() => handleNavigate('/help')}
+          style={location.pathname.startsWith('/help') ? {
+            color: 'var(--brand-primary)',
+            backgroundColor: 'color-mix(in srgb, var(--brand-primary) 14%, transparent)',
+          } : undefined}
           className={cn(
             'w-full flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors',
-            location.pathname.startsWith('/help')
-              ? 'bg-blue-50/70 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
+            !location.pathname.startsWith('/help') &&
+              'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100',
           )}
         >
           <HelpCircle className="h-4 w-4" /> Help

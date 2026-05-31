@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
 import ErrorBoundary from '@/components/ErrorBoundary'
+import BrandThemeProvider from '@/components/BrandThemeProvider'
 import { useAuthStore } from '@/stores/authStore'
 import { useNotificationStore } from '@/stores/notificationStore'
 import { useUiStore } from '@/stores/uiStore'
@@ -242,6 +243,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
+        <BrandThemeProvider>
         <Toaster position="bottom-right" richColors closeButton />
         <InstallBanner />
         <BrowserRouter>
@@ -291,6 +293,7 @@ export default function App() {
             />
           </Routes>
         </BrowserRouter>
+        </BrandThemeProvider>
       </QueryClientProvider>
     </ErrorBoundary>
   )

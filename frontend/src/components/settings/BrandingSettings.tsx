@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Upload, Trash2, Loader2, Building2 } from 'lucide-react'
+import { Upload, Trash2, Loader2, Building2, Palette } from 'lucide-react'
 import { api } from '@/api/client'
+import { brandingApi } from '@/api/branding'
 import {
   getCompanySettings,
   updateCompanySettings,
@@ -10,6 +11,7 @@ import {
   getLogoUrl,
 } from '@/api/settings'
 import type { CompanySettings } from '@/api/settings'
+import type { BrandingSettings as BrandingModel } from '@/types/models'
 
 const CURRENCY_OPTIONS = [
   { value: 'CAD', label: 'CAD - Canadian Dollar' },
@@ -41,12 +43,29 @@ export default function BrandingSettings() {
     default_tax_rate_id: '',
   })
 
+  // Commit 26 — brand visual identity (separate from the boring
+  // company-info form above). Writes to the BrandingSettings model
+  // (logo_url, primary_color, accent_color). The BrandThemeProvider
+  // mounted at the App root sets CSS variables from these values so
+  // sidebar accents + primary CTAs follow the brand color.
+  const [brandForm, setBrandForm] = useState({
+    logo_url: '',
+    primary_color: '#2563eb',
+    accent_color: '#f59e0b',
+  })
+
   const { data: settingsData, isLoading: settingsLoading } = useQuery({
     queryKey: ['company-settings'],
     queryFn: getCompanySettings,
   })
 
   const settings = settingsData?.data
+
+  const { data: brandingResp } = useQuery({
+    queryKey: ['branding'],
+    queryFn: () => brandingApi.get() as Promise<{ data: BrandingModel | null }>,
+  })
+  const branding = brandingResp?.data ?? null
 
   const { data: taxRatesData } = useQuery({
     queryKey: ['tax-rates'],
@@ -74,6 +93,17 @@ export default function BrandingSettings() {
     }
   }, [settings])
 
+  // Populate brand visual identity form when branding loads.
+  useEffect(() => {
+    if (branding) {
+      setBrandForm({
+        logo_url: branding.logo_url ?? '',
+        primary_color: branding.primary_color || '#2563eb',
+        accent_color: branding.accent_color || '#f59e0b',
+      })
+    }
+  }, [branding])
+
   const showMessage = (text: string, type: 'success' | 'error') => {
     setMsg(text)
     setMsgType(type)
@@ -90,6 +120,32 @@ export default function BrandingSettings() {
       showMessage('Failed to save settings', 'error')
     },
   })
+
+  const brandMutation = useMutation({
+    mutationFn: (data: Partial<BrandingModel>) =>
+      brandingApi.update(data as Record<string, unknown>),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['branding'] })
+      queryClient.invalidateQueries({ queryKey: ['branding-public'] })
+      showMessage('Brand visuals saved', 'success')
+    },
+    onError: () => {
+      showMessage('Failed to save brand visuals', 'error')
+    },
+  })
+
+  const handleBrandSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    brandMutation.mutate({
+      logo_url: brandForm.logo_url || undefined,
+      primary_color: brandForm.primary_color,
+      accent_color: brandForm.accent_color,
+    })
+  }
+
+  const updateBrandField = (field: 'logo_url' | 'primary_color' | 'accent_color', value: string) => {
+    setBrandForm((prev) => ({ ...prev, [field]: value }))
+  }
 
   const uploadMutation = useMutation({
     mutationFn: (file: File) => uploadLogo(file),
@@ -181,6 +237,137 @@ export default function BrandingSettings() {
           {msg}
         </div>
       )}
+
+      {/* Commit 26 — Brand Visual Identity. Writes to BrandingSettings
+          (separate from the company logo which is for documents/invoices).
+          BrandThemeProvider reads --brand-primary from these values on
+          app load and propagates them through the sidebar + primary CTAs. */}
+      <form onSubmit={handleBrandSubmit} className="mb-10 p-5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-950">
+        <div className="flex items-center gap-2 mb-4">
+          <Palette className="w-4 h-4 text-gray-500" />
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Brand Visual Identity</h3>
+        </div>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-5">
+          These values theme the whole platform — sidebar wordmark, primary buttons, accents.
+          Guests on your meeting share links also see them. (Tier-gating coming later.)
+        </p>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Brand Logo URL
+            </label>
+            <input
+              type="url"
+              value={brandForm.logo_url}
+              onChange={(e) => updateBrandField('logo_url', e.target.value)}
+              placeholder="https://yourcompany.com/logo.png"
+              className="w-full px-3 py-2 text-sm border rounded-md bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+              Hosted PNG/SVG/WebP. Used by sidebar, login screen, meeting invites, and the guest knock page.
+              Leave blank to fall back to the company name as text.
+            </p>
+            {brandForm.logo_url && (
+              <div className="mt-3 inline-flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-3">
+                <img
+                  src={brandForm.logo_url}
+                  alt="Brand logo preview"
+                  className="h-10 max-w-[180px] object-contain"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Primary Color
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={brandForm.primary_color}
+                  onChange={(e) => updateBrandField('primary_color', e.target.value)}
+                  className="h-10 w-12 rounded border border-gray-200 dark:border-gray-700 cursor-pointer"
+                />
+                <input
+                  type="text"
+                  value={brandForm.primary_color}
+                  onChange={(e) => updateBrandField('primary_color', e.target.value)}
+                  placeholder="#2563eb"
+                  className="flex-1 px-3 py-2 text-sm font-mono border rounded-md bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                Sidebar active state, primary buttons, links.
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Accent Color
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={brandForm.accent_color}
+                  onChange={(e) => updateBrandField('accent_color', e.target.value)}
+                  className="h-10 w-12 rounded border border-gray-200 dark:border-gray-700 cursor-pointer"
+                />
+                <input
+                  type="text"
+                  value={brandForm.accent_color}
+                  onChange={(e) => updateBrandField('accent_color', e.target.value)}
+                  placeholder="#f59e0b"
+                  className="flex-1 px-3 py-2 text-sm font-mono border rounded-md bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                Secondary highlights, badges, hover states.
+              </p>
+            </div>
+          </div>
+
+          {/* Live preview */}
+          <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Preview</p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                style={{ background: brandForm.primary_color }}
+                className="px-3 py-1.5 text-sm font-medium text-white rounded-md"
+              >
+                Primary button
+              </button>
+              <span
+                style={{ background: brandForm.accent_color, color: 'white' }}
+                className="px-2 py-0.5 text-xs font-medium rounded"
+              >
+                Accent badge
+              </span>
+              <a
+                href="#"
+                onClick={(e) => e.preventDefault()}
+                style={{ color: brandForm.primary_color }}
+                className="text-sm font-medium underline"
+              >
+                Themed link
+              </a>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={brandMutation.isPending}
+            style={{ background: brandForm.primary_color }}
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-md disabled:opacity-50 hover:opacity-90 transition"
+          >
+            {brandMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+            Save brand visuals
+          </button>
+        </div>
+      </form>
 
       {/* Logo Section */}
       <div className="mb-8">
