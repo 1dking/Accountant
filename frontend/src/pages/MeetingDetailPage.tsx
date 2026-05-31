@@ -17,6 +17,7 @@ import {
 } from '@/api/meetings'
 import { coachApi } from '@/api/coach'
 import { useBranding } from '@/hooks/useBranding'
+import CopyMeetingLink from '@/components/meetings/CopyMeetingLink'
 import type { MeetingStatus, MeetingParticipant } from '@/types/models'
 
 /** Branded in-app recording player.
@@ -583,43 +584,10 @@ function CalendarInviteSection({ meetingId }: { meetingId: string }) {
 }
 
 
-/** Commit 8 — shareable meeting URL display + copy button.
- *
- * Renders right under the meeting title on MeetingDetailPage. The URL
- * is the public guest-join page (/m/:slug); recipients enter name +
- * email matching their invite, then knock the lobby. */
-function ShareLinkRow({ slug }: { slug: string }) {
-  const [copied, setCopied] = useState(false)
-  const url = `${window.location.origin}/m/${slug}`
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(url)
-      setCopied(true)
-      toast.success('Meeting link copied')
-      setTimeout(() => setCopied(false), 1800)
-    } catch {
-      toast.error('Could not copy link')
-    }
-  }
-
-  return (
-    <div className="flex items-center gap-2 mt-2 text-xs text-gray-500 dark:text-gray-400">
-      <span className="font-medium">Share link:</span>
-      <code className="px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded font-mono text-[11px] text-gray-700 dark:text-gray-300 truncate max-w-md">
-        {url}
-      </code>
-      <button
-        onClick={handleCopy}
-        className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 rounded transition-colors"
-        title="Copy to clipboard"
-      >
-        <Copy className="h-3.5 w-3.5" />
-        {copied ? 'Copied!' : 'Copy'}
-      </button>
-    </div>
-  )
-}
+// ShareLinkRow removed in Commit 23 — replaced with the larger
+// <CopyMeetingLink variant="card" /> placed prominently above the
+// meeting metadata. The old inline row was too easy to miss for
+// hosts who wanted to grab the link before scheduling.
 
 
 function StatusBadge({ status }: { status: MeetingStatus }) {
@@ -1047,13 +1015,17 @@ export default function MeetingDetailPage() {
             <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{meeting.title}</h1>
             <StatusBadge status={meeting.status} />
           </div>
-          {/* Commit 8 — shareable meeting URL. Guest visits this URL
-              and goes through the email-match + knock flow. */}
-          {meeting.slug && meeting.status !== 'cancelled' && (
-            <ShareLinkRow slug={meeting.slug} />
-          )}
         </div>
       </div>
+
+      {/* Commit 22/23 — prominent share-link card. Anyone with this link
+          can knock (Google-Meet open-knock policy); the host gates entry
+          via the lobby panel. Hidden once the meeting ends. */}
+      {meeting.slug && meeting.status !== 'cancelled' && meeting.status !== 'completed' && (
+        <div className="mb-6">
+          <CopyMeetingLink slug={meeting.slug} variant="card" />
+        </div>
+      )}
 
       {/* Commit 17 — prior-context "last time we spoke" panel.
           Renders only when the meeting has a contact_id AND there's

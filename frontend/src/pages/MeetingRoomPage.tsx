@@ -5,7 +5,7 @@ import {
   Circle, Square, Loader2, Upload, PhoneOff,
   UserPlus, UserMinus, Bell,
   Mic, MicOff, Video as VideoIcon, VideoOff, ScreenShare,
-  Copy, Check, Link as LinkIcon,
+  Link as LinkIcon,
 } from 'lucide-react'
 import {
   LiveKitRoom,
@@ -22,7 +22,9 @@ import {
   startMeeting, joinMeeting, endMeeting, uploadRecording,
   listLobby, admitFromLobby, denyFromLobby, admitAllFromLobby,
 } from '@/api/meetings'
+import { toast } from 'sonner'
 import PreJoinGate from '@/components/meetings/PreJoinGate'
+import CopyMeetingLink, { buildMeetingShareUrl, copyMeetingShareUrl } from '@/components/meetings/CopyMeetingLink'
 import { useBranding } from '@/hooks/useBranding'
 import type { LocalUserChoices } from '@livekit/components-react'
 
@@ -511,31 +513,11 @@ function LobbyPanel({ meetingId }: { meetingId: string }) {
 }
 
 
-/** Host-facing share button. Opens a small popover showing the public
- *  /m/{slug} URL with a copy-to-clipboard CTA. Anyone with the link
- *  lands on MeetingJoinPage, knocks at the lobby (name only, email
- *  optional), and waits for the host to admit them. */
+/** Host-facing share button — popover with the public /m/{slug} URL.
+ *  Reuses CopyMeetingLink so behavior matches the auto-toast and the
+ *  MeetingDetailPage share card. */
 function ShareLinkButton({ slug }: { slug: string }) {
   const [open, setOpen] = useState(false)
-  const [copied, setCopied] = useState(false)
-  const url = `${window.location.origin}/m/${slug}`
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(url)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1800)
-    } catch {
-      // Fallback for older browsers / lacking clipboard permission.
-      const t = document.createElement('textarea')
-      t.value = url
-      document.body.appendChild(t)
-      t.select()
-      try { document.execCommand('copy') } catch { /* ignore */ }
-      document.body.removeChild(t)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1800)
-    }
-  }
   return (
     <div style={{ position: 'relative' }}>
       <button
@@ -567,33 +549,7 @@ function ShareLinkButton({ slug }: { slug: string }) {
           <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', marginBottom: 10 }}>
             They'll wait in the lobby until you admit them.
           </div>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <input
-              readOnly
-              value={url}
-              onClick={(e) => (e.target as HTMLInputElement).select()}
-              style={{
-                flex: 1, padding: '8px 10px', fontSize: 12,
-                background: '#0f172a', color: 'white',
-                border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8,
-                outline: 'none',
-              }}
-            />
-            <button
-              onClick={copy}
-              style={{
-                padding: '8px 12px', fontSize: 12, fontWeight: 600,
-                background: copied ? '#16a34a' : '#4f46e5',
-                color: 'white', border: 'none', borderRadius: 8,
-                cursor: 'pointer', display: 'inline-flex',
-                alignItems: 'center', gap: 5,
-              }}
-              title={copied ? 'Copied!' : 'Copy link'}
-            >
-              {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-              {copied ? 'Copied' : 'Copy'}
-            </button>
-          </div>
+          <CopyMeetingLink slug={slug} variant="compact" />
         </div>
       )}
     </div>
@@ -737,6 +693,29 @@ export default function MeetingRoomPage() {
         setConnecting(false)
       })
   }, [id, action])
+
+  // Fire a one-time share-link toast the first time the host enters
+  // the room (after PreJoin). Persists until dismissed; Copy action
+  // copies the URL and closes the toast. Ref guard prevents double-fire
+  // in React StrictMode or on any re-render of this effect.
+  const toastFiredRef = useRef(false)
+  useEffect(() => {
+    if (toastFiredRef.current) return
+    if (!slug || !userChoices) return
+    toastFiredRef.current = true
+    const url = buildMeetingShareUrl(slug)
+    toast.message('Share this meeting', {
+      description: url,
+      duration: Infinity,
+      action: {
+        label: 'Copy link',
+        onClick: () => {
+          void copyMeetingShareUrl(slug)
+          toast.success('Meeting link copied')
+        },
+      },
+    })
+  }, [slug, userChoices])
 
   const endMut = useMutation({
     mutationFn: () => endMeeting(id!),
