@@ -220,7 +220,9 @@ export default function Sidebar() {
           className="flex items-center gap-2 min-w-0"
         >
           {logoUrl ? (
-            <img src={logoUrl} alt={orgName} className="h-7 max-w-[140px] object-contain" />
+            // Commit 30 — bumped from h-7 (28px) → h-12 (48px) so the
+            // brand mark is actually legible in the sidebar header.
+            <img src={logoUrl} alt={orgName} className="h-12 max-w-[180px] object-contain" />
           ) : (
             <span className="text-lg font-bold text-gray-900 dark:text-gray-100 truncate">
               {orgName}
