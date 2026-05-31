@@ -198,15 +198,46 @@ async def test_knock_email_match_is_case_insensitive(
 
 
 @pytest.mark.high
-async def test_knock_with_non_invited_email_raises_403(
+async def test_knock_with_non_invited_email_is_allowed_in_waiting(
     db: AsyncSession, scheduled_meeting_with_invites: Meeting,
 ):
-    """Non-invited email — Google-Meet-Workspace-style strict gate.
-    Same error whether the meeting exists or not (don't leak)."""
+    """Commit 22 — open-knock policy. Anyone with the link can knock
+    (Google-Meet behavior); the host still gates entry via Admit/Deny
+    in the lobby panel. We just create a fresh WAITING participant on
+    demand instead of rejecting at the door."""
+    p = await service.knock_at_lobby(
+        db, scheduled_meeting_with_invites.slug,
+        name="Eve", email="eve@evil.example",
+    )
+    assert p.lobby_status == LobbyStatus.WAITING
+    assert p.guest_name == "Eve"
+    assert p.guest_email == "eve@evil.example"
+
+
+@pytest.mark.high
+async def test_knock_without_email_creates_waiting_row(
+    db: AsyncSession, scheduled_meeting_with_invites: Meeting,
+):
+    """Email is optional now — name alone is enough to knock."""
+    p = await service.knock_at_lobby(
+        db, scheduled_meeting_with_invites.slug,
+        name="Anonymous Joe", email="",
+    )
+    assert p.lobby_status == LobbyStatus.WAITING
+    assert p.guest_name == "Anonymous Joe"
+    assert p.guest_email is None
+
+
+@pytest.mark.high
+async def test_knock_without_name_is_rejected(
+    db: AsyncSession, scheduled_meeting_with_invites: Meeting,
+):
+    """Name is the only required field — the host needs to know who
+    they're admitting."""
     with pytest.raises(ValidationError):
         await service.knock_at_lobby(
             db, scheduled_meeting_with_invites.slug,
-            name="Eve", email="eve@evil.example",
+            name="   ", email="alice@example.com",
         )
 
 

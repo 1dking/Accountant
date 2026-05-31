@@ -219,3 +219,6 @@ class JoinTokenResponse(BaseModel):
     # Commit 7 — surface record_meeting so the client hides the manual
     # Record button when server-side Egress is handling recording.
     record_meeting: bool = False
+    # Commit 22 — surface the slug so the host's meeting room can
+    # render a Share link the moment they join (no extra fetch).
+    slug: str | None = None

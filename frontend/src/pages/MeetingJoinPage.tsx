@@ -265,7 +265,7 @@ export default function MeetingJoinPage() {
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-300 mb-1">
-                  Email (must match your invite)
+                  Email <span className="text-gray-500 font-normal">(optional)</span>
                 </label>
                 <input
                   type="email"
@@ -280,7 +280,7 @@ export default function MeetingJoinPage() {
               )}
               <button
                 type="submit"
-                disabled={knockBusy || !name.trim() || !email.trim()}
+                disabled={knockBusy || !name.trim()}
                 style={{ background: brandColor }}
                 className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 rounded-lg transition"
               >

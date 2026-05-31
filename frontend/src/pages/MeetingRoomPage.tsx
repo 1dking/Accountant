@@ -5,6 +5,7 @@ import {
   Circle, Square, Loader2, Upload, PhoneOff,
   UserPlus, UserMinus, Bell,
   Mic, MicOff, Video as VideoIcon, VideoOff, ScreenShare,
+  Copy, Check, Link as LinkIcon,
 } from 'lucide-react'
 import {
   LiveKitRoom,
@@ -510,8 +511,98 @@ function LobbyPanel({ meetingId }: { meetingId: string }) {
 }
 
 
-function MeetingStage({ meetingId, onEndMeeting, endingMeeting, recordMeeting }: {
+/** Host-facing share button. Opens a small popover showing the public
+ *  /m/{slug} URL with a copy-to-clipboard CTA. Anyone with the link
+ *  lands on MeetingJoinPage, knocks at the lobby (name only, email
+ *  optional), and waits for the host to admit them. */
+function ShareLinkButton({ slug }: { slug: string }) {
+  const [open, setOpen] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const url = `${window.location.origin}/m/${slug}`
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1800)
+    } catch {
+      // Fallback for older browsers / lacking clipboard permission.
+      const t = document.createElement('textarea')
+      t.value = url
+      document.body.appendChild(t)
+      t.select()
+      try { document.execCommand('copy') } catch { /* ignore */ }
+      document.body.removeChild(t)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1800)
+    }
+  }
+  return (
+    <div style={{ position: 'relative' }}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          background: '#374151', color: 'white', borderRadius: '9999px',
+          padding: '0.5rem 0.95rem', border: 'none',
+          display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+          fontSize: 13, fontWeight: 500, cursor: 'pointer',
+        }}
+        title="Share meeting link"
+      >
+        <LinkIcon className="h-4 w-4" />
+        Share
+      </button>
+      {open && (
+        <div
+          style={{
+            position: 'absolute', bottom: 'calc(100% + 8px)', left: '50%',
+            transform: 'translateX(-50%)',
+            background: '#1f2937', border: '1px solid rgba(255,255,255,0.12)',
+            borderRadius: 12, padding: 14, width: 320,
+            boxShadow: '0 12px 32px rgba(0,0,0,0.45)', zIndex: 30,
+          }}
+        >
+          <div style={{ fontSize: 12, fontWeight: 600, color: 'white', marginBottom: 6 }}>
+            Anyone with this link can knock
+          </div>
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', marginBottom: 10 }}>
+            They'll wait in the lobby until you admit them.
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <input
+              readOnly
+              value={url}
+              onClick={(e) => (e.target as HTMLInputElement).select()}
+              style={{
+                flex: 1, padding: '8px 10px', fontSize: 12,
+                background: '#0f172a', color: 'white',
+                border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8,
+                outline: 'none',
+              }}
+            />
+            <button
+              onClick={copy}
+              style={{
+                padding: '8px 12px', fontSize: 12, fontWeight: 600,
+                background: copied ? '#16a34a' : '#4f46e5',
+                color: 'white', border: 'none', borderRadius: 8,
+                cursor: 'pointer', display: 'inline-flex',
+                alignItems: 'center', gap: 5,
+              }}
+              title={copied ? 'Copied!' : 'Copy link'}
+            >
+              {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              {copied ? 'Copied' : 'Copy'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function MeetingStage({ meetingId, slug, onEndMeeting, endingMeeting, recordMeeting }: {
   meetingId: string
+  slug: string | null
   onEndMeeting: () => void
   endingMeeting: boolean
   recordMeeting: boolean
@@ -571,6 +662,7 @@ function MeetingStage({ meetingId, onEndMeeting, endingMeeting, recordMeeting }:
         <MicToggleButton />
         <CamToggleButton />
         <ScreenShareToggleButton />
+        {slug && <ShareLinkButton slug={slug} />}
         {!recordMeeting && <RecordingControls meetingId={meetingId} />}
         <button
           onClick={onEndMeeting}
@@ -600,6 +692,7 @@ export default function MeetingRoomPage() {
   const [token, setToken] = useState<string | null>(null)
   const [roomName, setRoomName] = useState<string | null>(null)
   const [recordMeeting, setRecordMeeting] = useState(false)
+  const [slug, setSlug] = useState<string | null>(null)
   // Title isn't returned by start/join token endpoints today; the
   // PreJoinGate handles undefined cleanly. Leave the state as a
   // forward-compat hook for when we add title to those responses.
@@ -635,6 +728,7 @@ export default function MeetingRoomPage() {
         setToken(res.data.token)
         setRoomName(res.data.room_name)
         setRecordMeeting(Boolean(res.data.record_meeting))
+        setSlug(res.data.slug ?? null)
       })
       .catch((err) => {
         setError(err?.message || 'Failed to connect to meeting')
@@ -736,6 +830,7 @@ export default function MeetingRoomPage() {
         <ForceEnableMediaOnConnect />
         <MeetingStage
           meetingId={id!}
+          slug={slug}
           onEndMeeting={handleEndMeeting}
           endingMeeting={endMut.isPending}
           recordMeeting={recordMeeting}

@@ -45,6 +45,9 @@ export interface LiveKitTokenResponse {
    *  recording via LiveKit Egress. Client should hide the manual
    *  Record button and show a "Recording" indicator instead. */
   record_meeting?: boolean
+  /** Commit 22 — slug surfaces here so the host's meeting room can
+   *  render the public share link without a second fetch. */
+  slug?: string | null
 }
 
 export interface RecordingsByContact {

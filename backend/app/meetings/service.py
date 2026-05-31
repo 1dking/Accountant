@@ -477,6 +477,7 @@ async def start_meeting(
         "room_name": meeting.livekit_room_name,
         "identity": identity,
         "record_meeting": meeting.record_meeting,
+        "slug": meeting.slug,
     }
 
 
@@ -547,6 +548,7 @@ async def join_meeting(
         room_name=meeting.livekit_room_name,
         identity=identity,
         record_meeting=meeting.record_meeting,
+        slug=meeting.slug,
     )
 
 
@@ -1105,47 +1107,56 @@ async def knock_at_lobby(
     name: str,
     email: str,
 ) -> MeetingParticipant:
-    """Guest entry point — verify email matches an invite, upsert a
-    WAITING participant, return the lobby ID.
+    """Guest entry point — anyone with the link can knock (Google Meet
+    style). The host still gates entry via Admit/Deny in the lobby.
 
-    Email match is case-insensitive on both sides. Re-knocking from
-    the same email updates the existing row (refreshes name, resets
-    DENIED → WAITING if the host wants to reconsider). Non-matching
-    email → ValidationError mapped to 403 by the router.
+    If the email matches a pre-invited participant, we reuse that row
+    (so admit history / role on the invite list is preserved). If not,
+    we create a brand new WAITING participant on demand. Email is
+    optional; name is required so the host knows who they're admitting.
+
+    Re-knocking from the same email updates the existing row (refreshes
+    name, resets DENIED → WAITING if the host wants to reconsider).
     """
     meeting = await get_meeting_by_slug_public(db, slug)
     if meeting.status in (MeetingStatus.COMPLETED, MeetingStatus.CANCELLED):
         raise ValidationError("This meeting is not joinable.")
 
-    target = _normalize_email(email)
-    if not target:
-        raise ValidationError("Email is required to knock.")
+    cleaned_name = (name or "").strip()
+    if not cleaned_name:
+        raise ValidationError("Please enter your name.")
 
-    # Find a matching participant by email. participant_emails added at
-    # create-time set guest_email; an authenticated user might also be
-    # invited (user_id set, no guest_email) — we'll cover that path
-    # later via separate user-auth join.
+    target = _normalize_email(email)
+
+    # Match by email when one was provided — preserves prior invite/state.
     existing = None
-    for p in meeting.participants:
-        if p.guest_email and _normalize_email(p.guest_email) == target:
-            existing = p
-            break
+    if target:
+        for p in meeting.participants:
+            if p.guest_email and _normalize_email(p.guest_email) == target:
+                existing = p
+                break
 
     if existing is None:
-        # Not on the invite list — Google-Meet-Workspace-style strict
-        # match. Don't leak whether the meeting exists vs. just the
-        # invitee list; same 403 either way.
-        raise ValidationError("This email isn't on the meeting's invite list.")
-
-    # Upsert the lobby state. Use the passed name if non-empty (lets
-    # guests fix their own typos by re-knocking).
-    if name and name.strip():
-        existing.guest_name = name.strip()
-    existing.lobby_status = LobbyStatus.WAITING
-    # Bump joined_at sentinel — we use it as last-knock-at for the
-    # host's lobby panel ordering. Reset on actual room join later.
-    existing.joined_at = None
-    existing.left_at = None
+        # No invite-list match (or no email given). Open-knock policy:
+        # create a fresh WAITING entry. The host approves from their
+        # lobby panel before the guest gets a LiveKit token, so anonymous
+        # knocks can't reach the room without explicit consent.
+        existing = MeetingParticipant(
+            meeting_id=meeting.id,
+            role=ParticipantRole.PARTICIPANT,
+            guest_name=cleaned_name,
+            guest_email=target or None,
+            lobby_status=LobbyStatus.WAITING,
+        )
+        db.add(existing)
+    else:
+        # Upsert the lobby state on the existing invite row.
+        existing.guest_name = cleaned_name
+        existing.lobby_status = LobbyStatus.WAITING
+        # Bump joined_at sentinel — we use it as last-knock-at for the
+        # host's lobby panel ordering. Reset on actual room join later.
+        existing.joined_at = None
+        existing.left_at = None
     await db.commit()
     await db.refresh(existing)
     return existing
