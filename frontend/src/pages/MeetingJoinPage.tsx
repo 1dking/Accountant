@@ -18,7 +18,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router'
 import {
-  LiveKitRoom, GridLayout, ParticipantTile, RoomAudioRenderer,
+  LiveKitRoom, LayoutContextProvider, GridLayout, ParticipantTile, RoomAudioRenderer,
   ControlBar, useTracks, useRoomContext, type LocalUserChoices,
 } from '@livekit/components-react'
 import '@livekit/components-styles'
@@ -207,15 +207,18 @@ export default function MeetingJoinPage() {
           onDisconnected={() => navigate('/')}
           // Always publish mic + camera on connect (see MeetingRoomPage
           // for the rationale — gating on userChoices.*Enabled left the
-          // in-room toggles unable to reliably acquire tracks). Mute is
-          // applied post-connect by GuestPostConnectMuteSync below.
+          // in-room toggles unable to reliably acquire tracks).
           audio={true}
           video={true}
           data-lk-theme="default"
           style={{ height: '100%' }}
         >
-          <GuestForceEnableMediaOnConnect />
-          <GuestStage />
+          {/* LK v2 requires explicit LayoutContextProvider wrap (see
+              MeetingRoomPage comment). */}
+          <LayoutContextProvider>
+            <GuestForceEnableMediaOnConnect />
+            <GuestStage />
+          </LayoutContextProvider>
         </LiveKitRoom>
       </div>
     )

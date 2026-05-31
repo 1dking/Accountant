@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import {
   LiveKitRoom,
+  LayoutContextProvider,
   GridLayout,
   ParticipantTile,
   RoomAudioRenderer,
@@ -806,14 +807,22 @@ export default function MeetingRoomPage() {
         data-lk-theme="default"
         style={{ height: '100%' }}
       >
-        <ForceEnableMediaOnConnect />
-        <MeetingStage
-          meetingId={id!}
-          slug={slug}
-          onEndMeeting={handleEndMeeting}
-          endingMeeting={endMut.isPending}
-          recordMeeting={recordMeeting}
-        />
+        {/* LK v2 components inside the room (GridLayout, ParticipantTile,
+            etc.) require an explicit LayoutContextProvider wrap.
+            Without it, the room crashes on mount with "Tried to access
+            LayoutContext context outside the LayoutContextProvider
+            provider." Older LK versions auto-provided this; v2.9+ does
+            not. */}
+        <LayoutContextProvider>
+          <ForceEnableMediaOnConnect />
+          <MeetingStage
+            meetingId={id!}
+            slug={slug}
+            onEndMeeting={handleEndMeeting}
+            endingMeeting={endMut.isPending}
+            recordMeeting={recordMeeting}
+          />
+        </LayoutContextProvider>
       </LiveKitRoom>
     </div>
   )

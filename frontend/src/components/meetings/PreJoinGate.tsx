@@ -21,7 +21,7 @@
  */
 import { useState } from 'react'
 import { type LocalUserChoices } from '@livekit/components-react'
-import { Loader2, ShieldCheck, Video as VideoIcon, Mic as MicIcon } from 'lucide-react'
+import { Loader2, ShieldCheck, Circle, Video as VideoIcon, Mic as MicIcon } from 'lucide-react'
 import { usePublicBranding } from '@/hooks/useBranding'
 
 export interface Props {
@@ -114,6 +114,31 @@ export default function PreJoinGate({
             </div>
           )}
 
+          {recordMeeting && (
+            <div style={{
+              display: 'flex', alignItems: 'flex-start', gap: 10,
+              padding: '12px 14px', marginBottom: 12,
+              background: 'rgba(220, 38, 38, 0.12)',
+              border: '1px solid rgba(220, 38, 38, 0.45)',
+              borderRadius: 10,
+              fontSize: 13, color: '#fecaca', lineHeight: 1.4,
+            }}>
+              <Circle
+                className="h-3.5 w-3.5"
+                style={{ marginTop: 2, fill: '#dc2626', color: '#dc2626', flexShrink: 0 }}
+              />
+              <div>
+                <div style={{ fontWeight: 600, color: '#fca5a5', marginBottom: 2 }}>
+                  This meeting will be recorded
+                </div>
+                <div style={{ fontSize: 12, color: 'rgba(252,165,165,0.78)' }}>
+                  Audio &amp; video of everyone in the room are captured. You'll
+                  confirm consent before joining.
+                </div>
+              </div>
+            </div>
+          )}
+
           <div style={{
             display: 'flex', alignItems: 'center', gap: 14,
             padding: '10px 12px', marginBottom: 16,
@@ -146,15 +171,6 @@ export default function PreJoinGate({
           </button>
         </div>
 
-        {recordMeeting && (
-          <p style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-            marginTop: 12, fontSize: 12, color: 'rgba(252, 165, 165, 0.85)',
-          }}>
-            <ShieldCheck className="h-3 w-3" />
-            This meeting is set to be recorded.
-          </p>
-        )}
       </div>
 
       {showConsent && (
