@@ -142,6 +142,89 @@ async def _generate_unique_slug(db: AsyncSession, max_tries: int = 8) -> str:
     raise RuntimeError("Could not generate a unique meeting slug after 8 tries")
 
 
+async def get_or_create_personal_room(
+    db: AsyncSession, user: User,
+) -> Meeting:
+    """Commit 29 — return the user's personal meeting room (Zoom-PMI
+    style). Each user has at most one row with is_personal_room=True;
+    its slug is permanent across every meeting it hosts. The host
+    pastes /m/{slug} into Calendly / Google Calendar / email signature
+    once and every booking reuses the same URL.
+
+    Creates the row on first call (host's first visit to their meeting
+    room card). End-meeting flips status back to SCHEDULED instead of
+    COMPLETED so the slug stays joinable indefinitely.
+
+    Pre-loads participants + recordings so the response can render
+    without a follow-up query.
+    """
+    result = await db.execute(
+        select(Meeting)
+        .options(
+            selectinload(Meeting.participants),
+            selectinload(Meeting.recordings),
+        )
+        .where(
+            Meeting.created_by == user.id,
+            Meeting.is_personal_room.is_(True),
+        )
+        .limit(1)
+    )
+    existing = result.scalar_one_or_none()
+    if existing is not None:
+        # If a previous end_meeting wrote actual_start (pre-Commit 29
+        # behavior), null it out so the room appears ready-to-join.
+        if existing.status == MeetingStatus.COMPLETED:
+            existing.status = MeetingStatus.SCHEDULED
+            existing.actual_start = None
+            existing.actual_end = None
+            await db.commit()
+            await db.refresh(existing)
+        return existing
+
+    room_name = f"personal-{uuid.uuid4().hex[:16]}"
+    slug = await _generate_unique_slug(db)
+    display_name = (user.full_name or user.email or "Host").strip()
+    title = f"{display_name}'s meeting room"
+
+    meeting = Meeting(
+        title=title,
+        description=None,
+        scheduled_start=None,
+        scheduled_end=None,
+        livekit_room_name=room_name,
+        slug=slug,
+        status=MeetingStatus.SCHEDULED,
+        record_meeting=True,
+        is_personal_room=True,
+        created_by=user.id,
+    )
+    db.add(meeting)
+    await db.flush()
+
+    # Add the host as a participant so the lobby + meeting list
+    # ownership filters work correctly.
+    host_participant = MeetingParticipant(
+        meeting_id=meeting.id,
+        user_id=user.id,
+        role=ParticipantRole.HOST,
+    )
+    db.add(host_participant)
+    await db.commit()
+    await db.refresh(meeting)
+
+    # Re-fetch with relationships pre-loaded.
+    result = await db.execute(
+        select(Meeting)
+        .options(
+            selectinload(Meeting.participants),
+            selectinload(Meeting.recordings),
+        )
+        .where(Meeting.id == meeting.id)
+    )
+    return result.scalar_one()
+
+
 async def create_meeting(
     db: AsyncSession,
     user: User,
@@ -631,8 +714,16 @@ async def end_meeting(
     if meeting.status != MeetingStatus.IN_PROGRESS:
         raise ValidationError("Meeting is not currently in progress.")
 
-    meeting.status = MeetingStatus.COMPLETED
-    meeting.actual_end = datetime.now(timezone.utc)
+    # Commit 29 — personal rooms revert to SCHEDULED on end so the
+    # same slug can host the next meeting. Only non-personal meetings
+    # transition to the terminal COMPLETED state.
+    if meeting.is_personal_room:
+        meeting.status = MeetingStatus.SCHEDULED
+        meeting.actual_start = None
+        meeting.actual_end = None
+    else:
+        meeting.status = MeetingStatus.COMPLETED
+        meeting.actual_end = datetime.now(timezone.utc)
     await db.commit()
     await db.refresh(meeting)
 

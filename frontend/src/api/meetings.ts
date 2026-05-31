@@ -147,6 +147,13 @@ export async function startInstantMeeting(opts: {
   return api.post<ApiResponse<InstantMeetingResponse>>('/meetings/instant', opts)
 }
 
+/** Commit 29 — get the user's persistent personal meeting room.
+ *  Creates it on first call. Slug never changes — safe to paste into
+ *  Calendly / Google Calendar / email signature. */
+export async function getPersonalRoom() {
+  return api.get<ApiResponse<Meeting>>('/meetings/personal-room')
+}
+
 export interface PublicMeetingInfo {
   slug: string
   title: string

@@ -4,13 +4,102 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
   Video, Plus, Users, Calendar, Clock, Loader2,
-  ChevronDown, Zap, Search, X, Briefcase,
+  ChevronDown, Zap, Search, X, Briefcase, Link as LinkIcon, Copy, Check,
 } from 'lucide-react'
 import {
-  listMeetings, startInstantMeeting, searchMeetingTranscripts,
+  listMeetings, startInstantMeeting, searchMeetingTranscripts, getPersonalRoom,
   type MeetingFilters,
 } from '@/api/meetings'
-import type { MeetingListItem, MeetingStatus } from '@/types/models'
+import type { Meeting, MeetingListItem, MeetingStatus } from '@/types/models'
+
+/** Commit 29 — persistent personal meeting room card. Always
+ *  rendered at the top of /meetings. The slug never changes, so the
+ *  host can paste /m/{slug} into Calendly / Google Calendar / email
+ *  signature and every booking reuses the same URL. */
+function PersonalRoomCard() {
+  const navigate = useNavigate()
+  const [copied, setCopied] = useState(false)
+  const { data } = useQuery({
+    queryKey: ['personal-meeting-room'],
+    queryFn: getPersonalRoom,
+    staleTime: 60_000,
+  })
+  const room = data?.data as Meeting | undefined
+  if (!room || !room.slug) return null
+  const shareUrl = `${window.location.origin}/m/${room.slug}`
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl)
+      setCopied(true)
+      toast.success('Meeting link copied')
+      setTimeout(() => setCopied(false), 1800)
+    } catch {
+      toast.error('Could not copy link')
+    }
+  }
+
+  const startMeeting = () => {
+    navigate(`/meetings/${room.id}/room?action=join`)
+  }
+
+  return (
+    <div className="mb-6 rounded-xl border border-indigo-200 dark:border-indigo-900 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 p-5">
+      <div className="flex items-start gap-3">
+        <div
+          className="h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0"
+          style={{ background: 'var(--brand-primary, #4f46e5)' }}
+        >
+          <Video className="h-4 w-4 text-white" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+              Your meeting room
+            </h3>
+            <span className="text-[10px] uppercase tracking-wider font-semibold text-indigo-600 dark:text-indigo-400">
+              Permanent link
+            </span>
+          </div>
+          <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
+            Paste this URL into your email signature, Calendly, or any calendar invite — every meeting in this room uses the same address.
+          </p>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex-1 min-w-[200px] flex items-center gap-2 px-3 py-2 rounded-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
+              <LinkIcon className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+              <input
+                readOnly
+                value={shareUrl}
+                onClick={(e) => (e.target as HTMLInputElement).select()}
+                className="flex-1 min-w-0 text-xs font-mono bg-transparent text-gray-700 dark:text-gray-300 outline-none"
+              />
+            </div>
+            <button
+              onClick={copyLink}
+              className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg transition ${
+                copied
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
+              }`}
+            >
+              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+              {copied ? 'Copied' : 'Copy link'}
+            </button>
+            <button
+              onClick={startMeeting}
+              style={{ background: 'var(--brand-primary, #4f46e5)' }}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-white rounded-lg hover:opacity-90 transition"
+            >
+              <Video className="h-3.5 w-3.5" />
+              Start meeting
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 const STATUS_TABS: { value: string; label: string }[] = [
   { value: 'scheduled', label: 'Upcoming' },
@@ -292,6 +381,9 @@ export default function MeetingsPage() {
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Meetings</h1>
         <NewMeetingButton />
       </div>
+
+      {/* Commit 29 — persistent personal meeting room (Zoom-PMI style). */}
+      <PersonalRoomCard />
 
       <TranscriptSearchBar query={searchQuery} setQuery={setSearchQuery} />
 

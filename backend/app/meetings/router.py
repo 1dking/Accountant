@@ -403,6 +403,20 @@ async def send_invites(
 # ---------------------------------------------------------------------------
 
 
+@router.get("/personal-room")
+async def get_personal_room(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.ACCOUNTANT]))],
+) -> dict:
+    """Commit 29 — return the user's persistent personal meeting room.
+    Creates it on first call. The slug never changes, so the host can
+    paste /m/{slug} into Calendly / Google Calendar / email signature
+    once and every event reuses the same URL.
+    """
+    meeting = await service.get_or_create_personal_room(db, current_user)
+    return {"data": MeetingResponse.model_validate(meeting).model_dump(mode="json")}
+
+
 @router.post("/instant", status_code=201)
 async def create_instant_meeting(
     body: InstantMeetingCreate,

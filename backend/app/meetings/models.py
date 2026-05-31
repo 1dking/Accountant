@@ -16,6 +16,7 @@ from sqlalchemy import (
     Text,
     func,
 )
+from sqlalchemy.sql import expression
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base, TimestampMixin
@@ -185,6 +186,13 @@ class Meeting(TimestampMixin, Base):
     # values so we keep the column free-form string + check at use.
     recording_layout: Mapped[str | None] = mapped_column(
         String(32), nullable=True,
+    )
+    # Commit 29 — personal meeting room (Zoom-PMI style). One row per
+    # user with this flag; the slug stays stable across every join.
+    # End-meeting flips status back to SCHEDULED instead of COMPLETED
+    # so the same slug can be used forever.
+    is_personal_room: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=expression.false(), nullable=False,
     )
     created_by: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False
