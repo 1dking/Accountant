@@ -31,7 +31,12 @@ function BrandedRecordingPlayer({ src }: { src: string }) {
   const { logoUrl, orgName } = useBranding()
   return (
     <div className="mt-2 rounded-lg overflow-hidden bg-black" style={{ position: 'relative' }}>
-      <video src={src} controls autoPlay className="w-full max-h-96">
+      {/* Removed autoPlay — Chrome blocks autoplay with sound by default,
+          which made the video look broken (no controls visible). Without
+          autoPlay, the video renders with a big native Play button in
+          the middle plus the standard scrub/pause/volume row at the
+          bottom — exactly what the user expects to see. */}
+      <video src={src} controls playsInline className="w-full max-h-96" preload="metadata">
         Your browser does not support the video element.
       </video>
       {logoUrl && (

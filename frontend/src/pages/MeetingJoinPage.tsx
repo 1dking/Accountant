@@ -1,16 +1,14 @@
 /**
- * MeetingJoinPage — public route /m/:slug (Commit 8).
+ * MeetingJoinPage — public route /m/:slug (Commit 8, restructured 25).
  *
- * Google-Meet-style guest entry flow:
- *   1. Page loads → fetch public meeting info (title, host name).
- *      If the slug doesn't exist → friendly 404 screen.
- *   2. Show a name + email form (the "you're at the door" screen).
- *   3. POST /knock → backend verifies email matches an invite,
- *      returns a lobby_id.
- *   4. Poll /lobby/{id} every 2.5 sec → status: waiting / admitted /
- *      denied / ended.
- *   5. On 'admitted', drop straight into <LiveKitRoom> using the
- *      issued token. No further user action required.
+ * Single-screen Google-Meet flow:
+ *   1. Page loads → fetch public meeting info (title, host, record flag).
+ *   2. Knock screen: name input + live camera/mic preview (via
+ *      navigator.mediaDevices.getUserMedia) + recording consent banner
+ *      when record_meeting=true.
+ *   3. Click "Ask to join" → POST /knock → poll /lobby/{id}.
+ *   4. On 'admitted', stop the preview stream and AUTO-mount LiveKitRoom
+ *      with audio:true, video:true. No second click, no PreJoinGate.
  *
  * If the visitor is already authenticated AND owns this meeting, we
  * skip the email gate and redirect them to the host room view.
@@ -19,12 +17,11 @@ import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router'
 import {
   LiveKitRoom, LayoutContextProvider, GridLayout, ParticipantTile, RoomAudioRenderer,
-  ControlBar, useTracks, useRoomContext, type LocalUserChoices,
+  ControlBar, useTracks, useRoomContext,
 } from '@livekit/components-react'
 import '@livekit/components-styles'
 import { Track, RoomEvent } from 'livekit-client'
-import { Loader2, DoorOpen } from 'lucide-react'
-import PreJoinGate from '@/components/meetings/PreJoinGate'
+import { Loader2, DoorOpen, Circle } from 'lucide-react'
 import { usePublicBranding } from '@/hooks/useBranding'
 import {
   getPublicMeetingInfo,
@@ -56,9 +53,12 @@ export default function MeetingJoinPage() {
   const [knockBusy, setKnockBusy] = useState(false)
   const [lobbyId, setLobbyId] = useState<string | null>(null)
   const [livekit, setLivekit] = useState<LobbyStatusPollResponse | null>(null)
-  // Commit 10 — admitted guest passes through the device-check +
-  // consent gate before connecting to the LiveKit room.
-  const [userChoices, setUserChoices] = useState<LocalUserChoices | null>(null)
+  // Commit 25 — pre-room camera + recording-consent state. Replaces the
+  // post-admit PreJoinGate.
+  const [previewStream, setPreviewStream] = useState<MediaStream | null>(null)
+  const [previewError, setPreviewError] = useState<string | null>(null)
+  const [recordingConsent, setRecordingConsent] = useState(false)
+  const previewVideoRef = useRef<HTMLVideoElement | null>(null)
 
   // Step 1: load the public meeting info
   useEffect(() => {
@@ -73,6 +73,53 @@ export default function MeetingJoinPage() {
       })
       .catch(() => setStage('not-found'))
   }, [slug])
+
+  // Step 2: acquire camera + mic preview during the knock / waiting
+  // stages. Stopped on stage='admitted' so the device handle is fully
+  // released before LiveKitRoom acquires fresh tracks.
+  useEffect(() => {
+    if (stage !== 'knock' && stage !== 'waiting') return
+    if (previewStream) return
+    let cancelled = false
+    navigator.mediaDevices
+      .getUserMedia({ video: true, audio: true })
+      .then((s) => {
+        if (cancelled) {
+          s.getTracks().forEach((t) => t.stop())
+          return
+        }
+        setPreviewStream(s)
+        setPreviewError(null)
+      })
+      .catch((e: any) => {
+        if (cancelled) return
+        setPreviewError(
+          e?.name === 'NotAllowedError'
+            ? 'Camera/microphone permission denied. You can still knock — host can admit you, but you may need to grant permission to be heard or seen.'
+            : `Could not access camera/mic: ${e?.message || e?.name || 'unknown'}`,
+        )
+      })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage])
+
+  // Bind the live MediaStream to the preview <video>.
+  useEffect(() => {
+    if (previewVideoRef.current && previewStream) {
+      previewVideoRef.current.srcObject = previewStream
+    }
+  }, [previewStream])
+
+  // On admit: stop the preview tracks (release device handle) BEFORE
+  // LiveKitRoom mounts and asks for its own tracks. Avoids the
+  // "publishing rejected" / "track muted on connect" race the LK
+  // preview component used to trigger.
+  useEffect(() => {
+    if (stage !== 'admitted') return
+    if (!previewStream) return
+    previewStream.getTracks().forEach((t) => t.stop())
+    setPreviewStream(null)
+  }, [stage, previewStream])
 
   // Step 3-4: once we have a lobby_id, poll every 2.5 sec
   useEffect(() => {
@@ -114,7 +161,11 @@ export default function MeetingJoinPage() {
 
   const handleKnock = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!slug || !name.trim() || !email.trim()) return
+    if (!slug || !name.trim()) return
+    if (meeting?.record_meeting && !recordingConsent) {
+      setKnockError('Please confirm you consent to being recorded.')
+      return
+    }
     setKnockError(null)
     setKnockBusy(true)
     try {
@@ -185,19 +236,10 @@ export default function MeetingJoinPage() {
   }
 
   if (stage === 'admitted' && livekit?.token) {
-    // Commit 10 — gate the room behind device-check + consent. Guest
-    // sees their camera preview, picks devices, and (if record_meeting)
-    // explicitly consents before the LiveKitRoom connect fires.
-    if (!userChoices) {
-      return (
-        <PreJoinGate
-          recordMeeting={Boolean(livekit.record_meeting)}
-          defaultUserName={name}
-          meetingTitle={meeting?.title}
-          onJoin={setUserChoices}
-        />
-      )
-    }
+    // Commit 25 — auto-mount the LiveKitRoom on admit. No PreJoinGate
+    // between admit and join: the guest already entered their name,
+    // granted camera/mic, and (if applicable) consented to recording
+    // on the knock screen. They drop directly into the meeting.
     return (
       <div style={{ height: '100vh', background: '#111827' }}>
         <LiveKitRoom
@@ -205,16 +247,11 @@ export default function MeetingJoinPage() {
           token={livekit.token}
           connect={true}
           onDisconnected={() => navigate('/')}
-          // Always publish mic + camera on connect (see MeetingRoomPage
-          // for the rationale — gating on userChoices.*Enabled left the
-          // in-room toggles unable to reliably acquire tracks).
           audio={true}
           video={true}
           data-lk-theme="default"
           style={{ height: '100%' }}
         >
-          {/* LK v2 requires explicit LayoutContextProvider wrap (see
-              MeetingRoomPage comment). */}
           <LayoutContextProvider>
             <GuestForceEnableMediaOnConnect />
             <GuestStage />
@@ -224,10 +261,10 @@ export default function MeetingJoinPage() {
     )
   }
 
-  // Stage === 'knock' or 'waiting'
+  // Stage === 'knock' or 'waiting' — single screen with camera preview.
   return (
-    <div className="min-h-screen bg-gray-900 flex items-center justify-center px-6">
-      <div className="max-w-md w-full">
+    <div className="min-h-screen bg-gray-900 flex items-center justify-center px-6 py-8">
+      <div className="max-w-lg w-full">
         {logoUrl && (
           <div className="flex justify-center mb-5">
             <img
@@ -237,8 +274,8 @@ export default function MeetingJoinPage() {
             />
           </div>
         )}
-        <div className="bg-gray-800 rounded-xl shadow-2xl p-8">
-          <div className="flex items-center gap-3 mb-6">
+        <div className="bg-gray-800 rounded-xl shadow-2xl p-6">
+          <div className="flex items-center gap-3 mb-5">
             <div className="h-10 w-10 rounded-full bg-indigo-500/20 border border-indigo-400/40 flex items-center justify-center">
               <DoorOpen className="h-5 w-5 text-indigo-300" />
             </div>
@@ -251,6 +288,72 @@ export default function MeetingJoinPage() {
               )}
             </div>
           </div>
+
+          {/* Live camera preview — always shown on knock + waiting so
+              the guest can see how they look before being admitted. */}
+          <div
+            className="mb-4 rounded-lg overflow-hidden bg-black flex items-center justify-center"
+            style={{ aspectRatio: '16 / 9' }}
+          >
+            {previewStream ? (
+              <video
+                ref={previewVideoRef}
+                autoPlay
+                playsInline
+                muted
+                style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }}
+              />
+            ) : previewError ? (
+              <div className="text-center px-6 py-8">
+                <p className="text-xs text-amber-300">{previewError}</p>
+              </div>
+            ) : (
+              <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
+            )}
+          </div>
+
+          {/* Recording notice — when the meeting is set to record,
+              the guest must explicitly consent BEFORE knocking. */}
+          {meeting?.record_meeting && (
+            <div
+              style={{
+                display: 'flex', alignItems: 'flex-start', gap: 10,
+                padding: '12px 14px', marginBottom: 12,
+                background: 'rgba(220, 38, 38, 0.12)',
+                border: '1px solid rgba(220, 38, 38, 0.45)',
+                borderRadius: 10,
+                fontSize: 13, color: '#fecaca', lineHeight: 1.4,
+              }}
+            >
+              <Circle
+                className="h-3.5 w-3.5"
+                style={{ marginTop: 2, fill: '#dc2626', color: '#dc2626', flexShrink: 0 }}
+              />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 600, color: '#fca5a5', marginBottom: 4 }}>
+                  This meeting will be recorded
+                </div>
+                <label
+                  style={{
+                    display: 'flex', alignItems: 'flex-start', gap: 8,
+                    cursor: 'pointer', fontSize: 12,
+                    color: 'rgba(252,165,165,0.85)',
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={recordingConsent}
+                    onChange={(e) => setRecordingConsent(e.target.checked)}
+                    style={{ marginTop: 2, accentColor: '#dc2626' }}
+                    disabled={stage === 'waiting'}
+                  />
+                  <span>
+                    I consent to my audio &amp; video being captured and stored.
+                  </span>
+                </label>
+              </div>
+            </div>
+          )}
 
           {stage === 'knock' && (
             <form onSubmit={handleKnock} className="space-y-3">
@@ -283,8 +386,18 @@ export default function MeetingJoinPage() {
               )}
               <button
                 type="submit"
-                disabled={knockBusy || !name.trim()}
-                style={{ background: brandColor }}
+                disabled={
+                  knockBusy ||
+                  !name.trim() ||
+                  Boolean(meeting?.record_meeting && !recordingConsent)
+                }
+                style={{
+                  background: (
+                    knockBusy ||
+                    !name.trim() ||
+                    Boolean(meeting?.record_meeting && !recordingConsent)
+                  ) ? 'rgba(99,102,241,0.35)' : brandColor,
+                }}
                 className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 rounded-lg transition"
               >
                 {knockBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
@@ -294,13 +407,13 @@ export default function MeetingJoinPage() {
           )}
 
           {stage === 'waiting' && (
-            <div className="text-center py-6">
-              <Loader2 className="h-8 w-8 animate-spin text-indigo-400 mx-auto mb-3" />
+            <div className="text-center py-4">
+              <Loader2 className="h-7 w-7 animate-spin text-indigo-400 mx-auto mb-2" />
               <p className="text-sm font-medium text-white mb-1">
                 Waiting for {meeting?.host_name || 'the host'} to admit you…
               </p>
               <p className="text-xs text-gray-400">
-                You'll join the meeting automatically once admitted.
+                You'll join automatically once admitted.
               </p>
             </div>
           )}

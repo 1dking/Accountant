@@ -33,12 +33,16 @@ export function useBranding() {
 export function usePublicBranding() {
   const { data } = useQuery({
     queryKey: ['branding-public'],
-    queryFn: () => brandingApi.getPublic() as Promise<{ data: BrandingSettings | null }>,
+    queryFn: () => brandingApi.getPublic() as Promise<{ data: (BrandingSettings & { org_name?: string | null }) | null }>,
   })
 
   const branding = data?.data ?? null
   const logoUrl = branding?.logo_url || null
   const logoDarkUrl = branding?.logo_dark_url || null
+  // Commit 25 — backend now folds CompanySettings.company_name into
+  // the public branding payload, so guest/login surfaces can show the
+  // real org name instead of the hardcoded fallback.
+  const orgName = branding?.org_name || DEFAULT_NAME
 
-  return { logoUrl, logoDarkUrl, orgName: DEFAULT_NAME, branding }
+  return { logoUrl, logoDarkUrl, orgName, branding }
 }

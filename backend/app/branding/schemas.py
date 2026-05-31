@@ -73,5 +73,10 @@ class PublicBrandingResponse(BaseModel):
     portal_welcome_message: Optional[str] = None
     booking_page_header: Optional[str] = None
     org_slug: Optional[str] = None
+    # Commit 25 — public-facing company display name. The /public
+    # endpoint folds in CompanySettings.company_name so guest /login
+    # surfaces (knock page, login page) can show real branding instead
+    # of the hardcoded "O-Brain" fallback.
+    org_name: Optional[str] = None
 
     model_config = {"from_attributes": True}

@@ -17,10 +17,33 @@ router = APIRouter()
 async def get_public_branding(
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
+    """Public (no-auth) branding payload — used by sign-in, knock, and
+    other guest surfaces. Folds in CompanySettings.company_name so the
+    org name shows up correctly without requiring auth."""
+    from app.settings.service import get_company_settings
+
     branding = await service.get_public_branding(db)
-    if branding is None:
+    company = await get_company_settings(db)
+    if branding is None and company is None:
         return {"data": None}
-    return {"data": PublicBrandingResponse.model_validate(branding)}
+
+    if branding is not None:
+        payload = PublicBrandingResponse.model_validate(branding)
+    else:
+        # Mint a defaults-only response when no BrandingSettings row
+        # exists yet but a CompanySettings row does (e.g. fresh install
+        # that only ran the company-info onboarding).
+        payload = PublicBrandingResponse(
+            primary_color="#2563eb",
+            secondary_color="#64748b",
+            accent_color="#f59e0b",
+            font_heading="Inter",
+            font_body="Inter",
+            border_radius="8px",
+        )
+    if company is not None and company.company_name:
+        payload.org_name = company.company_name
+    return {"data": payload}
 
 
 @router.get("")

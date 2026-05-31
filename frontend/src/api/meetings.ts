@@ -153,6 +153,9 @@ export interface PublicMeetingInfo {
   status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled'
   scheduled_start: string | null
   host_name: string | null
+  /** Commit 25 — surfaced so the guest knock screen can show the
+   *  recording notice + consent banner before the guest knocks. */
+  record_meeting?: boolean
 }
 
 export async function getPublicMeetingInfo(slug: string) {

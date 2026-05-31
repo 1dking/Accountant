@@ -23,7 +23,11 @@ class MeetingCreate(BaseModel):
     scheduled_start: datetime | None = None
     scheduled_end: datetime | None = None
     contact_id: uuid.UUID | None = None
-    record_meeting: bool = False
+    # Commit 25 — default record_meeting=True. Accountant calls are
+    # nearly always recorded for transcript + summary + quote-draft
+    # downstream; making the host opt OUT instead of opt IN matches
+    # actual usage. Hosts can untoggle in the form.
+    record_meeting: bool = True
     # Commit 16 — template biases AI behavior. When omitted, defaults
     # to GENERIC. The host picks via the dropdown in NewMeetingPage.
     template: MeetingTemplate = MeetingTemplate.GENERIC
@@ -43,7 +47,8 @@ class InstantMeetingCreate(BaseModel):
     backend defaults to 'Instant meeting' if omitted. No participants
     on creation — host shares the slug URL to invite ad-hoc."""
     title: str | None = Field(None, max_length=255)
-    record_meeting: bool = False
+    # Commit 25 — default record_meeting=True (see MeetingCreate).
+    record_meeting: bool = True
     # Commit 16 — template available on instant meetings too. The new-
     # meeting dropdown can pre-select Discovery vs Internal Sync.
     template: MeetingTemplate = MeetingTemplate.GENERIC
@@ -181,6 +186,11 @@ class PublicMeetingInfo(BaseModel):
     status: MeetingStatus
     scheduled_start: datetime | None
     host_name: str | None = None  # display only
+    # Commit 25 — surface record_meeting so the guest knock screen can
+    # show the recording notice + consent checkbox BEFORE the guest
+    # knocks. Replaces the post-admit PreJoinGate consent step (we now
+    # auto-mount the room on admit, no second click).
+    record_meeting: bool = False
 
 
 class LobbyKnockRequest(BaseModel):

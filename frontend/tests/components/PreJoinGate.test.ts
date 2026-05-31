@@ -86,14 +86,17 @@ describe('PreJoinGate integration (Commit 21)', () => {
     expect(ROOM_SRC).toMatch(/ForceEnableMediaOnConnect/)
   })
 
-  it('MeetingJoinPage gates the admitted state behind PreJoinGate', () => {
-    expect(JOIN_SRC).toMatch(/import\s+PreJoinGate/)
-    expect(JOIN_SRC).toMatch(/userChoices/)
-    const admittedIdx = JOIN_SRC.indexOf("stage === 'admitted'")
-    const gateRender = JOIN_SRC.search(/<PreJoinGate\s/)
-    const roomRender = JOIN_SRC.search(/<LiveKitRoom\s/)
-    expect(gateRender).toBeGreaterThan(admittedIdx)
-    expect(roomRender).toBeGreaterThan(gateRender)
+  it('MeetingJoinPage auto-mounts the room on admit (no PreJoinGate)', () => {
+    // Commit 25 — guest goes through name + camera preview + (if
+    // recording) consent on the knock screen, then drops straight into
+    // LiveKitRoom on admit. PreJoinGate is no longer used here.
+    expect(JOIN_SRC).not.toMatch(/import\s+PreJoinGate/)
+    expect(JOIN_SRC).not.toMatch(/<PreJoinGate\s/)
+    // Pre-room camera preview wires a MediaStream into a <video>.
+    expect(JOIN_SRC).toMatch(/getUserMedia/)
+    expect(JOIN_SRC).toMatch(/previewVideoRef/)
+    // Recording consent gate guards the knock submit when record_meeting.
+    expect(JOIN_SRC).toMatch(/recordingConsent/)
   })
 
   it('MeetingJoinPage wires GuestForceEnableMediaOnConnect inside the room', () => {

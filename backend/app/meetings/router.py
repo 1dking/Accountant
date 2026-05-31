@@ -448,6 +448,7 @@ async def public_meeting_info(
             title=meeting.title,
             status=meeting.status,
             scheduled_start=meeting.scheduled_start,
+            record_meeting=bool(meeting.record_meeting),
         ).model_dump(mode="json")
     }
 
