@@ -12,6 +12,10 @@ class BrandingUpdate(BaseModel):
     logo_url: Optional[str] = None
     logo_dark_url: Optional[str] = None
     favicon_url: Optional[str] = None
+    # Commit 28 — server-only field (the upload endpoint sets this when
+    # streaming a file through the storage backend). Public PUT requests
+    # can ignore it — paths are managed by the upload flow, not by hand.
+    logo_storage_path: Optional[str] = None
     primary_color: Optional[str] = None
     secondary_color: Optional[str] = None
     accent_color: Optional[str] = None
@@ -41,6 +45,7 @@ class BrandingResponse(BaseModel):
     logo_url: Optional[str] = None
     logo_dark_url: Optional[str] = None
     favicon_url: Optional[str] = None
+    logo_storage_path: Optional[str] = None
     primary_color: str
     secondary_color: str
     accent_color: str

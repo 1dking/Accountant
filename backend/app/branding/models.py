@@ -20,6 +20,11 @@ class BrandingSettings(TimestampMixin, Base):
     logo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     logo_dark_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     favicon_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # Commit 28 — storage backend path for the uploaded brand logo.
+    # When set, /api/branding/logo streams the bytes from storage and
+    # logo_url is rewritten to point at that endpoint. None when the
+    # admin pasted a URL directly instead of uploading a file.
+    logo_storage_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     # Logo system: text | image | both
     logo_type: Mapped[str] = mapped_column(

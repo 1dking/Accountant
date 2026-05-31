@@ -1,17 +1,27 @@
 """FastAPI router for universal branding settings."""
 
-import uuid
+import time
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import Role, User
 from app.branding import service
 from app.branding.schemas import BrandingResponse, BrandingUpdate, PublicBrandingResponse
 from app.dependencies import get_current_user, get_db, require_role
+from app.documents.storage import LocalStorage, StorageBackend
 
 router = APIRouter()
+
+
+def _get_storage(request: Request) -> StorageBackend:
+    """Local-disk storage for brand logos. Mirrors the company-logo
+    pattern in settings/router.py — we always store branding assets
+    on the VPS's local disk so the public GET endpoint can stream
+    them without needing R2 public-access configured."""
+    settings = request.app.state.settings
+    return LocalStorage(settings.storage_path)
 
 ALLOWED_LOGO_EXTENSIONS = {"png", "jpg", "jpeg", "svg", "webp"}
 LOGO_CONTENT_TYPES = {
@@ -89,16 +99,21 @@ async def upload_brand_logo(
     current_user: Annotated[User, Depends(require_role([Role.ACCOUNTANT, Role.ADMIN]))],
     file: UploadFile = File(...),
 ) -> dict:
-    """Commit 27 — upload a brand logo file. Uploads to R2 (or local
-    fallback in dev), writes the resulting public URL onto
-    BrandingSettings.logo_url, and returns the updated row.
+    """Commit 28 — upload a brand logo file. Stores bytes via the
+    storage backend (local disk on VPS), records the storage path on
+    BrandingSettings.logo_storage_path, and rewrites logo_url to
+    /api/branding/logo so guest surfaces hit our public GET endpoint
+    (which streams the bytes back).
 
-    This avoids forcing the admin to host the logo elsewhere just to
-    paste a URL. Accountant + admin can upload.
+    Previously we tried to push directly to R2 and stuffed the R2
+    endpoint URL into logo_url — but R2 endpoint URLs aren't publicly
+    fetchable without a custom domain configured, so the logo never
+    loaded. Streaming through the backend sidesteps that entirely.
+
+    Accountant + admin can upload.
     """
-    from app.pages.publisher import upload_bytes_to_r2
+    storage = _get_storage(request)
 
-    settings = request.app.state.settings
     filename = file.filename or ""
     extension = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
     if extension not in ALLOWED_LOGO_EXTENSIONS:
@@ -116,10 +131,45 @@ async def upload_brand_logo(
     if len(body) > 5 * 1024 * 1024:
         raise HTTPException(status_code=422, detail="Logo must be under 5 MB.")
 
-    key = f"branding/logo-{uuid.uuid4().hex[:12]}.{extension}"
-    content_type = LOGO_CONTENT_TYPES.get(extension, "application/octet-stream")
-    public_url = await upload_bytes_to_r2(settings, key, body, content_type)
+    # Clean up the previous logo if there is one (best-effort).
+    previous = await service.get_branding(db)
+    if previous and previous.logo_storage_path:
+        try:
+            await storage.delete(previous.logo_storage_path)
+        except Exception:
+            pass
 
-    update = BrandingUpdate(logo_url=public_url)
+    storage_path = await storage.save(body, extension)
+    # Cache-bust the public URL with a timestamp so browsers refresh
+    # immediately after re-upload instead of holding onto a stale image.
+    public_url = f"/api/branding/logo?v={int(time.time())}"
+    update = BrandingUpdate(
+        logo_url=public_url,
+        logo_storage_path=storage_path,
+    )
     branding = await service.update_branding(db, update, current_user)
     return {"data": BrandingResponse.model_validate(branding)}
+
+
+@router.get("/logo")
+async def serve_brand_logo(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> Response:
+    """Public (no-auth) brand-logo bytes. Streams from the storage
+    backend; mirrors /api/settings/company/logo so the sidebar, login
+    page, and guest knock surfaces can embed it via <img src>."""
+    storage = _get_storage(request)
+    branding = await service.get_public_branding(db)
+    if not branding or not branding.logo_storage_path:
+        raise HTTPException(status_code=404, detail="No brand logo uploaded")
+    data = await storage.read(branding.logo_storage_path)
+    extension = branding.logo_storage_path.rsplit(".", 1)[-1].lower()
+    content_type = LOGO_CONTENT_TYPES.get(extension, "application/octet-stream")
+    return Response(
+        content=data,
+        media_type=content_type,
+        headers={
+            "Cache-Control": "public, max-age=3600",
+        },
+    )
