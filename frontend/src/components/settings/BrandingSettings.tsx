@@ -134,6 +134,30 @@ export default function BrandingSettings() {
     },
   })
 
+  const brandLogoFileInputRef = useRef<HTMLInputElement>(null)
+  const brandLogoUploadMutation = useMutation({
+    mutationFn: (file: File) =>
+      brandingApi.uploadLogo(file) as Promise<{ data: BrandingModel }>,
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ['branding'] })
+      queryClient.invalidateQueries({ queryKey: ['branding-public'] })
+      // Reflect the new URL in the form so the user sees the preview update.
+      const newUrl = (res?.data?.logo_url as string | undefined) || ''
+      setBrandForm((prev) => ({ ...prev, logo_url: newUrl }))
+      showMessage('Brand logo uploaded', 'success')
+    },
+    onError: (e: any) => {
+      const detail = e?.detail || e?.message || ''
+      showMessage(detail ? `Upload failed: ${detail}` : 'Upload failed', 'error')
+    },
+  })
+
+  const handleBrandLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) brandLogoUploadMutation.mutate(file)
+    if (brandLogoFileInputRef.current) brandLogoFileInputRef.current.value = ''
+  }
+
   const handleBrandSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     brandMutation.mutate({
@@ -255,19 +279,48 @@ export default function BrandingSettings() {
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Brand Logo URL
+              Brand Logo
             </label>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                ref={brandLogoFileInputRef}
+                type="file"
+                accept={ACCEPTED_IMAGE_TYPES}
+                onChange={handleBrandLogoUpload}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => brandLogoFileInputRef.current?.click()}
+                disabled={brandLogoUploadMutation.isPending}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-sm border rounded-md bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
+              >
+                {brandLogoUploadMutation.isPending
+                  ? <Loader2 className="w-4 h-4 animate-spin" />
+                  : <Upload className="w-4 h-4" />}
+                Upload logo
+              </button>
+              {brandForm.logo_url && (
+                <button
+                  type="button"
+                  onClick={() => updateBrandField('logo_url', '')}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-red-600 border border-red-200 dark:border-red-900 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Clear
+                </button>
+              )}
+            </div>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
+              PNG, JPG, SVG, or WebP up to 5 MB. Or paste a URL below.
+            </p>
             <input
               type="url"
               value={brandForm.logo_url}
               onChange={(e) => updateBrandField('logo_url', e.target.value)}
               placeholder="https://yourcompany.com/logo.png"
-              className="w-full px-3 py-2 text-sm border rounded-md bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full mt-2 px-3 py-2 text-sm border rounded-md bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-              Hosted PNG/SVG/WebP. Used by sidebar, login screen, meeting invites, and the guest knock page.
-              Leave blank to fall back to the company name as text.
-            </p>
             {brandForm.logo_url && (
               <div className="mt-3 inline-flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-3">
                 <img
