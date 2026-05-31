@@ -1,20 +1,27 @@
 /**
- * PreJoinGate — Commit 10. Pre-meeting device check + (when the
- * meeting is set to record) explicit recording-consent banner.
+ * PreJoinGate — simplified post-bug-hunt version.
  *
- * Wraps LiveKit's `<PreJoin>` component (camera preview + device
- * pickers + mic/cam toggle + name field). After the user clicks
- * "Continue", if record_meeting=true, we intercept and show a
- * legal-compliance consent overlay. They must explicitly check
- * "I understand" before joining.
+ * The previous implementation wrapped LiveKit's `<PreJoin>` component
+ * (camera preview + device pickers + mic/cam toggles + name field).
+ * It produced a tangled getUserMedia lifecycle: PreJoin would acquire
+ * the camera for its preview, the user would click Join, the
+ * LocalUserChoices it emitted would conflict with the next
+ * getUserMedia call inside LiveKitRoom, and tracks would publish
+ * already-muted. Browser permissions panel showed "Camera: Using now"
+ * + a silhouette tile. Removing PostConnectMuteSync didn't fix it
+ * either, so the suspect is PreJoin itself.
  *
- * The host flow (MeetingRoomPage) and admitted-guest flow
- * (MeetingJoinPage) both go through this gate before
- * connecting to <LiveKitRoom>.
+ * New behavior: no device preview. Just a name field + a Join button.
+ * When record_meeting=true, the consent overlay still gates the join.
+ * The actual media acquisition happens inside <LiveKitRoom> with
+ * audio={true}/video={true}, and the toolbar toggles control mute
+ * state from there. If users want a device picker later, we add it
+ * inside the room (it can be hung off the toolbar) — without
+ * pre-acquiring media before the room mounts.
  */
 import { useState } from 'react'
-import { PreJoin, type LocalUserChoices } from '@livekit/components-react'
-import { Circle, ShieldCheck } from 'lucide-react'
+import { type LocalUserChoices } from '@livekit/components-react'
+import { Loader2, ShieldCheck, Video as VideoIcon, Mic as MicIcon } from 'lucide-react'
 import { usePublicBranding } from '@/hooks/useBranding'
 
 export interface Props {
@@ -27,73 +34,116 @@ export interface Props {
 export default function PreJoinGate({
   recordMeeting, defaultUserName, meetingTitle, onJoin,
 }: Props) {
-  const [pendingChoices, setPendingChoices] = useState<LocalUserChoices | null>(null)
+  const [name, setName] = useState(defaultUserName || '')
+  const [showConsent, setShowConsent] = useState(false)
   const [consentChecked, setConsentChecked] = useState(false)
+  const [joining, setJoining] = useState(false)
   const { logoUrl, orgName } = usePublicBranding()
 
-  const handleSubmit = (vals: LocalUserChoices) => {
-    if (recordMeeting) {
-      // Capture device choices, then make the user explicitly consent
-      // before we connect to the room. Compliance-grade for record-on
-      // meetings — accountant + legal verticals expect this gate.
-      setPendingChoices(vals)
-      return
-    }
-    onJoin(vals)
+  // LocalUserChoices that drive LiveKitRoom — we always go in with
+  // mic+cam ON. The actual media acquisition is LK's responsibility
+  // once the room mounts. deviceId omitted → LK picks OS default.
+  const choices: LocalUserChoices = {
+    username: name,
+    audioEnabled: true,
+    videoEnabled: true,
+    audioDeviceId: '',
+    videoDeviceId: '',
   }
 
-  const handleConsent = () => {
-    if (pendingChoices) onJoin(pendingChoices)
+  const submit = () => {
+    if (recordMeeting) {
+      setShowConsent(true)
+      return
+    }
+    setJoining(true)
+    onJoin(choices)
+  }
+
+  const accept = () => {
+    setJoining(true)
+    onJoin(choices)
   }
 
   return (
     <div style={{ minHeight: '100vh', background: '#0f1320', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-      <div style={{ width: '100%', maxWidth: 640 }}>
+      <div style={{ width: '100%', maxWidth: 460 }}>
         {logoUrl && (
-          <div style={{ textAlign: 'center', marginBottom: 16 }}>
+          <div style={{ textAlign: 'center', marginBottom: 18 }}>
             <img
               src={logoUrl}
               alt={orgName}
-              style={{ maxHeight: 40, objectFit: 'contain', display: 'inline-block' }}
+              style={{ maxHeight: 44, objectFit: 'contain', display: 'inline-block' }}
             />
           </div>
         )}
         {meetingTitle && (
-          <div style={{ textAlign: 'center', marginBottom: 18 }}>
+          <div style={{ textAlign: 'center', marginBottom: 22 }}>
             <h1 style={{ fontSize: 22, fontWeight: 600, color: 'white', margin: 0 }}>
               {meetingTitle}
             </h1>
             <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', marginTop: 6 }}>
-              Check your camera + mic before you join
+              You'll join with your camera and microphone on. Use the toolbar to mute once you're in.
             </p>
           </div>
         )}
 
-        {/* LiveKit's PreJoin handles the entire device-check UX:
-            camera preview, mic/cam toggles, device pickers, name field.
-            We just style its container + intercept onSubmit. */}
         <div style={{
-          background: 'rgba(255,255,255,0.02)',
+          background: 'rgba(255,255,255,0.04)',
           border: '1px solid rgba(255,255,255,0.08)',
           borderRadius: 16,
-          overflow: 'hidden',
+          padding: 24,
         }}>
-          <PreJoin
-            defaults={{
-              username: defaultUserName || '',
-              audioEnabled: true,
-              videoEnabled: true,
+          {defaultUserName === undefined && (
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ display: 'block', fontSize: 12, color: 'rgba(255,255,255,0.65)', marginBottom: 6 }}>
+                Your name
+              </label>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Jane Smith"
+                autoFocus
+                style={{
+                  width: '100%', padding: '10px 12px', fontSize: 14,
+                  background: 'rgba(0,0,0,0.35)', color: 'white',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: 8, outline: 'none',
+                }}
+              />
+            </div>
+          )}
+
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 14,
+            padding: '10px 12px', marginBottom: 16,
+            background: 'rgba(99,102,241,0.08)',
+            border: '1px solid rgba(99,102,241,0.18)',
+            borderRadius: 10,
+            fontSize: 13, color: 'rgba(255,255,255,0.78)',
+          }}>
+            <MicIcon className="h-4 w-4" />
+            <VideoIcon className="h-4 w-4" />
+            <span>Microphone &amp; camera will start enabled.</span>
+          </div>
+
+          <button
+            onClick={submit}
+            disabled={joining || (defaultUserName === undefined && !name.trim())}
+            style={{
+              width: '100%', padding: '12px 16px', fontSize: 14, fontWeight: 600,
+              background: (joining || (defaultUserName === undefined && !name.trim()))
+                ? 'rgba(99,102,241,0.35)'
+                : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+              border: 'none', borderRadius: 10, color: 'white',
+              cursor: (joining || (defaultUserName === undefined && !name.trim())) ? 'not-allowed' : 'pointer',
+              opacity: (joining || (defaultUserName === undefined && !name.trim())) ? 0.6 : 1,
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
             }}
-            onSubmit={handleSubmit}
-            joinLabel={recordMeeting ? 'Review & join' : 'Join now'}
-            // persistUserChoices=true was loading stale "joined muted
-            // last time" state from localStorage, which made every
-            // subsequent meeting silently enter muted+camera-off. The
-            // user's previous-session preference shouldn't override
-            // the current device check.
-            persistUserChoices={false}
-            data-lk-theme="default"
-          />
+          >
+            {joining && <Loader2 className="h-4 w-4 animate-spin" />}
+            {recordMeeting ? 'Review & join' : 'Join meeting'}
+          </button>
         </div>
 
         {recordMeeting && (
@@ -101,18 +151,18 @@ export default function PreJoinGate({
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
             marginTop: 12, fontSize: 12, color: 'rgba(252, 165, 165, 0.85)',
           }}>
-            <Circle className="h-3 w-3" style={{ fill: '#dc2626', color: '#dc2626' }} />
+            <ShieldCheck className="h-3 w-3" />
             This meeting is set to be recorded.
           </p>
         )}
       </div>
 
-      {pendingChoices && recordMeeting && (
+      {showConsent && (
         <ConsentOverlay
           checked={consentChecked}
           onCheckedChange={setConsentChecked}
-          onAccept={handleConsent}
-          onCancel={() => { setPendingChoices(null); setConsentChecked(false) }}
+          onAccept={accept}
+          onCancel={() => { setShowConsent(false); setConsentChecked(false) }}
         />
       )}
     </div>

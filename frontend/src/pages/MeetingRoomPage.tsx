@@ -16,7 +16,7 @@ import {
   useLocalParticipant,
 } from '@livekit/components-react'
 import '@livekit/components-styles'
-import { Track } from 'livekit-client'
+import { Track, RoomEvent } from 'livekit-client'
 import {
   startMeeting, joinMeeting, endMeeting, uploadRecording,
   listLobby, admitFromLobby, denyFromLobby, admitAllFromLobby,
@@ -161,31 +161,49 @@ function RecordingControls({ meetingId }: { meetingId: string }) {
   )
 }
 
-/** Honors the PreJoin "start muted" intent without using
- *  audio={false}/video={false} on LiveKitRoom (which leaves no tracks
- *  to toggle later). Tracks are always published on connect; this
- *  component mutes them once if the user toggled off in PreJoin.
- *  Runs exactly once per connection.
+/** Belt-and-suspenders: after the room connects, explicitly enable
+ *  mic + camera on the local participant. Even if LK or some
+ *  intermediate state has them muted, this forces a getUserMedia +
+ *  publish. Retries once after 1 second in case the room wasn't
+ *  fully connected on the first pass.
+ *
+ *  Background: removing PostConnectMuteSync should've left tracks
+ *  on, but the user kept reporting muted tracks + the silhouette
+ *  placeholder. This component forces the state we want regardless
+ *  of what other code path may have ended up muting them.
  */
-function PostConnectMuteSync({
-  initialAudioEnabled,
-  initialVideoEnabled,
-}: {
-  initialAudioEnabled: boolean
-  initialVideoEnabled: boolean
-}) {
-  const { localParticipant } = useLocalParticipant()
-  const didSyncRef = useRef(false)
+function ForceEnableMediaOnConnect() {
+  const room = useRoomContext()
+  const triedRef = useRef(0)
   useEffect(() => {
-    if (didSyncRef.current || !localParticipant) return
-    didSyncRef.current = true
-    if (!initialAudioEnabled) {
-      void localParticipant.setMicrophoneEnabled(false).catch(() => {})
+    if (!room) return
+    const tryEnable = async () => {
+      const lp = room.localParticipant
+      if (!lp) return
+      try {
+        if (!lp.isMicrophoneEnabled) await lp.setMicrophoneEnabled(true)
+        if (!lp.isCameraEnabled) await lp.setCameraEnabled(true)
+      } catch (e) {
+        console.error('[meeting] ForceEnable failed', e)
+      }
     }
-    if (!initialVideoEnabled) {
-      void localParticipant.setCameraEnabled(false).catch(() => {})
+    const onConnected = () => {
+      triedRef.current += 1
+      void tryEnable()
     }
-  }, [localParticipant, initialAudioEnabled, initialVideoEnabled])
+    if (room.state === 'connected') {
+      triedRef.current += 1
+      void tryEnable()
+    }
+    room.on(RoomEvent.Connected, onConnected)
+    // Safety retry — sometimes the first call fires before the SFU
+    // is ready to accept publishes.
+    const retry = setTimeout(() => void tryEnable(), 1500)
+    return () => {
+      room.off(RoomEvent.Connected, onConnected)
+      clearTimeout(retry)
+    }
+  }, [room])
   return null
 }
 
@@ -208,9 +226,6 @@ function MicToggleButton() {
     try {
       await localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled)
     } catch (e) {
-      // Common failures: permission denied, no device, browser blocked.
-      // Logged so the host can pull from console; toast would be nicer
-      // but the room view doesn't have toast plumbing today.
       console.error('[meeting] mic toggle failed', e)
     } finally {
       setPending(false)
@@ -718,10 +733,7 @@ export default function MeetingRoomPage() {
         data-lk-theme="default"
         style={{ height: '100%' }}
       >
-        <PostConnectMuteSync
-          initialAudioEnabled={userChoices.audioEnabled}
-          initialVideoEnabled={userChoices.videoEnabled}
-        />
+        <ForceEnableMediaOnConnect />
         <MeetingStage
           meetingId={id!}
           onEndMeeting={handleEndMeeting}

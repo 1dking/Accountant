@@ -1,14 +1,19 @@
 /**
- * PreJoinGate — Commit 10. Static-parse invariants:
+ * PreJoinGate (Commit 21 — simplified). The previous version wrapped
+ * LiveKit's <PreJoin> component for camera preview + device pickers.
+ * That created a tangled getUserMedia lifecycle and tracks consistently
+ * came up muted in the room. We ripped <PreJoin> out and replaced it
+ * with a name field + Join button. Media is acquired exclusively inside
+ * <LiveKitRoom> via audio={true}/video={true}, and ForceEnableMediaOnConnect
+ * re-enables tracks as a belt-and-suspenders measure.
  *
- *  - Component imports LiveKit's <PreJoin> and wires onSubmit into a
- *    gate.
- *  - When record_meeting=true, the gate intercepts onSubmit and shows
- *    a consent overlay (we check for the overlay component name + the
- *    consent-checkbox + the "Join meeting" CTA).
- *  - MeetingRoomPage + MeetingJoinPage both mount PreJoinGate BEFORE
- *    LiveKitRoom (regression guard — easy to forget the gate when
- *    refactoring the connect flow).
+ * Invariants checked here:
+ *  - Gate does NOT import LiveKit's <PreJoin> any more.
+ *  - Gate still renders the consent overlay for record_meeting=true.
+ *  - Gate emits a LocalUserChoices with audioEnabled+videoEnabled both
+ *    true (no muted-on-join).
+ *  - MeetingRoomPage + MeetingJoinPage still gate the room behind it,
+ *    and ForceEnableMediaOnConnect is wired inside the room.
  */
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'fs'
@@ -27,63 +32,71 @@ const JOIN_SRC = readFileSync(
   'utf8',
 )
 
-describe('PreJoinGate (Commit 10)', () => {
-  it('imports LiveKit PreJoin and LocalUserChoices', () => {
-    expect(GATE_SRC).toMatch(/from\s+['"]@livekit\/components-react['"]/)
-    expect(GATE_SRC).toMatch(/PreJoin/)
+describe('PreJoinGate (Commit 21 — no LK PreJoin)', () => {
+  it('does NOT import LiveKit <PreJoin>', () => {
+    // The whole reason this commit exists. <PreJoin>'s getUserMedia
+    // preview was tangling with the room's getUserMedia → tracks
+    // published muted. Never import it back from @livekit/components-react.
+    const lkImports = GATE_SRC.match(
+      /import\s*\{([^}]*)\}\s*from\s*['"]@livekit\/components-react['"]/,
+    )
+    expect(lkImports).not.toBeNull()
+    const names = (lkImports?.[1] || '').split(',').map((s) => s.trim())
+    expect(names).not.toContain('PreJoin')
+  })
+
+  it('still imports LocalUserChoices type', () => {
     expect(GATE_SRC).toMatch(/LocalUserChoices/)
   })
 
-  it('intercepts onSubmit when recordMeeting is true', () => {
-    // The gate's onSubmit handler must early-return before calling
-    // onJoin when recordMeeting is true and consent hasn't fired.
-    expect(GATE_SRC).toMatch(/if\s*\(\s*recordMeeting\s*\)/)
-    expect(GATE_SRC).toMatch(/setPendingChoices/)
+  it('joins with mic + cam always enabled', () => {
+    // audioEnabled and videoEnabled must be set to true in the choices
+    // payload that gets handed up to onJoin. We never carry a "start
+    // muted" flag through this gate any more.
+    expect(GATE_SRC).toMatch(/audioEnabled:\s*true/)
+    expect(GATE_SRC).toMatch(/videoEnabled:\s*true/)
   })
 
-  it('renders the consent overlay with a required checkbox', () => {
+  it('renders the consent overlay with a required checkbox for record_meeting', () => {
     expect(GATE_SRC).toMatch(/ConsentOverlay/)
     expect(GATE_SRC).toMatch(/I consent/)
     expect(GATE_SRC).toMatch(/type="checkbox"/)
-  })
-
-  it('passes pendingChoices to onJoin only after consent', () => {
-    // The accept button calls onJoin via handleConsent which reads
-    // pendingChoices. The button must be disabled until checked.
-    expect(GATE_SRC).toMatch(/handleConsent/)
     expect(GATE_SRC).toMatch(/disabled=\{!checked\}/)
   })
 })
 
-describe('PreJoinGate integration (Commit 10)', () => {
+describe('PreJoinGate integration (Commit 21)', () => {
   it('MeetingRoomPage mounts PreJoinGate before LiveKitRoom', () => {
     expect(ROOM_SRC).toMatch(/import\s+PreJoinGate/)
-    // Gate render must occur before LiveKitRoom render in the JSX flow
     const gateIdx = ROOM_SRC.indexOf('<PreJoinGate')
     const roomIdx = ROOM_SRC.indexOf('<LiveKitRoom')
     expect(gateIdx).toBeGreaterThan(0)
     expect(roomIdx).toBeGreaterThan(gateIdx)
   })
 
-  it('MeetingRoomPage threads userChoices into LiveKitRoom audio/video', () => {
-    // Selected devices must flow through to the connect call; otherwise
-    // PreJoin's device picker is decorative.
-    expect(ROOM_SRC).toMatch(/audioEnabled[\s\S]{0,80}audioDeviceId/)
-    expect(ROOM_SRC).toMatch(/videoEnabled[\s\S]{0,80}videoDeviceId/)
+  it('MeetingRoomPage hardcodes audio + video to true on LiveKitRoom', () => {
+    // No more device-id threading. The room acquires default devices.
+    expect(ROOM_SRC).toMatch(/audio=\{true\}/)
+    expect(ROOM_SRC).toMatch(/video=\{true\}/)
+  })
+
+  it('MeetingRoomPage wires ForceEnableMediaOnConnect inside the room', () => {
+    // Belt-and-suspenders: this component re-enables mic + cam after
+    // connect even if something else left them disabled.
+    expect(ROOM_SRC).toMatch(/ForceEnableMediaOnConnect/)
   })
 
   it('MeetingJoinPage gates the admitted state behind PreJoinGate', () => {
     expect(JOIN_SRC).toMatch(/import\s+PreJoinGate/)
     expect(JOIN_SRC).toMatch(/userChoices/)
-    // After the lobby admits the guest, the gate renders BEFORE the
-    // LiveKitRoom — regression guard against "guest auto-joins without
-    // device check". Use the JSX-element-opening forms with newlines
-    // / whitespace so we hit the actual render sites, not docstring
-    // references to "<LiveKitRoom>".
     const admittedIdx = JOIN_SRC.indexOf("stage === 'admitted'")
     const gateRender = JOIN_SRC.search(/<PreJoinGate\s/)
     const roomRender = JOIN_SRC.search(/<LiveKitRoom\s/)
     expect(gateRender).toBeGreaterThan(admittedIdx)
     expect(roomRender).toBeGreaterThan(gateRender)
+  })
+
+  it('MeetingJoinPage wires GuestForceEnableMediaOnConnect inside the room', () => {
+    expect(JOIN_SRC).toMatch(/GuestForceEnableMediaOnConnect/)
   })
 })

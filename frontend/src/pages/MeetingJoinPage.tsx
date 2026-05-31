@@ -19,10 +19,10 @@ import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router'
 import {
   LiveKitRoom, GridLayout, ParticipantTile, RoomAudioRenderer,
-  ControlBar, useTracks, useLocalParticipant, type LocalUserChoices,
+  ControlBar, useTracks, useRoomContext, type LocalUserChoices,
 } from '@livekit/components-react'
 import '@livekit/components-styles'
-import { Track } from 'livekit-client'
+import { Track, RoomEvent } from 'livekit-client'
 import { Loader2, DoorOpen } from 'lucide-react'
 import PreJoinGate from '@/components/meetings/PreJoinGate'
 import { usePublicBranding } from '@/hooks/useBranding'
@@ -214,10 +214,7 @@ export default function MeetingJoinPage() {
           data-lk-theme="default"
           style={{ height: '100%' }}
         >
-          <GuestPostConnectMuteSync
-            initialAudioEnabled={userChoices.audioEnabled}
-            initialVideoEnabled={userChoices.videoEnabled}
-          />
+          <GuestForceEnableMediaOnConnect />
           <GuestStage />
         </LiveKitRoom>
       </div>
@@ -313,25 +310,36 @@ export default function MeetingJoinPage() {
   )
 }
 
-function GuestPostConnectMuteSync({
-  initialAudioEnabled,
-  initialVideoEnabled,
-}: {
-  initialAudioEnabled: boolean
-  initialVideoEnabled: boolean
-}) {
-  const { localParticipant } = useLocalParticipant()
-  const didSyncRef = useRef(false)
+function GuestForceEnableMediaOnConnect() {
+  const room = useRoomContext()
+  const triedRef = useRef(0)
   useEffect(() => {
-    if (didSyncRef.current || !localParticipant) return
-    didSyncRef.current = true
-    if (!initialAudioEnabled) {
-      void localParticipant.setMicrophoneEnabled(false).catch(() => {})
+    if (!room) return
+    const tryEnable = async () => {
+      const lp = room.localParticipant
+      if (!lp) return
+      try {
+        if (!lp.isMicrophoneEnabled) await lp.setMicrophoneEnabled(true)
+        if (!lp.isCameraEnabled) await lp.setCameraEnabled(true)
+      } catch (e: any) {
+        console.log('[mt] GuestForceEnable failed', { name: e?.name, message: e?.message })
+      }
     }
-    if (!initialVideoEnabled) {
-      void localParticipant.setCameraEnabled(false).catch(() => {})
+    const onConnected = () => {
+      triedRef.current += 1
+      void tryEnable()
     }
-  }, [localParticipant, initialAudioEnabled, initialVideoEnabled])
+    if (room.state === 'connected') {
+      triedRef.current += 1
+      void tryEnable()
+    }
+    room.on(RoomEvent.Connected, onConnected)
+    const retry = setTimeout(() => void tryEnable(), 1500)
+    return () => {
+      room.off(RoomEvent.Connected, onConnected)
+      clearTimeout(retry)
+    }
+  }, [room])
   return null
 }
 
