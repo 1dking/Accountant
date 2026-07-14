@@ -272,20 +272,26 @@ async def test_viewer_cannot_remove_file_share(
 
 
 @pytest.mark.normal
-async def test_viewer_can_list_file_shares(
+async def test_viewer_cannot_list_file_shares_of_another_users_contact(
     client: AsyncClient,
     viewer_user: User,
     admin_user: User,
     sample_contact: Contact,
 ):
-    """Viewer role can read file shares (list endpoint uses get_current_user)."""
+    """The file-shares list endpoint is gated only by get_current_user, so any
+    authenticated user reaches the service layer — the ownership check on the
+    parent contact is the only thing stopping a viewer from enumerating which
+    documents a colleague has shared with their client.
+
+    `sample_contact` belongs to admin_user, so: 404.
+    """
     viewer_headers = auth_header(viewer_user)
 
     resp = await client.get(
         f"/api/contacts/{sample_contact.id}/file-shares",
         headers=viewer_headers,
     )
-    assert resp.status_code == 200
+    assert resp.status_code == 404
 
 
 # ---------------------------------------------------------------------------

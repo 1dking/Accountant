@@ -9,7 +9,7 @@ from sqlalchemy.orm import selectinload
 
 from app.auth.models import User
 from app.collaboration.service import log_activity
-from app.core.authorization import apply_shared_filter, authorize_shared
+from app.core.authorization import apply_ownership_filter, authorize_owner
 from app.core.exceptions import NotFoundError, ValidationError
 from app.core.pagination import PaginationParams, build_pagination_meta
 from app.estimates.models import Estimate, EstimateLineItem, EstimateStatus
@@ -100,9 +100,9 @@ async def list_estimates(
 ) -> tuple[list[Estimate], dict]:
     query = select(Estimate).options(selectinload(Estimate.contact))
 
-    # Staff share the book of business; non-staff (CLIENT) see only their own.
+    # Private to the owner; admin sees all.
     if user is not None:
-        query = apply_shared_filter(query, Estimate.created_by, user)
+        query = apply_ownership_filter(query, Estimate.created_by, user)
 
     if filters.search:
         term = f"%{filters.search}%"
@@ -144,7 +144,7 @@ async def get_estimate(db: AsyncSession, estimate_id: uuid.UUID, user: User | No
     if estimate is None:
         raise NotFoundError("Estimate", str(estimate_id))
     if user is not None:
-        authorize_shared(estimate.created_by, user, "Estimate")
+        authorize_owner(estimate.created_by, user, "Estimate")
     return estimate
 
 

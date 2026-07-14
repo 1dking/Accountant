@@ -1,84 +1,63 @@
 """The permission model, pinned.
 
-Decision: staff share one book of business; the ROUTE layer (require_role)
-decides what each role may DO with it. Ownership is no longer a second gate on
-shared business records — it made the VIEWER role useless by construction (a
-viewer creates nothing, so it could see nothing) and stopped two team members
-from seeing each other's contacts, which makes a shared CRM pointless.
+Records are PRIVATE TO THEIR OWNER. Each employee has their own section: two
+people working the phones must not see each other's contacts. Only ADMIN (the
+agency owner) sees across everyone. A colleague gets a record only when it is
+EXPLICITLY shared with them.
 
-Two things this must NOT have done, and both are asserted here:
-  1. CLIENT is not staff. A portal user must not be able to walk the book of
-     business just by holding a session.
-  2. Private resources stay owner-scoped — Drive documents, meetings, and above
-     all SMTP configs, which hold encrypted credentials.
+This file previously asserted the opposite — that any staff role could read any
+business record. That was written from a test suite which encoded a
+shared-workspace product the business does not want. If a future change makes
+these tests fail because "the viewer role can't see anything", that is the
+intended behaviour, not a bug to fix by loosening the check.
 """
 import uuid
 
 import pytest
-from sqlalchemy import select
 
 from app.auth.models import Role, User
 from app.core.authorization import (
-    apply_shared_filter,
+    apply_ownership_filter,
     authorize_owner,
-    authorize_shared,
-    is_staff,
+    is_admin,
 )
 from app.core.exceptions import NotFoundError
 from tests.conftest import auth_header
 
 
 # ---------------------------------------------------------------------------
-# The model itself
+# The primitive
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.critical
-def test_staff_roles_are_exactly_the_internal_ones(
-    admin_user: User, team_member_user: User, viewer_user: User, client_user: User
-):
-    assert is_staff(admin_user)
-    assert is_staff(team_member_user)
-    assert is_staff(viewer_user)
-    assert not is_staff(client_user), "a CLIENT is an outsider, not staff"
+def test_owner_reaches_their_own_record(team_member_user: User):
+    authorize_owner(team_member_user.id, team_member_user, "Contact")
 
 
 @pytest.mark.critical
-def test_staff_may_reach_a_record_they_did_not_create(
-    viewer_user: User, team_member_user: User, admin_user: User
+def test_a_colleague_cannot_reach_a_record_they_do_not_own(
+    team_member_user: User, viewer_user: User, admin_user: User
 ):
-    """The whole point: a viewer creates nothing, so under the old rule it could
-    see nothing."""
-    someone_elses = admin_user.id
-    authorize_shared(someone_elses, viewer_user, "Contact")
-    authorize_shared(someone_elses, team_member_user, "Contact")
-
-
-@pytest.mark.critical
-def test_a_client_still_must_own_the_record(client_user: User, admin_user: User):
-    """If this ever passes for a record they don't own, a portal user can walk
-    the entire book of business."""
-    with pytest.raises(NotFoundError):
-        authorize_shared(admin_user.id, client_user, "Contact")
-
-    # ...and may still reach their own.
-    authorize_shared(client_user.id, client_user, "Contact")
-
-
-@pytest.mark.critical
-def test_private_resources_are_still_owner_only(
-    viewer_user: User, team_member_user: User, admin_user: User
-):
-    """authorize_owner is what guards SMTP configs (encrypted credentials),
-    Drive documents and meetings. Loosening the shared path must not have
-    loosened this one."""
-    for staff in (viewer_user, team_member_user):
+    """The core rule. Two salespeople must not see each other's book."""
+    for other in (team_member_user, viewer_user):
         with pytest.raises(NotFoundError):
-            authorize_owner(admin_user.id, staff, "SmtpConfig")
+            authorize_owner(admin_user.id, other, "Contact")
 
-    # Admin still bypasses; owner still reaches their own.
-    authorize_owner(viewer_user.id, admin_user, "SmtpConfig")
-    authorize_owner(viewer_user.id, viewer_user, "SmtpConfig")
+
+@pytest.mark.critical
+def test_admin_sees_across_everyone(admin_user: User, team_member_user: User):
+    """The agency owner is the one role that sees into every section."""
+    assert is_admin(admin_user)
+    authorize_owner(team_member_user.id, admin_user, "Contact")
+
+
+@pytest.mark.critical
+def test_not_found_not_forbidden(team_member_user: User, admin_user: User):
+    """404, never 403 — a 403 would confirm the record exists, which leaks the
+    shape of a colleague's book to anyone probing ids."""
+    with pytest.raises(NotFoundError):
+        authorize_owner(admin_user.id, team_member_user, "Contact")
 
 
 # ---------------------------------------------------------------------------
@@ -87,19 +66,72 @@ def test_private_resources_are_still_owner_only(
 
 
 @pytest.mark.critical
-async def test_viewer_reads_a_contact_created_by_someone_else(
+async def test_team_member_cannot_read_another_users_contact(
+    client, team_member_user: User, sample_contact
+):
+    """sample_contact belongs to admin_user."""
+    resp = await client.get(
+        f"/api/contacts/{sample_contact.id}", headers=auth_header(team_member_user)
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.critical
+async def test_viewer_cannot_read_another_users_contact(
     client, viewer_user: User, sample_contact
 ):
     resp = await client.get(
         f"/api/contacts/{sample_contact.id}", headers=auth_header(viewer_user)
     )
+    assert resp.status_code == 404
+
+
+@pytest.mark.critical
+async def test_a_colleagues_contacts_are_absent_from_my_list(
+    client, team_member_user: User, sample_contact
+):
+    """Assert on the DATA, not the status. The list returns 200 with an empty
+    payload — a status-only assertion would sail straight past a leak."""
+    resp = await client.get("/api/contacts", headers=auth_header(team_member_user))
     assert resp.status_code == 200
+
+    ids = [c["id"] for c in resp.json()["data"]]
+    assert str(sample_contact.id) not in ids, (
+        "a colleague's contact must not appear in my list"
+    )
+
+
+@pytest.mark.critical
+async def test_admin_does_see_the_contact_in_their_list(
+    client, admin_user: User, sample_contact
+):
+    resp = await client.get("/api/contacts", headers=auth_header(admin_user))
+    assert resp.status_code == 200
+    ids = [c["id"] for c in resp.json()["data"]]
+    assert str(sample_contact.id) in ids
+
+
+@pytest.mark.critical
+async def test_client_cannot_see_the_contact_book(
+    client, client_user: User, sample_contact
+):
+    """The contacts list/get routes are gated by get_current_user, NOT
+    require_role — so a portal user does reach the service layer. The ownership
+    filter is the only thing between them and the whole book."""
+    resp = await client.get("/api/contacts", headers=auth_header(client_user))
+    assert resp.status_code == 200
+    assert resp.json()["data"] == []
+
+    resp = await client.get(
+        f"/api/contacts/{sample_contact.id}", headers=auth_header(client_user)
+    )
+    assert resp.status_code == 404
 
 
 @pytest.mark.critical
 async def test_viewer_still_cannot_create_a_contact(client, viewer_user: User):
-    """Read access must not have leaked into write access — that's the route
-    layer's job and it must still say no."""
+    """Ownership governs WHICH records you see; require_role governs what you may
+    DO. Those stay independent."""
     resp = await client.post(
         "/api/contacts",
         json={"type": "client", "company_name": "Nope Inc"},
@@ -112,59 +144,8 @@ async def test_viewer_still_cannot_create_a_contact(client, viewer_user: User):
 async def test_team_member_still_cannot_delete_a_contact(
     client, team_member_user: User, sample_contact
 ):
-    """Delete stayed admin-only."""
+    """Delete is admin-only, and the contact isn't theirs anyway."""
     resp = await client.delete(
         f"/api/contacts/{sample_contact.id}", headers=auth_header(team_member_user)
     )
-    assert resp.status_code == 403
-
-
-@pytest.mark.critical
-async def test_client_cannot_see_the_contact_book(
-    client, client_user: User, sample_contact
-):
-    """The contacts list/get routes are gated only by get_current_user — ANY
-    authenticated role reaches them, CLIENT included (create/update/delete are
-    the ones behind require_role).
-
-    So the service-layer filter is the ONLY thing standing between a portal user
-    and the entire contact book. This is precisely why CLIENT must not be in
-    STAFF_ROLES: apply_shared_filter falls back to the owner filter for
-    non-staff, and a client creates nothing, so it sees nothing.
-
-    The list returns 200 with an EMPTY payload, not 403 — asserting on the
-    status code alone would miss a leak entirely. Assert on the DATA.
-    """
-    resp = await client.get("/api/contacts", headers=auth_header(client_user))
-    assert resp.status_code == 200
-    assert resp.json()["data"] == [], (
-        "a portal user must not be able to list the contact book"
-    )
-
-    # And a direct hit on someone else's contact is not found for them.
-    resp = await client.get(
-        f"/api/contacts/{sample_contact.id}", headers=auth_header(client_user)
-    )
-    assert resp.status_code == 404
-
-
-@pytest.mark.critical
-async def test_client_cannot_read_payments_of_a_contact_they_do_not_own(
-    client, client_user: User, sample_contact
-):
-    """/contacts/{id}/payments is gated by get_current_user, not require_role —
-    so a CLIENT reaches the service layer. authorize_shared is the only thing
-    standing between them and someone else's payment history."""
-    resp = await client.get(
-        f"/api/contacts/{sample_contact.id}/payments",
-        headers=auth_header(client_user),
-    )
-    assert resp.status_code in (403, 404), (
-        "a portal user must not read another contact's payments"
-    )
-
-
-# The soft-delete fix (get_entry now hides deleted rows, so a deleted entry
-# stops returning 200) is already covered end-to-end by
-# tests/api/test_cashbook.py::test_crud_entries — which is the test that was
-# failing on exactly that assertion. Not duplicated here.
+    assert resp.status_code in (403, 404)

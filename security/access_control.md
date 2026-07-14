@@ -12,35 +12,48 @@ Role-based access control (RBAC) implementation for the Accountant platform.
 | `viewer` | yes | Read-only access to business records and reports |
 | `client` | **no** | Portal user. An outsider, scoped to their own contact |
 
-## The two access layers
+## Records are private to their owner
 
-**1. Route layer — what a role may DO.** `require_role([...])` on the endpoint.
-This is where "a viewer can't create", "a team member can't delete", and "a
-client is refused" are enforced.
+**Every employee has their own section.** Two people working the phones must not
+see each other's contacts. Only an **admin** (the agency owner) sees across
+everyone. A colleague gets a record only when it is **explicitly shared** with
+them — sharing is an action, never a default.
 
-**2. Service layer — which RECORDS a user may touch.** Two different checks,
-and picking the wrong one is a security bug:
+## The three access layers
+
+Keep these separate. Conflating "which records can I see" with "which sections
+can I open" is what produced a data-sharing bug once already.
+
+| Layer | Question | Mechanism |
+|-------|----------|-----------|
+| **Module access** | *Can I open the Cashbook section at all?* | `User.feature_access_json` → `resolve_feature_access()` (`app/auth/features.py`) |
+| **Record visibility** | *Which records inside it are mine to see?* | `authorize_owner` / `apply_ownership_filter` |
+| **Action rights** | *May I create / delete?* | `require_role([...])` on the route |
 
 | Helper | Use for | Rule |
 |--------|---------|------|
-| `authorize_shared` / `apply_shared_filter` | **Shared business records**: contacts, invoices, estimates, proposals, income, expenses, budgets, recurring, tasks | Any **staff** role may reach them. Non-staff (`client`) must own the record. |
-| `authorize_owner` / `apply_ownership_filter` | **Private resources**: Drive documents, meetings, SMTP configs (which hold encrypted credentials) | Only the creator, or an admin. |
+| `authorize_owner` / `apply_ownership_filter` | All business records: contacts, invoices, estimates, proposals, income, expenses, budgets, recurring, tasks — and private resources: Drive documents, meetings, SMTP configs | Only the creator, or an admin. |
 | `authorize_cashbook_owner` / `apply_cashbook_filter` | Cashbook | Org-scoped when `cashbook_access == "org"`, else personal. |
 
-Staff share one book of business. Requiring **ownership on top of** the role
-matrix is a bug, not extra safety: a `viewer` creates nothing, so an ownership
-gate means it can see nothing — the role becomes useless by construction — and
-two team members cannot see each other's contacts, which defeats a shared CRM.
+Ownership checks raise **404, not 403**. A 403 confirms the record exists, which
+leaks the shape of a colleague's book to anyone probing ids.
 
-### Why `client` must never be in `STAFF_ROLES`
+### Do not "fix" the viewer role by loosening ownership
+
+A `viewer` owns nothing, so by default it sees nothing. **That is intended.** A
+viewer sees exactly what has been shared with it. This exact reasoning ("the
+viewer role is useless, ownership must be too strict") once led to business
+records being shared across all staff — the opposite of what the business wants.
+The tests asserting a viewer could read any contact were **wrong and were
+rewritten**. See `tests/integration/test_permission_model.py`.
+
+### The contacts list is guarded by the filter alone
 
 The contacts list/get endpoints are gated by `get_current_user`, **not**
 `require_role` — so any authenticated user, `client` included, reaches the
-service layer. The shared/owner filter is therefore the *only* thing standing
-between a portal user and the entire contact book. Because `client` is not
-staff, it falls back to the owner filter and sees nothing. Adding `client` to
-`STAFF_ROLES` would expose every contact, invoice and proposal to every portal
-user. See `tests/integration/test_permission_model.py`.
+service layer. `apply_ownership_filter` is therefore the *only* thing standing
+between a portal user and the entire contact book. It returns **200 with an empty
+list**, not 403 — so tests must assert on the **data**, not the status code.
 
 ## Authentication Flow
 

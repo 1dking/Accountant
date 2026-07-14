@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import User
 from app.collaboration.service import log_activity
-from app.core.authorization import apply_shared_filter, authorize_shared
+from app.core.authorization import apply_ownership_filter, authorize_owner
 from app.core.exceptions import NotFoundError, ValidationError
 from app.core.pagination import PaginationParams, build_pagination_meta
 from app.documents.models import Document
@@ -134,9 +134,9 @@ async def list_income(
 ) -> tuple[list[Income], dict]:
     query = select(Income)
 
-    # Staff share the book of business; non-staff (CLIENT) see only their own.
+    # Private to the owner; admin sees all.
     if user is not None:
-        query = apply_shared_filter(query, Income.created_by, user)
+        query = apply_ownership_filter(query, Income.created_by, user)
 
     if filters.search:
         term = f"%{filters.search}%"
@@ -171,7 +171,7 @@ async def get_income(db: AsyncSession, income_id: uuid.UUID, user: User | None =
     if income is None:
         raise NotFoundError("Income", str(income_id))
     if user is not None:
-        authorize_shared(income.created_by, user, "Income")
+        authorize_owner(income.created_by, user, "Income")
     return income
 
 

@@ -351,10 +351,21 @@ async def test_viewer_cannot_modify_tags(
     admin_user: User,
     sample_contact: Contact,
 ):
-    """Viewer role should not be able to add or remove tags."""
+    """Viewer must not be able to tag — or read the tags of — someone else's contact.
+
+    Two gates, two status codes, and the difference matters:
+      * The WRITE routes carry require_role([ADMIN, TEAM_MEMBER, ACCOUNTANT]), so
+        a viewer is refused at the ROLE gate → 403, before ownership is consulted.
+      * The READ route is gated only by get_current_user, so it falls through to
+        the OWNERSHIP check → 404.
+
+    That read is the important assertion. It used to expect 200 — a viewer
+    enumerating the tags on a colleague's contact, which is a leak of how another
+    employee has categorised their own book.
+    """
     viewer_headers = auth_header(viewer_user)
 
-    # Add tag -- forbidden
+    # Add tag -- refused by the role gate
     resp = await client.post(
         f"/api/contacts/{sample_contact.id}/tags",
         json={"tag_name": "no-way"},
@@ -362,16 +373,16 @@ async def test_viewer_cannot_modify_tags(
     )
     assert resp.status_code == 403
 
-    # Remove tag -- forbidden
+    # Remove tag -- refused by the role gate
     resp = await client.delete(
         f"/api/contacts/{sample_contact.id}/tags/no-way",
         headers=viewer_headers,
     )
     assert resp.status_code == 403
 
-    # But viewer CAN list tags (read access)
+    # Read the tags of a contact they don't own -- not found
     resp = await client.get(
         f"/api/contacts/{sample_contact.id}/tags",
         headers=viewer_headers,
     )
-    assert resp.status_code == 200
+    assert resp.status_code == 404

@@ -66,32 +66,42 @@ async def test_team_member_can_create_contact(
 
 
 @pytest.mark.normal
-async def test_team_member_can_read_contacts(
+async def test_team_member_cannot_read_another_users_contact(
     client: AsyncClient,
     team_member_user: User,
     admin_user: User,
     sample_contact: Contact,
 ):
-    """TEAM_MEMBER role should be able to list and read contacts."""
+    """Records are private to their owner — `sample_contact` belongs to
+    admin_user. A team member reaching the contacts list is fine; seeing someone
+    else's contact in it is not.
+
+    This used to assert the opposite (that any team member could read any
+    contact). That encoded a shared-workspace product the business doesn't want:
+    two people working the phones must not see each other's book.
+    """
     headers = auth_header(team_member_user)
 
     resp = await client.get("/api/contacts", headers=headers)
     assert resp.status_code == 200
+    ids = [c["id"] for c in resp.json()["data"]]
+    assert str(sample_contact.id) not in ids
 
     resp = await client.get(
         f"/api/contacts/{sample_contact.id}", headers=headers
     )
-    assert resp.status_code == 200
+    assert resp.status_code == 404
 
 
 @pytest.mark.normal
-async def test_team_member_can_update_contact(
+async def test_team_member_cannot_update_another_users_contact(
     client: AsyncClient,
     team_member_user: User,
     admin_user: User,
     sample_contact: Contact,
 ):
-    """TEAM_MEMBER role should be able to update contacts."""
+    """Not just reads — a colleague must not be able to edit a record out from
+    under its owner either."""
     headers = auth_header(team_member_user)
 
     resp = await client.put(
@@ -99,7 +109,7 @@ async def test_team_member_can_update_contact(
         json={"company_name": "Updated by Team Member"},
         headers=headers,
     )
-    assert resp.status_code == 200
+    assert resp.status_code == 404
 
 
 @pytest.mark.normal
@@ -270,22 +280,28 @@ async def test_viewer_cannot_create_invoice(
 
 
 @pytest.mark.normal
-async def test_viewer_can_read_contacts(
+async def test_viewer_cannot_read_another_users_contact(
     client: AsyncClient,
     viewer_user: User,
     admin_user: User,
     sample_contact: Contact,
 ):
-    """VIEWER role should be able to read contacts."""
+    """A VIEWER owns nothing, so by default it sees nothing. That is intended,
+    not a bug: a viewer sees exactly what has been explicitly shared with it.
+
+    Do not "fix" this by letting viewers read everything — that is the change
+    that had to be reverted.
+    """
     headers = auth_header(viewer_user)
 
     resp = await client.get("/api/contacts", headers=headers)
     assert resp.status_code == 200
+    assert resp.json()["data"] == []
 
     resp = await client.get(
         f"/api/contacts/{sample_contact.id}", headers=headers
     )
-    assert resp.status_code == 200
+    assert resp.status_code == 404
 
 
 @pytest.mark.normal

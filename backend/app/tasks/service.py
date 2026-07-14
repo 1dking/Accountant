@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import User
-from app.core.authorization import apply_shared_filter, authorize_shared
+from app.core.authorization import apply_ownership_filter, authorize_owner
 from app.core.exceptions import NotFoundError
 from app.tasks.models import Task, TaskStatus
 from app.tasks.schemas import TaskCreate, TaskUpdate
@@ -17,7 +17,7 @@ async def get_task(db: AsyncSession, task_id: uuid.UUID, user: User) -> Task:
     task = result.scalar_one_or_none()
     if task is None:
         raise NotFoundError("Task", str(task_id))
-    authorize_shared(task.created_by, user, "Task")
+    authorize_owner(task.created_by, user, "Task")
     return task
 
 
@@ -30,7 +30,7 @@ async def list_tasks(
     """Open work first, then by due date — an undated task shouldn't outrank
     one that's due tomorrow, so nulls sort last."""
     query = select(Task)
-    query = apply_shared_filter(query, Task.created_by, user)
+    query = apply_ownership_filter(query, Task.created_by, user)
 
     if contact_id is not None:
         query = query.where(Task.contact_id == contact_id)

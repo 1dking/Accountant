@@ -281,23 +281,32 @@ async def test_unauthenticated_access_returns_401(client: AsyncClient):
 
 
 @pytest.mark.high
-async def test_viewer_can_read_but_not_create(
+async def test_viewer_cannot_read_another_users_contact_and_cannot_create(
     client: AsyncClient,
     viewer_user: User,
     admin_user: User,
     sample_contact: Contact,
 ):
-    """A viewer may list and read contacts but must not create, update, or delete."""
+    """Records are private to their owner — `sample_contact` belongs to admin_user.
+
+    A viewer owns nothing, so it sees nothing until something is shared with it.
+    This used to assert the viewer could read any contact; that encoded a
+    shared-workspace model the business doesn't want.
+    """
     viewer_headers = auth_header(viewer_user)
 
-    # READ — allowed
+    # LIST — reachable, but a colleague's contact is not in it. Assert on the
+    # DATA: the list is 200 with an empty payload, not 403, so a status-only
+    # check would miss a leak entirely.
     resp = await client.get("/api/contacts", headers=viewer_headers)
     assert resp.status_code == 200
+    assert str(sample_contact.id) not in [c["id"] for c in resp.json()["data"]]
 
+    # READ someone else's — not found (404, never 403: a 403 would confirm it exists)
     resp = await client.get(
         f"/api/contacts/{sample_contact.id}", headers=viewer_headers
     )
-    assert resp.status_code == 200
+    assert resp.status_code == 404
 
     # CREATE — forbidden
     resp = await client.post(

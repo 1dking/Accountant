@@ -11,7 +11,7 @@ from app.auth.models import User
 from app.budgets.models import Budget, PeriodType
 from app.budgets.schemas import BudgetCreate, BudgetUpdate, BudgetVsActual
 from app.collaboration.service import log_activity
-from app.core.authorization import apply_shared_filter, authorize_shared
+from app.core.authorization import apply_ownership_filter, authorize_owner
 from app.core.exceptions import ConflictError, NotFoundError
 from app.core.pagination import PaginationParams, build_pagination_meta
 
@@ -58,7 +58,7 @@ async def list_budgets(
     user: User,
 ) -> tuple[list[Budget], dict]:
     query = select(Budget)
-    query = apply_shared_filter(query, Budget.created_by, user)
+    query = apply_ownership_filter(query, Budget.created_by, user)
     if year is not None:
         query = query.where(Budget.year == year)
     if period_type is not None:
@@ -84,7 +84,7 @@ async def get_budget(db: AsyncSession, budget_id: uuid.UUID, user: User | None =
     if budget is None:
         raise NotFoundError("Budget", str(budget_id))
     if user is not None:
-        authorize_shared(budget.created_by, user, "Budget")
+        authorize_owner(budget.created_by, user, "Budget")
     return budget
 
 
@@ -122,7 +122,7 @@ async def get_budget_vs_actual(
     # Get all matching budgets
     budget_q = select(Budget).where(Budget.year == year)
     if user is not None:
-        budget_q = apply_shared_filter(budget_q, Budget.created_by, user)
+        budget_q = apply_ownership_filter(budget_q, Budget.created_by, user)
     if month is not None:
         budget_q = budget_q.where(
             (Budget.month == month) | (Budget.month.is_(None))

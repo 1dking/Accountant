@@ -248,7 +248,15 @@ async def test_viewer_cannot_add_activity(
     admin_user: User,
     sample_contact: Contact,
 ):
-    """Viewer role should not be able to add activities."""
+    """Viewer must not be able to write to — or read — someone else's contact.
+
+    The POST carries require_role, so the viewer is refused at the ROLE gate
+    (403) before ownership is consulted. The GET is gated only by
+    get_current_user, so it falls through to the OWNERSHIP check (404).
+
+    That GET used to assert 200 — a viewer reading the full activity timeline of
+    a colleague's contact: every call, note and email on someone else's client.
+    """
     viewer_headers = auth_header(viewer_user)
 
     resp = await client.post(
@@ -261,12 +269,12 @@ async def test_viewer_cannot_add_activity(
     )
     assert resp.status_code == 403
 
-    # But viewer CAN read activities
+    # The timeline of a contact they don't own is not readable.
     resp = await client.get(
         f"/api/contacts/{sample_contact.id}/activities",
         headers=viewer_headers,
     )
-    assert resp.status_code == 200
+    assert resp.status_code == 404
 
 
 # ---------------------------------------------------------------------------
