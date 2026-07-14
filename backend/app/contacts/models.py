@@ -3,7 +3,17 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, JSON, String, Text, func
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    Enum,
+    ForeignKey,
+    JSON,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base, TimestampMixin
@@ -13,6 +23,51 @@ class ContactType(str, enum.Enum):
     CLIENT = "client"
     VENDOR = "vendor"
     BOTH = "both"
+
+
+class SharePermission(str, enum.Enum):
+    VIEW = "view"
+    EDIT = "edit"
+
+
+class ContactAccess(Base):
+    """An explicit grant of one contact to one colleague.
+
+    Records are private to their owner, so this is the escape hatch: the owner
+    hands a specific contact to a specific person, choosing view or edit. It
+    cascades — the grantee also sees that contact's invoices, proposals, tasks and
+    call history, because a contact you can't see the file of is just a name and a
+    phone number.
+
+    Mirrors OfficeDocumentAccess (app/office/models.py), the app's existing
+    user-to-user grant. The unique constraint makes a re-share an UPSERT rather
+    than a pile of duplicate rows.
+    """
+
+    __tablename__ = "contact_access"
+    __table_args__ = (
+        UniqueConstraint("contact_id", "user_id", name="uq_contact_access"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    contact_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("contacts.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    #: The grantee.
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    permission: Mapped[SharePermission] = mapped_column(
+        Enum(SharePermission), default=SharePermission.VIEW, nullable=False
+    )
+    #: Who shared it. Audit trail — and only the contact's OWNER (or an admin) may
+    #: share, so you cannot re-share something merely shared with you.
+    granted_by: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class Contact(TimestampMixin, Base):

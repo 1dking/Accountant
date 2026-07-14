@@ -3,9 +3,15 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
-from app.contacts.models import ActivityType, ContactType, FileSharePermission, InvitationStatus
+from app.contacts.models import (
+    ActivityType,
+    ContactType,
+    FileSharePermission,
+    InvitationStatus,
+    SharePermission,
+)
 
 
 class ContactCreate(BaseModel):
@@ -209,3 +215,35 @@ class AcceptInvitationRequest(BaseModel):
     token: str
     password: str = Field(min_length=8, max_length=255)
     full_name: str = Field(min_length=1, max_length=255)
+
+
+class ContactShareCreate(BaseModel):
+    """Grant one colleague access to one contact."""
+
+    user_id: uuid.UUID
+    permission: SharePermission = SharePermission.VIEW
+
+
+class ContactCollaboratorResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    user_id: uuid.UUID
+    user_name: str
+    user_email: str
+    permission: str
+    granted_by: uuid.UUID
+    created_at: datetime
+
+
+class ContactTransferRequest(BaseModel):
+    """Hand a contact — and its whole file — to another employee."""
+
+    new_owner_id: uuid.UUID
+
+
+class BookTransferRequest(BaseModel):
+    """Reassign an entire book when someone leaves."""
+
+    from_user_id: uuid.UUID
+    to_user_id: uuid.UUID

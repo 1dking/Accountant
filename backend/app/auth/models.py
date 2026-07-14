@@ -10,7 +10,26 @@ from app.database import Base, TimestampMixin
 
 
 class Role(str, enum.Enum):
+    """What a user may DO. Which RECORDS they see is ownership + shares; which
+    SECTIONS they can open is feature_access_json. Keep the three separate —
+    conflating them once shipped a data leak.
+
+    ADMIN        the agency owner. Sees across every employee's section.
+    MANAGER      sees their own records plus their direct reports' (manager_id).
+                 Same action rights as a TEAM_MEMBER — the extra reach is a
+                 VISIBILITY statement, enforced in authorization, not a new set
+                 of route permissions.
+    TEAM_MEMBER  a normal employee. Owns their own book.
+    ACCOUNTANT   same action rights as TEAM_MEMBER; differs only in which modules
+                 it gets by default. Effectively a module preset.
+    VIEWER       read-only collaborator. Owns nothing, creates nothing, and sees
+                 exactly what has been SHARED with it. Seeing nothing by default
+                 is intended.
+    CLIENT       an outsider. Portal only, scoped to its own contact.
+    """
+
     ADMIN = "admin"
+    MANAGER = "manager"
     TEAM_MEMBER = "team_member"
     ACCOUNTANT = "accountant"
     CLIENT = "client"
@@ -32,6 +51,13 @@ class User(TimestampMixin, Base):
     feature_access_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     org_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    #: Who this employee reports to. A MANAGER sees the records of the users whose
+    #: manager_id points at them. One level deep — a manager of managers does not
+    #: inherit the whole subtree. SET NULL so removing a manager doesn't delete
+    #: their reports.
+    manager_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
     cashbook_access: Mapped[str] = mapped_column(
         String(20), default="personal", server_default="personal", nullable=False

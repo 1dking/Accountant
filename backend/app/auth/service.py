@@ -320,6 +320,13 @@ async def admin_update_user(
         user.is_active = updates.is_active
     if updates.cashbook_access is not None:
         user.cashbook_access = updates.cashbook_access
+    # Only touch manager_id if it was actually in the payload — that way sending
+    # null clears the manager, while omitting the field leaves it alone. Guard
+    # against self-reference so a user can't be made their own manager.
+    if "manager_id" in updates.model_fields_set:
+        if updates.manager_id == user.id:
+            raise ValidationError("A user cannot be their own manager.")
+        user.manager_id = updates.manager_id
     await db.commit()
     await db.refresh(user)
     return user
@@ -499,6 +506,7 @@ def user_to_response_dict(user: User) -> dict:
         "created_at": user.created_at,
         "feature_access": features,
         "org_id": user.org_id,
+        "manager_id": user.manager_id,
         "cashbook_access": user.cashbook_access,
         "fallback_phone": user.fallback_phone,
         "voicemail_mode": user.voicemail_mode or "cell_then_voicemail",

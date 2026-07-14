@@ -12,13 +12,16 @@ from app.contacts.models import ContactType
 from app.contacts.schemas import (
     AcceptInvitationRequest,
     ActivityCreate,
+    BookTransferRequest,
     BulkTagRequest,
     ContactActivityResponse,
     ContactCreate,
     ContactFilter,
     ContactListItem,
     ContactResponse,
+    ContactShareCreate,
     ContactTagResponse,
+    ContactTransferRequest,
     ContactUpdate,
     DuplicateGroup,
     FileShareCreate,
@@ -664,3 +667,84 @@ async def list_contact_payments(
     """All payments received against this contact's invoices."""
     payments = await service.list_contact_payments(db, contact_id, user=current_user)
     return {"data": payments}
+
+
+# ---------------------------------------------------------------------------
+# Explicit sharing — hand one contact to one colleague
+# ---------------------------------------------------------------------------
+
+
+@router.post("/{contact_id}/share", status_code=201)
+async def share_contact(
+    contact_id: uuid.UUID,
+    data: ContactShareCreate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    """Share a contact with a colleague. Owner (or admin) only — you cannot
+    re-share a contact that was merely shared with you."""
+    access = await service.share_contact(
+        db, contact_id, current_user, data.user_id, data.permission
+    )
+    return {
+        "data": {
+            "id": access.id,
+            "user_id": access.user_id,
+            "permission": access.permission.value,
+        }
+    }
+
+
+@router.delete("/{contact_id}/share/{user_id}")
+async def unshare_contact(
+    contact_id: uuid.UUID,
+    user_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    """Revoke a colleague's access to a contact."""
+    await service.unshare_contact(db, contact_id, current_user, user_id)
+    return {"data": {"message": "Access revoked"}}
+
+
+@router.get("/{contact_id}/collaborators")
+async def list_contact_collaborators(
+    contact_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    """Who else is working this file."""
+    rows = await service.list_contact_collaborators(db, contact_id, current_user)
+    return {"data": rows}
+
+
+# ---------------------------------------------------------------------------
+# Ownership transfer — offboarding
+# ---------------------------------------------------------------------------
+
+
+@router.post("/{contact_id}/transfer")
+async def transfer_contact_ownership(
+    contact_id: uuid.UUID,
+    data: ContactTransferRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN]))],
+) -> dict:
+    """Hand a contact and its whole file to another employee."""
+    contact = await service.transfer_contact_ownership(
+        db, contact_id, current_user, data.new_owner_id
+    )
+    return {"data": ContactResponse.model_validate(contact)}
+
+
+@router.post("/transfer-book")
+async def transfer_book(
+    data: BookTransferRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN]))],
+) -> dict:
+    """Reassign an entire book when an employee leaves."""
+    moved = await service.transfer_all_contacts(
+        db, current_user, data.from_user_id, data.to_user_id
+    )
+    return {"data": {"contacts_moved": moved}}

@@ -128,6 +128,8 @@ class AdminUserUpdate(BaseModel):
     feature_access: Optional[dict[str, bool]] = None
     is_active: Optional[bool] = None
     cashbook_access: Optional[str] = Field(None, pattern=r"^(personal|org)$")
+    # Sentinel-free: manager_id is passed through as-is, and null clears it.
+    manager_id: Optional[uuid.UUID] = None
 
 
 class InviteCompleteRequest(BaseModel):

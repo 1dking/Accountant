@@ -9,7 +9,7 @@ from sqlalchemy.orm import selectinload
 
 from app.auth.models import User
 from app.collaboration.service import log_activity
-from app.core.authorization import apply_ownership_filter, authorize_owner
+from app.core.authorization import apply_visibility_filter, authorize_record
 from app.core.exceptions import NotFoundError, ValidationError
 from app.core.pagination import PaginationParams, build_pagination_meta
 from app.estimates.models import Estimate, EstimateLineItem, EstimateStatus
@@ -102,7 +102,7 @@ async def list_estimates(
 
     # Private to the owner; admin sees all.
     if user is not None:
-        query = apply_ownership_filter(query, Estimate.created_by, user)
+        query = apply_visibility_filter(query, Estimate.created_by, user, contact_col=Estimate.contact_id)
 
     if filters.search:
         term = f"%{filters.search}%"
@@ -144,7 +144,9 @@ async def get_estimate(db: AsyncSession, estimate_id: uuid.UUID, user: User | No
     if estimate is None:
         raise NotFoundError("Estimate", str(estimate_id))
     if user is not None:
-        authorize_owner(estimate.created_by, user, "Estimate")
+        await authorize_record(
+        db, user, estimate.created_by, contact_id=estimate.contact_id, resource_name="Estimate"
+    )
     return estimate
 
 

@@ -14,7 +14,7 @@ the intended behaviour, not a bug. A viewer sees what has been shared with it.
 
 import uuid
 
-from sqlalchemy import Select
+from sqlalchemy import Select, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import Role, User
@@ -27,7 +27,13 @@ def is_admin(user: User) -> bool:
 
 
 def authorize_owner(resource_owner_id: uuid.UUID, user: User, resource_name: str = "Resource") -> None:
-    """Only the creator — or an admin — may touch this record."""
+    """Only the creator — or an admin — may touch this record.
+
+    The strict form, with no manager reach and no share escape hatch. Use it for
+    resources that are nobody else's business no matter what: SMTP configs (they
+    hold decryptable mail passwords), a user's own Drive documents, meetings.
+    For business records that can be shared, use authorize_record().
+    """
     if is_admin(user):
         return
     if resource_owner_id != user.id:
@@ -49,6 +55,145 @@ def apply_ownership_filter(
     if is_admin(user):
         return stmt
     return stmt.where(column == user.id)
+
+
+# ---------------------------------------------------------------------------
+# Visibility: ownership + manager reach + explicit shares
+# ---------------------------------------------------------------------------
+#
+# Three ways to reach a business record, in order of cheapness:
+#   1. you own it
+#   2. you are a MANAGER and its owner reports to you
+#   3. it is a contact shared with you — or it HANGS OFF a contact shared with
+#      you (the cascade: a contact you can't see the file of is just a name)
+#
+# ADMIN short-circuits all of it.
+
+
+def _visible_owner_ids(user: User) -> Select | None:
+    """Subquery: whose records may this user see, by ownership alone?
+
+    Returns None for an admin, meaning "no restriction" — the caller adds no
+    WHERE clause at all rather than building a list of every user id.
+    """
+    if is_admin(user):
+        return None
+    if user.role == Role.MANAGER:
+        # Own records + direct reports'. One level deep: a manager of managers
+        # does not inherit the whole subtree. Deliberate — see Role docstring.
+        return select(User.id).where(
+            or_(User.id == user.id, User.manager_id == user.id)
+        )
+    return select(User.id).where(User.id == user.id)
+
+
+def _can_be_granted_shares(user: User) -> bool:
+    """A CLIENT must never gain reach through a ContactAccess row.
+
+    Their only legitimate surface is the portal, scoped by ClientPortalAccount. A
+    stray grant — however it got written — must not become a way for a portal user
+    to walk into the CRM.
+    """
+    return user.role != Role.CLIENT
+
+
+def apply_visibility_filter(
+    stmt: Select,
+    owner_col,
+    user: User,
+    *,
+    contact_col=None,
+    require_edit: bool = False,
+) -> Select:
+    """List-query workhorse for shareable business records.
+
+    ``contact_col`` opts the model into the share cascade: pass ``Contact.id`` for
+    contacts themselves, or ``Invoice.contact_id`` / ``Task.contact_id`` etc. for
+    records hanging off a contact. Omit it for models with no contact (budgets,
+    recurring rules) and it degrades to plain ownership.
+
+    A record with ``contact_id IS NULL`` (a standalone task, an untethered call)
+    gets no cascade and stays private to its owner. Correct: it was never part of
+    anyone's file.
+    """
+    from app.contacts.models import ContactAccess, SharePermission
+
+    if is_admin(user):
+        return stmt
+
+    cond = owner_col.in_(_visible_owner_ids(user))
+
+    if contact_col is not None and _can_be_granted_shares(user):
+        shared = select(ContactAccess.contact_id).where(
+            ContactAccess.user_id == user.id
+        )
+        if require_edit:
+            shared = shared.where(ContactAccess.permission == SharePermission.EDIT)
+        cond = or_(cond, contact_col.in_(shared))
+
+    return stmt.where(cond)
+
+
+async def get_contact_permission(db: AsyncSession, contact_id: uuid.UUID, user: User):
+    """The SharePermission this user has been granted on a contact, or None."""
+    from app.contacts.models import ContactAccess
+
+    if not _can_be_granted_shares(user):
+        return None
+    row = await db.execute(
+        select(ContactAccess.permission).where(
+            ContactAccess.contact_id == contact_id,
+            ContactAccess.user_id == user.id,
+        )
+    )
+    return row.scalar_one_or_none()
+
+
+async def _is_direct_report(db: AsyncSession, owner_id: uuid.UUID, manager_id: uuid.UUID) -> bool:
+    row = await db.execute(
+        select(User.id).where(User.id == owner_id, User.manager_id == manager_id)
+    )
+    return row.scalar_one_or_none() is not None
+
+
+async def authorize_record(
+    db: AsyncSession,
+    user: User,
+    owner_id: uuid.UUID,
+    *,
+    contact_id: uuid.UUID | None = None,
+    need_edit: bool = False,
+    resource_name: str = "Resource",
+) -> None:
+    """Single-record counterpart of apply_visibility_filter.
+
+    Raises NotFoundError (404) when the record is invisible — never 403, because a
+    403 confirms it exists and lets someone map a colleague's book by probing ids.
+
+    Raises ForbiddenError (403) only in the one case where the record IS visible
+    but the action isn't allowed: you hold a view-only share and tried to write.
+    Here 403 leaks nothing you weren't already shown.
+    """
+    from app.contacts.models import SharePermission
+
+    if is_admin(user) or owner_id == user.id:
+        return
+
+    if user.role == Role.MANAGER and await _is_direct_report(db, owner_id, user.id):
+        return
+
+    if contact_id is not None:
+        permission = await get_contact_permission(db, contact_id, user)
+        if permission == SharePermission.EDIT:
+            return
+        if permission == SharePermission.VIEW:
+            if not need_edit:
+                return
+            raise ForbiddenError(
+                f"This {resource_name.lower()} was shared with you as view-only."
+            )
+
+    raise NotFoundError(resource_name, "requested")
 
 
 def apply_cashbook_filter(

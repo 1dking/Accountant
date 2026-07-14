@@ -306,6 +306,7 @@ class PlatformUpdateUser(BaseModel):
     password: str | None = None
     feature_access: dict[str, bool] | None = None
     is_active: bool | None = None
+    manager_id: uuid.UUID | None = None
 
 
 @router.post("/users")
@@ -370,6 +371,7 @@ async def platform_update_user(
     from app.auth.models import Role as AuthRole
 
     role_map = {r.value: r for r in AuthRole}
+    fields = body.model_dump(exclude_unset=True)
     update = AuthUpdate(
         email=body.email,
         full_name=body.full_name,
@@ -377,6 +379,9 @@ async def platform_update_user(
         role=role_map.get(body.role) if body.role else None,
         feature_access=body.feature_access,
         is_active=body.is_active,
+        # Pass manager_id only when the client actually sent it, so an unrelated
+        # edit doesn't wipe someone's reporting line.
+        **({"manager_id": body.manager_id} if "manager_id" in fields else {}),
     )
     user = await auth_update(db, str(user_id), update)
     return {"data": user_to_response_dict(user)}

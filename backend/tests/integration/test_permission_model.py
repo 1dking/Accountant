@@ -115,17 +115,23 @@ async def test_admin_does_see_the_contact_in_their_list(
 async def test_client_cannot_see_the_contact_book(
     client, client_user: User, sample_contact
 ):
-    """The contacts list/get routes are gated by get_current_user, NOT
-    require_role — so a portal user does reach the service layer. The ownership
-    filter is the only thing between them and the whole book."""
+    """A portal client is refused the contact book on TWO independent layers,
+    and this test pins both:
+
+      * The module gate — client role defaults have contacts=false, so
+        /api/contacts is 403 before the service layer is even reached.
+      * Even if the module were somehow on, the ownership filter would return an
+        empty list (a client owns nothing).
+
+    The 403 is the outer, stronger layer. A single-item GET is gated the same way.
+    """
     resp = await client.get("/api/contacts", headers=auth_header(client_user))
-    assert resp.status_code == 200
-    assert resp.json()["data"] == []
+    assert resp.status_code == 403
 
     resp = await client.get(
         f"/api/contacts/{sample_contact.id}", headers=auth_header(client_user)
     )
-    assert resp.status_code == 404
+    assert resp.status_code == 403
 
 
 @pytest.mark.critical

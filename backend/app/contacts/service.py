@@ -1,9 +1,12 @@
 
+import logging
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 
+from sqlalchemy import delete as sa_delete
 from sqlalchemy import func, or_, select
+from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import Role, User
@@ -13,10 +16,12 @@ from app.contacts.models import (
     ActivityType,
     ClientPortalAccount,
     Contact,
+    ContactAccess,
     ContactActivity,
     ContactTag,
     FileShare,
     InvitationStatus,
+    SharePermission,
     UserInvitation,
 )
 from app.contacts.schemas import (
@@ -26,9 +31,17 @@ from app.contacts.schemas import (
     FileShareCreate,
     InvitationCreate,
 )
-from app.core.authorization import apply_ownership_filter, authorize_owner
-from app.core.exceptions import ConflictError, NotFoundError
+from app.core.authorization import (
+    apply_ownership_filter,
+    apply_visibility_filter,
+    authorize_owner,
+    authorize_record,
+    is_admin,
+)
+from app.core.exceptions import ConflictError, ForbiddenError, NotFoundError
 from app.core.pagination import PaginationParams, build_pagination_meta
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -68,7 +81,11 @@ async def list_contacts(
     query = select(Contact)
 
     if user is not None:
-        query = apply_ownership_filter(query, Contact.created_by, user)
+        # contact_col=Contact.id opts contacts into the share cascade: I see my
+        # own, my reports' (if I'm a manager), and any contact shared with me.
+        query = apply_visibility_filter(
+            query, Contact.created_by, user, contact_col=Contact.id
+        )
 
     if filters.search:
         term = f"%{filters.search}%"
@@ -105,21 +122,33 @@ async def list_contacts(
     return contacts, build_pagination_meta(total, pagination)
 
 
-async def get_contact(db: AsyncSession, contact_id: uuid.UUID, user: User | None = None) -> Contact:
+async def get_contact(
+    db: AsyncSession,
+    contact_id: uuid.UUID,
+    user: User | None = None,
+    need_edit: bool = False,
+) -> Contact:
     result = await db.execute(select(Contact).where(Contact.id == contact_id))
     contact = result.scalar_one_or_none()
     if contact is None:
         raise NotFoundError("Contact", str(contact_id))
     if user is not None:
-        authorize_owner(contact.created_by, user, "Contact")
+        await authorize_record(
+            db,
+            user,
+            contact.created_by,
+            contact_id=contact.id,
+            need_edit=need_edit,
+            resource_name="Contact",
+        )
     return contact
 
 
 async def update_contact(
     db: AsyncSession, contact_id: uuid.UUID, data: ContactUpdate, user: User
 ) -> Contact:
-    contact = await get_contact(db, contact_id)
-    authorize_owner(contact.created_by, user, "Contact")
+    # need_edit: a view-only share may read this contact but not change it.
+    contact = await get_contact(db, contact_id, user=user, need_edit=True)
     update_data = data.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(contact, key, value)
@@ -141,6 +170,9 @@ async def update_contact(
 async def delete_contact(db: AsyncSession, contact_id: uuid.UUID, user: User | None = None) -> None:
     contact = await get_contact(db, contact_id)
     if user is not None:
+        # Deliberately authorize_owner, not authorize_record: an edit-share lets a
+        # colleague WORK the contact, not destroy it. Deleting someone's record out
+        # from under them is the owner's call (or an admin's).
         authorize_owner(contact.created_by, user, "Contact")
 
     from app.invoicing.models import Invoice
@@ -260,9 +292,12 @@ async def list_tags(db: AsyncSession, contact_id: uuid.UUID, user: User | None =
 async def list_all_tag_names(db: AsyncSession, user: User | None = None) -> list[str]:
     query = select(ContactTag.tag_name).distinct().order_by(ContactTag.tag_name)
     if user is not None:
-        owned_contacts = select(Contact.id)
-        owned_contacts = apply_ownership_filter(owned_contacts, Contact.created_by, user)
-        query = query.where(ContactTag.contact_id.in_(owned_contacts))
+        # Visible, not merely owned — a contact shared with me brings its tags,
+        # otherwise the tag filter on my list would offer nothing for it.
+        visible = apply_visibility_filter(
+            select(Contact.id), Contact.created_by, user, contact_col=Contact.id
+        )
+        query = query.where(ContactTag.contact_id.in_(visible))
     result = await db.execute(query)
     return [r[0] for r in result.all()]
 
@@ -689,3 +724,266 @@ async def resend_invitation(
     await db.commit()
     await db.refresh(invitation)
     return invitation
+
+
+# ---------------------------------------------------------------------------
+# Explicit sharing — the escape hatch from owner-private
+# ---------------------------------------------------------------------------
+
+
+async def share_contact(
+    db: AsyncSession,
+    contact_id: uuid.UUID,
+    user: User,
+    target_user_id: uuid.UUID,
+    permission: SharePermission = SharePermission.VIEW,
+) -> ContactAccess:
+    """Grant a colleague access to one contact. Upsert — re-sharing changes the
+    permission rather than piling up rows.
+
+    Only the contact's OWNER (or an admin) may share. Deliberately authorize_owner
+    and not authorize_record: you cannot re-share something that was merely shared
+    with you, or one grant would leak transitively across the whole team.
+    """
+    contact = await get_contact(db, contact_id)
+    authorize_owner(contact.created_by, user, "Contact")
+
+    target = (
+        await db.execute(select(User).where(User.id == target_user_id))
+    ).scalar_one_or_none()
+    if target is None:
+        raise NotFoundError("User", str(target_user_id))
+    if target.role == Role.CLIENT:
+        # A client's only surface is the portal, scoped by ClientPortalAccount.
+        # Handing them a CRM grant would walk them straight into the book.
+        raise ForbiddenError("Contacts cannot be shared with a client portal user.")
+    if target.id == contact.created_by:
+        raise ConflictError("That user already owns this contact.")
+
+    existing = (
+        await db.execute(
+            select(ContactAccess).where(
+                ContactAccess.contact_id == contact_id,
+                ContactAccess.user_id == target_user_id,
+            )
+        )
+    ).scalar_one_or_none()
+
+    if existing is not None:
+        existing.permission = permission
+        existing.granted_by = user.id
+        access = existing
+    else:
+        access = ContactAccess(
+            id=uuid.uuid4(),
+            contact_id=contact_id,
+            user_id=target_user_id,
+            permission=permission,
+            granted_by=user.id,
+        )
+        db.add(access)
+
+    await db.commit()
+    await db.refresh(access)
+
+    await log_activity(
+        db,
+        user_id=user.id,
+        action="contact_shared",
+        resource_type="contact",
+        resource_id=str(contact_id),
+        details={"target_user_id": str(target_user_id), "permission": permission.value},
+    )
+
+    try:
+        from app.notifications.service import create_notification
+
+        await create_notification(
+            db,
+            user_id=target_user_id,
+            type="contact_shared",
+            title=f"{user.full_name} shared a contact with you",
+            message=f"{contact.company_name} — {permission.value} access",
+            resource_type="contact",
+            resource_id=str(contact_id),
+            link_path=f"/contacts/{contact_id}",
+            contact_id=contact_id,
+        )
+    except Exception:  # noqa: BLE001 — a failed notification must not undo the share
+        logger.exception("contact_share.notification_failed contact_id=%s", contact_id)
+
+    return access
+
+
+async def unshare_contact(
+    db: AsyncSession, contact_id: uuid.UUID, user: User, target_user_id: uuid.UUID
+) -> None:
+    """Revoke a colleague's access. Owner or admin only."""
+    contact = await get_contact(db, contact_id)
+    authorize_owner(contact.created_by, user, "Contact")
+
+    access = (
+        await db.execute(
+            select(ContactAccess).where(
+                ContactAccess.contact_id == contact_id,
+                ContactAccess.user_id == target_user_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if access is None:
+        raise NotFoundError("ContactAccess", str(target_user_id))
+
+    await db.delete(access)
+    await db.commit()
+
+    await log_activity(
+        db,
+        user_id=user.id,
+        action="contact_unshared",
+        resource_type="contact",
+        resource_id=str(contact_id),
+        details={"target_user_id": str(target_user_id)},
+    )
+
+
+async def list_contact_collaborators(
+    db: AsyncSession, contact_id: uuid.UUID, user: User
+) -> list[dict]:
+    """Who this contact is shared with.
+
+    Anyone who can see the contact can see who else it is shared with — if you are
+    working a file, you should know who else is working it.
+    """
+    await get_contact(db, contact_id, user=user)
+
+    rows = (
+        await db.execute(
+            select(ContactAccess, User)
+            .join(User, User.id == ContactAccess.user_id)
+            .where(ContactAccess.contact_id == contact_id)
+            .order_by(ContactAccess.created_at.desc())
+        )
+    ).all()
+
+    return [
+        {
+            "id": access.id,
+            "user_id": access.user_id,
+            "user_name": target.full_name,
+            "user_email": target.email,
+            "permission": access.permission.value,
+            "granted_by": access.granted_by,
+            "created_at": access.created_at,
+        }
+        for access, target in rows
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Ownership transfer — the offboarding path
+# ---------------------------------------------------------------------------
+
+
+async def transfer_contact_ownership(
+    db: AsyncSession, contact_id: uuid.UUID, user: User, new_owner_id: uuid.UUID
+) -> Contact:
+    """Hand a contact — and its whole file — to another employee. Admin only.
+
+    ``created_by`` is immutable, so without this, a departing employee's book would
+    be reachable only by an admin, forever. Reassigning the contact moves the file
+    with it: invoices, proposals, tasks and calls resolve visibility through their
+    contact, so they follow automatically.
+    """
+    if not is_admin(user):
+        raise ForbiddenError("Only an admin can transfer ownership of a contact.")
+
+    contact = await get_contact(db, contact_id)
+
+    new_owner = (
+        await db.execute(select(User).where(User.id == new_owner_id))
+    ).scalar_one_or_none()
+    if new_owner is None:
+        raise NotFoundError("User", str(new_owner_id))
+    if new_owner.role == Role.CLIENT:
+        raise ForbiddenError("A client portal user cannot own a contact.")
+
+    previous_owner_id = contact.created_by
+    contact.created_by = new_owner_id
+
+    # Any share TO the new owner is now redundant — they own it outright.
+    await db.execute(
+        sa_delete(ContactAccess).where(
+            ContactAccess.contact_id == contact_id,
+            ContactAccess.user_id == new_owner_id,
+        )
+    )
+
+    await db.commit()
+    await db.refresh(contact)
+
+    await log_activity(
+        db,
+        user_id=user.id,
+        action="contact_ownership_transferred",
+        resource_type="contact",
+        resource_id=str(contact_id),
+        details={
+            "previous_owner_id": str(previous_owner_id),
+            "new_owner_id": str(new_owner_id),
+        },
+    )
+    return contact
+
+
+async def transfer_all_contacts(
+    db: AsyncSession, user: User, from_user_id: uuid.UUID, to_user_id: uuid.UUID
+) -> int:
+    """Reassign an entire book from one employee to another. Admin only.
+
+    The bulk offboarding path: a VA or salesperson leaves and their whole desk goes
+    to whoever picks it up. Returns the number of contacts moved.
+    """
+    if not is_admin(user):
+        raise ForbiddenError("Only an admin can transfer a book of contacts.")
+
+    to_user = (
+        await db.execute(select(User).where(User.id == to_user_id))
+    ).scalar_one_or_none()
+    if to_user is None:
+        raise NotFoundError("User", str(to_user_id))
+    if to_user.role == Role.CLIENT:
+        raise ForbiddenError("A client portal user cannot own contacts.")
+
+    contact_ids = [
+        r[0]
+        for r in (
+            await db.execute(
+                select(Contact.id).where(Contact.created_by == from_user_id)
+            )
+        ).all()
+    ]
+    if not contact_ids:
+        return 0
+
+    await db.execute(
+        sa_update(Contact)
+        .where(Contact.created_by == from_user_id)
+        .values(created_by=to_user_id)
+    )
+    await db.execute(
+        sa_delete(ContactAccess).where(
+            ContactAccess.contact_id.in_(contact_ids),
+            ContactAccess.user_id == to_user_id,
+        )
+    )
+    await db.commit()
+
+    await log_activity(
+        db,
+        user_id=user.id,
+        action="contact_book_transferred",
+        resource_type="user",
+        resource_id=str(from_user_id),
+        details={"to_user_id": str(to_user_id), "contacts_moved": len(contact_ids)},
+    )
+    return len(contact_ids)

@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import User
 from app.collaboration.service import log_activity
-from app.core.authorization import apply_ownership_filter, authorize_owner
+from app.core.authorization import apply_visibility_filter, authorize_record
 from app.core.exceptions import NotFoundError, ValidationError
 from app.core.pagination import PaginationParams, build_pagination_meta
 from app.documents.models import Document
@@ -136,7 +136,7 @@ async def list_income(
 
     # Private to the owner; admin sees all.
     if user is not None:
-        query = apply_ownership_filter(query, Income.created_by, user)
+        query = apply_visibility_filter(query, Income.created_by, user, contact_col=Income.contact_id)
 
     if filters.search:
         term = f"%{filters.search}%"
@@ -171,7 +171,9 @@ async def get_income(db: AsyncSession, income_id: uuid.UUID, user: User | None =
     if income is None:
         raise NotFoundError("Income", str(income_id))
     if user is not None:
-        authorize_owner(income.created_by, user, "Income")
+        await authorize_record(
+        db, user, income.created_by, contact_id=income.contact_id, resource_name="Income"
+    )
     return income
 
 

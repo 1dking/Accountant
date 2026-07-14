@@ -305,18 +305,22 @@ async def test_viewer_cannot_read_another_users_contact(
 
 
 @pytest.mark.normal
-async def test_viewer_can_read_invoices(
+async def test_viewer_has_no_invoices_module_by_default(
     client: AsyncClient,
     viewer_user: User,
     admin_user: User,
     sample_contact: Contact,
     sample_invoice,
 ):
-    """VIEWER role should be able to list and read invoices."""
+    """A viewer is a read-only collaborator whose only default module is contacts
+    (so shares can reach it). It has no invoices module, so /api/invoices is 403.
+
+    Previously asserted a viewer could read all invoices — the shared-workspace
+    assumption that was removed."""
     headers = auth_header(viewer_user)
 
     resp = await client.get("/api/invoices", headers=headers)
-    assert resp.status_code == 200
+    assert resp.status_code == 403
 
 
 # ---------------------------------------------------------------------------
@@ -418,11 +422,20 @@ async def test_admin_can_detect_duplicates(
 
 
 @pytest.mark.normal
-async def test_accountant_can_create_contacts(
+async def test_accountant_has_no_contacts_module_by_default(
     client: AsyncClient,
     accountant_user: User,
 ):
-    """ACCOUNTANT role should be able to create contacts."""
+    """"The accountant has only the cash book." The accountant role's default
+    modules are the accounting ones (cashbook, expenses, reports, tax…) and NOT
+    contacts, so the module gate refuses /api/contacts with 403.
+
+    This used to assert an accountant could create contacts — from when
+    'accountant' was a general finance role. It's a DEFAULT: an admin can switch
+    the contacts module on for a specific accountant, and then require_role still
+    lets them create (see tests/integration/test_feature_enforcement.py for the
+    module layer, which is what changed here).
+    """
     headers = auth_header(accountant_user)
 
     resp = await client.post(
@@ -430,17 +443,19 @@ async def test_accountant_can_create_contacts(
         json=_contact_payload(),
         headers=headers,
     )
-    assert resp.status_code == 201
+    assert resp.status_code == 403
 
 
 @pytest.mark.normal
-async def test_accountant_can_create_invoices(
+async def test_accountant_has_no_invoices_module_by_default(
     client: AsyncClient,
     accountant_user: User,
     admin_user: User,
     sample_contact: Contact,
 ):
-    """ACCOUNTANT role should be able to create invoices."""
+    """Same as contacts: an accountant's default modules are the accounting ones,
+    not invoices, so the module gate refuses /api/invoices. A DEFAULT the admin
+    can override per user."""
     headers = auth_header(accountant_user)
 
     resp = await client.post(
@@ -448,7 +463,7 @@ async def test_accountant_can_create_invoices(
         json=_invoice_payload(sample_contact.id),
         headers=headers,
     )
-    assert resp.status_code == 201
+    assert resp.status_code == 403
 
 
 @pytest.mark.normal

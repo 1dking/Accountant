@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.auth.models import User
-from app.core.authorization import apply_ownership_filter, authorize_owner
+from app.core.authorization import apply_visibility_filter, authorize_record
 from app.core.exceptions import NotFoundError, ValidationError, ForbiddenError
 from app.core.pagination import PaginationParams, build_pagination_meta
 from app.proposals.models import (
@@ -140,7 +140,9 @@ async def get_proposal(db: AsyncSession, proposal_id: uuid.UUID, user: User | No
     if not proposal:
         raise NotFoundError("Proposal", str(proposal_id))
     if user is not None:
-        authorize_owner(proposal.created_by, user, "Proposal")
+        await authorize_record(
+        db, user, proposal.created_by, contact_id=proposal.contact_id, resource_name="Proposal"
+    )
     return proposal
 
 
@@ -155,7 +157,7 @@ async def list_proposals(
 
     # Private to the owner; admin sees all.
     if user is not None:
-        query = apply_ownership_filter(query, Proposal.created_by, user)
+        query = apply_visibility_filter(query, Proposal.created_by, user, contact_col=Proposal.contact_id)
 
     if filters.search:
         search = f"%{filters.search}%"

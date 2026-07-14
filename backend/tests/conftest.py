@@ -297,6 +297,74 @@ async def client_user(db: AsyncSession) -> User:
     return user
 
 
+@pytest_asyncio.fixture()
+async def other_member_user(db: AsyncSession) -> User:
+    """A second ordinary employee. The person `team_member_user` must not be able
+    to see, and vice versa — the whole point of the model."""
+    user = User(
+        id=uuid.uuid4(),
+        email="other@test.com",
+        hashed_password=hash_password("TestPass123!"),
+        full_name="Other Member",
+        role=Role.TEAM_MEMBER,
+        is_active=True,
+    )
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
+@pytest_asyncio.fixture()
+async def manager_user(db: AsyncSession) -> User:
+    user = User(
+        id=uuid.uuid4(),
+        email="manager@test.com",
+        hashed_password=hash_password("TestPass123!"),
+        full_name="Test Manager",
+        role=Role.MANAGER,
+        is_active=True,
+    )
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
+@pytest_asyncio.fixture()
+async def report_user(db: AsyncSession, manager_user: User) -> User:
+    """An employee who reports to `manager_user`."""
+    user = User(
+        id=uuid.uuid4(),
+        email="report@test.com",
+        hashed_password=hash_password("TestPass123!"),
+        full_name="Direct Report",
+        role=Role.TEAM_MEMBER,
+        is_active=True,
+        manager_id=manager_user.id,
+    )
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
+def contact_owned_by(user: User, name: str = "Owned Co"):
+    """Build (not persist) a contact belonging to `user`."""
+    from app.contacts.models import Contact, ContactType
+
+    return Contact(
+        id=uuid.uuid4(),
+        type=ContactType.CLIENT,
+        company_name=name,
+        contact_name="Owner Contact",
+        email=f"{uuid.uuid4().hex[:8]}@owned.com",
+        phone="+1-555-0199",
+        country="US",
+        created_by=user.id,
+    )
+
+
 def auth_header(user: User) -> dict[str, str]:
     token = create_access_token(user.id, user.role.value, TEST_SETTINGS)
     return {"Authorization": f"Bearer {token}"}
