@@ -10,7 +10,13 @@ git pull origin main
 
 echo ">>> Installing backend dependencies"
 cd backend
-pip install -r requirements.txt --break-system-packages --quiet 2>/dev/null
+# Was: `pip install -r requirements.txt --break-system-packages --quiet 2>/dev/null`
+# There is no requirements.txt — not in the repo, not on the VPS. pip exited 2,
+# and with `set -e` that aborted the whole deploy before migrations, build or
+# restart; the `2>/dev/null` hid the reason. Dependencies are declared in
+# pyproject.toml and the app runs from .venv (which the alembic step below
+# already assumes), so install from there. Idempotent when deps are satisfied.
+.venv/bin/pip install -e . --quiet
 cd ..
 
 echo ">>> Running database migrations"
