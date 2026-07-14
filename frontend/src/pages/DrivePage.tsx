@@ -26,6 +26,7 @@ import FileContextMenu, {
   type ContextMenuPosition,
   type ContextMenuItem,
 } from '@/components/documents/FileContextMenu'
+import ShareFileDialog from '@/components/documents/ShareFileDialog'
 import StorageUsage from '@/components/documents/StorageUsage'
 import TrashView from '@/components/documents/TrashView'
 import UploadZone from '@/components/documents/UploadZone'
@@ -78,6 +79,8 @@ export default function DrivePage() {
   const [showRenameDialog, setShowRenameDialog] = useState(false)
   const [renameTarget, setRenameTarget] = useState<{ id: string; type: 'file' | 'folder'; currentName: string } | null>(null)
   const [renameValue, setRenameValue] = useState('')
+
+  const [shareTarget, setShareTarget] = useState<{ id: string; name: string } | null>(null)
 
   // Multi-select
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -362,6 +365,10 @@ export default function DrivePage() {
     setRenameTarget({ id, type, currentName })
     setRenameValue(currentName)
     setShowRenameDialog(true)
+  }, [])
+
+  const handleContextShare = useCallback((id: string, name: string) => {
+    setShareTarget({ id, name })
   }, [])
 
   const handleDragEnd = useCallback(
@@ -904,6 +911,15 @@ export default function DrivePage() {
         onOpen={handleContextOpen}
         onMove={handleContextMove}
         onRename={handleContextRename}
+        onShare={handleContextShare}
+      />
+
+      {/* ===== Share Dialog ===== */}
+      <ShareFileDialog
+        isOpen={shareTarget !== null}
+        fileId={shareTarget?.id ?? null}
+        fileName={shareTarget?.name ?? ''}
+        onClose={() => setShareTarget(null)}
       />
 
       {/* ===== New Folder Dialog ===== */}

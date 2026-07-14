@@ -74,9 +74,8 @@ export default function NotificationPreferencesSettings() {
             </h2>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 max-w-lg">
               Choose how you receive each type of notification. In-app
-              notifications appear in the bell dropdown. SMS goes to your
-              fallback cell number. Email is logged for audit; outbound
-              email integration coming soon.
+              notifications appear in the bell dropdown. Email goes to your
+              account address. SMS goes to your fallback cell number.
             </p>
           </div>
         </div>
@@ -146,8 +145,8 @@ export default function NotificationPreferencesSettings() {
         )}
 
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
-          * Email notifications are logged for audit but outbound email
-          send isn't wired yet. SMTP integration coming soon.
+          * Email notifications are sent via your configured SMTP server. If no
+          SMTP server is set up, the notification still appears in the bell.
         </p>
         {smsChannelDisabled && (
           <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">

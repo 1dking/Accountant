@@ -32,7 +32,7 @@ DEFAULT_PREFERENCES = {
     # Security event — your account just had its password changed. Email
     # is on by default so the trail goes to the address you used to
     # request the reset; SMS too because if it WASN'T you, you want to
-    # know fast. (Effective once SMTP integration is wired up.)
+    # know fast.
     "password_changed": {"in_app": True, "email": True, "sms": True},
     # Fallback for any new type added later
     "_default": {"in_app": True, "email": False, "sms": False},

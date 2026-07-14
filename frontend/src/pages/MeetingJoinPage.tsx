@@ -438,7 +438,10 @@ function GuestForceEnableMediaOnConnect() {
         if (!lp.isMicrophoneEnabled) await lp.setMicrophoneEnabled(true)
         if (!lp.isCameraEnabled) await lp.setCameraEnabled(true)
       } catch (e: any) {
-        console.log('[mt] GuestForceEnable failed', { name: e?.name, message: e?.message })
+        // Device permission can be denied or the track can already be live;
+        // neither should block the join. The guest can still enable manually
+        // from the toolbar.
+        console.warn('[mt] GuestForceEnable failed', { name: e?.name, message: e?.message })
       }
     }
     const onConnected = () => {

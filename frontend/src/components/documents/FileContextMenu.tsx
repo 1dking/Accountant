@@ -43,6 +43,7 @@ interface FileContextMenuProps {
   onOpen: (id: string) => void
   onMove: (id: string, type: 'file' | 'folder') => void
   onRename?: (id: string, type: 'file' | 'folder', currentName: string) => void
+  onShare?: (id: string, name: string) => void
 }
 
 export default function FileContextMenu({
@@ -52,6 +53,7 @@ export default function FileContextMenu({
   onOpen,
   onMove,
   onRename,
+  onShare,
 }: FileContextMenuProps) {
   const ref = useRef<HTMLDivElement>(null)
   const queryClient = useQueryClient()
@@ -224,16 +226,21 @@ export default function FileContextMenu({
             onClose()
           },
         },
-        // Share (placeholder)
-        {
-          label: 'Share',
-          icon: Share2,
-          divider: true,
-          onClick: () => {
-            toast.info('Share link copied (coming soon)')
-            onClose()
-          },
-        },
+        // Share — files only. A FileShare points at a document row, so there
+        // is nothing to share a folder against.
+        ...(item.type === 'file' && onShare
+          ? [
+              {
+                label: 'Share',
+                icon: Share2,
+                divider: true,
+                onClick: () => {
+                  onShare(item.id, item.name)
+                  onClose()
+                },
+              },
+            ]
+          : []),
         // Delete
         {
           label: item.type === 'folder' ? 'Delete folder' : 'Move to trash',

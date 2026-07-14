@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { Upload, Paperclip, X, Loader2, FolderOpen } from 'lucide-react'
 import { uploadDocuments, listDocuments, getDocument } from '@/api/documents'
 import { useDebounce } from '@/hooks/useDebounce'
@@ -41,7 +42,10 @@ export default function DocumentAttachment({
       try {
         const res = await uploadDocuments([file])
         const uploaded = res.data[0]
-        if (!uploaded) return
+        if (!uploaded) {
+          toast.error(`Couldn't attach ${file.name}. The upload returned nothing.`)
+          return
+        }
 
         // Build a DocumentListItem from the uploaded Document
         const docListItem: DocumentListItem = {
@@ -71,10 +75,14 @@ export default function DocumentAttachment({
             onMetadataExtracted(meta)
           }
         } catch {
-          // best-effort metadata extraction
+          // Genuinely best-effort: the file is attached either way, we just
+          // couldn't prefill fields from it.
         }
-      } catch {
-        // upload failed silently
+      } catch (err) {
+        // The upload itself failed. Staying silent here let the spinner stop
+        // and the user walk away believing the document was attached.
+        const message = err instanceof Error ? err.message : 'Upload failed'
+        toast.error(`Couldn't attach ${file.name}: ${message}`)
       } finally {
         setUploading(false)
       }
