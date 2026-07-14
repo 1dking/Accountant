@@ -3,11 +3,12 @@
 Security posture:
 - The /request endpoint ALWAYS returns 200 regardless of whether the email
   matches a real user. This prevents account enumeration via response codes.
-  TODO: timing-safe response — current code short-circuits on unknown email
-  so a side-channel attacker could distinguish "user exists" from "no user"
-  by measuring response latency (bcrypt + DB write only fires for real
-  hits). Not critical for the admin-only v1 platform; revisit before any
-  open-signup rollout.
+- It is also timing-safe. The user lookup, token write and SMTP round-trip
+  all happen in a background task that runs *after* the response is sent, so
+  the request costs the same whether or not the account exists. Doing the work
+  inline used to leak existence: a real hit paid for a DB insert plus an SMTP
+  connection (order of 100s of ms) while an unknown email returned instantly,
+  which is trivially measurable from outside.
 - Tokens are 64-byte urlsafe (cryptographically random), single-use, and
   expire after 1 hour. On successful confirm we mark used_at + invalidate
   all other live tokens for the user, so a leaked older token can't be
@@ -15,7 +16,9 @@ Security posture:
 - Rate limit: 3 reset requests per EMAIL per hour. IP-based limiting is
   unreliable behind Cloudflare + DH's Apache proxy; email-based gating is
   the meaningful axis. The 200-regardless response prevents an attacker
-  from using the rate-limit response as an enumeration oracle.
+  from using the rate-limit response as an enumeration oracle. The limit is
+  checked synchronously (it must be able to return 429), but it reads a
+  process-local dict and costs the same for any email.
 """
 from __future__ import annotations
 
@@ -73,30 +76,62 @@ def _generate_token() -> str:
     return secrets.token_urlsafe(64)
 
 
+def check_reset_rate_limit(email: str) -> None:
+    """Public, synchronous rate-limit gate for the endpoint.
+
+    Runs on the request path because it has to be able to answer 429. It only
+    touches a process-local dict, so it costs the same for every email and
+    doesn't reintroduce the timing oracle.
+    """
+    _check_email_rate_limit(email.strip().lower())
+
+
+async def process_password_reset(
+    session_factory,
+    email: str,
+    settings: Settings,
+) -> None:
+    """Background entry point: look up the user, issue a token, send the mail.
+
+    Runs after the response has been sent, on its own session — the
+    request-scoped one is closed by then. Never raises: there is nobody left
+    to return an error to, and a failure here must not take down the worker.
+    """
+    try:
+        async with session_factory() as db:
+            await _issue_and_send_reset(db, email, settings)
+    except Exception:
+        logger.exception("password_reset.background_failed")
+
+
 async def request_password_reset(
     db: AsyncSession,
     email: str,
     settings: Settings,
 ) -> None:
-    """Issue a reset token if the email maps to an active user, then send
-    the reset email. Silently no-ops for unknown emails so the API surface
-    never reveals whether an account exists.
+    """Rate-limit, then issue + send inline.
 
-    Rate limit (per email, 3/hr) happens BEFORE the user lookup so an
-    attacker can't bypass it by churning through email variants — and
-    because the limit is per-email, hitting it on a fake address can't be
-    used to lock out a real one.
+    The HTTP endpoint does NOT use this — it rate-limits and defers the rest to
+    ``process_password_reset`` so the response is timing-safe. This inline form
+    remains for direct callers (and tests) that want to await the whole flow.
     """
+    _check_email_rate_limit(email.strip().lower())
+    await _issue_and_send_reset(db, email, settings)
+
+
+async def _issue_and_send_reset(
+    db: AsyncSession,
+    email: str,
+    settings: Settings,
+) -> None:
+    """Issue a reset token if the email maps to an active user, then send the
+    reset email. Silently no-ops for unknown emails so the API surface never
+    reveals whether an account exists."""
     normalized = email.strip().lower()
-    _check_email_rate_limit(normalized)
 
     result = await db.execute(select(User).where(User.email == normalized))
     user = result.scalar_one_or_none()
 
-    # TODO: timing-safe response. We currently return immediately for
-    # unknown emails, which is faster than the real path (DB insert +
-    # SMTP send). A patient attacker could distinguish responses by
-    # latency. Acceptable for admin-only v1; fix before open signup.
     if user is None or not user.is_active:
         logger.info(
             "password_reset.request unknown_or_inactive email=%s — silent no-op",

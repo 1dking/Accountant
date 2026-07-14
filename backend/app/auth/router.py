@@ -5,7 +5,17 @@ import time
 from typing import Annotated
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    UploadFile,
+    status,
+)
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -160,21 +170,35 @@ async def logout(
 @router.post("/password-reset/request")
 async def password_reset_request_endpoint(
     body: PasswordResetRequest,
-    db: Annotated[AsyncSession, Depends(get_db)],
+    background_tasks: BackgroundTasks,
     request: Request,
 ) -> dict:
     """Trigger a password reset email. Always returns 200 to prevent
     account enumeration — the response is identical whether or not the
-    email maps to a real user."""
-    from app.auth.password_reset import request_password_reset
+    email maps to a real user, in both content and latency.
+
+    The lookup, token write and SMTP send are deferred to a background task
+    that runs after this response is sent. Done inline, the real path paid for
+    a DB insert plus an SMTP connection while an unknown email returned
+    immediately — an attacker could tell the two apart with a stopwatch.
+    """
+    from app.auth.password_reset import check_reset_rate_limit, process_password_reset
 
     try:
-        await request_password_reset(db, body.email, request.app.state.settings)
+        check_reset_rate_limit(body.email)
     except RateLimitError:
         # Surface rate-limit so legitimate users see "slow down" rather
         # than a silent black-hole. Email-only gating means this isn't
         # an enumeration oracle.
         raise
+
+    background_tasks.add_task(
+        process_password_reset,
+        request.app.state.session_factory,
+        body.email,
+        request.app.state.settings,
+    )
+
     return {
         "data": {
             "message": (

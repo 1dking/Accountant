@@ -46,6 +46,44 @@ async def _reset_rate_limit_store():
     password_reset._reset_attempts.clear()
 
 
+@pytest.mark.critical
+class TestTimingSafety:
+    """The endpoint used to do the user lookup, token insert and SMTP send
+    inline, so a real account cost ~an SMTP round-trip more than an unknown
+    one — measurable from outside and a clean account-enumeration oracle.
+
+    An in-process latency assertion can't prove the fix (httpx's ASGI transport
+    drains background tasks before returning, and CI timing is noisy), so pin
+    the structural property instead: the request path must defer the work.
+    """
+
+    def test_endpoint_defers_the_expensive_work_to_a_background_task(self):
+        import inspect
+
+        from app.auth import router as auth_router
+
+        source = inspect.getsource(auth_router.password_reset_request_endpoint)
+
+        assert "background_tasks.add_task" in source, (
+            "the lookup/insert/SMTP send must run after the response, or the "
+            "response time leaks whether the account exists"
+        )
+        assert "await request_password_reset" not in source, (
+            "request_password_reset does the work inline — awaiting it from the "
+            "endpoint reintroduces the timing oracle"
+        )
+
+    def test_rate_limit_still_runs_on_the_request_path(self):
+        """It has to: it's the one thing that must be able to answer 429. It
+        only reads a process-local dict, so it costs the same for any email."""
+        import inspect
+
+        from app.auth import router as auth_router
+
+        source = inspect.getsource(auth_router.password_reset_request_endpoint)
+        assert "check_reset_rate_limit" in source
+
+
 @pytest.mark.high
 class TestRequestEndpoint:
     async def test_unknown_email_returns_200_no_token(

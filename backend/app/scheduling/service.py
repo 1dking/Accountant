@@ -527,8 +527,18 @@ async def cancel_booking_by_token(
 # ---------------------------------------------------------------------------
 
 
-def generate_ics(booking: CalendarBooking, calendar_name: str, org_name: str = "") -> str:
-    """Generate an .ics calendar invite for a booking."""
+def generate_ics(
+    booking: CalendarBooking,
+    calendar_name: str,
+    org_name: str = "",
+    organizer_email: str = "",
+) -> str:
+    """Generate an .ics calendar invite for a booking.
+
+    ``organizer_email`` must be a real, monitored address: calendar clients
+    route replies, reschedules and cancellations to ORGANIZER. It used to be
+    hardcoded to noreply@example.com, so every one of those bounced.
+    """
     uid = str(booking.id)
     start = booking.start_time
     end = booking.end_time
@@ -561,7 +571,12 @@ def generate_ics(booking: CalendarBooking, calendar_name: str, org_name: str = "
         f"SUMMARY:{summary}",
         f"DESCRIPTION:{description}",
         f"LOCATION:{location}",
-        f"ORGANIZER;CN={org_name}:mailto:noreply@example.com",
+    ]
+
+    if organizer_email:
+        lines.append(f"ORGANIZER;CN={org_name}:mailto:{organizer_email}")
+
+    lines += [
         f"ATTENDEE;CN={booking.guest_name}:mailto:{booking.guest_email}",
         "STATUS:CONFIRMED",
         "END:VEVENT",
@@ -591,8 +606,17 @@ async def send_booking_confirmation(
         company = await get_company_settings(db)
         org_name = company.company_name if company and company.company_name else "Our Team"
 
+        # Replies/cancellations go to ORGANIZER, so prefer the address the
+        # business actually publishes, and fall back to the address this mail
+        # is being sent from — both are monitored; example.com was not.
+        organizer_email = (
+            (company.company_email if company and company.company_email else None)
+            or smtp_config.from_email
+            or ""
+        )
+
         cal = await get_calendar(db, booking.calendar_id)
-        ics_content = generate_ics(booking, cal.name, org_name)
+        ics_content = generate_ics(booking, cal.name, org_name, organizer_email)
 
         start_fmt = booking.start_time.strftime("%A, %B %d, %Y at %I:%M %p UTC")
         meeting_type_label = ""
