@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.auth.models import User
-from app.core.authorization import apply_ownership_filter, authorize_owner
+from app.core.authorization import apply_shared_filter, authorize_shared
 from app.core.exceptions import NotFoundError, ValidationError, ForbiddenError
 from app.core.pagination import PaginationParams, build_pagination_meta
 from app.proposals.models import (
@@ -140,7 +140,7 @@ async def get_proposal(db: AsyncSession, proposal_id: uuid.UUID, user: User | No
     if not proposal:
         raise NotFoundError("Proposal", str(proposal_id))
     if user is not None:
-        authorize_owner(proposal.created_by, user, "Proposal")
+        authorize_shared(proposal.created_by, user, "Proposal")
     return proposal
 
 
@@ -153,9 +153,9 @@ async def list_proposals(
     """List proposals with filtering and pagination."""
     query = select(Proposal).options(selectinload(Proposal.contact))
 
-    # Ownership filter: non-admins only see their own proposals
+    # Staff share the book of business; non-staff (CLIENT) see only their own.
     if user is not None:
-        query = apply_ownership_filter(query, Proposal.created_by, user)
+        query = apply_shared_filter(query, Proposal.created_by, user)
 
     if filters.search:
         search = f"%{filters.search}%"

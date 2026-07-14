@@ -4,11 +4,43 @@ Role-based access control (RBAC) implementation for the Accountant platform.
 
 ## Role Hierarchy
 
-| Role | Level | Description |
-|------|-------|-------------|
-| `admin` | Highest | Full system access, user management, destructive operations |
-| `accountant` | Standard | Financial operations, document management, client interactions |
-| `viewer` | Lowest | Read-only access to documents and reports |
+| Role | Staff? | Description |
+|------|--------|-------------|
+| `admin` | yes | Full system access, user management, destructive operations |
+| `team_member` | yes | Create/read/update business records. Cannot delete (admin only) |
+| `accountant` | yes | Financial operations, document management, client interactions |
+| `viewer` | yes | Read-only access to business records and reports |
+| `client` | **no** | Portal user. An outsider, scoped to their own contact |
+
+## The two access layers
+
+**1. Route layer — what a role may DO.** `require_role([...])` on the endpoint.
+This is where "a viewer can't create", "a team member can't delete", and "a
+client is refused" are enforced.
+
+**2. Service layer — which RECORDS a user may touch.** Two different checks,
+and picking the wrong one is a security bug:
+
+| Helper | Use for | Rule |
+|--------|---------|------|
+| `authorize_shared` / `apply_shared_filter` | **Shared business records**: contacts, invoices, estimates, proposals, income, expenses, budgets, recurring, tasks | Any **staff** role may reach them. Non-staff (`client`) must own the record. |
+| `authorize_owner` / `apply_ownership_filter` | **Private resources**: Drive documents, meetings, SMTP configs (which hold encrypted credentials) | Only the creator, or an admin. |
+| `authorize_cashbook_owner` / `apply_cashbook_filter` | Cashbook | Org-scoped when `cashbook_access == "org"`, else personal. |
+
+Staff share one book of business. Requiring **ownership on top of** the role
+matrix is a bug, not extra safety: a `viewer` creates nothing, so an ownership
+gate means it can see nothing — the role becomes useless by construction — and
+two team members cannot see each other's contacts, which defeats a shared CRM.
+
+### Why `client` must never be in `STAFF_ROLES`
+
+The contacts list/get endpoints are gated by `get_current_user`, **not**
+`require_role` — so any authenticated user, `client` included, reaches the
+service layer. The shared/owner filter is therefore the *only* thing standing
+between a portal user and the entire contact book. Because `client` is not
+staff, it falls back to the owner filter and sees nothing. Adding `client` to
+`STAFF_ROLES` would expose every contact, invoice and proposal to every portal
+user. See `tests/integration/test_permission_model.py`.
 
 ## Authentication Flow
 

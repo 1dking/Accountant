@@ -745,12 +745,30 @@ async def list_entries(
     return entries_with_balance, meta
 
 
-async def get_entry(db: AsyncSession, entry_id: uuid.UUID, user: User | None = None) -> CashbookEntry:
-    result = await db.execute(
+async def get_entry(
+    db: AsyncSession,
+    entry_id: uuid.UUID,
+    user: User | None = None,
+    include_deleted: bool = False,
+) -> CashbookEntry:
+    """Fetch an entry by id.
+
+    Soft-deleted entries are invisible by default. The list query already
+    excluded them, but this didn't — so a deleted entry stayed fetchable by id
+    and GET returned 200 for something the user had just deleted.
+
+    ``include_deleted`` exists for the paths that legitimately act on trashed
+    rows (restore, hard delete).
+    """
+    query = (
         select(CashbookEntry)
         .options(selectinload(CashbookEntry.category))
         .where(CashbookEntry.id == entry_id)
     )
+    if not include_deleted:
+        query = query.where(CashbookEntry.is_deleted.is_(False))
+
+    result = await db.execute(query)
     entry = result.scalar_one_or_none()
     if entry is None:
         raise NotFoundError("CashbookEntry", str(entry_id))
@@ -847,7 +865,8 @@ async def restore_entry(db: AsyncSession, entry_id: uuid.UUID, user: User) -> Ca
 
 async def hard_delete_entry(db: AsyncSession, entry_id: uuid.UUID, user: User) -> None:
     """Permanently delete a cashbook entry."""
-    entry = await get_entry(db, entry_id, user)
+    # Purging from the trash acts on an already soft-deleted row.
+    entry = await get_entry(db, entry_id, user, include_deleted=True)
     await db.delete(entry)
     await db.commit()
 

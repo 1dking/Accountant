@@ -11,7 +11,7 @@ from sqlalchemy.orm import selectinload
 
 from app.auth.models import User
 from app.collaboration.service import log_activity
-from app.core.authorization import apply_ownership_filter, authorize_owner
+from app.core.authorization import apply_shared_filter, authorize_shared
 from app.core.exceptions import NotFoundError, ValidationError
 from app.core.pagination import PaginationParams, build_pagination_meta
 from app.invoicing.models import Invoice, InvoiceLineItem, InvoicePayment, InvoiceStatus
@@ -136,7 +136,7 @@ async def list_invoices(
     db: AsyncSession, filters: InvoiceFilter, pagination: PaginationParams, user: User
 ) -> tuple[list[Invoice], dict]:
     query = select(Invoice).options(selectinload(Invoice.contact))
-    query = apply_ownership_filter(query, Invoice.created_by, user)
+    query = apply_shared_filter(query, Invoice.created_by, user)
 
     if filters.search:
         term = f"%{filters.search}%"
@@ -178,7 +178,7 @@ async def get_invoice(db: AsyncSession, invoice_id: uuid.UUID, user: User) -> In
     invoice = result.scalar_one_or_none()
     if invoice is None:
         raise NotFoundError("Invoice", str(invoice_id))
-    authorize_owner(invoice.created_by, user, "Invoice")
+    authorize_shared(invoice.created_by, user, "Invoice")
     return invoice
 
 
@@ -268,7 +268,7 @@ async def record_payment(
     invoice = result.unique().scalar_one_or_none()
     if invoice is None:
         raise NotFoundError("Invoice", str(invoice_id))
-    authorize_owner(invoice.created_by, user, "Invoice")
+    authorize_shared(invoice.created_by, user, "Invoice")
 
     payment = InvoicePayment(
         invoice_id=invoice.id,
@@ -339,13 +339,13 @@ async def get_invoice_stats(db: AsyncSession, user: User) -> dict:
     outstanding_q = select(func.coalesce(func.sum(Invoice.total), 0)).where(
         Invoice.status.in_([InvoiceStatus.SENT, InvoiceStatus.VIEWED, InvoiceStatus.PARTIALLY_PAID])
     )
-    outstanding_q = apply_ownership_filter(outstanding_q, Invoice.created_by, user)
+    outstanding_q = apply_shared_filter(outstanding_q, Invoice.created_by, user)
     total_outstanding = (await db.execute(outstanding_q)).scalar() or 0
 
     overdue_q = select(func.coalesce(func.sum(Invoice.total), 0)).where(
         Invoice.status == InvoiceStatus.OVERDUE
     )
-    overdue_q = apply_ownership_filter(overdue_q, Invoice.created_by, user)
+    overdue_q = apply_shared_filter(overdue_q, Invoice.created_by, user)
     total_overdue = (await db.execute(overdue_q)).scalar() or 0
 
     paid_q = select(func.coalesce(func.sum(InvoicePayment.amount), 0)).where(
@@ -354,11 +354,11 @@ async def get_invoice_stats(db: AsyncSession, user: User) -> dict:
     )
     # Filter payments by joining to the invoice ownership
     paid_q = paid_q.join(Invoice, InvoicePayment.invoice_id == Invoice.id)
-    paid_q = apply_ownership_filter(paid_q, Invoice.created_by, user)
+    paid_q = apply_shared_filter(paid_q, Invoice.created_by, user)
     total_paid = (await db.execute(paid_q)).scalar() or 0
 
     count_q = select(func.count(Invoice.id))
-    count_q = apply_ownership_filter(count_q, Invoice.created_by, user)
+    count_q = apply_shared_filter(count_q, Invoice.created_by, user)
     invoice_count = (await db.execute(count_q)).scalar() or 0
 
     return {

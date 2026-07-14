@@ -1,37 +1,36 @@
 # Known-failing tests — QUARANTINE, NOT FORGIVENESS
 #
-# These 22 tests fail on `main` and failed before any of the current work
-# (verified against a clean worktree at 9d4a1b1). They are deselected in CI so
-# the suite can be a real blocking gate: with them included CI is red on day
-# one, and a permanently-red gate is one nobody reads, which is how 22 broken
-# tests went unnoticed in the first place (there was no CI at all).
+# These fail on `main` and failed before the current work (verified against a
+# clean worktree at 9d4a1b1). They are deselected in CI so the suite can be a
+# real blocking gate: with them included CI is red on day one, and a
+# permanently-red gate is one nobody reads — which is how these went unnoticed
+# in the first place (there was no CI at all).
 #
 # Deselecting them means NEW breakage blocks a PR. It does not mean these are
 # fine. They are real bugs. Burn this list down and delete this file.
 #
-# ---------------------------------------------------------------------------
-# GROUP 1 — non-admin roles get 404 on records they don't own (8 tests)
-# ---------------------------------------------------------------------------
-# Root cause: app/core/authorization.py:24 `authorize_owner()` — only ADMIN
-# bypasses the ownership check, so a VIEWER / TEAM_MEMBER / ACCOUNTANT reading
-# a contact created by someone else gets NotFoundError (404). The tests expect
-# a viewer to be able to READ a contact they don't own.
+# A CI step re-runs everything listed here and FAILS if any of them passes, so
+# a fixed test cannot be left rotting in quarantine.
 #
-# This is a product decision about the permission model, not a typo: fixing it
-# widens data access. Someone needs to decide whether the model is
-# "ownership gates reads too" (tests are wrong) or
-# "ownership gates writes; org members can read" (authorization.py is wrong).
-tests/api/test_permissions.py::test_viewer_can_read_contacts
-tests/api/test_permissions.py::test_team_member_can_read_contacts
-tests/api/test_permissions.py::test_team_member_can_update_contact
-tests/api/test_contacts.py::test_viewer_can_read_but_not_create
-tests/api/test_contact_tags.py::test_viewer_cannot_modify_tags
-tests/api/test_contact_activities.py::test_viewer_cannot_add_activity
-tests/api/test_file_shares.py::test_viewer_can_list_file_shares
-tests/api/test_cashbook.py::test_crud_entries
-
 # ---------------------------------------------------------------------------
-# GROUP 2 — meetings / LiveKit egress (14 tests)
+# RESOLVED — permission model (8 tests, was GROUP 1)
+# ---------------------------------------------------------------------------
+# Fixed. Root cause was app/core/authorization.py: only ADMIN bypassed the
+# ownership check, so a VIEWER / TEAM_MEMBER / ACCOUNTANT got a 404 on any
+# record they didn't personally create — which made the VIEWER role useless by
+# construction and stopped team members from sharing a CRM.
+#
+# Ownership is no longer a second gate on shared business records; the route
+# layer's require_role already decides what each role may do. Private resources
+# (documents, meetings, SMTP configs) remain strictly owner-scoped, and CLIENT
+# is deliberately NOT staff. See security/access_control.md and
+# tests/integration/test_permission_model.py.
+#
+# A cashbook soft-delete bug (get_entry didn't hide deleted rows, so a deleted
+# entry still returned 200) was fixed alongside it.
+#
+# ---------------------------------------------------------------------------
+# OPEN — meetings / LiveKit egress (14 tests)
 # ---------------------------------------------------------------------------
 # Not yet diagnosed. Clustered entirely in the meetings + egress area, which is
 # also where the most recent feature work landed (commits 7-29).

@@ -29,7 +29,7 @@ from app.accounting.schemas import (
     VendorSpend,
 )
 from app.auth.models import User
-from app.core.authorization import apply_ownership_filter, authorize_owner
+from app.core.authorization import apply_shared_filter, authorize_shared
 from app.core.exceptions import ConflictError, ForbiddenError, NotFoundError, ValidationError
 from app.core.pagination import PaginationParams, build_pagination_meta
 from app.documents.models import Document
@@ -323,9 +323,9 @@ async def list_expenses(
         selectinload(Expense.line_items),
     )
 
-    # Ownership filter: non-admins only see their own expenses
+    # Staff share the book of business; non-staff (CLIENT) see only their own.
     if user is not None:
-        query = apply_ownership_filter(query, Expense.user_id, user)
+        query = apply_shared_filter(query, Expense.user_id, user)
 
     if filters.search:
         search_term = f"%{filters.search}%"
@@ -379,7 +379,7 @@ async def get_expense(db: AsyncSession, expense_id: uuid.UUID, user: User | None
     if expense is None:
         raise NotFoundError("Expense", str(expense_id))
     if user is not None:
-        authorize_owner(expense.user_id, user, "Expense")
+        authorize_shared(expense.user_id, user, "Expense")
     return expense
 
 

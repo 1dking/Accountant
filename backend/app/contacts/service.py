@@ -26,7 +26,7 @@ from app.contacts.schemas import (
     FileShareCreate,
     InvitationCreate,
 )
-from app.core.authorization import apply_ownership_filter, authorize_owner
+from app.core.authorization import apply_shared_filter, authorize_shared
 from app.core.exceptions import ConflictError, NotFoundError
 from app.core.pagination import PaginationParams, build_pagination_meta
 
@@ -68,7 +68,7 @@ async def list_contacts(
     query = select(Contact)
 
     if user is not None:
-        query = apply_ownership_filter(query, Contact.created_by, user)
+        query = apply_shared_filter(query, Contact.created_by, user)
 
     if filters.search:
         term = f"%{filters.search}%"
@@ -111,7 +111,7 @@ async def get_contact(db: AsyncSession, contact_id: uuid.UUID, user: User | None
     if contact is None:
         raise NotFoundError("Contact", str(contact_id))
     if user is not None:
-        authorize_owner(contact.created_by, user, "Contact")
+        authorize_shared(contact.created_by, user, "Contact")
     return contact
 
 
@@ -119,7 +119,7 @@ async def update_contact(
     db: AsyncSession, contact_id: uuid.UUID, data: ContactUpdate, user: User
 ) -> Contact:
     contact = await get_contact(db, contact_id)
-    authorize_owner(contact.created_by, user, "Contact")
+    authorize_shared(contact.created_by, user, "Contact")
     update_data = data.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(contact, key, value)
@@ -141,7 +141,7 @@ async def update_contact(
 async def delete_contact(db: AsyncSession, contact_id: uuid.UUID, user: User | None = None) -> None:
     contact = await get_contact(db, contact_id)
     if user is not None:
-        authorize_owner(contact.created_by, user, "Contact")
+        authorize_shared(contact.created_by, user, "Contact")
 
     from app.invoicing.models import Invoice
     from app.estimates.models import Estimate
@@ -224,7 +224,7 @@ async def remove_tag(
 async def bulk_tag(
     db: AsyncSession, contact_ids: list[uuid.UUID], tag_name: str, user: User
 ) -> int:
-    # Authorize ownership of each contact before tagging
+    # Check access to each contact before tagging
     for cid in contact_ids:
         await get_contact(db, cid, user=user)
 
@@ -261,7 +261,7 @@ async def list_all_tag_names(db: AsyncSession, user: User | None = None) -> list
     query = select(ContactTag.tag_name).distinct().order_by(ContactTag.tag_name)
     if user is not None:
         owned_contacts = select(Contact.id)
-        owned_contacts = apply_ownership_filter(owned_contacts, Contact.created_by, user)
+        owned_contacts = apply_shared_filter(owned_contacts, Contact.created_by, user)
         query = query.where(ContactTag.contact_id.in_(owned_contacts))
     result = await db.execute(query)
     return [r[0] for r in result.all()]
@@ -335,7 +335,7 @@ async def find_duplicates(db: AsyncSession, user: User | None = None) -> list[di
     # Base filter for ownership
     base_filter = select(Contact.id)
     if user is not None:
-        base_filter = apply_ownership_filter(base_filter, Contact.created_by, user)
+        base_filter = apply_shared_filter(base_filter, Contact.created_by, user)
 
     # Email duplicates
     email_q = (
@@ -350,7 +350,7 @@ async def find_duplicates(db: AsyncSession, user: User | None = None) -> list[di
     for row in email_rows:
         ids_q = select(Contact.id).where(Contact.email == row[0])
         if user is not None:
-            ids_q = apply_ownership_filter(ids_q, Contact.created_by, user)
+            ids_q = apply_shared_filter(ids_q, Contact.created_by, user)
         ids = [r[0] for r in (await db.execute(ids_q)).all()]
         groups.append({"field": "email", "value": row[0], "contact_ids": ids})
 
@@ -367,7 +367,7 @@ async def find_duplicates(db: AsyncSession, user: User | None = None) -> list[di
     for row in phone_rows:
         ids_q = select(Contact.id).where(Contact.phone == row[0])
         if user is not None:
-            ids_q = apply_ownership_filter(ids_q, Contact.created_by, user)
+            ids_q = apply_shared_filter(ids_q, Contact.created_by, user)
         ids = [r[0] for r in (await db.execute(ids_q)).all()]
         groups.append({"field": "phone", "value": row[0], "contact_ids": ids})
 

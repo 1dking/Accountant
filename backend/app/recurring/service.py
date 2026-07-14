@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import User
-from app.core.authorization import apply_ownership_filter, authorize_owner
+from app.core.authorization import apply_shared_filter, authorize_shared
 from app.core.exceptions import NotFoundError
 from app.core.pagination import PaginationParams, build_pagination_meta
 from app.recurring.models import Frequency, RecurringRule, RecurringType
@@ -53,7 +53,7 @@ async def list_rules(
     from sqlalchemy import func
 
     base = select(RecurringRule)
-    base = apply_ownership_filter(base, RecurringRule.created_by, user)
+    base = apply_shared_filter(base, RecurringRule.created_by, user)
 
     count_q = select(func.count()).select_from(base.subquery())
     total = (await db.execute(count_q)).scalar() or 0
@@ -76,7 +76,7 @@ async def get_rule(db: AsyncSession, rule_id: uuid.UUID, user: User | None = Non
     if rule is None:
         raise NotFoundError("RecurringRule", str(rule_id))
     if user is not None:
-        authorize_owner(rule.created_by, user, "RecurringRule")
+        authorize_shared(rule.created_by, user, "RecurringRule")
     return rule
 
 
@@ -190,6 +190,6 @@ async def get_upcoming_rules(db: AsyncSession, user: User, days: int = 30) -> li
         )
         .order_by(RecurringRule.next_run_date)
     )
-    query = apply_ownership_filter(query, RecurringRule.created_by, user)
+    query = apply_shared_filter(query, RecurringRule.created_by, user)
     result = await db.execute(query)
     return list(result.scalars().all())
