@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import logging
 import secrets
 import uuid
 from datetime import datetime, timezone
@@ -37,6 +38,8 @@ from app.proposals.schemas import (
     TemplateCreate,
     TemplateUpdate,
 )
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -248,36 +251,88 @@ async def clone_proposal(db: AsyncSession, proposal_id: uuid.UUID, user: User) -
 # Proposal sending & status
 # ---------------------------------------------------------------------------
 
-async def send_proposal(db: AsyncSession, proposal_id: uuid.UUID, user: User) -> Proposal:
-    """Mark proposal as sent and generate public token + signing tokens."""
+async def send_proposal(
+    db: AsyncSession,
+    proposal_id: uuid.UUID,
+    user: User,
+    smtp_config_id: uuid.UUID | None = None,
+    custom_message: str | None = None,
+) -> Proposal:
+    """Email the proposal to its recipients and mark it sent.
+
+    Tokens are minted and committed *before* the emails go out, because the
+    signing links embed them and a recipient may click before we finish. The
+    SENT status is only applied *after* at least one email actually lands — a
+    proposal nobody received must stay in DRAFT so it can be retried, rather
+    than sitting in SENT forever waiting on a signature that can't happen.
+    """
+    from app.email.service import send_proposal_email
+
     proposal = await get_proposal(db, proposal_id, user)
     if proposal.status not in (ProposalStatus.DRAFT,):
         raise ValidationError(f"Cannot send proposal with status: {proposal.status.value}")
+    if not proposal.recipients:
+        raise ValidationError("Cannot send a proposal with no recipients")
 
-    proposal.status = ProposalStatus.SENT
-    proposal.sent_at = datetime.now(timezone.utc)
-    proposal.public_token = secrets.token_urlsafe(32)
-
-    # Ensure all recipients have signing tokens
+    # Mint tokens and persist them before sending.
+    if not proposal.public_token:
+        proposal.public_token = secrets.token_urlsafe(32)
     for r in proposal.recipients:
         if not r.signing_token:
             r.signing_token = secrets.token_urlsafe(32)
+    await db.commit()
 
-    activity = ProposalActivity(
-        proposal_id=proposal.id,
-        action="sent",
-        actor_email=user.email,
-        actor_name=user.full_name,
+    result = await send_proposal_email(
+        db,
+        proposal_id,
+        smtp_config_id,
+        user,
+        custom_message=custom_message,
     )
-    db.add(activity)
+
+    # Re-read after the network round-trip so we write against current state.
+    # Deliberately NOT db.rollback() first: the send only SELECTs and then does
+    # network I/O, so the transaction is clean — and rollback() would expire
+    # every object in the identity map, including the `user` from the auth
+    # dependency, whose next sync attribute access would lazy-load and blow up.
+    proposal = await get_proposal(db, proposal_id, user)
+
+    sent: list[str] = result.get("sent", [])
+    failed: list[dict] = result.get("failed", [])
+
+    if not sent:
+        db.add(
+            ProposalActivity(
+                proposal_id=proposal.id,
+                action="send_failed",
+                actor_email=user.email,
+                actor_name=user.full_name,
+                metadata_json=json.dumps({"failed": failed}),
+            )
+        )
+        await db.commit()
+        errors = "; ".join(f"{f['email']}: {f['error']}" for f in failed) or "unknown error"
+        raise ValidationError(f"Proposal could not be emailed to any recipient ({errors})")
+
+    proposal.status = ProposalStatus.SENT
+    proposal.sent_at = datetime.now(timezone.utc)
+
+    db.add(
+        ProposalActivity(
+            proposal_id=proposal.id,
+            action="sent",
+            actor_email=user.email,
+            actor_name=user.full_name,
+            metadata_json=json.dumps({"sent": sent, "failed": failed}),
+        )
+    )
 
     await db.commit()
-    await db.refresh(proposal)
 
-    # Send emails to recipients (fire-and-forget)
-    # This would be handled by the email service in production
-
-    return proposal
+    # Re-fetch rather than refresh(): refresh() expires the eager-loaded
+    # relationships without reloading them, so the caller's serialization
+    # would lazy-load them outside the async context.
+    return await get_proposal(db, proposal_id, user)
 
 
 async def mark_viewed(db: AsyncSession, proposal_id: uuid.UUID, ip_address: str | None = None, user_agent: str | None = None) -> Proposal:
@@ -895,50 +950,126 @@ async def toggle_follow_up_rule(db: AsyncSession, rule_id: uuid.UUID, is_active:
     return rule
 
 
+async def _send_follow_up(db: AsyncSession, rule: FollowUpRule, proposal: Proposal, settings) -> None:
+    """Dispatch one follow-up over the rule's channel.
+
+    Raises on failure so the caller can leave ``send_count`` alone — a rule
+    that reports "3 follow-ups sent" for messages that never left is worse
+    than one that visibly hasn't fired.
+    """
+    from app.email.service import send_proposal_email
+
+    owner = (
+        await db.execute(select(User).where(User.id == rule.created_by))
+    ).scalar_one_or_none()
+    if owner is None:
+        raise ValidationError(f"Follow-up rule {rule.id} has no valid owner")
+
+    if rule.channel == "sms":
+        from app.integrations.twilio.service import send_sms
+
+        contact = proposal.contact
+        if contact is None or not contact.phone:
+            raise ValidationError("Contact has no phone number for SMS follow-up")
+        if getattr(contact, "dnd_enabled", False):
+            raise ValidationError("Contact is DND")
+
+        message = rule.message_template or (
+            f"Reminder: your proposal {proposal.proposal_number} is awaiting signature."
+        )
+        await send_sms(
+            db=db, to=contact.phone, message=message, user=owner, settings=settings
+        )
+        return
+
+    # Default channel: email. Reuses the per-recipient signing-link sender so
+    # each signer still gets their own token in the reminder.
+    result = await send_proposal_email(
+        db,
+        proposal.id,
+        None,
+        owner,
+        template_key="proposal_follow_up",
+        custom_message=rule.message_template,
+    )
+    if not result.get("sent"):
+        failures = "; ".join(
+            f"{f['email']}: {f['error']}" for f in result.get("failed", [])
+        )
+        raise ValidationError(f"Follow-up reached nobody ({failures or 'unknown error'})")
+
+
 async def process_pending_follow_ups(db: AsyncSession, settings) -> int:
-    """Process all pending follow-ups (called by a scheduler/cron)."""
+    """Send any follow-ups that have come due. Called by the scheduler.
+
+    Returns the number of follow-ups actually dispatched.
+    """
     now = datetime.now(timezone.utc)
     count = 0
 
-    # Get active rules
     result = await db.execute(
         select(FollowUpRule).where(FollowUpRule.is_active.is_(True))
     )
     rules = list(result.scalars().all())
 
     for rule in rules:
-        if rule.resource_type == "proposal":
-            proposal_result = await db.execute(
-                select(Proposal).where(Proposal.id == rule.resource_id)
-            )
-            proposal = proposal_result.scalar_one_or_none()
-            if not proposal:
+        if rule.resource_type != "proposal":
+            continue
+
+        proposal_result = await db.execute(
+            select(Proposal)
+            .options(selectinload(Proposal.contact), selectinload(Proposal.recipients))
+            .where(Proposal.id == rule.resource_id)
+        )
+        proposal = proposal_result.scalar_one_or_none()
+        if not proposal:
+            continue
+
+        if rule.trigger_event != "not_signed" or not proposal.sent_at:
+            continue
+        if proposal.status not in (ProposalStatus.SENT, ProposalStatus.VIEWED):
+            continue
+
+        hours_since_sent = (now - proposal.sent_at).total_seconds() / 3600
+        if hours_since_sent < rule.delay_hours:
+            continue
+
+        # Don't re-nag inside the rule's own cadence.
+        if rule.last_sent_at:
+            hours_since_last = (now - rule.last_sent_at).total_seconds() / 3600
+            if hours_since_last < rule.delay_hours:
                 continue
 
-            # Check if follow-up is due
-            if rule.trigger_event == "not_signed" and proposal.sent_at:
-                hours_since_sent = (now - proposal.sent_at).total_seconds() / 3600
-                if hours_since_sent >= rule.delay_hours and proposal.status in (ProposalStatus.SENT, ProposalStatus.VIEWED):
-                    # Check if we already sent recently
-                    if rule.last_sent_at:
-                        hours_since_last = (now - rule.last_sent_at).total_seconds() / 3600
-                        if hours_since_last < rule.delay_hours:
-                            continue
+        try:
+            await _send_follow_up(db, rule, proposal, settings)
+        except Exception as exc:  # noqa: BLE001 — one bad rule must not stall the rest
+            logger.exception(
+                "Follow-up rule %s failed for proposal %s", rule.id, proposal.id
+            )
+            db.add(
+                ProposalActivity(
+                    proposal_id=proposal.id,
+                    action="follow_up_failed",
+                    metadata_json=json.dumps(
+                        {"channel": rule.channel, "error": str(exc)}
+                    ),
+                )
+            )
+            continue
 
-                    # TODO: Send follow-up email/SMS via email service
-                    rule.last_sent_at = now
-                    rule.send_count += 1
-
-                    activity = ProposalActivity(
-                        proposal_id=proposal.id,
-                        action="follow_up_sent",
-                        metadata_json=json.dumps({
-                            "channel": rule.channel,
-                            "send_count": rule.send_count,
-                        }),
-                    )
-                    db.add(activity)
-                    count += 1
+        # Only now — after something actually went out — record the send.
+        rule.last_sent_at = now
+        rule.send_count += 1
+        db.add(
+            ProposalActivity(
+                proposal_id=proposal.id,
+                action="follow_up_sent",
+                metadata_json=json.dumps(
+                    {"channel": rule.channel, "send_count": rule.send_count}
+                ),
+            )
+        )
+        count += 1
 
     await db.commit()
     return count

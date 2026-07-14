@@ -46,6 +46,8 @@ _URL_VARS = frozenset({
     "link_url",
     "view_url",
     "preferences_url",
+    "action_url",
+    "payment_url",
 })
 
 _PLACEHOLDER_RE = re.compile(r"\{([a-zA-Z_][a-zA-Z0-9_]*)\}")

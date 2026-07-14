@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 style="margin-top:0;">Still waiting on your signature</h2>
+
+<p>Hi {{ recipient_name }},</p>
+
+{% if custom_message %}
+<p>{{ custom_message }}</p>
+{% else %}
+<p>
+  Just a quick reminder that {{ sender_name }} sent you a proposal
+  &mdash; <strong>{{ proposal.title }}</strong> &mdash; that's still
+  waiting on your review.
+</p>
+{% endif %}
+
+<div style="margin:20px 0;">
+  <div class="detail-row"><span class="detail-label">Proposal</span><span class="detail-value">{{ proposal.proposal_number }}</span></div>
+  {% if proposal.value %}
+  <div class="detail-row"><span class="detail-label">Value</span><span class="detail-value">${{ "%.2f" | format(proposal.value) }} {{ proposal.currency }}</span></div>
+  {% endif %}
+</div>
+
+{% if action_url %}
+<div style="text-align:center;margin-top:24px;">
+  <a href="{{ action_url }}" class="btn">
+    {% if is_signer %}Review &amp; Sign Proposal{% else %}View Proposal{% endif %}
+  </a>
+</div>
+{% endif %}
+{% endblock %}

@@ -103,6 +103,7 @@ TEMPLATES: dict[str, TemplateSchema] = {
             "due_date",
             "contact_name",
             "custom_message",
+            "payment_url",
             "company_name",
         ],
         "allows_body_override": False,
@@ -122,6 +123,7 @@ TEMPLATES: dict[str, TemplateSchema] = {
             "currency",
             "days_overdue",
             "contact_name",
+            "payment_url",
             "company_name",
         ],
         "allows_body_override": False,
@@ -149,6 +151,52 @@ TEMPLATES: dict[str, TemplateSchema] = {
             "This template includes a line-items table. Subject "
             "is editable; body override is disabled."
         ],
+    },
+    "proposal": {
+        "label": "Proposal email",
+        "description": (
+            "Sent to each recipient when a proposal is dispatched. Signers "
+            "receive a unique signing link; other recipients get a read-only "
+            "view link."
+        ),
+        "default_subject": "{sender_name} sent you a proposal: {proposal_title}",
+        "variables": [
+            "proposal_number",
+            "proposal_title",
+            "value",
+            "currency",
+            "recipient_name",
+            "sender_name",
+            "action_url",
+            "custom_message",
+            "company_name",
+        ],
+        "allows_body_override": False,
+        "warnings": [
+            "The signing button in this template carries a per-recipient "
+            "token. Subject is editable; body override is disabled so the "
+            "signing link can't be dropped."
+        ],
+    },
+    "proposal_follow_up": {
+        "label": "Proposal follow-up",
+        "description": (
+            "Sent automatically by a follow-up rule when a proposal has been "
+            "sent but not yet signed."
+        ),
+        "default_subject": "Reminder: {proposal_title}",
+        "variables": [
+            "proposal_number",
+            "proposal_title",
+            "value",
+            "currency",
+            "recipient_name",
+            "sender_name",
+            "action_url",
+            "custom_message",
+            "company_name",
+        ],
+        "allows_body_override": True,
     },
 }
 

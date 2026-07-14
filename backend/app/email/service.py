@@ -1,4 +1,5 @@
 
+import logging
 import uuid
 from datetime import datetime, timezone
 from email.mime.application import MIMEApplication
@@ -19,6 +20,8 @@ from app.core.exceptions import NotFoundError, ValidationError
 
 from .models import SmtpConfig
 from .schemas import SmtpConfigCreate, SmtpConfigUpdate
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Jinja2 template environment
@@ -255,6 +258,30 @@ async def send_email(
 # High-level email workflows
 # ---------------------------------------------------------------------------
 
+#: Statuses where there is nothing left to collect — no "Pay Now" button.
+_UNPAYABLE_INVOICE_STATUSES = frozenset({"paid", "cancelled"})
+
+
+async def _invoice_payment_url(db: AsyncSession, invoice, user: User) -> Optional[str]:
+    """Stripe checkout URL for an invoice, or None if it isn't payable.
+
+    The invoice/reminder templates gate their "Pay Now" button on this value.
+    It was never passed, so the button never rendered even though Stripe was
+    fully wired — customers had no way to pay from the email.
+    """
+    status = invoice.status.value if hasattr(invoice.status, "value") else invoice.status
+    if status in _UNPAYABLE_INVOICE_STATUSES:
+        return None
+
+    from app.config import Settings
+    from app.integrations.stripe.service import ensure_payment_url
+
+    settings = Settings()
+    return await ensure_payment_url(
+        db, invoice.id, user, settings, base_url=settings.public_base_url
+    )
+
+
 async def send_invoice_email(
     db: AsyncSession,
     invoice_id: uuid.UUID,
@@ -300,6 +327,7 @@ async def send_invoice_email(
         getattr(invoice, "contact_name", None)
         or (invoice.contact.contact_name if getattr(invoice, "contact", None) else "")
     )
+    payment_url = await _invoice_payment_url(db, invoice, user)
     rendered_subject, html_body = await render_email_v2(
         db,
         "invoice",
@@ -311,6 +339,7 @@ async def send_invoice_email(
         due_date=str(invoice.due_date) if invoice.due_date else "",
         contact_name=contact_name,
         custom_message=message,
+        payment_url=payment_url,
         company_name=smtp_config.from_name,
         year=now.year,
     )
@@ -395,6 +424,7 @@ async def send_payment_reminder(
         getattr(invoice, "contact_name", None)
         or (invoice.contact.contact_name if getattr(invoice, "contact", None) else "")
     )
+    payment_url = await _invoice_payment_url(db, invoice, user)
     email_subject, html_body = await render_email_v2(
         db,
         "payment_reminder",
@@ -405,6 +435,7 @@ async def send_payment_reminder(
         currency=invoice.currency,
         days_overdue=days_overdue,
         contact_name=contact_name,
+        payment_url=payment_url,
         company_name=smtp_config.from_name,
         year=datetime.now(timezone.utc).year,
     )
@@ -541,3 +572,102 @@ async def send_estimate_email(
         await db.commit()
 
     return {"detail": f"Estimate email sent to {to_email}"}
+
+
+async def send_proposal_email(
+    db: AsyncSession,
+    proposal_id: uuid.UUID,
+    smtp_config_id: Optional[uuid.UUID],
+    user: User,
+    template_key: str = "proposal",
+    custom_message: Optional[str] = None,
+) -> dict:
+    """Email a proposal to every recipient, one message each.
+
+    Each signer gets a link carrying their own ``signing_token`` — the token
+    is what authorizes them to sign, so the links must not be interchangeable
+    and a single broadcast email will not do. Non-signers (``role != "signer"``)
+    get the read-only public link instead.
+
+    Callers must have already run ``proposals.service.send_proposal`` so that
+    ``public_token`` and per-recipient ``signing_token`` values exist.
+
+    A recipient whose send fails does not abort the rest: SMTP rejecting one
+    bad address shouldn't silently strand the other signers. Failures are
+    returned to the caller so it can surface them.
+    """
+    from app.proposals.models import Proposal
+    from sqlalchemy.orm import selectinload
+
+    smtp_config = await resolve_smtp_config(db, user, smtp_config_id)
+
+    result = await db.execute(
+        select(Proposal)
+        .options(selectinload(Proposal.recipients), selectinload(Proposal.contact))
+        .where(Proposal.id == proposal_id)
+    )
+    proposal = result.scalar_one_or_none()
+    if proposal is None:
+        raise NotFoundError("Proposal", str(proposal_id))
+    authorize_owner(proposal.created_by, user, "Proposal")
+
+    if not proposal.recipients:
+        raise ValidationError("Proposal has no recipients to send to")
+
+    from app.config import Settings
+    from app.email.renderer import render_email as render_email_v2
+
+    settings = Settings()
+    base = settings.public_base_url.rstrip("/")
+    now = datetime.now(timezone.utc)
+    sender_name = user.full_name or smtp_config.from_name
+
+    sent: list[str] = []
+    failed: list[dict] = []
+
+    for recipient in proposal.recipients:
+        is_signer = recipient.role == "signer"
+
+        if is_signer:
+            if not recipient.signing_token:
+                failed.append({"email": recipient.email, "error": "missing signing token"})
+                continue
+            action_url = f"{base}/proposals/sign/{recipient.signing_token}"
+        elif proposal.public_token:
+            action_url = f"{base}/p/{proposal.public_token}"
+        else:
+            failed.append({"email": recipient.email, "error": "missing public token"})
+            continue
+
+        email_subject, html_body = await render_email_v2(
+            db,
+            template_key,
+            user.id,
+            proposal=proposal,
+            proposal_number=proposal.proposal_number,
+            proposal_title=proposal.title,
+            value=float(proposal.value) if proposal.value is not None else 0.0,
+            currency=proposal.currency,
+            recipient_name=recipient.name,
+            sender_name=sender_name,
+            action_url=action_url,
+            is_signer=is_signer,
+            custom_message=custom_message,
+            company_name=smtp_config.from_name,
+            year=now.year,
+        )
+
+        try:
+            await send_email(smtp_config, recipient.email, email_subject, html_body)
+            sent.append(recipient.email)
+        except Exception as exc:  # noqa: BLE001 — one bad address must not strand the others
+            logger.exception(
+                "Failed to send proposal %s to recipient %s", proposal_id, recipient.email
+            )
+            failed.append({"email": recipient.email, "error": str(exc)})
+
+    return {
+        "detail": f"Proposal email sent to {len(sent)} recipient(s)",
+        "sent": sent,
+        "failed": failed,
+    }

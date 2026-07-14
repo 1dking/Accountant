@@ -9,13 +9,59 @@ import uuid
 from decimal import Decimal
 
 import pytest
+import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import User
+from app.core.encryption import init_encryption_service
 from app.proposals.models import ProposalRecipient
-from tests.conftest import auth_header
+from tests.conftest import TEST_SETTINGS, auth_header
+
+init_encryption_service(TEST_SETTINGS.fernet_key)
+
+
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def sent_emails(db, admin_user, monkeypatch) -> list[dict]:
+    """Sending a proposal now dispatches real email, so every test in this
+    module needs a resolvable SMTP config and a stubbed transport.
+
+    Autouse because ``/send`` is the gateway to the whole signing flow — the
+    signing tests can't get a token without it. Tests that want to assert on
+    the mail itself just request this fixture and read the captured list.
+    """
+    from app.core.encryption import get_encryption_service
+    from app.email.models import SmtpConfig
+
+    cfg = SmtpConfig(
+        id=uuid.uuid4(),
+        name="Default",
+        host="smtp.example.com",
+        port=587,
+        username="noreply@example.com",
+        encrypted_password=get_encryption_service().encrypt("dummy"),
+        from_email="noreply@example.com",
+        from_name="Accountant Test",
+        use_tls=True,
+        is_default=True,
+        created_by=admin_user.id,
+    )
+    db.add(cfg)
+    await db.commit()
+
+    captured: list[dict] = []
+
+    async def _stub_send(smtp_config, to, subject, html_body, attachments=None):
+        captured.append({"to": to, "subject": subject, "html_body": html_body})
+
+    monkeypatch.setattr("app.email.service.send_email", _stub_send)
+    return captured
 
 
 # ---------------------------------------------------------------------------
@@ -336,6 +382,96 @@ async def test_send_proposal(
     assert data["status"] == "sent"
     assert data["sent_at"] is not None
     assert data["public_token"] is not None
+
+
+@pytest.mark.critical
+@pytest.mark.asyncio
+async def test_send_proposal_emails_each_recipient_their_own_signing_link(
+    client: AsyncClient,
+    db: AsyncSession,
+    admin_user: User,
+    sample_contact,
+    sent_emails: list[dict],
+):
+    """Sending must actually dispatch mail, and each signer's link must carry
+    that signer's own token — the token is what authorizes them to sign, so a
+    shared or broadcast link would let either party sign as the other."""
+    resp = await client.post(
+        "/api/proposals",
+        json={
+            "contact_id": str(sample_contact.id),
+            "title": "Two-signer deal",
+            "content_json": "[]",
+            "value": 9000.00,
+            "recipients": [
+                {"email": "alice@test.com", "name": "Alice", "role": "signer"},
+                {"email": "bob@test.com", "name": "Bob", "role": "signer"},
+            ],
+        },
+        headers={**auth_header(admin_user), "Idempotency-Key": str(uuid.uuid4())},
+    )
+    assert resp.status_code == 201, resp.text
+    proposal_id = resp.json()["data"]["id"]
+
+    resp = await client.post(
+        f"/api/proposals/{proposal_id}/send", headers=auth_header(admin_user)
+    )
+    assert resp.status_code == 200, resp.text
+
+    assert len(sent_emails) == 2, "each recipient gets their own message"
+    assert {m["to"] for m in sent_emails} == {"alice@test.com", "bob@test.com"}
+
+    # Each message must embed the recipient's own signing token.
+    rows = (
+        await db.execute(
+            select(ProposalRecipient).where(
+                ProposalRecipient.proposal_id == uuid.UUID(proposal_id)
+            )
+        )
+    ).scalars().all()
+    tokens = {r.email: r.signing_token for r in rows}
+    assert all(t for t in tokens.values()), "every signer needs a token"
+    assert len(set(tokens.values())) == 2, "tokens must not be shared"
+
+    by_to = {m["to"]: m["html_body"] for m in sent_emails}
+    for email, token in tokens.items():
+        assert f"/proposals/sign/{token}" in by_to[email]
+        # and must not leak the other signer's token
+        for other_email, other_token in tokens.items():
+            if other_email != email:
+                assert other_token not in by_to[email]
+
+
+@pytest.mark.critical
+@pytest.mark.asyncio
+async def test_send_proposal_stays_draft_when_no_email_lands(
+    client: AsyncClient,
+    admin_user: User,
+    sample_contact,
+    monkeypatch,
+):
+    """If nothing could be delivered, the proposal must stay DRAFT. Marking it
+    SENT would strand it forever waiting on a signature nobody was invited to
+    give."""
+    created = await _create_proposal(client, admin_user, sample_contact.id)
+    proposal_id = created["id"]
+
+    async def _boom(*args, **kwargs):
+        raise RuntimeError("smtp is down")
+
+    monkeypatch.setattr("app.email.service.send_email", _boom)
+
+    resp = await client.post(
+        f"/api/proposals/{proposal_id}/send", headers=auth_header(admin_user)
+    )
+    assert resp.status_code >= 400, "a total delivery failure must not report success"
+
+    resp = await client.get(
+        f"/api/proposals/{proposal_id}", headers=auth_header(admin_user)
+    )
+    data = resp.json()["data"]
+    assert data["status"] == "draft", "must remain retryable"
+    assert data["sent_at"] is None
 
 
 @pytest.mark.high

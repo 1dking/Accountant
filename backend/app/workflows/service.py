@@ -1,8 +1,9 @@
 
 import json
 import logging
+import re
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -203,13 +204,87 @@ async def toggle_workflow(
 # ---------------------------------------------------------------------------
 
 
+_PLACEHOLDER_RE = re.compile(r"\{([a-zA-Z_][a-zA-Z0-9_]*)\}")
+
+
+def _render_config_text(template: str, contact, event_data: dict | None) -> str:
+    """Substitute ``{contact_name}``-style placeholders in an admin-authored
+    subject/body. Unknown placeholders are left as literal text so a stale
+    config renders imperfectly rather than exploding mid-send."""
+    if not template:
+        return ""
+
+    values: dict[str, object] = dict(event_data or {})
+    if contact is not None:
+        values.update(
+            {
+                "contact_name": contact.contact_name or "",
+                "company_name": contact.company_name or "",
+                "email": contact.email or "",
+                "phone": contact.phone or "",
+            }
+        )
+
+    def _replace(match: re.Match[str]) -> str:
+        key = match.group(1)
+        if key not in values:
+            return match.group(0)
+        value = values[key]
+        return "" if value is None else str(value)
+
+    return _PLACEHOLDER_RE.sub(_replace, template)
+
+
+#: Action types the engine cannot perform yet. They fail loudly rather than
+#: reporting COMPLETED — a workflow that silently skips its only real step is
+#: worse than one that visibly breaks, because nobody goes looking for it.
+#: CREATE_TASK and MOVE_PIPELINE_STAGE have no backing table to write to;
+#: ASK_OBRAIN needs a non-streaming brain call (and spends paid tokens).
+_UNIMPLEMENTED_ACTIONS: dict[ActionType, str] = {
+    ActionType.CREATE_CONTACT: "create_contact is not implemented yet",
+    ActionType.CREATE_INVOICE: "create_invoice is not implemented yet",
+    ActionType.SEND_PROPOSAL: "send_proposal is not implemented yet",
+    ActionType.MOVE_PIPELINE_STAGE: (
+        "move_pipeline_stage is not implemented yet (no pipeline model)"
+    ),
+    ActionType.ADD_TO_WORKFLOW: "add_to_workflow is not implemented yet",
+    ActionType.REMOVE_FROM_WORKFLOW: "remove_from_workflow is not implemented yet",
+    ActionType.ASK_OBRAIN: "ask_obrain is not implemented yet",
+    ActionType.LOG_TO_BRAIN: "log_to_brain is not implemented yet",
+}
+
+
+async def _load_contact(db: AsyncSession, contact_id: uuid.UUID | None):
+    """Load a Contact for an action that needs one, or None."""
+    from app.contacts.models import Contact
+
+    if not contact_id:
+        return None
+    result = await db.execute(select(Contact).where(Contact.id == contact_id))
+    return result.scalar_one_or_none()
+
+
+async def _load_owner(db: AsyncSession, workflow: Workflow) -> User | None:
+    """The user the workflow runs as. Automated sends need a real identity —
+    for SMTP config resolution, Twilio attribution, and row ownership."""
+    result = await db.execute(select(User).where(User.id == workflow.created_by))
+    return result.scalar_one_or_none()
+
+
 async def _execute_action(
     db: AsyncSession,
+    workflow: Workflow,
     step: WorkflowStep,
     contact_id: uuid.UUID | None,
     event_data: dict | None,
 ) -> tuple[ExecutionStatus, str]:
-    """Execute a single workflow action. Returns (status, result_json)."""
+    """Execute a single workflow action. Returns (status, result_json).
+
+    Contract: only return COMPLETED if the action actually happened. Anything
+    that couldn't be carried out returns FAILED with a reason — the contact
+    timeline is an audit trail, and writing an EMAIL_SENT row for an email we
+    never sent corrupts it.
+    """
     action = step.action_type
     config = {}
     if step.action_config_json:
@@ -218,31 +293,270 @@ async def _execute_action(
         except json.JSONDecodeError:
             config = {}
 
+    if action in _UNIMPLEMENTED_ACTIONS:
+        return ExecutionStatus.FAILED, json.dumps(
+            {"action": action.value, "error": _UNIMPLEMENTED_ACTIONS[action]}
+        )
+
     if action == ActionType.SEND_EMAIL:
-        # Placeholder -- actual email sending exists in the email module
-        result = {"action": "send_email", "status": "logged", "config": config}
-        if contact_id:
-            await log_contact_activity(
-                db,
-                contact_id=contact_id,
-                activity_type=ActivityType.EMAIL_SENT,
-                title="Workflow: email send triggered",
-                description=config.get("subject", ""),
+        from app.email.service import get_default_config, send_email
+
+        contact = await _load_contact(db, contact_id)
+        if contact is None:
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "send_email", "error": "no contact to send to"}
             )
-        return ExecutionStatus.COMPLETED, json.dumps(result)
+        if not contact.email:
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "send_email", "error": "contact has no email address"}
+            )
+        if contact.dnd_enabled:
+            return ExecutionStatus.COMPLETED, json.dumps(
+                {"action": "send_email", "status": "skipped", "reason": "contact is DND"}
+            )
+
+        subject = _render_config_text(config.get("subject", ""), contact, event_data)
+        body = _render_config_text(config.get("body", ""), contact, event_data)
+        if not subject:
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "send_email", "error": "no subject configured"}
+            )
+
+        try:
+            smtp_config = await get_default_config(db)
+            await send_email(smtp_config, contact.email, subject, body)
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Workflow %s: SEND_EMAIL failed", workflow.id)
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "send_email", "error": str(exc)}
+            )
+
+        await log_contact_activity(
+            db,
+            contact_id=contact.id,
+            activity_type=ActivityType.EMAIL_SENT,
+            title=f"Workflow: {workflow.name}",
+            description=subject,
+        )
+        return ExecutionStatus.COMPLETED, json.dumps(
+            {"action": "send_email", "status": "sent", "to": contact.email}
+        )
 
     elif action == ActionType.SEND_SMS:
-        # Placeholder -- actual SMS sending exists in the twilio module
-        result = {"action": "send_sms", "status": "logged", "config": config}
-        if contact_id:
-            await log_contact_activity(
-                db,
-                contact_id=contact_id,
-                activity_type=ActivityType.SMS_SENT,
-                title="Workflow: SMS send triggered",
-                description=config.get("body", ""),
+        from app.config import Settings
+        from app.integrations.twilio.service import send_sms
+
+        contact = await _load_contact(db, contact_id)
+        if contact is None:
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "send_sms", "error": "no contact to send to"}
             )
-        return ExecutionStatus.COMPLETED, json.dumps(result)
+        if not contact.phone:
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "send_sms", "error": "contact has no phone number"}
+            )
+        if contact.dnd_enabled:
+            return ExecutionStatus.COMPLETED, json.dumps(
+                {"action": "send_sms", "status": "skipped", "reason": "contact is DND"}
+            )
+
+        owner = await _load_owner(db, workflow)
+        if owner is None:
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "send_sms", "error": "workflow owner not found"}
+            )
+
+        body = _render_config_text(config.get("body", ""), contact, event_data)
+        if not body:
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "send_sms", "error": "no message body configured"}
+            )
+
+        try:
+            await send_sms(
+                db=db,
+                to=contact.phone,
+                message=body,
+                user=owner,
+                settings=Settings(),
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Workflow %s: SEND_SMS failed", workflow.id)
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "send_sms", "error": str(exc)}
+            )
+
+        await log_contact_activity(
+            db,
+            contact_id=contact.id,
+            activity_type=ActivityType.SMS_SENT,
+            title=f"Workflow: {workflow.name}",
+            description=body,
+        )
+        return ExecutionStatus.COMPLETED, json.dumps(
+            {"action": "send_sms", "status": "sent", "to": contact.phone}
+        )
+
+    elif action == ActionType.SEND_NOTIFICATION:
+        from app.notifications.service import create_notification
+
+        title = config.get("title") or f"Workflow: {workflow.name}"
+        message = _render_config_text(
+            config.get("message", ""), await _load_contact(db, contact_id), event_data
+        )
+        try:
+            await create_notification(
+                db,
+                user_id=workflow.created_by,
+                type=config.get("type", "workflow"),
+                title=title,
+                message=message,
+                contact_id=contact_id,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Workflow %s: SEND_NOTIFICATION failed", workflow.id)
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "send_notification", "error": str(exc)}
+            )
+        return ExecutionStatus.COMPLETED, json.dumps(
+            {"action": "send_notification", "status": "sent"}
+        )
+
+    elif action == ActionType.UPDATE_CONTACT_FIELD:
+        field = config.get("field", "")
+        value = config.get("value")
+        allowed = {
+            "company_name", "contact_name", "email", "phone", "job_title",
+            "lead_source", "notes", "is_active", "dnd_enabled",
+        }
+        if field not in allowed:
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "update_contact_field", "error": f"field not updatable: {field}"}
+            )
+        contact = await _load_contact(db, contact_id)
+        if contact is None:
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "update_contact_field", "error": "no contact"}
+            )
+        setattr(contact, field, value)
+        await db.flush()
+        return ExecutionStatus.COMPLETED, json.dumps(
+            {"action": "update_contact_field", "field": field, "status": "updated"}
+        )
+
+    elif action == ActionType.ASSIGN_TO_USER:
+        raw_user_id = config.get("user_id")
+        contact = await _load_contact(db, contact_id)
+        if contact is None:
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "assign_to_user", "error": "no contact"}
+            )
+        try:
+            assignee_id = uuid.UUID(str(raw_user_id))
+        except (TypeError, ValueError):
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "assign_to_user", "error": f"invalid user_id: {raw_user_id!r}"}
+            )
+        exists = await db.execute(select(User).where(User.id == assignee_id))
+        if exists.scalar_one_or_none() is None:
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "assign_to_user", "error": "user not found"}
+            )
+        contact.assigned_user_id = assignee_id
+        await db.flush()
+        return ExecutionStatus.COMPLETED, json.dumps(
+            {"action": "assign_to_user", "user_id": str(assignee_id), "status": "assigned"}
+        )
+
+    elif action == ActionType.CREATE_TASK:
+        from app.tasks.models import Task, TaskPriority, TaskStatus
+
+        contact = await _load_contact(db, contact_id)
+        title = _render_config_text(config.get("title", ""), contact, event_data)
+        if not title:
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "create_task", "error": "no task title configured"}
+            )
+
+        try:
+            priority = TaskPriority(config.get("priority", "medium"))
+        except ValueError:
+            return ExecutionStatus.FAILED, json.dumps(
+                {
+                    "action": "create_task",
+                    "error": f"invalid priority: {config.get('priority')!r}",
+                }
+            )
+
+        due_date = None
+        days = config.get("due_in_days")
+        if days is not None:
+            try:
+                due_date = (
+                    datetime.now(timezone.utc) + timedelta(days=int(days))
+                ).date()
+            except (TypeError, ValueError):
+                return ExecutionStatus.FAILED, json.dumps(
+                    {"action": "create_task", "error": f"invalid due_in_days: {days!r}"}
+                )
+
+        task = Task(
+            id=uuid.uuid4(),
+            title=title,
+            description=_render_config_text(
+                config.get("description", ""), contact, event_data
+            )
+            or None,
+            contact_id=contact_id,
+            assigned_user_id=workflow.created_by,
+            status=TaskStatus.TODO,
+            priority=priority,
+            due_date=due_date,
+            created_by=workflow.created_by,
+        )
+        db.add(task)
+        await db.flush()
+
+        return ExecutionStatus.COMPLETED, json.dumps(
+            {"action": "create_task", "task_id": str(task.id), "status": "created"}
+        )
+
+    elif action == ActionType.WEBHOOK_OUTBOUND:
+        import httpx
+
+        url = config.get("url", "")
+        if not url.startswith("https://"):
+            # Refuse plaintext and non-HTTP schemes: workflow payloads carry
+            # contact PII and the URL is admin-supplied free text.
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "webhook_outbound", "error": "url must be https://"}
+            )
+        payload = {
+            "workflow_id": str(workflow.id),
+            "workflow_name": workflow.name,
+            "contact_id": str(contact_id) if contact_id else None,
+            "event_data": event_data or {},
+            "config": config.get("payload", {}),
+        }
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as http:
+                resp = await http.post(url, json=payload)
+            if resp.status_code >= 400:
+                return ExecutionStatus.FAILED, json.dumps(
+                    {
+                        "action": "webhook_outbound",
+                        "error": f"webhook returned {resp.status_code}",
+                        "status_code": resp.status_code,
+                    }
+                )
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Workflow %s: WEBHOOK_OUTBOUND failed", workflow.id)
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "webhook_outbound", "error": str(exc)}
+            )
+        return ExecutionStatus.COMPLETED, json.dumps(
+            {"action": "webhook_outbound", "status_code": resp.status_code, "status": "sent"}
+        )
 
     elif action == ActionType.ADD_TAG:
         tag_name = config.get("tag_name", "")
@@ -264,13 +578,19 @@ async def _execute_action(
                         id=uuid.uuid4(),
                         contact_id=contact_id,
                         tag_name=tag_name,
-                        created_by=uuid.UUID(int=0),  # system user placeholder
+                        # Attribute to the workflow's owner. A nil UUID here
+                        # violates the users FK and the insert would be rolled
+                        # back into a swallowed "error" result.
+                        created_by=workflow.created_by,
                     )
                     db.add(tag)
                     await db.flush()
                 result = {"action": "add_tag", "tag_name": tag_name, "status": "added"}
             except Exception as exc:
-                result = {"action": "add_tag", "error": str(exc)}
+                logger.exception("Workflow %s: ADD_TAG failed", workflow.id)
+                return ExecutionStatus.FAILED, json.dumps(
+                    {"action": "add_tag", "error": str(exc)}
+                )
         else:
             result = {"action": "add_tag", "status": "skipped", "reason": "missing contact_id or tag_name"}
         return ExecutionStatus.COMPLETED, json.dumps(result)
@@ -344,20 +664,17 @@ async def _execute_action(
         result = {"action": "if_else_branch", "branch": branch}
         return ExecutionStatus.COMPLETED, json.dumps(result)
 
-    elif action == ActionType.ASK_OBRAIN:
-        # No-op stub -- returns empty result
-        result = {"action": "ask_obrain", "status": "stub", "response": ""}
-        return ExecutionStatus.COMPLETED, json.dumps(result)
-
-    elif action == ActionType.LOG_TO_BRAIN:
-        # No-op stub -- returns empty result
-        result = {"action": "log_to_brain", "status": "stub", "response": ""}
-        return ExecutionStatus.COMPLETED, json.dumps(result)
-
     else:
-        # All other action types: log as completed with the action_type recorded
-        result = {"action": action.value, "status": "completed", "config": config}
-        return ExecutionStatus.COMPLETED, json.dumps(result)
+        # Unreachable for known actions — every ActionType member is either
+        # handled above or listed in _UNIMPLEMENTED_ACTIONS. A new enum member
+        # added without a handler lands here and fails loudly rather than
+        # silently reporting success.
+        logger.error(
+            "Workflow %s: action type %s has no handler", workflow.id, action.value
+        )
+        return ExecutionStatus.FAILED, json.dumps(
+            {"action": action.value, "error": f"no handler for action type {action.value}"}
+        )
 
 
 async def execute_workflow(
@@ -404,7 +721,7 @@ async def execute_workflow(
 
         try:
             step_status, result_json = await _execute_action(
-                db, step, contact_id, event_data
+                db, workflow, step, contact_id, event_data
             )
             exec_step.status = step_status
             exec_step.result_json = result_json

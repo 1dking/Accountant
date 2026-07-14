@@ -65,6 +65,19 @@ async def _check_overdue_invoices() -> None:
         logger.exception("Error checking overdue invoices")
 
 
+async def _process_proposal_follow_ups() -> None:
+    """Job: send follow-ups for proposals sitting unsigned past their delay."""
+    try:
+        async with _session_factory() as db:
+            from app.proposals.service import process_pending_follow_ups
+
+            count = await process_pending_follow_ups(db, _settings)
+            if count > 0:
+                logger.info("Sent %d proposal follow-ups", count)
+    except Exception:
+        logger.exception("Error processing proposal follow-ups")
+
+
 async def _scan_gmail_accounts() -> None:
     """Job: scan connected Gmail accounts for new emails."""
     try:
@@ -74,9 +87,10 @@ async def _scan_gmail_accounts() -> None:
             count = await scan_all_accounts(db, _settings)
             if count > 0:
                 logger.info("Gmail scan found %d new emails", count)
-    except ImportError:
-        pass  # Gmail module not yet built
     except Exception:
+        # Deliberately no `except ImportError: pass` here. The Gmail module
+        # exists now, so a broken import means a real regression — swallowing
+        # it would silently stop the scan with nothing in the log.
         logger.exception("Error scanning Gmail accounts")
 
 
@@ -174,9 +188,9 @@ async def _sync_plaid_transactions() -> None:
             count = await sync_all_connections(db, _settings)
             if count > 0:
                 logger.info("Plaid sync imported %d transactions", count)
-    except ImportError:
-        pass  # Plaid module not yet built
     except Exception:
+        # See _scan_gmail_accounts: the Plaid module exists, so an ImportError
+        # here is a regression to surface, not a condition to swallow.
         logger.exception("Error syncing Plaid transactions")
 
 
@@ -282,8 +296,6 @@ async def _sync_google_calendars() -> None:
             count = await sync_all_accounts(db, _settings)
             if count > 0:
                 logger.info("Google Calendar sync pulled %d events", count)
-    except ImportError:
-        pass
     except Exception:
         logger.exception("Error syncing Google Calendar")
 
@@ -410,6 +422,13 @@ def setup_scheduler(session_factory: Any, settings: Any = None) -> None:
         _drive_meeting_quote_drafts,
         IntervalTrigger(minutes=5),
         id="drive_meeting_quote_drafts",
+        replace_existing=True,
+    )
+
+    scheduler.add_job(
+        _process_proposal_follow_ups,
+        IntervalTrigger(minutes=30),
+        id="process_proposal_follow_ups",
         replace_existing=True,
     )
 
