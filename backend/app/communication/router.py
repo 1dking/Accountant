@@ -1308,11 +1308,17 @@ async def list_calls(
     _: Annotated[User, Depends(get_current_user)],
     contact_id: uuid.UUID | None = Query(None),
     user_id: uuid.UUID | None = Query(None),
+    kind: str | None = Query(None, pattern="^(call|voicemail)$"),
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=100),
 ) -> dict:
     calls, total = await service.list_call_logs(
-        db, contact_id=contact_id, user_id=user_id, page=page, page_size=page_size
+        db,
+        contact_id=contact_id,
+        user_id=user_id,
+        kind=kind,
+        page=page,
+        page_size=page_size,
     )
     return {
         "data": [CallLogResponse.model_validate(c) for c in calls],

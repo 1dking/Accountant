@@ -80,6 +80,8 @@ export async function getMyNumber() {
 export interface CallLogFilters {
   direction?: string
   contact_id?: string
+  /** Voicemails and calls share the call_logs table, split by `kind`. */
+  kind?: 'call' | 'voicemail'
   date_from?: string
   date_to?: string
   page?: number

@@ -157,8 +157,8 @@ export default function DialerDrawer({ isOpen, onClose, device, callingFrom }: P
               disabled={mode !== 'ready'}
             />
           )}
-          {activeTab === 'voicemail' && <VoicemailTab />}
-          {activeTab === 'queue' && <QueueTab />}
+          {activeTab === 'voicemail' && <VoicemailTab onDial={handleDial} />}
+          {activeTab === 'queue' && <QueueTab onDial={handleDial} />}
         </div>
       </div>
     )

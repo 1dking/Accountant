@@ -289,6 +289,7 @@ async def list_call_logs(
     db: AsyncSession,
     contact_id: uuid.UUID | None = None,
     user_id: uuid.UUID | None = None,
+    kind: str | None = None,
     page: int = 1,
     page_size: int = 25,
 ) -> tuple[list[CallLog], int]:
@@ -298,6 +299,9 @@ async def list_call_logs(
         query = query.where(CallLog.contact_id == contact_id)
     if user_id:
         query = query.where(CallLog.user_id == user_id)
+    if kind:
+        # Voicemails and calls share this table, distinguished by `kind`.
+        query = query.where(CallLog.kind == kind)
 
     count_q = select(func.count()).select_from(query.subquery())
     total = (await db.execute(count_q)).scalar() or 0
