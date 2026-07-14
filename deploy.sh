@@ -35,13 +35,25 @@ bash stop.sh 2>/dev/null || true
 bash start.sh
 
 echo ">>> Waiting for backend to start"
-sleep 3
+# Poll instead of sleeping a fixed 3s. Startup does template + platform-admin
+# seeding and takes longer than that, so the old fixed sleep reported
+# "Health check FAILED" on deploys that had in fact succeeded — a false alarm
+# that makes a real failure indistinguishable from a slow boot.
+HEALTHY=false
+for i in $(seq 1 30); do
+    if curl -sf http://localhost:8000/ > /dev/null 2>&1; then
+        HEALTHY=true
+        echo "Backend healthy after ${i}s"
+        break
+    fi
+    sleep 1
+done
 
 echo ">>> Health check"
-if curl -sf http://localhost:8000/ > /dev/null 2>&1; then
+if [ "$HEALTHY" = true ]; then
     echo "Health check PASSED"
 else
-    echo "Health check FAILED — backend may not be running"
+    echo "Health check FAILED — backend did not come up within 30s"
     tail -20 backend/uvicorn.log
     exit 1
 fi
