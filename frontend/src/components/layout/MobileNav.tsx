@@ -1,6 +1,8 @@
 import { useNavigate, useLocation } from 'react-router'
 import { LayoutDashboard, FileText, Camera, Receipt, Menu } from 'lucide-react'
 import { useUiStore } from '@/stores/uiStore'
+import { useAuthStore } from '@/stores/authStore'
+import { hasFeature } from '@/lib/features'
 import { cn } from '@/lib/utils'
 
 import type { LucideIcon } from 'lucide-react'
@@ -10,13 +12,15 @@ interface MobileTab {
   label: string
   icon: LucideIcon
   highlight?: boolean
+  /** Module this tab belongs to. Omitted = always shown. */
+  featureKey?: string
 }
 
 const MOBILE_TABS: MobileTab[] = [
   { path: '/', label: 'Home', icon: LayoutDashboard },
-  { path: '/documents', label: 'Docs', icon: FileText },
-  { path: '/capture', label: 'Capture', icon: Camera, highlight: true },
-  { path: '/expenses', label: 'Expenses', icon: Receipt },
+  { path: '/documents', label: 'Docs', icon: FileText, featureKey: 'drive' },
+  { path: '/capture', label: 'Capture', icon: Camera, highlight: true, featureKey: 'expenses' },
+  { path: '/expenses', label: 'Expenses', icon: Receipt, featureKey: 'expenses' },
   { path: '/_menu', label: 'More', icon: Menu },
 ]
 
@@ -24,13 +28,20 @@ export default function MobileNav() {
   const navigate = useNavigate()
   const location = useLocation()
   const { isMobile, setSidebarOpen } = useUiStore()
+  const { user } = useAuthStore()
 
   if (!isMobile) return null
+
+  // The desktop sidebar filtered by module; this had no filtering at all, so an
+  // accountant on a phone still saw tabs for sections they cannot open.
+  const tabs = MOBILE_TABS.filter(
+    (tab) => !tab.featureKey || hasFeature(user?.feature_access, tab.featureKey),
+  )
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 safe-area-pb">
       <div className="flex items-center justify-around h-14">
-        {MOBILE_TABS.map((tab) => {
+        {tabs.map((tab) => {
           const Icon = tab.icon
           const isMenu = tab.path === '/_menu'
           const isActive = isMenu

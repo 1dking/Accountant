@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router'
+import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router'
+import { FEATURE_LABELS, featureForPath, hasFeature } from '@/lib/features'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
 import ErrorBoundary from '@/components/ErrorBoundary'
@@ -101,8 +102,11 @@ const queryClient = new QueryClient({
 })
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuthStore()
+  const { isAuthenticated, isLoading, user } = useAuthStore()
+  const location = useLocation()
 
+  // Must come before any feature check: hasFeature fails closed, so evaluating
+  // it mid-load would bounce the user off their own page on every refresh.
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -115,7 +119,36 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" replace />
   }
 
+  // Module gate. Hiding a sidebar link never stopped anyone typing /cashbook
+  // into the address bar — every route here was reachable that way. One choke
+  // point, so a new route is guarded by default rather than silently open.
+  const feature = featureForPath(location.pathname)
+  if (feature && !hasFeature(user?.feature_access, feature)) {
+    return <ModuleNotEnabled feature={feature} />
+  }
+
   return <>{children}</>
+}
+
+function ModuleNotEnabled({ feature }: { feature: string }) {
+  return (
+    <div className="min-h-screen flex items-center justify-center px-6">
+      <div className="text-center max-w-sm">
+        <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+          {FEATURE_LABELS[feature] ?? feature} isn&apos;t enabled for your account
+        </h1>
+        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+          Ask an admin to switch this section on for you.
+        </p>
+        <Link
+          to="/"
+          className="inline-block mt-4 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+        >
+          Back to dashboard
+        </Link>
+      </div>
+    </div>
+  )
 }
 
 function AuthenticatedApp() {

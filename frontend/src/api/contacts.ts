@@ -164,3 +164,31 @@ export async function resendInvitation(id: string) {
 export async function acceptInvitation(data: { token: string; password: string; full_name: string }) {
   return api.post('/contacts/invitations/accept', data)
 }
+
+
+// Contact sharing (user-to-user)
+export interface ContactCollaborator {
+  id: string
+  user_id: string
+  user_name: string
+  user_email: string
+  permission: 'view' | 'edit'
+  granted_by: string
+  created_at: string
+}
+
+export async function shareContact(contactId: string, data: { user_id: string; permission: 'view' | 'edit' }) {
+  return api.post(`/contacts/${contactId}/share`, data)
+}
+
+export async function unshareContact(contactId: string, userId: string) {
+  return api.delete(`/contacts/${contactId}/share/${userId}`)
+}
+
+export async function getContactCollaborators(contactId: string) {
+  return api.get<ApiResponse<ContactCollaborator[]>>(`/contacts/${contactId}/collaborators`)
+}
+
+export async function transferContactOwnership(contactId: string, newOwnerId: string) {
+  return api.post(`/contacts/${contactId}/transfer`, { new_owner_id: newOwnerId })
+}

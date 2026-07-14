@@ -940,6 +940,7 @@ function OrgDetailView({ org, allFlags, allSettings, allUsers, onBack }: {
 
 const ROLES = [
   { value: 'admin', label: 'Admin' },
+  { value: 'manager', label: 'Manager' },
   { value: 'team_member', label: 'Team Member' },
   { value: 'accountant', label: 'Accountant' },
   { value: 'client', label: 'Client' },
@@ -999,7 +1000,18 @@ function UserModal({ user, onClose, onSaved }: {
     user?.feature_access ?? { ...(ROLE_DEFAULTS[user?.role || 'viewer'] || {}) }
   )
   const [isActive, setIsActive] = useState(user?.is_active ?? true)
+  const [managerId, setManagerId] = useState<string>(user?.manager_id || '')
   const [inviteLink, setInviteLink] = useState<string | null>(null)
+
+  // For the manager picker: everyone who could be someone's boss (not the user
+  // being edited, not clients).
+  const { data: allUsers } = useQuery({
+    queryKey: ['platform-admin', 'users', 'all-for-manager'],
+    queryFn: () => platformAdminApi.listUsers({ page: 1, page_size: 100 }),
+  })
+  const managerOptions = ((allUsers as any)?.data ?? []).filter(
+    (u: any) => u.id !== user?.id && u.role !== 'client',
+  )
 
   // Auto-apply role defaults when role changes (only on create)
   const handleRoleChange = (newRole: string) => {
@@ -1039,6 +1051,7 @@ function UserModal({ user, onClose, onSaved }: {
       password: password || undefined,
       feature_access: features,
       is_active: isActive,
+      manager_id: managerId || null,
     }),
     onSuccess: () => {
       toast.success('User updated')
@@ -1113,6 +1126,26 @@ function UserModal({ user, onClose, onSaved }: {
               {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
             </select>
           </div>
+
+          {/* Reports-to — a manager sees the records of everyone who reports to
+              them. Only relevant for staff; a client can't have a manager. */}
+          {role !== 'client' && (
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                Reports to
+              </label>
+              <select value={managerId} onChange={e => setManagerId(e.target.value)}
+                className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
+                <option value="">— No manager —</option>
+                {managerOptions.map((u: any) => (
+                  <option key={u.id} value={u.id}>{u.full_name} ({u.email})</option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-gray-400">
+                A manager sees the records of everyone who reports to them.
+              </p>
+            </div>
+          )}
 
           {/* Invite toggle (create only) */}
           {!isEdit && (

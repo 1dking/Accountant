@@ -79,7 +79,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { path: '/proposals', label: 'Proposals', icon: FileSignature, featureKey: 'proposals' },
       { path: '/invoices', label: 'Invoices', icon: FileOutput, featureKey: 'invoices' },
-      { path: '/estimates', label: 'Estimates', icon: ClipboardList, featureKey: 'invoices' },
+      { path: '/estimates', label: 'Estimates', icon: ClipboardList, featureKey: 'estimates' },
     ],
   },
   {
@@ -104,8 +104,8 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: 'AUTOMATION',
     items: [
-      { path: '/workflows', label: 'Workflows', icon: Zap },
-      { path: '/forms', label: 'Forms', icon: ClipboardCheck },
+      { path: '/workflows', label: 'Workflows', icon: Zap, featureKey: 'workflows' },
+      { path: '/forms', label: 'Forms', icon: ClipboardCheck, featureKey: 'forms' },
     ],
   },
   {

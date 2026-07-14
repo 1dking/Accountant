@@ -2,9 +2,10 @@ import { useCallback, useState } from 'react'
 import { useParams, useNavigate } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  ArrowLeft, Check, Mail, MessageSquare, Phone, Send, StickyNote,
+  ArrowLeft, Check, Mail, MessageSquare, Phone, Send, Share2, StickyNote,
   Trash2, X,
 } from 'lucide-react'
+import ContactShareDialog from '@/components/contacts/ContactShareDialog'
 import { useAuthStore } from '@/stores/authStore'
 import { cn } from '@/lib/utils'
 import {
@@ -48,6 +49,7 @@ export default function ContactDetailPage() {
   const [savedToast, setSavedToast] = useState(false)
   const [activityFilter, setActivityFilter] = useState<string>('all')
   const [showMemoryModal, setShowMemoryModal] = useState(false)
+  const [showShareDialog, setShowShareDialog] = useState(false)
   const [memoryDraft, setMemoryDraft] = useState('')
   const [expandedMemoryId, setExpandedMemoryId] = useState<string | null>(null)
 
@@ -338,8 +340,14 @@ export default function ContactDetailPage() {
             </div>
           </div>
 
-          {canEdit && (
-            <div className="flex gap-2 shrink-0">
+          <div className="flex gap-2 shrink-0">
+            <button
+              onClick={() => setShowShareDialog(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+            >
+              <Share2 className="h-3.5 w-3.5" /> Share
+            </button>
+            {canEdit && (
               <button
                 onClick={() => {
                   if (confirm('Delete this contact? This action cannot be undone.')) deleteMutation.mutate()
@@ -348,8 +356,8 @@ export default function ContactDetailPage() {
               >
                 <Trash2 className="h-3.5 w-3.5" /> Delete
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Quick-action buttons */}
@@ -615,6 +623,13 @@ export default function ContactDetailPage() {
           />
         </div>
       </div>
+
+      <ContactShareDialog
+        contactId={id!}
+        contactName={contact.company_name}
+        isOpen={showShareDialog}
+        onClose={() => setShowShareDialog(false)}
+      />
 
       {/* Memory modal — owned here because state lives at page level */}
       {showMemoryModal && (

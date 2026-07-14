@@ -53,7 +53,7 @@ export const platformAdminApi = {
   getUserDetail: (userId: string) => api.get(`/platform-admin/users/${userId}`),
   createUser: (data: { email: string; full_name: string; role?: string; password?: string; send_invite?: boolean; feature_access?: Record<string, boolean> }) =>
     api.post('/platform-admin/users', data),
-  updateUser: (userId: string, data: { email?: string; full_name?: string; role?: string; password?: string; feature_access?: Record<string, boolean>; is_active?: boolean }) =>
+  updateUser: (userId: string, data: { email?: string; full_name?: string; role?: string; password?: string; feature_access?: Record<string, boolean>; is_active?: boolean; manager_id?: string | null }) =>
     api.put(`/platform-admin/users/${userId}`, data),
   deactivateUser: (userId: string) => api.post(`/platform-admin/users/${userId}/deactivate`),
   reactivateUser: (userId: string) => api.post(`/platform-admin/users/${userId}/reactivate`),

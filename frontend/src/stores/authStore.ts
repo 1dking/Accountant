@@ -5,11 +5,12 @@ export interface User {
   id: string
   email: string
   full_name: string
-  role: 'admin' | 'team_member' | 'accountant' | 'client' | 'viewer'
+  role: 'admin' | 'manager' | 'team_member' | 'accountant' | 'client' | 'viewer'
   is_active: boolean
   created_at: string
   feature_access: Record<string, boolean> | null
   org_id: string | null
+  manager_id: string | null
   cashbook_access: 'personal' | 'org'
   fallback_phone: string | null
   voicemail_mode?: 'cell_then_voicemail' | 'voicemail_only' | 'cell_only'
