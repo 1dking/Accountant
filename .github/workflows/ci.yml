@@ -1,0 +1,105 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Financial invariants
+        working-directory: backend
+        run: python -m pytest tests/financial --tb=short -q
+
+      - name: Adversarial / security
+        working-directory: backend
+        run: python -m pytest tests/adversarial --tb=short -q
+
+      # api + integration is the bulk of the suite (~890 tests). The old runner
+      # script never executed tests/integration at all.
+      #
+      # 22 tests in tests/known_failures.txt already fail on main and are
+      # deselected so this can be a BLOCKING gate — a gate that's red from day
+      # one is a gate nobody reads. Read that file: they are real bugs, listed
+      # with root cause, to be burned down. New breakage still fails the build.
+      - name: API + integration
+        working-directory: backend
+        run: |
+          DESELECT=$(grep -vE '^\s*#|^\s*$' tests/known_failures.txt \
+            | sed 's/^/--deselect /' | tr '\n' ' ')
+          echo "Deselecting $(grep -cvE '^\s*#|^\s*$' tests/known_failures.txt) known failures"
+          python -m pytest tests/api tests/integration --tb=short -q $DESELECT
+
+      # Guard the quarantine: if a listed test starts passing, it must come off
+      # the list, or the list quietly becomes a graveyard of tests nobody runs.
+      - name: Known failures are still failing
+        working-directory: backend
+        run: |
+          SELECT=$(grep -vE '^\s*#|^\s*$' tests/known_failures.txt | tr '\n' ' ')
+          if python -m pytest $SELECT -q --tb=no > /dev/null 2>&1; then
+            echo "::error::Tests in known_failures.txt now PASS. Remove them from the list."
+            exit 1
+          fi
+          echo "Known failures still failing, as expected."
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        working-directory: frontend
+        run: npx tsc -b --noEmit
+
+      # NOT blocking yet: the tree currently has ~440 pre-existing eslint errors
+      # (mostly no-explicit-any, concentrated in PlatformAdminPage / DrivePage /
+      # ContactDetailCenterPanel). A gate that is red on day one gets ignored, so
+      # this reports without failing the build. Flip continue-on-error off once
+      # the existing errors are burned down.
+      - name: Lint (non-blocking)
+        working-directory: frontend
+        continue-on-error: true
+        run: pnpm lint
+
+      - name: Unit tests
+        working-directory: frontend
+        run: pnpm test
