@@ -477,6 +477,43 @@ async def list_file_shares(
     return list(result.scalars().all())
 
 
+async def list_contact_payments(
+    db: AsyncSession, contact_id: uuid.UUID, user: User | None = None
+) -> list[dict]:
+    """Every payment received against this contact's invoices, newest first.
+
+    Joined through Invoice because payments hang off the invoice, not the
+    contact — there is no direct contact_id on InvoicePayment.
+    """
+    from app.invoicing.models import Invoice, InvoicePayment
+
+    if user is not None:
+        await get_contact(db, contact_id, user=user)
+
+    result = await db.execute(
+        select(InvoicePayment, Invoice)
+        .join(Invoice, InvoicePayment.invoice_id == Invoice.id)
+        .where(Invoice.contact_id == contact_id)
+        .order_by(InvoicePayment.date.desc(), InvoicePayment.created_at.desc())
+    )
+
+    return [
+        {
+            "id": payment.id,
+            "invoice_id": invoice.id,
+            "invoice_number": invoice.invoice_number,
+            "invoice_total": float(invoice.total),
+            "amount": float(payment.amount),
+            "currency": invoice.currency,
+            "date": str(payment.date),
+            "payment_method": payment.payment_method,
+            "reference": payment.reference,
+            "notes": payment.notes,
+        }
+        for payment, invoice in result.all()
+    ]
+
+
 async def list_shared_files_for_portal(
     db: AsyncSession, contact_id: uuid.UUID
 ) -> list[dict]:

@@ -121,6 +121,24 @@ export async function removeFileShare(shareId: string) {
   return api.delete(`/contacts/file-shares/${shareId}`)
 }
 
+// Payments received against this contact's invoices
+export interface ContactPayment {
+  id: string
+  invoice_id: string
+  invoice_number: string
+  invoice_total: number
+  amount: number
+  currency: string
+  date: string
+  payment_method: string | null
+  reference: string | null
+  notes: string | null
+}
+
+export async function getContactPayments(contactId: string) {
+  return api.get<ApiResponse<ContactPayment[]>>(`/contacts/${contactId}/payments`)
+}
+
 // Duplicates
 export async function detectDuplicates() {
   return api.get('/contacts/duplicates/detect')

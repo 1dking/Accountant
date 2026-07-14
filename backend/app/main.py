@@ -1,26 +1,22 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 # Configure app-level logging BEFORE anything else.
 # uvicorn's default config installs handlers ONLY for the uvicorn.*
 # namespace, so app-module `logger.info(...)` calls were being dropped
-# silently. force=True overrides any handlers already attached to the
+# silently. setup_logging() replaces any handlers already attached to the
 # root by lazy imports.
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s %(message)s",
-    force=True,
+#
+# Read straight from the environment rather than Settings(): this runs at
+# import time, before the app (and its settings) are constructed.
+from app.core.logging_config import setup_logging
+
+setup_logging(
+    level=os.getenv("LOG_LEVEL", "INFO"),
+    json_logs=os.getenv("JSON_LOGS", "").lower() in ("1", "true", "yes"),
 )
-# Quiet noisy libraries to keep signal-to-noise high
-logging.getLogger("httpx").setLevel(logging.WARNING)
-logging.getLogger("httpcore").setLevel(logging.WARNING)
-logging.getLogger("boto3").setLevel(logging.WARNING)
-logging.getLogger("botocore").setLevel(logging.WARNING)
-logging.getLogger("s3transfer").setLevel(logging.WARNING)
-logging.getLogger("urllib3").setLevel(logging.WARNING)
-logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
-logging.getLogger("watchfiles").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +70,7 @@ import app.inbox.models  # noqa: F401
 import app.forms.models  # noqa: F401
 import app.communication.models  # noqa: F401
 import app.communication.identity_capture  # noqa: F401
+import app.tasks.models  # noqa: F401
 import app.workflows.models  # noqa: F401
 import app.pages.models  # noqa: F401
 import app.scheduling.models  # noqa: F401
@@ -173,6 +170,25 @@ def create_app() -> FastAPI:
         allow_headers=["Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"],
     )
 
+    # Correlation ID — one id per request, stamped on every log line that
+    # request produces and echoed back as X-Request-ID so a user-reported
+    # failure can be traced to its logs. Honours an inbound X-Request-ID so
+    # the id survives a proxy hop.
+    @fastapi_app.middleware("http")
+    async def add_correlation_id(request: Request, call_next):
+        from app.core.logging_config import correlation_id, new_correlation_id
+
+        inbound = request.headers.get("X-Request-ID")
+        if inbound:
+            correlation_id.set(inbound[:64])
+            cid = inbound[:64]
+        else:
+            cid = new_correlation_id()
+
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = cid
+        return response
+
     # Security headers middleware — adds standard protective headers to all responses
     @fastapi_app.middleware("http")
     async def add_security_headers(request: Request, call_next):
@@ -245,6 +261,7 @@ def create_app() -> FastAPI:
     from app.forms.router import router as forms_router
     from app.communication.router import router as communication_router
     from app.communication.automation_router import router as automation_router
+    from app.tasks.router import router as tasks_router
     from app.workflows.router import router as workflows_router
     from app.pages.router import router as pages_router, analytics_router
     from app.scheduling.router import router as scheduling_router
@@ -295,6 +312,7 @@ def create_app() -> FastAPI:
     fastapi_app.include_router(forms_router, prefix="/api/forms", tags=["forms"])
     fastapi_app.include_router(communication_router, prefix="/api/communication", tags=["communication"])
     fastapi_app.include_router(automation_router, prefix="/api/communication", tags=["automation"])
+    fastapi_app.include_router(tasks_router, prefix="/api/tasks", tags=["tasks"])
     fastapi_app.include_router(workflows_router, prefix="/api/workflows", tags=["workflows"])
     fastapi_app.include_router(pages_router, prefix="/api/pages", tags=["pages"])
     fastapi_app.include_router(analytics_router, prefix="/api/analytics", tags=["analytics"])

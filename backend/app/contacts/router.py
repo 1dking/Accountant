@@ -653,3 +653,14 @@ async def delete_contact_memory(
     await db.delete(memory)
     await db.commit()
     return {"data": {"deleted": True}}
+
+
+@router.get("/{contact_id}/payments")
+async def list_contact_payments(
+    contact_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    """All payments received against this contact's invoices."""
+    payments = await service.list_contact_payments(db, contact_id, user=current_user)
+    return {"data": payments}

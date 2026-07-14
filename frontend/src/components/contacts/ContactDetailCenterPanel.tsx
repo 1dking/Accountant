@@ -10,17 +10,19 @@
  */
 import { useNavigate } from 'react-router'
 import {
-  Activity, BookOpen, Brain, Calculator, CheckSquare, Clock,
+  Activity, BookOpen, Brain, Calculator, CheckSquare,
   DollarSign, FileSignature, FileText, Filter, FolderOpen, Mail,
   MessageSquare, Phone, Plus, StickyNote, Video,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import ContactConversationThread from './ContactConversationThread'
+import ContactTasksTab from './ContactTasksTab'
 import {
   EmptyState, LoadingSkeleton, StatusBadge,
   formatCurrency, formatDate, formatDateTime,
 } from './contactDetailUtils'
 import type { ContactMemory } from '@/api/automation'
+import type { ContactPayment } from '@/api/contacts'
 
 // ---------------------------------------------------------------------------
 // Tab metadata
@@ -88,6 +90,7 @@ interface Props {
   meetings: any[]
   fileShares: any[]
   expenses: any[]
+  payments: ContactPayment[]
   memories: ContactMemory[]
 
   // Loading flags
@@ -98,6 +101,7 @@ interface Props {
   meetingsIsLoading: boolean
   filesIsLoading: boolean
   expensesIsLoading: boolean
+  paymentsIsLoading: boolean
   memoriesIsLoading: boolean
 
   // Filter + composer state
@@ -120,10 +124,10 @@ export default function ContactDetailCenterPanel(props: Props) {
   const {
     contactId, contact, activeTab, setActiveTab,
     activities, invoices, proposals, estimates, meetings,
-    fileShares, expenses, memories,
+    fileShares, expenses, payments, memories,
     activityIsLoading, invoicesIsLoading, proposalsIsLoading,
     estimatesIsLoading, meetingsIsLoading, filesIsLoading,
-    expensesIsLoading, memoriesIsLoading,
+    expensesIsLoading, paymentsIsLoading, memoriesIsLoading,
     activityFilter, setActivityFilter,
     expandedMemoryId, setExpandedMemoryId,
     onAddNoteClick, onAddMemoryClick, onDeleteMemory,
@@ -138,6 +142,7 @@ export default function ContactDetailCenterPanel(props: Props) {
     files: fileShares.length,
     meetings: meetings.length,
     expenses: expenses.length,
+    payments: payments.length,
   }
 
   const filteredActivities = activityFilter === 'all'
@@ -440,9 +445,80 @@ export default function ContactDetailCenterPanel(props: Props) {
     )
   }
 
-  const renderPlaceholder = (title: string) => (
-    <EmptyState icon={Clock} title={`${title} coming soon`} description={`The ${title.toLowerCase()} tab will be available in a future update.`} />
-  )
+  const renderPayments = () => {
+    if (paymentsIsLoading) return <LoadingSkeleton />
+    if (payments.length === 0) {
+      return (
+        <EmptyState
+          icon={DollarSign}
+          title="No payments"
+          description="No payments have been received from this contact yet."
+        />
+      )
+    }
+
+    const currency = payments[0]?.currency || 'USD'
+    const total = payments.reduce((sum, p) => sum + p.amount, 0)
+
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between px-1">
+          <span className="text-sm text-gray-500 dark:text-gray-400">
+            {payments.length} payment{payments.length === 1 ? '' : 's'} received
+          </span>
+          <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+            {formatCurrency(total, currency)} total
+          </span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100 dark:border-gray-700 text-left">
+                <th className="px-3 py-2 font-medium text-gray-600 dark:text-gray-400">Date</th>
+                <th className="px-3 py-2 font-medium text-gray-600 dark:text-gray-400">Invoice</th>
+                <th className="px-3 py-2 font-medium text-gray-600 dark:text-gray-400">Method</th>
+                <th className="px-3 py-2 font-medium text-gray-600 dark:text-gray-400">Reference</th>
+                <th className="px-3 py-2 font-medium text-gray-600 dark:text-gray-400 text-right">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {payments.map((payment) => (
+                <tr
+                  key={payment.id}
+                  className="border-b border-gray-50 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                >
+                  <td className="px-3 py-2 text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                    {formatDate(payment.date)}
+                  </td>
+                  <td className="px-3 py-2">
+                    <button
+                      onClick={() => navigate(`/invoices/${payment.invoice_id}`)}
+                      className="text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      {payment.invoice_number}
+                    </button>
+                  </td>
+                  <td className="px-3 py-2 text-gray-600 dark:text-gray-400">
+                    {payment.payment_method
+                      ? payment.payment_method.replace(/_/g, ' ')
+                      : '—'}
+                  </td>
+                  <td className="px-3 py-2 text-gray-500 dark:text-gray-500">
+                    {payment.reference || '—'}
+                  </td>
+                  <td className="px-3 py-2 text-right font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">
+                    {formatCurrency(payment.amount, payment.currency)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    )
+  }
+
+  const renderTasks = () => <ContactTasksTab contactId={contactId} />
 
   const renderMemory = () => {
     const sourceIcon = (src: string) => {
@@ -573,8 +649,8 @@ export default function ContactDetailCenterPanel(props: Props) {
     files: renderFiles,
     meetings: renderMeetings,
     expenses: renderExpenses,
-    tasks: () => renderPlaceholder('Tasks'),
-    payments: () => renderPlaceholder('Payments'),
+    tasks: renderTasks,
+    payments: renderPayments,
   }
 
   return (

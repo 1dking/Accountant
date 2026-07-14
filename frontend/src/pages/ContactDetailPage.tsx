@@ -9,7 +9,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { cn } from '@/lib/utils'
 import {
   addContactActivity, addContactTag, deleteContact, getAllTagNames,
-  getContact, getContactActivities, getContactTags, getFileShares,
+  getContact, getContactActivities, getContactPayments, getContactTags, getFileShares,
   removeContactTag, updateContact,
 } from '@/api/contacts'
 import { listInvoices } from '@/api/invoices'
@@ -116,6 +116,12 @@ export default function ContactDetailPage() {
     enabled: !!id && activeTab === 'expenses',
   })
 
+  const paymentsQuery = useQuery({
+    queryKey: ['contact-payments', id],
+    queryFn: () => getContactPayments(id!),
+    enabled: !!id && activeTab === 'payments',
+  })
+
   const tagsQuery = useQuery({
     queryKey: ['contact-tags', id],
     queryFn: () => getContactTags(id!),
@@ -204,6 +210,7 @@ export default function ContactDetailPage() {
   const fileShares = (filesQuery.data as any)?.data || []
   const activities = (activityQuery.data as any)?.data || []
   const expenses = expensesQuery.data?.data || []
+  const payments = paymentsQuery.data?.data || []
   const tags: any[] = (tagsQuery.data as any)?.data || []
   const allTags: string[] = (allTagsQuery.data as any)?.data || []
   const memories: ContactMemory[] = (memoriesQuery.data?.data || []) as ContactMemory[]
@@ -560,6 +567,7 @@ export default function ContactDetailPage() {
             meetings={meetings}
             fileShares={fileShares}
             expenses={expenses}
+            payments={payments}
             memories={memories}
             activityIsLoading={activityQuery.isLoading}
             invoicesIsLoading={invoicesQuery.isLoading}
@@ -568,6 +576,7 @@ export default function ContactDetailPage() {
             meetingsIsLoading={meetingsQuery.isLoading}
             filesIsLoading={filesQuery.isLoading}
             expensesIsLoading={expensesQuery.isLoading}
+            paymentsIsLoading={paymentsQuery.isLoading}
             memoriesIsLoading={memoriesQuery.isLoading}
             activityFilter={activityFilter}
             setActivityFilter={setActivityFilter}
