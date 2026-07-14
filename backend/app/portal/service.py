@@ -72,8 +72,13 @@ async def get_portal_dashboard(db: AsyncSession, user: User) -> dict:
     }
 
 
+#: Statuses with nothing left to collect — the portal shows no Pay button.
+_UNPAYABLE_INVOICE_STATUSES = frozenset({"paid", "cancelled"})
+
+
 async def get_portal_invoices(db: AsyncSession, user: User) -> list[dict]:
     portal = await _get_portal_account(db, user.id)
+    from app.integrations.stripe.models import PaymentLinkStatus, StripePaymentLink
     from app.invoicing.models import Invoice
 
     q = (
@@ -82,7 +87,32 @@ async def get_portal_invoices(db: AsyncSession, user: User) -> list[dict]:
         .order_by(Invoice.issue_date.desc())
     )
     result = await db.execute(q)
-    invoices = result.scalars().all()
+    invoices = list(result.scalars().all())
+
+    # Resolve pay links in one query rather than per-invoice. We only surface
+    # links that already exist — minting a Stripe session on every portal page
+    # load would create junk checkouts; the link is created when the invoice is
+    # emailed, and on demand via the payment-links endpoint.
+    payment_urls: dict[uuid.UUID, str] = {}
+    if invoices:
+        link_rows = (
+            await db.execute(
+                select(StripePaymentLink)
+                .where(
+                    StripePaymentLink.invoice_id.in_([inv.id for inv in invoices]),
+                    StripePaymentLink.status == PaymentLinkStatus.PENDING,
+                )
+                .order_by(StripePaymentLink.created_at.desc())
+            )
+        ).scalars().all()
+        for link in link_rows:
+            # Ordered newest-first; keep the first (latest) per invoice.
+            if link.invoice_id not in payment_urls and link.payment_url:
+                payment_urls[link.invoice_id] = link.payment_url
+
+    def _status(inv) -> str:
+        return inv.status.value if hasattr(inv.status, "value") else inv.status
+
     return [
         {
             "id": inv.id,
@@ -91,8 +121,12 @@ async def get_portal_invoices(db: AsyncSession, user: User) -> list[dict]:
             "due_date": str(inv.due_date),
             "total": float(inv.total),
             "currency": inv.currency,
-            "status": inv.status.value if hasattr(inv.status, "value") else inv.status,
-            "payment_url": None,
+            "status": _status(inv),
+            "payment_url": (
+                None
+                if _status(inv) in _UNPAYABLE_INVOICE_STATUSES
+                else payment_urls.get(inv.id)
+            ),
         }
         for inv in invoices
     ]

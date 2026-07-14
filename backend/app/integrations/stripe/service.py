@@ -1,4 +1,5 @@
 
+import logging
 import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -19,6 +20,8 @@ from .models import (
     SubscriptionStatus,
 )
 from .schemas import CreateSubscriptionRequest
+
+logger = logging.getLogger(__name__)
 
 
 def _configure_stripe(settings: Settings) -> None:
@@ -99,7 +102,40 @@ async def get_payment_link(
         .where(StripePaymentLink.invoice_id == invoice_id)
         .order_by(StripePaymentLink.created_at.desc())
     )
-    return result.scalar_one_or_none()
+    return result.scalars().first()
+
+
+async def ensure_payment_url(
+    db: AsyncSession,
+    invoice_id: uuid.UUID,
+    user: User,
+    settings: Settings,
+    base_url: str = "",
+) -> str | None:
+    """Return a payable Stripe URL for an invoice, creating one if needed.
+
+    Returns None — rather than raising — when Stripe isn't configured or the
+    call to Stripe fails. Callers use this to decide whether to render a
+    "Pay Now" button, and a payment provider being down must not block the
+    invoice email itself from going out.
+
+    Reuses an existing PENDING link instead of minting a session per send, so
+    resending an invoice doesn't litter Stripe with duplicate checkouts.
+    """
+    if not settings.stripe_secret_key:
+        return None
+
+    existing = await get_payment_link(db, invoice_id)
+    if existing and existing.status == PaymentLinkStatus.PENDING and existing.payment_url:
+        return existing.payment_url
+
+    try:
+        link = await create_checkout_session(db, invoice_id, user, settings, base_url)
+    except Exception:  # noqa: BLE001 — never let Stripe break the send
+        logger.exception("Could not create Stripe payment link for invoice %s", invoice_id)
+        return None
+
+    return link.payment_url
 
 
 # ---------------------------------------------------------------------------
