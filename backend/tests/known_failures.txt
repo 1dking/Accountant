@@ -1,50 +1,24 @@
 # Known-failing tests — QUARANTINE, NOT FORGIVENESS
 #
-# These fail on `main` and failed before the current work (verified against a
-# clean worktree at 9d4a1b1). They are deselected in CI so the suite can be a
-# real blocking gate: with them included CI is red on day one, and a
-# permanently-red gate is one nobody reads — which is how these went unnoticed
-# in the first place (there was no CI at all).
+# This list is currently EMPTY. Every test runs and is expected to pass.
 #
-# Deselecting them means NEW breakage blocks a PR. It does not mean these are
-# fine. They are real bugs. Burn this list down and delete this file.
-#
-# A CI step re-runs everything listed here and FAILS if any of them passes, so
-# a fixed test cannot be left rotting in quarantine.
+# When a test genuinely can't be fixed immediately, add its node id here (one per
+# line) with a comment explaining the root cause, so the suite can stay a real
+# blocking gate instead of going red and being ignored. A CI step re-runs
+# everything listed here and FAILS if any of them passes, so a fixed test can't
+# rot in quarantine.
 #
 # ---------------------------------------------------------------------------
-# RESOLVED — permission model (8 tests, was GROUP 1)
+# RESOLVED — meetings / LiveKit egress (was 14 tests)
 # ---------------------------------------------------------------------------
-# Fixed. Root cause was app/core/authorization.py: only ADMIN bypassed the
-# ownership check, so a VIEWER / TEAM_MEMBER / ACCOUNTANT got a 404 on any
-# record they didn't personally create — which made the VIEWER role useless by
-# construction and stopped team members from sharing a CRM.
+# These failed only LOCALLY: the livekit-api SDK (a declared dependency,
+# pyproject.toml) wasn't installed in the local venv, so start_meeting's
+# `from livekit.api import LiveKitAPI` raised. CI installs `.[dev]` and always
+# had the SDK, so 13 of the 14 actually passed there all along.
 #
-# Ownership is no longer a second gate on shared business records; the route
-# layer's require_role already decides what each role may do. Private resources
-# (documents, meetings, SMTP configs) remain strictly owner-scoped, and CLIENT
-# is deliberately NOT staff. See security/access_control.md and
-# tests/integration/test_permission_model.py.
-#
-# A cashbook soft-delete bug (get_entry didn't hide deleted rows, so a deleted
-# entry still returned 200) was fixed alongside it.
-#
-# ---------------------------------------------------------------------------
-# OPEN — meetings / LiveKit egress (14 tests)
-# ---------------------------------------------------------------------------
-# Not yet diagnosed. Clustered entirely in the meetings + egress area, which is
-# also where the most recent feature work landed (commits 7-29).
-tests/integration/test_meeting_egress.py::test_start_meeting_creates_recording_row_in_recording_state
-tests/integration/test_meeting_egress.py::test_start_meeting_without_record_flag_skips_egress
-tests/integration/test_meeting_egress.py::test_end_meeting_stops_egress_and_marks_processing
-tests/integration/test_meeting_egress.py::test_extract_egress_completion_pulls_full_metadata
-tests/integration/test_meeting_egress.py::test_webhook_is_idempotent
-tests/integration/test_meeting_egress.py::test_reconcile_finds_orphan_completed_egress
-tests/integration/test_meeting_egress.py::test_reconcile_skips_already_available_recordings
-tests/integration/test_meeting_capacity.py::test_egress_layout_kwarg_passes_through
-tests/integration/test_meeting_capacity.py::test_egress_layout_unknown_value_falls_back_to_speaker
-tests/integration/test_meeting_host_autostart.py::test_host_join_on_scheduled_auto_starts
-tests/integration/test_meeting_host_autostart.py::test_host_join_on_in_progress_does_not_double_start
-tests/integration/test_meeting_lobby.py::test_start_instant_meeting_returns_in_progress_with_slug
-tests/integration/test_meeting_lobby.py::test_lobby_status_returns_waiting_until_host_admits
-tests/integration/test_meeting_templates.py::test_internal_sync_keeps_recording_off
+# The 14th (test_meeting_templates::test_internal_sync_keeps_recording_off) was a
+# real bug: Commit 25 changed MeetingCreate.record_meeting to default True, which
+# silently defeated Commit 16's template default ("only override when falsy" can
+# never fire when the default is True), so INTERNAL_SYNC recorded anyway. Fixed by
+# making record_meeting Optional (None = "caller omitted") so the template default
+# can decide, while an explicit value still wins.

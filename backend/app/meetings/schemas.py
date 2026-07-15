@@ -23,11 +23,11 @@ class MeetingCreate(BaseModel):
     scheduled_start: datetime | None = None
     scheduled_end: datetime | None = None
     contact_id: uuid.UUID | None = None
-    # Commit 25 — default record_meeting=True. Accountant calls are
-    # nearly always recorded for transcript + summary + quote-draft
-    # downstream; making the host opt OUT instead of opt IN matches
-    # actual usage. Hosts can untoggle in the form.
-    record_meeting: bool = True
+    # Optional (not bool=True) so the service can tell an explicit choice from
+    # an omission: an explicit value always wins, otherwise the template decides
+    # (INTERNAL_SYNC off, everything else on — Commit 25's record-by-default).
+    # With a bool default the INTERNAL_SYNC template default could never fire.
+    record_meeting: bool | None = None
     # Commit 16 — template biases AI behavior. When omitted, defaults
     # to GENERIC. The host picks via the dropdown in NewMeetingPage.
     template: MeetingTemplate = MeetingTemplate.GENERIC
@@ -47,8 +47,9 @@ class InstantMeetingCreate(BaseModel):
     backend defaults to 'Instant meeting' if omitted. No participants
     on creation — host shares the slug URL to invite ad-hoc."""
     title: str | None = Field(None, max_length=255)
-    # Commit 25 — default record_meeting=True (see MeetingCreate).
-    record_meeting: bool = True
+    # Optional, same reason as MeetingCreate: omitted → template decides,
+    # explicit → wins. (See MeetingCreate.record_meeting.)
+    record_meeting: bool | None = None
     # Commit 16 — template available on instant meetings too. The new-
     # meeting dropdown can pre-select Discovery vs Internal Sync.
     template: MeetingTemplate = MeetingTemplate.GENERIC

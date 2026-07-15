@@ -99,7 +99,9 @@ if [ "$INCLUDE_KNOWN" = false ] && [ -f "$BACKEND_DIR/tests/known_failures.txt" 
     case "$line" in ''|\#*) continue ;; esac
     DESELECT="$DESELECT --deselect $line"
   done < "$BACKEND_DIR/tests/known_failures.txt"
-  echo -e "${YELLOW}  Note: deselecting known pre-existing failures (tests/known_failures.txt)${NC}"
+  if [ -n "$DESELECT" ]; then
+    echo -e "${YELLOW}  Note: deselecting known pre-existing failures (tests/known_failures.txt)${NC}"
+  fi
 fi
 
 # shellcheck disable=SC2086  # DESELECT is intentionally word-split

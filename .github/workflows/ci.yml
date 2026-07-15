@@ -37,13 +37,13 @@ jobs:
         working-directory: backend
         run: python -m pytest tests/adversarial --tb=short -q
 
-      # api + integration is the bulk of the suite (~890 tests). The old runner
+      # api + integration is the bulk of the suite (~900 tests). The old runner
       # script never executed tests/integration at all.
       #
-      # 22 tests in tests/known_failures.txt already fail on main and are
-      # deselected so this can be a BLOCKING gate — a gate that's red from day
-      # one is a gate nobody reads. Read that file: they are real bugs, listed
-      # with root cause, to be burned down. New breakage still fails the build.
+      # tests/known_failures.txt lists node ids to deselect so the suite can be a
+      # BLOCKING gate even while a few tests are genuinely unfixable — a gate
+      # that's red from day one is a gate nobody reads. The list is currently
+      # empty, so everything runs.
       - name: API + integration
         working-directory: backend
         run: |
@@ -54,10 +54,16 @@ jobs:
 
       # Guard the quarantine: if a listed test starts passing, it must come off
       # the list, or the list quietly becomes a graveyard of tests nobody runs.
+      # Skipped entirely when the list is empty (SELECT empty would make pytest
+      # run the whole suite and the guard would misfire).
       - name: Known failures are still failing
         working-directory: backend
         run: |
           SELECT=$(grep -vE '^\s*#|^\s*$' tests/known_failures.txt | tr '\n' ' ')
+          if [ -z "$SELECT" ]; then
+            echo "known_failures.txt is empty — nothing to guard."
+            exit 0
+          fi
           if python -m pytest $SELECT -q --tb=no > /dev/null 2>&1; then
             echo "::error::Tests in known_failures.txt now PASS. Remove them from the list."
             exit 1

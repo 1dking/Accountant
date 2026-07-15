@@ -36,7 +36,8 @@ TEMPLATE_DEFAULTS = {
     MeetingTemplate.DISCOVERY_CALL: {"record_meeting_default": True},
     MeetingTemplate.CLIENT_REVIEW:  {"record_meeting_default": True},
     MeetingTemplate.INTERNAL_SYNC:  {"record_meeting_default": False},
-    MeetingTemplate.GENERIC:        {"record_meeting_default": False},
+    # GENERIC records by default (Commit 25) — only INTERNAL_SYNC opts out.
+    MeetingTemplate.GENERIC:        {"record_meeting_default": True},
 }
 from app.meetings.schemas import (
     JoinTokenResponse,
@@ -241,13 +242,23 @@ async def create_meeting(
     room_name = f"meeting-{uuid.uuid4().hex[:16]}"
     slug = await _generate_unique_slug(db)
 
-    # Commit 16 — template-driven defaults. If the caller omitted
-    # record_meeting (default False) but picked a template that
-    # implies recording (e.g. DISCOVERY_CALL), promote it to True.
-    record_meeting = data.record_meeting
+    # Recording default, in precedence order:
+    #   1. An explicit record_meeting from the caller always wins.
+    #   2. Otherwise (record_meeting is None), the template decides —
+    #      INTERNAL_SYNC keeps recording off, discovery/review turn it on.
+    #   3. No template match falls back to the global default (record on,
+    #      Commit 25).
+    #
+    # record_meeting MUST be Optional in the schema for this to work: with a
+    # bool default the service can't tell "caller wanted True" from "caller
+    # omitted it", so the template default (Commit 16) could never fire and
+    # INTERNAL_SYNC recorded anyway.
     template = getattr(data, "template", MeetingTemplate.GENERIC)
-    if not record_meeting and template in TEMPLATE_DEFAULTS:
-        record_meeting = TEMPLATE_DEFAULTS[template]["record_meeting_default"]
+    record_meeting = data.record_meeting
+    if record_meeting is None:
+        record_meeting = TEMPLATE_DEFAULTS.get(template, {}).get(
+            "record_meeting_default", True
+        )
 
     meeting = Meeting(
         title=data.title,
@@ -1140,7 +1151,7 @@ async def start_instant_meeting(
     settings: Settings,
     *,
     title: str | None = None,
-    record_meeting: bool = False,
+    record_meeting: bool | None = None,
     template: MeetingTemplate = MeetingTemplate.GENERIC,
 ) -> tuple[Meeting, dict]:
     """Create-and-start in one step. Stamps scheduled_start=now() and
