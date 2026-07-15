@@ -263,9 +263,17 @@ async def test_list_meetings_multi_user(
     admin_user: User,
     accountant_user: User,
 ):
-    """Meetings created by admin are visible. Accountant can also create
-    meetings. Both users see meetings in their respective list calls.
+    """Two staff users each create a meeting and each sees their own in the list.
+
+    The accountant is granted the meetings module here (see
+    test_accountant_can_manage_meetings) — it's not a default, but meeting
+    creation gates on the ACCOUNTANT role, so with the module they can create.
     """
+    import json as _json
+
+    accountant_user.feature_access_json = _json.dumps({"meeting_rooms": True})
+    await db.commit()
+
     admin_headers = auth_header(admin_user)
     acct_headers = auth_header(accountant_user)
 
@@ -399,7 +407,18 @@ async def test_accountant_can_manage_meetings(
     admin_user: User,
     accountant_user: User,
 ):
-    """ACCOUNTANT role can create, update, and cancel meetings."""
+    """ACCOUNTANT role can create, update, and cancel meetings — when they have
+    the meetings module.
+
+    Meetings gate on the ACCOUNTANT role at the route layer, but meeting_rooms is
+    not in the accountant's default module bundle (they run the money side), so
+    the module gate would otherwise 403 them. This test grants that module — as an
+    admin would per-user — to exercise the role capability itself.
+    """
+    import json as _json
+
+    accountant_user.feature_access_json = _json.dumps({"meeting_rooms": True})
+    await db.commit()
     headers = auth_header(accountant_user)
 
     # Create

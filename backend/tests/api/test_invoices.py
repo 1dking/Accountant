@@ -668,20 +668,18 @@ async def test_update_invoice_viewer_forbidden(
 # =========================================================================
 
 
-async def test_accountant_has_no_invoices_module_by_default(
+async def test_accountant_can_create_invoice(
     client: AsyncClient,
     accountant_user: User,
     sample_contact,
 ):
-    """"The accountant has only the cash book." The accountant role's default
-    modules don't include invoices, so the module gate returns 403. A DEFAULT an
-    admin can toggle on per user; the role→create-right mapping still holds once
-    the module is enabled."""
+    """Invoicing is core accountant work, so the invoices module is on by default
+    and require_role already permits the ACCOUNTANT role to create."""
     payload = _invoice_payload(sample_contact.id)
     resp = await client.post(
         "/api/invoices", json=payload, headers=auth_header(accountant_user)
     )
-    assert resp.status_code == 403
+    assert resp.status_code == 201
 
 
 # =========================================================================

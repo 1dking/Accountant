@@ -58,38 +58,40 @@ async def test_module_on_is_reachable(client, db):
 
 
 @pytest.mark.critical
-async def test_an_accountant_gets_the_cashbook_and_not_the_crm(client, db):
-    """Straight from the requirement. The accountant role's defaults grant the
-    accounting modules and nothing else — now actually enforced."""
+async def test_an_accountant_gets_the_money_side_but_not_meetings(client, db):
+    """The accountant runs the money side end to end — cashbook, invoices and the
+    contacts to invoice against — but not unrelated modules like meetings. The
+    gate still bites; it just draws the line in a different place than 'cashbook
+    only'."""
     accountant = await _user_with_features(db, Role.ACCOUNTANT, {})
 
-    assert (
-        await client.get("/api/cashbook/entries", headers=auth_header(accountant))
-    ).status_code == 200
+    for path in ("/api/cashbook/entries", "/api/contacts", "/api/invoices"):
+        assert (
+            await client.get(path, headers=auth_header(accountant))
+        ).status_code == 200, f"accountant should reach {path}"
 
-    assert (
-        await client.get("/api/contacts", headers=auth_header(accountant))
-    ).status_code == 403, "an accountant has no business in the contact book"
-
+    # ...but a module they were never granted is still refused — the gate works.
     assert (
         await client.get("/api/meetings", headers=auth_header(accountant))
-    ).status_code == 403
+    ).status_code == 403, "accountant has no meetings module"
 
 
 @pytest.mark.critical
 async def test_a_per_user_override_beats_the_role_default(client, db):
-    """The point of per-employee toggles: one VA is not every VA."""
-    # An accountant who HAS been given the contact book by the admin.
-    accountant = await _user_with_features(db, Role.ACCOUNTANT, {"contacts": True})
-
-    assert (
-        await client.get("/api/contacts", headers=auth_header(accountant))
-    ).status_code == 200
-
-    # ...but still not the cashbook's neighbours they were never granted.
+    """The point of per-employee toggles: one VA is not every VA. Grant one
+    accountant a module that is OFF in the role default (meetings) and it opens,
+    while the role default for it stays shut for everyone else."""
+    accountant = await _user_with_features(db, Role.ACCOUNTANT, {"meetings": False})
+    # Sanity: with meetings off (matching the default), it's refused.
     assert (
         await client.get("/api/meetings", headers=auth_header(accountant))
     ).status_code == 403
+
+    # Now an accountant the admin explicitly granted meetings.
+    granted = await _user_with_features(db, Role.ACCOUNTANT, {"meeting_rooms": True})
+    assert (
+        await client.get("/api/meetings", headers=auth_header(granted))
+    ).status_code == 200, "an explicit override must open a module the role default shuts"
 
 
 @pytest.mark.critical

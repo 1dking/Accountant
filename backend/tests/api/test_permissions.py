@@ -422,19 +422,14 @@ async def test_admin_can_detect_duplicates(
 
 
 @pytest.mark.normal
-async def test_accountant_has_no_contacts_module_by_default(
+async def test_accountant_can_create_contacts(
     client: AsyncClient,
     accountant_user: User,
 ):
-    """"The accountant has only the cash book." The accountant role's default
-    modules are the accounting ones (cashbook, expenses, reports, tax…) and NOT
-    contacts, so the module gate refuses /api/contacts with 403.
-
-    This used to assert an accountant could create contacts — from when
-    'accountant' was a general finance role. It's a DEFAULT: an admin can switch
-    the contacts module on for a specific accountant, and then require_role still
-    lets them create (see tests/integration/test_feature_enforcement.py for the
-    module layer, which is what changed here).
+    """An accountant runs the money side end to end, so contacts is on by default
+    (they need someone to invoice). The contacts MODULE lets them open the section
+    and manage their OWN contacts — records stay owner-private, so this is not a
+    window into anyone else's book.
     """
     headers = auth_header(accountant_user)
 
@@ -443,19 +438,17 @@ async def test_accountant_has_no_contacts_module_by_default(
         json=_contact_payload(),
         headers=headers,
     )
-    assert resp.status_code == 403
+    assert resp.status_code == 201
 
 
 @pytest.mark.normal
-async def test_accountant_has_no_invoices_module_by_default(
+async def test_accountant_can_create_invoices(
     client: AsyncClient,
     accountant_user: User,
     admin_user: User,
     sample_contact: Contact,
 ):
-    """Same as contacts: an accountant's default modules are the accounting ones,
-    not invoices, so the module gate refuses /api/invoices. A DEFAULT the admin
-    can override per user."""
+    """Invoicing is core accountant work — the invoices module is on by default."""
     headers = auth_header(accountant_user)
 
     resp = await client.post(
@@ -463,7 +456,7 @@ async def test_accountant_has_no_invoices_module_by_default(
         json=_invoice_payload(sample_contact.id),
         headers=headers,
     )
-    assert resp.status_code == 403
+    assert resp.status_code == 201
 
 
 @pytest.mark.normal

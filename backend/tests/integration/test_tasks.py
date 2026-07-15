@@ -171,4 +171,11 @@ async def test_workflow_create_task_action_now_creates_a_real_task(
     ).scalar_one()
     assert task.title == f"Welcome {sample_contact.contact_name}"
     assert task.priority == TaskPriority.HIGH
-    assert task.due_date == date.today() + timedelta(days=3)
+    # The CREATE_TASK action computes due_date from UTC now(); asserting against
+    # local date.today() flakes when the run straddles the UTC/local day boundary
+    # (e.g. evening in the Americas). Accept the UTC-based date, tolerating a
+    # one-day slop for a run that crosses midnight.
+    from datetime import datetime, timezone
+
+    expected = datetime.now(timezone.utc).date() + timedelta(days=3)
+    assert abs((task.due_date - expected).days) <= 1

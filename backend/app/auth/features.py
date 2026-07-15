@@ -39,13 +39,18 @@ ROLE_DEFAULTS: dict[str, dict[str, bool]] = {
     # sees its direct reports' records), not extra sections.
     "manager": {**_ALL_TRUE, "platform_admin": False},
     "team_member": {**_ALL_TRUE, "platform_admin": False},
-    # "the secretary or accountant has only the cash book" — this is that, and
-    # once require_feature is enforced it is finally true on the server, not just
-    # in the sidebar.
+    # An accountant runs the money side end to end: they handle the invoices that
+    # come in from email, so they get invoicing (invoices + estimates) and the
+    # contacts to invoice against, on top of the accounting modules. contacts is
+    # only the MODULE — records stay owner-private, so they still see only their
+    # own contacts, not the whole agency's.
     "accountant": {
         **_ALL_FALSE,
         "cashbook": True,
         "expenses": True,
+        "invoices": True,
+        "estimates": True,
+        "contacts": True,
         "smart_import": True,
         "email_scanner": True,
         "reports": True,
