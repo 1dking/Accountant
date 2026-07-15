@@ -2,6 +2,7 @@
 from typing import Optional
 
 import base64
+import hashlib
 import json
 import logging
 import mimetypes
@@ -535,6 +536,9 @@ async def scan_emails(
                         storage_path = await storage.save(file_bytes, ext)
                         att["storage_path"] = storage_path
                         att["size"] = len(file_bytes)
+                        # Hash the bytes now (we have them) so auto-store can
+                        # dedup without re-reading from storage.
+                        att["file_hash"] = hashlib.sha256(file_bytes).hexdigest()
                     else:
                         _log.warning(
                             "Attachment download returned empty data: msg=%s att=%s",
@@ -560,9 +564,11 @@ async def scan_emails(
             existing.attachment_metadata = json.dumps(att_meta) if att_meta else existing.attachment_metadata
             scan_results.append(existing)
             _log.info("Updated existing scan result with attachment metadata: msg=%s", msg_id)
+            row = existing
         else:
             # Create new record
-            scan_result = GmailScanResult(
+            row = GmailScanResult(
+                id=uuid.uuid4(),
                 gmail_account_id=gmail_account_id,
                 message_id=msg_id,
                 subject=subject[:500] if subject else None,
@@ -575,8 +581,14 @@ async def scan_emails(
                 attachment_metadata=json.dumps(att_meta) if att_meta else None,
                 is_processed=False,
             )
-            db.add(scan_result)
-            scan_results.append(scan_result)
+            db.add(row)
+            scan_results.append(row)
+
+        # Auto-store: turn each downloaded attachment into a queryable Document so
+        # emailed invoices land in Drive without a manual import click. Cheap —
+        # bytes are already saved and hashed above; no AI, no extra Gmail call.
+        if att_meta and not row.is_processed:
+            await _auto_store_attachments(db, gmail_account, row, att_meta, subject)
 
     # Update last sync timestamp
     gmail_account.last_sync_at = datetime.now(timezone.utc)
@@ -874,6 +886,122 @@ def _find_attachment_parts(payload: dict) -> list[dict]:
             attachments.append(part)
         attachments.extend(_find_attachment_parts(part))
     return attachments
+
+
+# File extensions worth filing. Skips inline tracking pixels and signature
+# logos that aren't documents. Dedup-by-hash handles anything that slips through.
+_AUTO_STORE_EXTENSIONS = {
+    "pdf", "png", "jpg", "jpeg", "gif", "webp", "tif", "tiff",
+    "doc", "docx", "xls", "xlsx", "csv", "txt", "ods", "odt",
+}
+_AUTO_STORE_MIN_BYTES = 1024  # ignore sub-1KB attachments (likely inline junk)
+
+
+def _infer_document_type(filename: str, subject: str | None):
+    """Best-effort classification from filename + subject. Defaults to OTHER —
+    the point is to STORE the file, not to be clever about labelling it."""
+    from app.documents.models import DocumentType
+
+    haystack = f"{filename} {subject or ''}".lower()
+    if "invoice" in haystack:
+        return DocumentType.INVOICE
+    if "receipt" in haystack:
+        return DocumentType.RECEIPT
+    if "statement" in haystack:
+        return DocumentType.STATEMENT
+    return DocumentType.OTHER
+
+
+async def _auto_store_attachments(
+    db: AsyncSession,
+    gmail_account: GmailAccount,
+    scan_result: GmailScanResult,
+    att_meta: list[dict],
+    subject: str | None,
+) -> None:
+    """Create a Document for each real attachment the scan already downloaded.
+
+    Owned by the Gmail account's user (records are owner-private). Deduped by
+    (file_hash, uploaded_by) so a re-scan or a duplicate email never piles up
+    rows. Deliberately does NOT create an Expense — Expense.amount is NOT NULL, so
+    that would need a paid per-email AI extraction or a junk zero; turning a
+    stored Document into an expense stays the one-click review step where the
+    amount is set.
+
+    Never raises: this runs inside the scan loop, and one odd attachment must not
+    abort the whole sync.
+    """
+    from app.documents.models import Document, DocumentStatus
+
+    owner_id = gmail_account.user_id
+    first_document_id: uuid.UUID | None = None
+
+    for att in att_meta:
+        try:
+            storage_path = att.get("storage_path")
+            file_hash = att.get("file_hash")
+            size = att.get("size") or 0
+            filename = att.get("filename") or "attachment"
+
+            if not storage_path or not file_hash:
+                continue  # download failed for this one; nothing to file
+            if size < _AUTO_STORE_MIN_BYTES:
+                continue
+            ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+            if ext not in _AUTO_STORE_EXTENSIONS:
+                continue
+
+            # Dedup: this exact file already filed for this user?
+            existing_doc = (
+                await db.execute(
+                    select(Document.id).where(
+                        Document.file_hash == file_hash,
+                        Document.uploaded_by == owner_id,
+                    )
+                )
+            ).scalar_one_or_none()
+            if existing_doc is not None:
+                if first_document_id is None:
+                    first_document_id = existing_doc
+                continue
+
+            document = Document(
+                id=uuid.uuid4(),
+                filename=filename[:255],
+                original_filename=filename[:255],
+                mime_type=(mimetypes.guess_type(filename)[0] or "application/octet-stream")[:128],
+                file_size=size,
+                file_hash=file_hash,
+                storage_path=storage_path[:500],
+                document_type=_infer_document_type(filename, subject),
+                # Filed automatically, so mark it for review rather than approved.
+                status=DocumentStatus.PENDING_REVIEW,
+                uploaded_by=owner_id,
+                extracted_metadata={
+                    "source": "gmail",
+                    "gmail_message_id": scan_result.message_id,
+                    "gmail_account_id": str(gmail_account.id),
+                    "auto_stored": True,
+                },
+            )
+            db.add(document)
+            if first_document_id is None:
+                first_document_id = document.id
+            _log.info(
+                "gmail.auto_store filed document msg=%s file=%s",
+                scan_result.message_id, filename,
+            )
+        except Exception:
+            _log.exception(
+                "gmail.auto_store failed msg=%s file=%s",
+                scan_result.message_id, att.get("filename"),
+            )
+
+    # Only mark processed once we've actually filed (or matched) something, so a
+    # scan result with no storable attachments stays in the manual queue.
+    if first_document_id is not None:
+        scan_result.is_processed = True
+        scan_result.matched_document_id = first_document_id
 
 
 async def import_attachment(
