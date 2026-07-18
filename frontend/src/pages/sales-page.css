@@ -1,0 +1,1042 @@
+/* ==========================================================================
+   Sales page — cinematic landing for O-Brain.
+   Near-black hero fading to white body · single violet accent · glassmorphism.
+   All effects are code-driven (canvas + sticky scrub + CSS keyframes): no
+   video files, no animation libraries. Scoped under .sp-root so the app's
+   brand theme vars can't bleed in (and vice versa).
+   ========================================================================== */
+
+.sp-root {
+  --sp-bg: #05060a;
+  --sp-bg-2: #0a0c14;
+  --sp-accent: #8b5cf6;
+  --sp-accent-strong: #7c3aed;
+  --sp-accent-soft: rgba(139, 92, 246, 0.16);
+  --sp-text: #f4f4f8;
+  --sp-text-dim: #9aa0b4;
+  --sp-body-text: #14161f;
+  --sp-body-dim: #5a6072;
+  --sp-glass: rgba(255, 255, 255, 0.055);
+  --sp-glass-border: rgba(255, 255, 255, 0.11);
+  --sp-red: #f43f5e;
+
+  font-family: 'Segoe UI Variable Display', 'Segoe UI', ui-sans-serif, system-ui,
+    -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  background: var(--sp-bg);
+  color: var(--sp-text);
+  overflow-x: clip;
+  letter-spacing: -0.01em;
+}
+
+.sp-root *,
+.sp-root *::before,
+.sp-root *::after {
+  box-sizing: border-box;
+}
+
+/* ---------- nav ---------- */
+
+.sp-nav {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.9rem clamp(1rem, 4vw, 3rem);
+  transition: background 0.35s ease, backdrop-filter 0.35s ease, border-color 0.35s ease;
+  border-bottom: 1px solid transparent;
+}
+
+.sp-nav.scrolled {
+  background: rgba(5, 6, 10, 0.72);
+  backdrop-filter: blur(14px);
+  border-bottom-color: rgba(255, 255, 255, 0.07);
+}
+
+.sp-logo {
+  font-weight: 800;
+  font-size: 1.15rem;
+  letter-spacing: -0.02em;
+  color: var(--sp-text);
+  text-decoration: none;
+}
+
+.sp-logo .dot {
+  color: var(--sp-accent);
+}
+
+.sp-nav-links {
+  display: flex;
+  gap: 1.6rem;
+  align-items: center;
+}
+
+.sp-nav-links a {
+  color: var(--sp-text-dim);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.sp-nav-links a:hover {
+  color: var(--sp-text);
+}
+
+@media (max-width: 720px) {
+  .sp-nav-links a.sp-nav-anchor {
+    display: none;
+  }
+}
+
+/* ---------- buttons ---------- */
+
+.sp-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: none;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  padding: 0.8rem 1.7rem;
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.sp-btn-primary {
+  background: linear-gradient(135deg, var(--sp-accent) 0%, var(--sp-accent-strong) 100%);
+  color: #fff;
+  box-shadow: 0 8px 30px rgba(124, 58, 237, 0.35);
+}
+
+.sp-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 40px rgba(124, 58, 237, 0.5);
+}
+
+.sp-btn-ghost {
+  background: transparent;
+  color: var(--sp-text);
+  border: 1px solid var(--sp-glass-border);
+}
+
+.sp-btn-ghost:hover {
+  background: var(--sp-glass);
+}
+
+.sp-btn-small {
+  padding: 0.55rem 1.15rem;
+  font-size: 0.85rem;
+}
+
+/* ---------- hero (300vh scrub track, sticky viewport) ---------- */
+
+.sp-hero {
+  position: relative;
+  height: 300vh;
+}
+
+.sp-hero-sticky {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(ellipse 80% 55% at 50% -10%, rgba(124, 58, 237, 0.16), transparent 60%),
+    var(--sp-bg);
+}
+
+.sp-hero-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+
+/* The crisp DOM dashboard the particles assemble into. Crossfades in via
+   --mock-o (set from scroll progress in JS). */
+.sp-mockup {
+  position: relative;
+  width: min(880px, 90vw);
+  aspect-ratio: 16 / 10;
+  opacity: var(--mock-o, 0);
+  transform: translateY(calc((1 - var(--mock-o, 0)) * 14px)) scale(calc(0.97 + var(--mock-o, 0) * 0.03));
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(17, 19, 30, 0.92), rgba(10, 12, 20, 0.96));
+  border: 1px solid rgba(139, 92, 246, 0.28);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.03) inset,
+    0 30px 90px rgba(0, 0, 0, 0.6),
+    0 0 120px rgba(124, 58, 237, 0.18);
+  will-change: opacity, transform;
+}
+
+.sp-mock-panel {
+  position: absolute;
+  border-radius: 10px;
+  background: var(--sp-glass);
+  border: 1px solid var(--sp-glass-border);
+  overflow: hidden;
+  padding: 0.6rem 0.7rem;
+}
+
+.sp-mock-label {
+  font-size: clamp(0.4rem, 0.9vw, 0.62rem);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--sp-text-dim);
+  margin: 0 0 0.25rem;
+}
+
+.sp-mock-value {
+  font-size: clamp(0.75rem, 1.9vw, 1.35rem);
+  font-weight: 700;
+  margin: 0;
+}
+
+.sp-mock-value.accent {
+  color: #c4b5fd;
+}
+
+.sp-mock-navdot {
+  height: clamp(4px, 0.8vw, 7px);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.12);
+  margin: clamp(6px, 1.4vw, 12px) 0;
+}
+
+.sp-mock-navdot.active {
+  background: var(--sp-accent);
+  box-shadow: 0 0 12px rgba(139, 92, 246, 0.7);
+}
+
+.sp-mock-row {
+  height: clamp(6px, 1.2vw, 10px);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.09);
+  margin: clamp(5px, 1vw, 9px) 0;
+}
+
+.sp-mock-row.short {
+  width: 62%;
+}
+
+/* Heartbeat chart: line draws in with scroll (--chart-draw), then the glow dot
+   and line pulse like a heartbeat. */
+.sp-mock-chart-svg {
+  position: absolute;
+  inset: 1.7rem 0.7rem 0.6rem;
+  width: calc(100% - 1.4rem);
+  height: calc(100% - 2.3rem);
+  overflow: visible;
+}
+
+.sp-chart-line {
+  fill: none;
+  stroke: var(--sp-accent);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: calc(1 - var(--chart-draw, 0));
+  filter: drop-shadow(0 0 6px rgba(139, 92, 246, 0.8));
+  animation: sp-heartbeat 2.2s ease-in-out infinite;
+}
+
+.sp-chart-fill {
+  fill: url(#spChartGrad);
+  opacity: calc(var(--chart-draw, 0) * 0.5);
+}
+
+.sp-chart-dot {
+  fill: #c4b5fd;
+  filter: drop-shadow(0 0 8px rgba(167, 139, 250, 1));
+  opacity: var(--chart-draw, 0);
+  animation: sp-heartbeat-dot 2.2s ease-in-out infinite;
+}
+
+@keyframes sp-heartbeat {
+  0%, 100% { filter: drop-shadow(0 0 5px rgba(139, 92, 246, 0.65)); }
+  12% { filter: drop-shadow(0 0 16px rgba(139, 92, 246, 1)); }
+  24% { filter: drop-shadow(0 0 7px rgba(139, 92, 246, 0.7)); }
+}
+
+@keyframes sp-heartbeat-dot {
+  0%, 100% { r: 4; }
+  12% { r: 6.5; }
+  24% { r: 4.5; }
+}
+
+/* Hero copy: massive type that compacts upward as the dashboard assembles. */
+.sp-hero-copy {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0 1.25rem;
+  pointer-events: none;
+  transform: translateY(calc(var(--copy-shift, 0) * -30vh)) scale(calc(1 - var(--copy-shift, 0) * 0.45));
+  opacity: calc(1 - var(--copy-shift, 0) * 0.25);
+  will-change: transform, opacity;
+}
+
+.sp-hero-copy > * {
+  pointer-events: auto;
+}
+
+.sp-hero-h1 {
+  font-size: clamp(2.7rem, 8.6vw, 6.8rem);
+  font-weight: 800;
+  line-height: 1.02;
+  letter-spacing: -0.04em;
+  margin: 0 0 1.1rem;
+  background: linear-gradient(180deg, #ffffff 30%, #b9b3d9 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.sp-hero-sub {
+  font-size: clamp(1rem, 2vw, 1.25rem);
+  color: var(--sp-text-dim);
+  max-width: 42rem;
+  margin: 0 0 2rem;
+  line-height: 1.55;
+}
+
+.sp-hero-cta {
+  display: flex;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.sp-scroll-hint {
+  position: absolute;
+  bottom: 2rem;
+  left: 50%;
+  translate: -50% 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--sp-text-dim);
+  opacity: calc(1 - var(--hero-p, 0) * 3);
+  animation: sp-bob 2.4s ease-in-out infinite;
+}
+
+@keyframes sp-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(6px); }
+}
+
+/* ---------- integrations strip ---------- */
+
+.sp-integrations {
+  padding: 4.5rem 1.5rem 3.5rem;
+  text-align: center;
+  background: var(--sp-bg);
+}
+
+.sp-integrations p {
+  font-size: 0.75rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--sp-text-dim);
+  margin: 0 0 1.8rem;
+}
+
+.sp-logo-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: clamp(1.5rem, 5vw, 3.5rem);
+  align-items: center;
+}
+
+.sp-logo-row span {
+  font-weight: 700;
+  font-size: clamp(0.95rem, 2vw, 1.2rem);
+  color: rgba(255, 255, 255, 0.34);
+  letter-spacing: 0.01em;
+  transition: color 0.25s;
+}
+
+.sp-logo-row span:hover {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* ---------- pinned trio over ambient motion ---------- */
+
+.sp-trio {
+  position: relative;
+  height: 340vh;
+  background: var(--sp-bg);
+}
+
+.sp-trio-sticky {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Ambient layer — drifting holographic glass charts + streaming digits.
+   The code analog of the macro camera glide across holographic charts. */
+.sp-holo {
+  position: absolute;
+  border-radius: 14px;
+  background: rgba(139, 92, 246, 0.05);
+  border: 1px solid rgba(139, 92, 246, 0.18);
+  backdrop-filter: blur(2px);
+  padding: 0.8rem;
+  animation: sp-float 11s ease-in-out infinite;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.4);
+}
+
+.sp-holo svg {
+  display: block;
+  overflow: visible;
+}
+
+.sp-holo polyline {
+  fill: none;
+  stroke: rgba(167, 139, 250, 0.75);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+@keyframes sp-float {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(var(--tilt, 0deg)); }
+  50% { transform: translate3d(0, -22px, 0) rotate(calc(var(--tilt, 0deg) + 0.6deg)); }
+}
+
+/* The red anomaly: flares on a chart, then a targeting ring "catches" it. */
+.sp-anomaly {
+  fill: var(--sp-red);
+  animation: sp-anomaly-flare 6s ease-in-out infinite;
+}
+
+.sp-anomaly-ring {
+  fill: none;
+  stroke: var(--sp-red);
+  stroke-width: 1.5;
+  animation: sp-anomaly-catch 6s ease-in-out infinite;
+  transform-origin: center;
+  transform-box: fill-box;
+}
+
+@keyframes sp-anomaly-flare {
+  0%, 55%, 100% { opacity: 0.25; r: 3; filter: none; }
+  62% { opacity: 1; r: 5.5; filter: drop-shadow(0 0 10px rgba(244, 63, 94, 1)); }
+  78% { opacity: 0.9; r: 4; filter: drop-shadow(0 0 6px rgba(244, 63, 94, 0.8)); }
+}
+
+@keyframes sp-anomaly-catch {
+  0%, 58% { opacity: 0; transform: scale(3); }
+  66% { opacity: 1; transform: scale(1.6); }
+  78%, 88% { opacity: 0.9; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1); }
+}
+
+/* Streaming digit columns. */
+.sp-digits {
+  position: absolute;
+  top: -20%;
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-size: 0.72rem;
+  line-height: 1.9;
+  color: rgba(167, 139, 250, 0.16);
+  white-space: pre;
+  animation: sp-digit-drift 26s linear infinite;
+  user-select: none;
+}
+
+@keyframes sp-digit-drift {
+  from { transform: translateY(-12%); }
+  to { transform: translateY(12%); }
+}
+
+/* The three reveals. */
+.sp-reveal {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0 1.5rem;
+  opacity: 0;
+  transform: translateY(34px);
+  filter: blur(6px);
+  transition: opacity 0.55s ease, transform 0.55s ease, filter 0.55s ease;
+  pointer-events: none;
+}
+
+.sp-reveal.active {
+  opacity: 1;
+  transform: translateY(0);
+  filter: blur(0);
+}
+
+.sp-reveal-word {
+  font-size: clamp(2.6rem, 7.5vw, 5.6rem);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  margin: 0 0 0.9rem;
+  color: var(--sp-text);
+}
+
+.sp-reveal-word em {
+  font-style: normal;
+  color: var(--sp-accent);
+}
+
+.sp-reveal-line {
+  font-size: clamp(1rem, 2.1vw, 1.3rem);
+  color: var(--sp-text-dim);
+  margin: 0;
+  max-width: 36rem;
+  line-height: 1.5;
+}
+
+.sp-trio-dots {
+  position: absolute;
+  right: clamp(1rem, 4vw, 3rem);
+  top: 50%;
+  translate: 0 -50%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.sp-trio-dots i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  transition: background 0.3s, transform 0.3s;
+}
+
+.sp-trio-dots i.on {
+  background: var(--sp-accent);
+  transform: scale(1.35);
+}
+
+/* ---------- dark → light transition ---------- */
+
+.sp-fade-to-light {
+  height: 22vh;
+  background: linear-gradient(180deg, var(--sp-bg) 0%, #f7f7fb 100%);
+}
+
+/* ---------- light body ---------- */
+
+.sp-light {
+  background: #f7f7fb;
+  color: var(--sp-body-text);
+}
+
+.sp-section {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: clamp(3.5rem, 8vw, 6.5rem) 1.5rem;
+}
+
+.sp-kicker {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--sp-accent-strong);
+  margin: 0 0 0.8rem;
+}
+
+.sp-h2 {
+  font-size: clamp(1.8rem, 4.4vw, 3rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.08;
+  margin: 0 0 1rem;
+}
+
+.sp-body-sub {
+  color: var(--sp-body-dim);
+  font-size: 1.05rem;
+  line-height: 1.6;
+  max-width: 40rem;
+  margin: 0;
+}
+
+/* counters */
+
+.sp-counters {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+  margin-top: 3rem;
+}
+
+@media (max-width: 720px) {
+  .sp-counters {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sp-counter {
+  background: #fff;
+  border: 1px solid #e8e8f0;
+  border-radius: 18px;
+  padding: 2rem 1.6rem;
+  box-shadow: 0 10px 40px rgba(20, 22, 31, 0.05);
+}
+
+.sp-counter-num {
+  font-size: clamp(2.4rem, 5.5vw, 3.6rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--sp-accent-strong);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.sp-counter-label {
+  margin-top: 0.55rem;
+  color: var(--sp-body-dim);
+  font-weight: 500;
+}
+
+/* browser-frame screenshot section */
+
+.sp-browser {
+  margin-top: 3rem;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid #e4e4ee;
+  box-shadow: 0 40px 120px rgba(48, 24, 108, 0.16), 0 8px 28px rgba(20, 22, 31, 0.08);
+  overflow: hidden;
+}
+
+.sp-browser-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1rem;
+  background: #f1f1f7;
+  border-bottom: 1px solid #e4e4ee;
+}
+
+.sp-browser-bar i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #d6d6e2;
+}
+
+.sp-browser-bar i:nth-child(1) { background: #fda4af; }
+.sp-browser-bar i:nth-child(2) { background: #fcd34d; }
+.sp-browser-bar i:nth-child(3) { background: #86efac; }
+
+.sp-browser-url {
+  flex: 1;
+  max-width: 380px;
+  margin-left: 0.6rem;
+  background: #fff;
+  border: 1px solid #e4e4ee;
+  border-radius: 8px;
+  font-size: 0.72rem;
+  color: #8a8fa3;
+  padding: 0.3rem 0.8rem;
+}
+
+/* The in-frame product depiction reuses the dark mockup, lighter chrome. */
+.sp-browser .sp-mockup {
+  opacity: 1;
+  transform: none;
+  width: 100%;
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+}
+
+.sp-browser .sp-chart-line,
+.sp-browser .sp-chart-dot {
+  --chart-draw: 1;
+}
+
+/* pricing */
+
+.sp-toggle {
+  display: inline-flex;
+  border: 1px solid #e0e0ec;
+  background: #fff;
+  border-radius: 999px;
+  padding: 4px;
+  margin: 1.6rem 0 0;
+}
+
+.sp-toggle button {
+  border: none;
+  background: transparent;
+  padding: 0.5rem 1.3rem;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--sp-body-dim);
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.sp-toggle button.on {
+  background: var(--sp-accent-strong);
+  color: #fff;
+}
+
+.sp-plans {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+  margin-top: 2.4rem;
+  align-items: stretch;
+}
+
+@media (max-width: 860px) {
+  .sp-plans {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sp-plan {
+  position: relative;
+  background: #fff;
+  border: 1px solid #e8e8f0;
+  border-radius: 20px;
+  padding: 2rem 1.7rem;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 40px rgba(20, 22, 31, 0.05);
+}
+
+.sp-plan.featured {
+  border: 2px solid var(--sp-accent-strong);
+  box-shadow: 0 24px 70px rgba(124, 58, 237, 0.2);
+  transform: scale(1.03);
+}
+
+.sp-plan-flag {
+  position: absolute;
+  top: -13px;
+  left: 50%;
+  translate: -50% 0;
+  background: var(--sp-accent-strong);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: 0.28rem 0.9rem;
+}
+
+.sp-plan h3 {
+  margin: 0 0 0.3rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.sp-plan-price {
+  font-size: 2.6rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.sp-plan-price small {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--sp-body-dim);
+}
+
+.sp-plan-talk {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--sp-accent-strong);
+  line-height: 1.8;
+}
+
+.sp-plan ul {
+  list-style: none;
+  margin: 1.3rem 0 1.6rem;
+  padding: 0;
+  display: grid;
+  gap: 0.65rem;
+  flex: 1;
+}
+
+.sp-plan li {
+  font-size: 0.9rem;
+  color: #3c4152;
+  padding-left: 1.45rem;
+  position: relative;
+}
+
+.sp-plan li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.28em;
+  width: 0.85em;
+  height: 0.85em;
+  border-radius: 50%;
+  background: var(--sp-accent-soft);
+  box-shadow: inset 0 0 0 4px rgba(124, 58, 237, 0.55);
+}
+
+.sp-plan-note {
+  text-align: center;
+  color: var(--sp-body-dim);
+  font-size: 0.88rem;
+  margin-top: 1.8rem;
+}
+
+/* FAQ accordion */
+
+.sp-faq {
+  margin-top: 2.4rem;
+  display: grid;
+  gap: 0.8rem;
+  max-width: 46rem;
+}
+
+.sp-faq-item {
+  background: #fff;
+  border: 1px solid #e8e8f0;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.sp-faq-q {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.98rem;
+  color: var(--sp-body-text);
+  padding: 1.1rem 1.3rem;
+}
+
+.sp-faq-q svg {
+  flex-shrink: 0;
+  transition: transform 0.3s ease;
+  color: var(--sp-accent-strong);
+}
+
+.sp-faq-item.open .sp-faq-q svg {
+  transform: rotate(45deg);
+}
+
+.sp-faq-a {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.32s ease;
+}
+
+.sp-faq-item.open .sp-faq-a {
+  grid-template-rows: 1fr;
+}
+
+.sp-faq-a > div {
+  overflow: hidden;
+}
+
+.sp-faq-a p {
+  margin: 0;
+  padding: 0 1.3rem 1.2rem;
+  color: var(--sp-body-dim);
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+/* ---------- final CTA — "the calm" ---------- */
+
+.sp-calm {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 70% 60% at 30% 20%, rgba(196, 181, 253, 0.35), transparent 60%),
+    radial-gradient(ellipse 60% 55% at 75% 75%, rgba(167, 139, 250, 0.22), transparent 55%),
+    linear-gradient(180deg, #f7f7fb 0%, #efecfb 100%);
+  text-align: center;
+}
+
+.sp-calm .sp-section {
+  position: relative;
+  z-index: 1;
+}
+
+/* Drifting steam-like wisps — the code analog of coffee steam in a bright
+   minimal office. Everything under control. */
+.sp-wisp {
+  position: absolute;
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.75), transparent 65%);
+  filter: blur(30px);
+  animation: sp-wisp-drift 16s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes sp-wisp-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.55; }
+  50% { transform: translate(30px, -60px) scale(1.15); opacity: 0.85; }
+}
+
+.sp-demo-form {
+  margin: 2.4rem auto 0;
+  max-width: 30rem;
+  display: grid;
+  gap: 0.8rem;
+  text-align: left;
+}
+
+.sp-demo-form input,
+.sp-demo-form textarea {
+  width: 100%;
+  border: 1px solid #ddd9ee;
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  font: inherit;
+  font-size: 0.92rem;
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--sp-body-text);
+}
+
+.sp-demo-form input:focus,
+.sp-demo-form textarea:focus {
+  outline: 2px solid var(--sp-accent);
+  outline-offset: 0;
+  border-color: transparent;
+}
+
+.sp-form-ok {
+  margin-top: 1.4rem;
+  font-weight: 600;
+  color: var(--sp-accent-strong);
+}
+
+/* ---------- footer ---------- */
+
+.sp-footer {
+  background: #efecfb;
+  padding: 2rem 1.5rem 3rem;
+  text-align: center;
+  color: var(--sp-body-dim);
+  font-size: 0.85rem;
+}
+
+.sp-footer a {
+  color: var(--sp-accent-strong);
+  text-decoration: none;
+  font-weight: 600;
+  margin: 0 0.7rem;
+}
+
+/* ---------- reduced motion ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .sp-root *,
+  .sp-root *::before,
+  .sp-root *::after {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  /* Collapse the scrub tracks: no scroll-driven assembly, show final states.
+     The hero becomes a static column (copy above the assembled dashboard) so
+     the two never overlap; the canvas swirl is skipped entirely. */
+  .sp-hero,
+  .sp-trio {
+    height: auto;
+  }
+
+  .sp-hero-sticky {
+    position: relative;
+    height: auto;
+    min-height: 100vh;
+    flex-direction: column;
+    gap: 2.5rem;
+    padding: 7.5rem 1rem 4rem;
+  }
+
+  .sp-hero-canvas,
+  .sp-scroll-hint {
+    display: none;
+  }
+
+  .sp-trio-sticky {
+    position: relative;
+    height: auto;
+  }
+
+  .sp-mockup {
+    opacity: 1;
+    transform: none;
+  }
+
+  .sp-chart-line,
+  .sp-chart-dot,
+  .sp-chart-fill {
+    --chart-draw: 1;
+  }
+
+  .sp-hero-copy {
+    transform: none;
+    opacity: 1;
+    position: relative;
+    inset: auto;
+  }
+
+  .sp-reveal {
+    position: relative;
+    inset: auto;
+    opacity: 1;
+    transform: none;
+    filter: none;
+    padding: 3rem 1.5rem;
+  }
+}
+
+/* ---------- small screens ---------- */
+
+@media (max-width: 720px) {
+  .sp-hero {
+    height: 220vh;
+  }
+
+  .sp-trio {
+    height: 260vh;
+  }
+
+  .sp-trio-dots {
+    display: none;
+  }
+}

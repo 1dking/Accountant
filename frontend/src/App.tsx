@@ -13,6 +13,7 @@ import { useBranding } from '@/hooks/useBranding'
 import AppShell from '@/components/layout/AppShell'
 import InstallBanner from '@/components/layout/InstallBanner'
 import LoginPage from '@/pages/LoginPage'
+import SalesPage from '@/pages/SalesPage'
 import DashboardPage from '@/pages/DashboardPage'
 import AdminTeamPage from '@/pages/AdminTeamPage'
 import DocumentsPage from '@/pages/DocumentsPage'
@@ -100,6 +101,28 @@ const queryClient = new QueryClient({
     },
   },
 })
+
+function RootGate() {
+  const { isAuthenticated, isLoading } = useAuthStore()
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-gray-500">Loading...</p>
+      </div>
+    )
+  }
+
+  if (!isAuthenticated) {
+    return <SalesPage />
+  }
+
+  return (
+    <ProtectedRoute>
+      <AuthenticatedApp />
+    </ProtectedRoute>
+  )
+}
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading, user } = useAuthStore()
@@ -316,6 +339,10 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
+            {/* The front door. A logged-out visitor to the root gets the sales
+                page (there used to be nothing here — straight redirect to
+                /login); a logged-in user still lands on their dashboard. */}
+            <Route path="/" element={<RootGate />} />
             <Route
               path="/*"
               element={
