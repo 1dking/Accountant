@@ -875,6 +875,138 @@
   line-height: 1.6;
 }
 
+/* ---------- 3D feature showcase — real screenshots over generated glow ---------- */
+
+.sp-showcase {
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+  color: #f4f4f8;
+  background:
+    radial-gradient(ellipse 80% 70% at 50% 45%, rgba(139, 92, 246, 0.16), transparent 65%),
+    url('/showcase/backdrop.webp') center / cover no-repeat,
+    #05060a;
+}
+
+.sp-showcase .sp-h2 {
+  color: #f4f4f8;
+}
+
+.sp-showcase .sp-body-sub {
+  color: rgba(226, 232, 240, 0.66);
+  max-width: 34rem;
+}
+
+.sp-showcase-stage {
+  --tilt-x: 0deg;
+  --tilt-y: 0deg;
+  perspective: 1400px;
+  margin: 3rem auto 0;
+  max-width: 900px;
+}
+
+.sp-showcase-frame {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(196, 181, 253, 0.28);
+  background: rgba(11, 13, 22, 0.6);
+  transform: rotateX(calc(6deg + var(--tilt-x))) rotateY(var(--tilt-y));
+  transform-style: preserve-3d;
+  transition: transform 0.25s ease-out;
+  box-shadow:
+    0 30px 70px -20px rgba(0, 0, 0, 0.85),
+    0 12px 30px -12px rgba(139, 92, 246, 0.45),
+    0 0 90px -20px rgba(139, 92, 246, 0.35);
+}
+
+.sp-showcase-frame img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top left;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+
+.sp-showcase-frame img.active {
+  opacity: 1;
+}
+
+/* glass reflection sweeping across the panel */
+.sp-showcase-shine {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    115deg,
+    transparent 42%,
+    rgba(255, 255, 255, 0.075) 50%,
+    transparent 58%
+  );
+}
+
+.sp-showcase-line {
+  margin: 1.6rem auto 0;
+  color: rgba(226, 232, 240, 0.75);
+  font-size: 0.95rem;
+  min-height: 2.4em;
+  max-width: 36rem;
+}
+
+.sp-showcase-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.8rem;
+}
+
+.sp-showcase-tabs button {
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: rgba(226, 232, 240, 0.7);
+  background: rgba(139, 92, 246, 0.08);
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  border-radius: 999px;
+  padding: 0.45rem 1.05rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sp-showcase-tabs button:hover {
+  color: #fff;
+  border-color: rgba(139, 92, 246, 0.6);
+}
+
+.sp-showcase-tabs button.on {
+  color: #fff;
+  background: var(--sp-accent);
+  border-color: var(--sp-accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sp-showcase-frame {
+    transform: none;
+    transition: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .sp-showcase-stage {
+    margin-top: 2rem;
+  }
+
+  .sp-showcase-frame {
+    border-radius: 12px;
+    transform: rotateX(4deg);
+  }
+}
+
 /* ---------- final CTA — "the calm" ---------- */
 
 .sp-calm {

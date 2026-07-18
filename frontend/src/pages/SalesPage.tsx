@@ -160,6 +160,87 @@ const REVEALS = [
 
 const INTEGRATIONS = ['Stripe', 'Twilio', 'Gmail', 'Google Calendar', 'Plaid', 'LiveKit', 'AssemblyAI']
 
+/**
+ * Real screenshots of the product (webp'd from a seeded demo workspace) shown
+ * in the 3D showcase. The backdrop is AI-generated atmosphere; the screenshots
+ * are genuine pixels — AI re-rendering garbles UI text, so we composite the
+ * real thing over the glow instead of letting a model repaint it.
+ */
+const FEATURE_SHOTS = [
+  { key: 'dashboard', label: 'Dashboard', src: '/showcase/dashboard.webp', line: 'Your whole business at a glance — revenue, outstanding, meetings, approvals.' },
+  { key: 'cashbook', label: 'Cashbook', src: '/showcase/cashbook.webp', line: 'Every dollar in and out, with reconciliation against real bank feeds.' },
+  { key: 'proposals', label: 'Proposals', src: '/showcase/proposals.webp', line: 'E-signature proposals that turn into invoices the moment they are won.' },
+  { key: 'pipeline', label: 'Pipeline', src: '/showcase/pipeline.webp', line: 'Every deal staged from draft to won, totals per stage.' },
+  { key: 'meetings', label: 'Meetings', src: '/showcase/meetings.webp', line: 'Video rooms with AI transcription, summaries and action items.' },
+  { key: 'reports', label: 'Reports', src: '/showcase/reports.webp', line: 'P&L, cash flow, tax and aging — always current, exportable.' },
+] as const
+
+/**
+ * The hybrid 3D feature showcase: a Higgsfield-generated ambient backdrop with
+ * the REAL screenshots in a CSS-3D-tilted glass frame over it. Mouse movement
+ * tilts the frame (written to CSS vars imperatively — no re-render per move);
+ * reduced motion pins it flat.
+ */
+function FeatureShowcase() {
+  const [active, setActive] = useState(0)
+  const stageRef = useRef<HTMLDivElement>(null)
+  const rafRef = useRef(0)
+
+  const onMove = useCallback((e: React.MouseEvent) => {
+    const stage = stageRef.current
+    if (!stage || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    const rect = stage.getBoundingClientRect()
+    const nx = (e.clientX - rect.left) / rect.width - 0.5
+    const ny = (e.clientY - rect.top) / rect.height - 0.5
+    cancelAnimationFrame(rafRef.current)
+    rafRef.current = requestAnimationFrame(() => {
+      stage.style.setProperty('--tilt-y', `${(nx * 7).toFixed(2)}deg`)
+      stage.style.setProperty('--tilt-x', `${(-ny * 5).toFixed(2)}deg`)
+    })
+  }, [])
+
+  const onLeave = useCallback(() => {
+    const stage = stageRef.current
+    if (!stage) return
+    cancelAnimationFrame(rafRef.current)
+    stage.style.setProperty('--tilt-y', '0deg')
+    stage.style.setProperty('--tilt-x', '0deg')
+  }, [])
+
+  useEffect(() => () => cancelAnimationFrame(rafRef.current), [])
+
+  return (
+    <div className="sp-showcase-stage" ref={stageRef} onMouseMove={onMove} onMouseLeave={onLeave}>
+      <div className="sp-showcase-frame">
+        {FEATURE_SHOTS.map((shot, i) => (
+          <img
+            key={shot.key}
+            src={shot.src}
+            alt={`${shot.label} — real product screenshot`}
+            loading={i === 0 ? 'eager' : 'lazy'}
+            className={active === i ? 'active' : ''}
+          />
+        ))}
+        <div className="sp-showcase-shine" />
+      </div>
+      <p className="sp-showcase-line">{FEATURE_SHOTS[active].line}</p>
+      <div className="sp-showcase-tabs" role="tablist" aria-label="Feature screenshots">
+        {FEATURE_SHOTS.map((shot, i) => (
+          <button
+            key={shot.key}
+            role="tab"
+            aria-selected={active === i}
+            className={active === i ? 'on' : ''}
+            onClick={() => setActive(i)}
+          >
+            {shot.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function Counter({ target, suffix, label }: { target: number; suffix: string; label: string }) {
   const { ref, value } = useCountUp(target)
   return (
@@ -458,18 +539,15 @@ export default function SalesPage() {
           </div>
         </section>
 
-        {/* product depiction in a browser frame */}
-        <section className="sp-section" style={{ paddingTop: 0 }}>
-          <p className="sp-kicker">The morning view</p>
-          <h2 className="sp-h2">Open one tab. Know everything.</h2>
-          <div className="sp-browser">
-            <div className="sp-browser-bar">
-              <i />
-              <i />
-              <i />
-              <span className="sp-browser-url">accountant.ocidm.io</span>
-            </div>
-            <DashboardMockup />
+        {/* the real product, floating in the glow — genuine screenshots, not a mockup */}
+        <section className="sp-showcase">
+          <div className="sp-section">
+            <p className="sp-kicker">The real thing</p>
+            <h2 className="sp-h2">Open one tab. Know everything.</h2>
+            <p className="sp-body-sub" style={{ margin: '0 auto' }}>
+              Live screenshots from a working O-Brain workspace — not concept art.
+            </p>
+            <FeatureShowcase />
           </div>
         </section>
 
