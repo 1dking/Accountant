@@ -880,6 +880,9 @@
 .sp-calm {
   position: relative;
   overflow: hidden;
+  /* Lives outside .sp-light, so it inherits the dark-hero text color from
+     .sp-root — force the body ink or the heading vanishes into the pale panel. */
+  color: var(--sp-body-text);
   background:
     radial-gradient(ellipse 70% 60% at 30% 20%, rgba(196, 181, 253, 0.35), transparent 60%),
     radial-gradient(ellipse 60% 55% at 75% 75%, rgba(167, 139, 250, 0.22), transparent 55%),
