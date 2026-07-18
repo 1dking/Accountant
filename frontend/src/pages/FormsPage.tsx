@@ -14,6 +14,9 @@ import {
   Loader2,
   X,
   ExternalLink,
+  Webhook,
+  Copy,
+  RefreshCw,
 } from 'lucide-react'
 import {
   listForms,
@@ -22,6 +25,7 @@ import {
   updateForm,
   deleteForm,
   getSubmissions,
+  generateWebhookKey,
   type FormCreateData,
   type FormUpdateData,
 } from '@/api/forms'
@@ -449,6 +453,105 @@ interface FormRowProps {
   parseSubmissionData: (json: string) => Record<string, unknown>
 }
 
+function WebhookPanel({ formId }: { formId: string }) {
+  const queryClient = useQueryClient()
+
+  // Fetch the form detail (the list item doesn't carry webhook_key).
+  const { data } = useQuery({
+    queryKey: ['form-detail', formId],
+    queryFn: () => getForm(formId),
+  })
+  const webhookKey = data?.data?.webhook_key
+  const webhookUrl = webhookKey
+    ? `${window.location.origin}/api/forms/webhook/${webhookKey}`
+    : null
+
+  const genMutation = useMutation({
+    mutationFn: () => generateWebhookKey(formId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['form-detail', formId] })
+      toast.success('Webhook URL ready')
+    },
+    onError: () => toast.error('Could not generate the webhook URL'),
+  })
+
+  const copy = () => {
+    if (webhookUrl) {
+      navigator.clipboard.writeText(webhookUrl)
+      toast.success('Webhook URL copied')
+    }
+  }
+
+  return (
+    <div className="mb-4 p-3 rounded-lg bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-700">
+      <div className="flex items-center gap-2 mb-2">
+        <Webhook className="h-4 w-4 text-indigo-500" />
+        <p className="text-xs font-medium text-gray-600 dark:text-gray-300">
+          Website webhook
+        </p>
+      </div>
+      {webhookUrl ? (
+        <>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+            POST your website form&apos;s lead data (any field names) to this URL
+            and it lands in the CRM as a contact:
+          </p>
+          <div className="flex items-center gap-2">
+            <input
+              readOnly
+              value={webhookUrl}
+              onFocus={(e) => e.currentTarget.select()}
+              className="flex-1 px-2 py-1.5 text-xs font-mono rounded border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+            />
+            <button
+              onClick={copy}
+              title="Copy URL"
+              className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
+            >
+              <Copy className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => {
+                if (
+                  confirm(
+                    'Generate a new URL? The current one will stop working immediately.',
+                  )
+                )
+                  genMutation.mutate()
+              }}
+              disabled={genMutation.isPending}
+              title="Rotate URL"
+              className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+            >
+              <RefreshCw className={`h-4 w-4 ${genMutation.isPending ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+            Create a secret URL to receive leads from an external website (Webflow,
+            WordPress, a custom form&hellip;) straight into the CRM.
+          </p>
+          <button
+            onClick={() => genMutation.mutate()}
+            disabled={genMutation.isPending}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+          >
+            {genMutation.isPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Webhook className="h-3.5 w-3.5" />
+            )}
+            Create webhook URL
+          </button>
+        </>
+      )}
+    </div>
+  )
+}
+
+
 function FormRow({
   form,
   isExpanded,
@@ -551,6 +654,7 @@ function FormRow({
       {isExpanded && (
         <tr>
           <td colSpan={7} className="px-4 py-3 bg-gray-50 dark:bg-gray-800/30">
+            <WebhookPanel formId={form.id} />
             <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
               Submissions ({form.submission_count})
             </p>

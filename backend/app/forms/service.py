@@ -1,5 +1,7 @@
 
 import json
+import logging
+import secrets
 import uuid
 from datetime import datetime
 
@@ -12,6 +14,47 @@ from app.contacts.service import log_contact_activity
 from app.core.exceptions import NotFoundError, ValidationError
 from app.forms.models import Form, FormSubmission
 from app.forms.schemas import FormCreate, FormUpdate
+
+logger = logging.getLogger(__name__)
+
+
+# Common field-name aliases an external site / form builder might send. The raw
+# payload is always stored in full; this only decides which keys populate the
+# Contact. Matching is case-insensitive and ignores spaces/underscores/hyphens.
+_FIELD_ALIASES: dict[str, tuple[str, ...]] = {
+    "email": ("email", "emailaddress", "e-mail", "youremail", "workemail", "contactemail"),
+    "name": ("name", "fullname", "yourname", "contactname", "firstname", "customername"),
+    "last_name": ("lastname", "surname", "familyname"),
+    "phone": ("phone", "phonenumber", "telephone", "mobile", "cell", "contactnumber"),
+    "company": ("company", "companyname", "organization", "organisation", "business", "businessname"),
+    "message": ("message", "notes", "comments", "comment", "enquiry", "inquiry", "details"),
+}
+
+
+def _norm(key: str) -> str:
+    return key.lower().replace(" ", "").replace("_", "").replace("-", "")
+
+
+def map_lead_fields(data: dict) -> dict:
+    """Pull standard Contact fields out of an arbitrary submission payload.
+
+    Returns a dict with any of: email, name, phone, company, message. Unmapped
+    keys are ignored here but the caller still stores the full raw payload.
+    """
+    normalized = { _norm(k): v for k, v in data.items() if isinstance(k, str) }
+    out: dict = {}
+    for target, aliases in _FIELD_ALIASES.items():
+        for alias in aliases:
+            if alias in normalized and normalized[alias] not in (None, ""):
+                out[target] = normalized[alias]
+                break
+    # Stitch a full name from first + last if no single name field was found.
+    if "name" not in out and "last_name" in out:
+        out["name"] = out["last_name"]
+    if "name" in out and "last_name" in out and out["last_name"] not in str(out["name"]):
+        out["name"] = f"{out['name']} {out['last_name']}".strip()
+    out.pop("last_name", None)
+    return out
 
 
 async def create_form(
@@ -118,54 +161,50 @@ async def get_public_form(db: AsyncSession, form_id: uuid.UUID) -> Form:
     return form
 
 
-async def submit_form(
+async def _ingest_submission(
     db: AsyncSession,
-    form_id: uuid.UUID,
+    form: Form,
     data: dict,
-    ip_address: str | None = None,
-    user_agent: str | None = None,
+    ip_address: str | None,
+    user_agent: str | None,
+    source: str,
 ) -> FormSubmission:
-    """Validate form exists and is active, create/update contact from email field, log submission."""
-    # Check form exists and is active
-    form = await get_public_form(db, form_id)
+    """Shared lead-ingestion core for both the native form and the webhook.
 
-    # Try to match or create contact from submitted data
+    Match-or-create a Contact from the payload (owned by the form's creator, so
+    it lands in their private book), store the full raw payload as a submission,
+    log the timeline entry, and fire the FORM_SUBMITTED automation.
+    """
+    fields = map_lead_fields(data)
+
     contact_id = None
-    email = data.get("email")
+    email = fields.get("email")
     if email and isinstance(email, str):
-        # Search for existing contact by email
-        result = await db.execute(
-            select(Contact).where(Contact.email == email)
-        )
-        contact = result.scalar_one_or_none()
+        contact = (
+            await db.execute(select(Contact).where(Contact.email == email))
+        ).scalar_one_or_none()
 
         if contact:
             contact_id = contact.id
         else:
-            # Create a new contact from form data
-            company_name = (
-                data.get("company_name")
-                or data.get("company")
-                or data.get("name")
-                or email
-            )
+            company_name = fields.get("company") or fields.get("name") or email
             contact = Contact(
                 id=uuid.uuid4(),
                 type=ContactType.CLIENT,
                 company_name=company_name,
-                contact_name=data.get("name") or data.get("contact_name"),
+                contact_name=fields.get("name"),
                 email=email,
-                phone=data.get("phone"),
+                phone=fields.get("phone"),
+                lead_source=source,
                 created_by=form.created_by,
             )
             db.add(contact)
             await db.flush()
             contact_id = contact.id
 
-    # Create submission
     submission = FormSubmission(
         id=uuid.uuid4(),
-        form_id=form_id,
+        form_id=form.id,
         contact_id=contact_id,
         data_json=json.dumps(data),
         ip_address=ip_address,
@@ -175,19 +214,82 @@ async def submit_form(
     await db.commit()
     await db.refresh(submission)
 
-    # Log activity on contact timeline
     if contact_id:
         await log_contact_activity(
             db,
             contact_id=contact_id,
             activity_type=ActivityType.NOTE_ADDED,
             title=f"Form submitted: {form.name}",
-            description=f"Form submission received via {form.name}",
+            description=f"Lead captured via {form.name} ({source})",
             reference_type="form_submission",
             reference_id=submission.id,
         )
 
+    # Fire the FORM_SUBMITTED automation. Isolated: a workflow failure (or a slow
+    # send) must never fail the lead capture — the contact + submission are
+    # already committed above.
+    try:
+        from app.workflows.models import TriggerType
+        from app.workflows.service import dispatch_event
+
+        await dispatch_event(
+            db,
+            TriggerType.FORM_SUBMITTED,
+            event_data={"form_id": str(form.id), "form_name": form.name, **data},
+            contact_id=contact_id,
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception("form_submitted automation failed for form %s", form.id)
+
     return submission
+
+
+async def submit_form(
+    db: AsyncSession,
+    form_id: uuid.UUID,
+    data: dict,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
+) -> FormSubmission:
+    """Public submit for a form hosted BY the app (the /public/{id}/submit page)."""
+    form = await get_public_form(db, form_id)
+    return await _ingest_submission(db, form, data, ip_address, user_agent, "form")
+
+
+async def submit_via_webhook(
+    db: AsyncSession,
+    webhook_key: str,
+    data: dict,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
+) -> FormSubmission:
+    """Inbound webhook for a form hosted ELSEWHERE (an external website posts its
+    lead JSON to /api/forms/webhook/{key})."""
+    form = (
+        await db.execute(
+            select(Form).where(
+                Form.webhook_key == webhook_key,
+                Form.is_active == True,  # noqa: E712
+            )
+        )
+    ).scalar_one_or_none()
+    if form is None:
+        # 404, not 401 — never reveal whether a key "exists but is inactive".
+        raise NotFoundError("Webhook", "unknown")
+    return await _ingest_submission(db, form, data, ip_address, user_agent, "webhook")
+
+
+async def generate_webhook_key(db: AsyncSession, form_id: uuid.UUID) -> Form:
+    """Create or rotate the form's inbound-webhook secret.
+
+    Rotating invalidates the old URL immediately — the point of a rotate is to cut
+    off a leaked key. Gated at the router (require_role), like the rest of forms.
+    """
+    form = await get_form(db, form_id)
+    form.webhook_key = secrets.token_urlsafe(32)
+    await db.commit()
+    await db.refresh(form)
+    return form
 
 
 async def list_submissions(

@@ -34,11 +34,22 @@ class FormResponse(BaseModel):
     thank_you_config_json: Optional[str]
     style_json: Optional[str]
     is_active: bool
+    webhook_key: Optional[str]
     created_by: uuid.UUID
     created_at: datetime
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class WebhookKeyResponse(BaseModel):
+    """Returned after generating/rotating the inbound webhook key."""
+
+    form_id: uuid.UUID
+    webhook_key: str
+    # The full URL to hand to the external website, prebuilt so the UI can just
+    # display + copy it.
+    webhook_url: str
 
 
 class FormListItem(BaseModel):

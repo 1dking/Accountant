@@ -1385,6 +1385,7 @@ export interface FormDef {
   thank_you_config_json?: string
   style_json?: string
   is_active: boolean
+  webhook_key?: string | null
   created_by: string
   created_at: string
 }

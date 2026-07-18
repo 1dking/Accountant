@@ -21,6 +21,13 @@ class Form(TimestampMixin, Base):
     thank_you_config_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     style_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    # Secret that turns this form into an inbound webhook target. An external
+    # website posts lead JSON to /api/forms/webhook/{webhook_key}; the key in the
+    # URL is the only auth, so it must be unguessable and rotatable. NULL until
+    # the owner generates one.
+    webhook_key: Mapped[str | None] = mapped_column(
+        String(64), unique=True, index=True, nullable=True
+    )
     created_by: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id"), nullable=False
     )

@@ -50,6 +50,17 @@ export async function getSubmissions(formId: string, page = 1) {
   )
 }
 
+export interface WebhookKeyInfo {
+  form_id: string
+  webhook_key: string
+  webhook_url: string
+}
+
+/** Generate (or rotate) the inbound webhook URL an external site posts leads to. */
+export async function generateWebhookKey(formId: string) {
+  return api.post<ApiResponse<WebhookKeyInfo>>(`/forms/${formId}/webhook-key`, {})
+}
+
 export async function getPublicForm(id: string) {
   return api.get<ApiResponse<FormDef>>(`/forms/public/${id}`)
 }
