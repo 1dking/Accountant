@@ -167,12 +167,18 @@ const INTEGRATIONS = ['Stripe', 'Twilio', 'Gmail', 'Google Calendar', 'Plaid', '
  * real thing over the glow instead of letting a model repaint it.
  */
 const FEATURE_SHOTS = [
-  { key: 'dashboard', label: 'Dashboard', src: '/showcase/dashboard.webp', line: 'Your whole business at a glance — revenue, outstanding, meetings, approvals.' },
-  { key: 'cashbook', label: 'Cashbook', src: '/showcase/cashbook.webp', line: 'Every dollar in and out, with reconciliation against real bank feeds.' },
-  { key: 'proposals', label: 'Proposals', src: '/showcase/proposals.webp', line: 'E-signature proposals that turn into invoices the moment they are won.' },
-  { key: 'pipeline', label: 'Pipeline', src: '/showcase/pipeline.webp', line: 'Every deal staged from draft to won, totals per stage.' },
-  { key: 'meetings', label: 'Meetings', src: '/showcase/meetings.webp', line: 'Video rooms with AI transcription, summaries and action items.' },
-  { key: 'reports', label: 'Reports', src: '/showcase/reports.webp', line: 'P&L, cash flow, tax and aging — always current, exportable.' },
+  { key: 'dashboard', label: 'Dashboard', category: 'Overview', src: '/showcase/dashboard.webp', line: 'Your whole business at a glance — revenue, outstanding, meetings, approvals.' },
+  { key: 'contacts', label: 'Contacts', category: 'CRM & sales', src: '/showcase/contacts.webp', line: 'Private per-employee books, shared only when you explicitly say so.' },
+  { key: 'pipeline', label: 'Pipeline', category: 'CRM & sales', src: '/showcase/pipeline.webp', line: 'Every deal staged from draft to won, totals per stage.' },
+  { key: 'proposals', label: 'Proposals', category: 'CRM & sales', src: '/showcase/proposals.webp', line: 'E-signature proposals that turn into invoices the moment they are won.' },
+  { key: 'cashbook', label: 'Cashbook', category: 'Accounting', src: '/showcase/cashbook.webp', line: 'Every dollar in and out, with reconciliation against real bank feeds.' },
+  { key: 'reports', label: 'Reports', category: 'Accounting', src: '/showcase/reports.webp', line: 'P&L, cash flow, tax and aging — always current, exportable.' },
+  { key: 'phone', label: 'Phone', category: 'Communication', src: '/showcase/phone.webp', line: 'Browser calling, voicemail transcripts, and a dial queue — no separate phone system.' },
+  { key: 'inbox', label: 'Inbox', category: 'Communication', src: '/showcase/inbox.webp', line: 'Every email and text thread in one unified inbox.' },
+  { key: 'meetings', label: 'Meetings', category: 'Meetings', src: '/showcase/meetings.webp', line: 'Video rooms with AI transcription, summaries and action items.' },
+  { key: 'page-builder', label: 'Website', category: 'Content', src: '/showcase/page-builder.webp', line: 'AI-generated pages, published on a custom domain, with real analytics.' },
+  { key: 'forms', label: 'Forms', category: 'Content', src: '/showcase/forms.webp', line: 'Embeddable forms plus an inbound webhook — leads from your site land straight in the CRM.' },
+  { key: 'workflows', label: 'Workflows', category: 'Automation', src: '/showcase/workflows.webp', line: '20+ triggers wired to real email, SMS, tag and webhook actions.' },
 ] as const
 
 /**
@@ -223,6 +229,7 @@ function FeatureShowcase() {
         ))}
         <div className="sp-showcase-shine" />
       </div>
+      <p className="sp-showcase-category">{FEATURE_SHOTS[active].category}</p>
       <p className="sp-showcase-line">{FEATURE_SHOTS[active].line}</p>
       <div className="sp-showcase-tabs" role="tablist" aria-label="Feature screenshots">
         {FEATURE_SHOTS.map((shot, i) => (

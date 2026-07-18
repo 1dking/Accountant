@@ -905,6 +905,15 @@
   max-width: 900px;
 }
 
+.sp-showcase-category {
+  margin: 1.6rem 0 0.15rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--sp-accent-strong);
+}
+
 .sp-showcase-frame {
   position: relative;
   aspect-ratio: 16 / 10;
@@ -950,11 +959,11 @@
 }
 
 .sp-showcase-line {
-  margin: 1.6rem auto 0;
+  margin: 0 auto;
   color: rgba(226, 232, 240, 0.75);
   font-size: 0.95rem;
   min-height: 2.4em;
-  max-width: 36rem;
+  max-width: 38rem;
 }
 
 .sp-showcase-tabs {
@@ -962,7 +971,8 @@
   flex-wrap: wrap;
   justify-content: center;
   gap: 0.5rem;
-  margin-top: 0.8rem;
+  margin: 1rem auto 0;
+  max-width: 46rem;
 }
 
 .sp-showcase-tabs button {
