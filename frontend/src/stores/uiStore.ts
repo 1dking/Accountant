@@ -5,10 +5,10 @@ function isMobileDevice() {
 }
 
 function getInitialTheme(): 'light' | 'dark' {
-  if (typeof window === 'undefined') return 'light'
+  if (typeof window === 'undefined') return 'dark'
   const stored = localStorage.getItem('theme')
   if (stored === 'dark' || stored === 'light') return stored
-  return 'light'
+  return 'dark'
 }
 
 export type PanelState = 'sidebar' | 'obrain' | 'neither'

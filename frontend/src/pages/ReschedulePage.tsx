@@ -59,19 +59,19 @@ export default function ReschedulePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-pulse text-gray-500">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
+        <div className="animate-pulse text-gray-500 dark:text-gray-400">Loading...</div>
       </div>
     )
   }
 
   if (error && !booking) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="bg-white rounded-xl shadow-lg p-8 max-w-md text-center">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg p-8 max-w-md text-center">
           <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h1 className="text-xl font-bold text-gray-900 mb-2">Link Invalid</h1>
-          <p className="text-gray-600">{error}</p>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">Link Invalid</h1>
+          <p className="text-gray-600 dark:text-gray-400">{error}</p>
         </div>
       </div>
     )
@@ -79,17 +79,17 @@ export default function ReschedulePage() {
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="bg-white rounded-xl shadow-lg p-8 max-w-md text-center">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg p-8 max-w-md text-center">
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Check className="w-8 h-8 text-green-600" />
           </div>
-          <h1 className="text-xl font-bold text-gray-900 mb-2">Rescheduled!</h1>
-          <p className="text-gray-600">
+          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">Rescheduled!</h1>
+          <p className="text-gray-600 dark:text-gray-400">
             Your appointment has been rescheduled to{' '}
             <strong>{new Date(selectedSlot).toLocaleString()}</strong>.
           </p>
-          <p className="text-sm text-gray-500 mt-4">You will receive a confirmation email shortly.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">You will receive a confirmation email shortly.</p>
         </div>
       </div>
     )
@@ -105,9 +105,9 @@ export default function ReschedulePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-8 px-4">
       <div className="max-w-lg mx-auto">
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg overflow-hidden">
           {/* Header */}
           <div className="bg-blue-600 text-white p-6">
             <h1 className="text-xl font-bold">Reschedule Appointment</h1>
@@ -116,20 +116,20 @@ export default function ReschedulePage() {
 
           {/* Current booking info */}
           <div className="p-6 border-b">
-            <h2 className="text-sm font-medium text-gray-500 uppercase mb-3">Current Appointment</h2>
-            <div className="flex items-center gap-3 text-gray-700">
-              <CalendarDays className="w-5 h-5 text-gray-400" />
+            <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase mb-3">Current Appointment</h2>
+            <div className="flex items-center gap-3 text-gray-700 dark:text-gray-300">
+              <CalendarDays className="w-5 h-5 text-gray-400 dark:text-gray-500" />
               <span>{booking?.start_time ? new Date(booking.start_time).toLocaleString() : 'N/A'}</span>
             </div>
-            <div className="flex items-center gap-3 text-gray-700 mt-2">
-              <Clock className="w-5 h-5 text-gray-400" />
+            <div className="flex items-center gap-3 text-gray-700 dark:text-gray-300 mt-2">
+              <Clock className="w-5 h-5 text-gray-400 dark:text-gray-500" />
               <span>{durationMinutes} minutes</span>
             </div>
           </div>
 
           {/* Date picker */}
           <div className="p-6 border-b">
-            <h2 className="text-sm font-medium text-gray-500 uppercase mb-3">Select New Date</h2>
+            <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase mb-3">Select New Date</h2>
             <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto">
               {dates.map((date) => {
                 const d = new Date(date + 'T12:00:00')
@@ -142,7 +142,7 @@ export default function ReschedulePage() {
                     className={`
                       py-2 px-1 rounded-lg text-sm font-medium transition-colors
                       ${selectedDate === date ? 'bg-blue-600 text-white' : ''}
-                      ${isWeekend ? 'text-gray-300 cursor-not-allowed' : 'hover:bg-blue-50 text-gray-700'}
+                      ${isWeekend ? 'text-gray-300 dark:text-gray-700 cursor-not-allowed' : 'hover:bg-blue-50 dark:hover:bg-blue-950 text-gray-700 dark:text-gray-300'}
                     `}
                   >
                     <div className="text-xs">{d.toLocaleDateString(undefined, { weekday: 'short' })}</div>
@@ -156,11 +156,11 @@ export default function ReschedulePage() {
           {/* Time slots */}
           {selectedDate && (
             <div className="p-6 border-b">
-              <h2 className="text-sm font-medium text-gray-500 uppercase mb-3">Select Time</h2>
+              <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase mb-3">Select Time</h2>
               {loadingSlots ? (
-                <p className="text-sm text-gray-500">Loading available times...</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Loading available times...</p>
               ) : slots.length === 0 ? (
-                <p className="text-sm text-gray-500">No available slots on this date.</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">No available slots on this date.</p>
               ) : (
                 <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto">
                   {slots.map((slot: any) => {
@@ -171,7 +171,7 @@ export default function ReschedulePage() {
                         onClick={() => setSelectedSlot(slot.start)}
                         className={`
                           py-2 px-3 rounded-lg text-sm font-medium transition-colors
-                          ${selectedSlot === slot.start ? 'bg-blue-600 text-white' : 'bg-gray-100 hover:bg-blue-50 text-gray-700'}
+                          ${selectedSlot === slot.start ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-blue-950 text-gray-700 dark:text-gray-300'}
                         `}
                       >
                         {startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

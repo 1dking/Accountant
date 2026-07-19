@@ -11,6 +11,14 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <title>O-Brain</title>
+    <script>
+      // Applied before first paint so the app doesn't flash light before
+      // React mounts and useUiStore hydrates — dark is the default theme.
+      (function () {
+        var stored = localStorage.getItem('theme')
+        if (stored !== 'light') document.documentElement.classList.add('dark')
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>
