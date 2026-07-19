@@ -171,13 +171,18 @@ const FEATURE_SHOTS = [
   { key: 'contacts', label: 'Contacts', category: 'CRM & sales', src: '/showcase/contacts.webp', line: 'Private per-employee books, shared only when you explicitly say so.' },
   { key: 'pipeline', label: 'Pipeline', category: 'CRM & sales', src: '/showcase/pipeline.webp', line: 'Every deal staged from draft to won, totals per stage.' },
   { key: 'proposals', label: 'Proposals', category: 'CRM & sales', src: '/showcase/proposals.webp', line: 'E-signature proposals that turn into invoices the moment they are won.' },
+  { key: 'invoices', label: 'Invoices', category: 'CRM & sales', src: '/showcase/invoices.webp', line: 'PDFs with a Stripe Pay Now button, reminders, partial payments, overdue detection.' },
+  { key: 'estimates', label: 'Estimates', category: 'CRM & sales', src: '/showcase/estimates.webp', line: 'Quotes that convert to invoices in one click when accepted.' },
   { key: 'cashbook', label: 'Cashbook', category: 'Accounting', src: '/showcase/cashbook.webp', line: 'Every dollar in and out, with reconciliation against real bank feeds.' },
+  { key: 'expenses', label: 'Expenses', category: 'Accounting', src: '/showcase/expenses.webp', line: 'Categorized spending with approval flows and receipt capture.' },
   { key: 'reports', label: 'Reports', category: 'Accounting', src: '/showcase/reports.webp', line: 'P&L, cash flow, tax and aging — always current, exportable.' },
   { key: 'phone', label: 'Phone', category: 'Communication', src: '/showcase/phone.webp', line: 'Browser calling, voicemail transcripts, and a dial queue — no separate phone system.' },
   { key: 'inbox', label: 'Inbox', category: 'Communication', src: '/showcase/inbox.webp', line: 'Every email and text thread in one unified inbox.' },
   { key: 'meetings', label: 'Meetings', category: 'Meetings', src: '/showcase/meetings.webp', line: 'Video rooms with AI transcription, summaries and action items.' },
   { key: 'page-builder', label: 'Website', category: 'Content', src: '/showcase/page-builder.webp', line: 'AI-generated pages, published on a custom domain, with real analytics.' },
   { key: 'forms', label: 'Forms', category: 'Content', src: '/showcase/forms.webp', line: 'Embeddable forms plus an inbound webhook — leads from your site land straight in the CRM.' },
+  { key: 'docs', label: 'Docs', category: 'Content', src: '/showcase/docs.webp', line: 'Collaborative docs, sheets and slides with live cursors — no Google account needed.' },
+  { key: 'drive', label: 'Drive', category: 'Storage', src: '/showcase/drive.webp', line: 'Cloud storage with folders, versions, and share-to-client links.' },
   { key: 'workflows', label: 'Workflows', category: 'Automation', src: '/showcase/workflows.webp', line: '20+ triggers wired to real email, SMS, tag and webhook actions.' },
 ] as const
 
