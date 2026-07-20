@@ -50,6 +50,7 @@ import app.scheduling.models  # noqa: F401
 import app.branding.models  # noqa: F401
 import app.brain.models  # noqa: F401
 import app.news.models  # noqa: F401
+import app.events.models  # noqa: F401
 import app.core.idempotency  # noqa: F401
 
 config = context.config

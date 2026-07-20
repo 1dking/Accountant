@@ -102,6 +102,7 @@ def _import_all_models():
     import app.branding.models  # noqa
     import app.brain.models  # noqa
     import app.platform_admin.models  # noqa
+    import app.events.models  # noqa
 
 
 _import_all_models()

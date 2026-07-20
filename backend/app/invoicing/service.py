@@ -13,6 +13,7 @@ from app.auth.models import User
 from app.collaboration.service import log_activity
 from app.core.authorization import apply_visibility_filter, authorize_record
 from app.core.exceptions import NotFoundError, ValidationError
+from app.events.service import emit_event, resolve_org_id
 from app.core.pagination import PaginationParams, build_pagination_meta
 from app.invoicing.models import Invoice, InvoiceLineItem, InvoicePayment, InvoiceStatus
 from app.invoicing.schemas import (
@@ -318,6 +319,19 @@ async def record_payment(
         resource_id=str(invoice.id),
         details={"payment_id": str(payment.id), "amount": payment.amount, "status": invoice.status.value},
     )
+
+    # OBRAIN_EVENT_SPEC.md §3 — a manually-recorded payment against an
+    # invoice. Uses the payment's own `date` (the moment it happened), not
+    # "now" — the user may be backdating a payment recorded late.
+    owner = await db.get(User, invoice.created_by)
+    if owner is not None:
+        await emit_event(
+            db,
+            event="payment_processed",
+            org_id=resolve_org_id(owner),
+            properties={"amountUSD": float(payment.amount), "source": "invoice"},
+            timestamp=datetime.combine(payment.date, datetime.min.time(), tzinfo=timezone.utc),
+        )
 
     # Auto-create income entry
     try:

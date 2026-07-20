@@ -82,6 +82,7 @@ import app.integrations.google_calendar.models  # noqa: F401
 import app.platform_admin.models  # noqa: F401
 import app.coach.models  # noqa: F401
 import app.news.models  # noqa: F401
+import app.events.models  # noqa: F401
 # contacts.models now includes ContactTag, ContactActivity, FileShare, etc.
 
 
@@ -273,6 +274,7 @@ def create_app() -> FastAPI:
     from app.platform_admin.router import router as platform_admin_router
     from app.coach.router import router as coach_router
     from app.news.router import router as news_router
+    from app.events.router import router as events_router
 
     fastapi_app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
     fastapi_app.include_router(documents_router, prefix="/api/documents", tags=["documents"], dependencies=[Depends(require_feature("drive"))])
@@ -323,6 +325,7 @@ def create_app() -> FastAPI:
     fastapi_app.include_router(kyc_router, prefix="/api/kyc", tags=["KYC"])
     fastapi_app.include_router(google_calendar_router, prefix="/api/integrations/google-calendar", tags=["google-calendar"], dependencies=[Depends(require_feature("calendar"))])
     fastapi_app.include_router(platform_admin_router, prefix="/api/platform-admin", tags=["platform-admin"], dependencies=[Depends(require_feature("platform_admin"))])
+    fastapi_app.include_router(events_router, prefix="/api/platform-admin/events", tags=["events"], dependencies=[Depends(require_feature("platform_admin"))])
     fastapi_app.include_router(coach_router, prefix="/api/coach", tags=["coach"], dependencies=[Depends(require_feature("obrain_coach"))])
     fastapi_app.include_router(news_router, prefix="/api/news", tags=["news"])
 

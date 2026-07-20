@@ -65,6 +65,24 @@ async def _check_overdue_invoices() -> None:
         logger.exception("Error checking overdue invoices")
 
 
+async def _snapshot_active_clients() -> None:
+    """Job: OBRAIN_EVENT_SPEC.md §3 — monthly `active_client_snapshot` per
+    contact-book owner, 30d + 90d windows. Feeds the Pricing Lab's
+    Value-Metric Explorer (the `activeClients` candidate). Monthly, not
+    interval-based, so the "as-of" moment matches the spec's "one row per
+    orgId per month" shape for getValueMetrics().
+    """
+    try:
+        async with _session_factory() as db:
+            from app.events.service import snapshot_active_clients
+
+            count = await snapshot_active_clients(db)
+            if count > 0:
+                logger.info("Snapshotted active clients for %d accounts", count)
+    except Exception:
+        logger.exception("Error snapshotting active clients")
+
+
 async def _process_proposal_follow_ups() -> None:
     """Job: send follow-ups for proposals sitting unsigned past their delay."""
     try:
@@ -317,6 +335,13 @@ def setup_scheduler(session_factory: Any, settings: Any = None) -> None:
         _check_overdue_invoices,
         CronTrigger(hour=2, minute=0),
         id="check_overdue_invoices",
+        replace_existing=True,
+    )
+
+    scheduler.add_job(
+        _snapshot_active_clients,
+        CronTrigger(day=1, hour=3, minute=0),
+        id="snapshot_active_clients",
         replace_existing=True,
     )
 

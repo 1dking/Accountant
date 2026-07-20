@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.models import User
 from app.config import Settings
 from app.core.exceptions import NotFoundError, ValidationError
+from app.events.service import emit_event, resolve_org_id
 
 from .models import (
     PaymentLinkStatus,
@@ -360,6 +361,16 @@ async def _handle_checkout_completed(
             )
             db.add(income)
 
+            # OBRAIN_EVENT_SPEC.md §3 — Stripe Checkout paid an invoice.
+            owner = await db.get(User, invoice.created_by)
+            if owner is not None:
+                await emit_event(
+                    db,
+                    event="payment_processed",
+                    org_id=resolve_org_id(owner),
+                    properties={"amountUSD": float(payment.amount), "source": "invoice"},
+                )
+
     # Handle proposal payments
     proposal_id_str = session.get("metadata", {}).get("proposal_id")
     if proposal_id_str:
@@ -459,6 +470,16 @@ async def _handle_payment_intent_succeeded(
                 created_by=invoice.created_by,
             )
             db.add(income)
+
+            # OBRAIN_EVENT_SPEC.md §3 — embedded-checkout invoice payment.
+            owner = await db.get(User, invoice.created_by)
+            if owner is not None:
+                await emit_event(
+                    db,
+                    event="payment_processed",
+                    org_id=resolve_org_id(owner),
+                    properties={"amountUSD": float(amount_paid), "source": "invoice"},
+                )
 
     await db.commit()
 

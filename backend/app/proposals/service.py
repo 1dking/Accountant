@@ -16,6 +16,7 @@ from sqlalchemy.orm import selectinload
 from app.auth.models import User
 from app.core.authorization import apply_visibility_filter, authorize_record
 from app.core.exceptions import NotFoundError, ValidationError, ForbiddenError
+from app.events.service import emit_event, resolve_org_id
 from app.core.pagination import PaginationParams, build_pagination_meta
 from app.proposals.models import (
     FollowUpRule,
@@ -663,6 +664,16 @@ async def handle_proposal_payment_webhook(
     db.add(income)
 
     await db.commit()
+
+    # OBRAIN_EVENT_SPEC.md §3 — a proposal took payment on signing.
+    owner = await db.get(User, proposal.created_by)
+    if owner is not None:
+        await emit_event(
+            db,
+            event="payment_processed",
+            org_id=resolve_org_id(owner),
+            properties={"amountUSD": float(proposal.value), "source": "proposal"},
+        )
 
     # Notify creator
     from app.notifications.service import create_notification
