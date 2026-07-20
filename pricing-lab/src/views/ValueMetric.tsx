@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
 import {
-  CartesianGrid, Cell, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis,
+  CartesianGrid, Cell, Legend, Line, LineChart, ResponsiveContainer, Scatter, ScatterChart,
+  Tooltip, XAxis, YAxis,
 } from 'recharts'
 import { MockAdapter, type ValueMetricRow } from '../adapters'
+import type { WtpResponse } from '../adapters/wtp'
+import { computeVanWestendorp } from '../lib/vanWestendorp'
 import { TIER_COLORS } from '../data'
 
 // Business-outcome metrics first: a value metric should track the value the
@@ -107,9 +110,16 @@ interface Props {
    * cohort (MockAdapter). Set by App.tsx based on which adapter resolved. */
   liveRows: ValueMetricRow[] | null
   loading: boolean
+  /** WTP interview responses (cohort source, operator-gated) — second line
+   * of evidence, never merged into the usage-based fit ranking above. */
+  wtpResponses: WtpResponse[]
+  /** Real usage rows from OBrainAdapter specifically, independent of which
+   * adapter the main charts fell back to — the join must be against real
+   * usage, never demo data standing in for it. */
+  obrainRows: ValueMetricRow[]
 }
 
-export default function ValueMetric({ liveRows, loading }: Props) {
+export default function ValueMetric({ liveRows, loading, wtpResponses, obrainRows }: Props) {
   const [demoRows, setDemoRows] = useState<ValueMetricRow[] | null>(null)
 
   useEffect(() => {
@@ -130,7 +140,218 @@ export default function ValueMetric({ liveRows, loading }: Props) {
     )
   }
 
-  return <ValueMetricLoaded rows={rows} isLive={isLive} />
+  return (
+    <>
+      <ValueMetricLoaded rows={rows} isLive={isLive} />
+      <StatedVsActual wtpResponses={wtpResponses} obrainRows={obrainRows} />
+    </>
+  )
+}
+
+interface JoinedWtpRow {
+  orgId: string
+  segment: string | null
+  bargain: number
+  metricPref: WtpResponse['metricPref']
+  realGmv: number | null
+  realActiveClients: number | null
+}
+
+/** Latest-month row per orgId — usage is monthly, WTP is one price per
+ * respondent, so "real GMV/active-clients" means the most recent snapshot. */
+function latestByOrg(rows: ValueMetricRow[]): Map<string, ValueMetricRow> {
+  const byOrg = new Map<string, ValueMetricRow>()
+  for (const r of rows) {
+    const prev = byOrg.get(r.orgId)
+    if (!prev || r.month > prev.month) byOrg.set(r.orgId, r)
+  }
+  return byOrg
+}
+
+const VW_COLORS = {
+  tooCheap: '#38bdf8',
+  bargain: '#4ade80',
+  expensive: '#fb923c',
+  tooExpensive: '#f87171',
+} as const
+
+function StatedVsActual({
+  wtpResponses,
+  obrainRows,
+}: {
+  wtpResponses: WtpResponse[]
+  obrainRows: ValueMetricRow[]
+}) {
+  const n = wtpResponses.length
+
+  if (n === 0) {
+    return (
+      <section style={{ marginTop: 28 }} data-testid="stated-vs-actual">
+        <h2 className="view-title">Stated vs Actual</h2>
+        <p className="view-sub">stated preference, n=0 — directional</p>
+        <div className="card">
+          <p className="sub">
+            No willingness-to-pay interviews loaded yet. Once respondents are added to the
+            interview CSV and re-ingested, their Van Westendorp prices will join here against
+            real usage by orgId.
+          </p>
+        </div>
+      </section>
+    )
+  }
+
+  const latestUsage = latestByOrg(obrainRows)
+  const joined: JoinedWtpRow[] = wtpResponses
+    .map((r) => {
+      const usage = latestUsage.get(r.orgId)
+      return {
+        orgId: r.orgId,
+        segment: r.segment,
+        bargain: r.bargain,
+        metricPref: r.metricPref,
+        realGmv: usage?.paymentsProcessedUSD ?? null,
+        realActiveClients: usage?.activeClients ?? null,
+      }
+    })
+    .filter((r) => r.realGmv != null || r.realActiveClients != null)
+
+  const vw = computeVanWestendorp(wtpResponses)
+  const readout = (v: number | null) => (v == null ? 'n/a' : '$' + v)
+
+  return (
+    <section style={{ marginTop: 28 }} data-testid="stated-vs-actual">
+      <h2 className="view-title">Stated vs Actual</h2>
+      <p className="view-sub">
+        stated preference, n={n} — directional. Willingness-to-pay interviews joined to real usage
+        by orgId ({joined.length} of {n} respondents have a matching usage row). This sits beside
+        the usage-based fit ranking above as a second, independent line of evidence — it does not
+        crown a value metric on its own.
+      </p>
+
+      <div className="grid cols-2" style={{ gap: 14 }}>
+        <div className="card chart-card tall">
+          <h3>Stated bargain price vs real GMV</h3>
+          {joined.some((r) => r.realGmv != null) ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <ScatterChart margin={{ top: 10, right: 24, bottom: 24, left: 8 }}>
+                <CartesianGrid stroke="#232a3b" />
+                <XAxis
+                  type="number"
+                  dataKey="bargain"
+                  name="Stated bargain price"
+                  stroke="#8b93a7"
+                  tickFormatter={(v: number) => '$' + v}
+                  label={{ value: 'Stated bargain price ($)', position: 'insideBottom', offset: -6, fill: '#8b93a7' }}
+                />
+                <YAxis
+                  type="number"
+                  dataKey="realGmv"
+                  name="Real GMV ($)"
+                  stroke="#8b93a7"
+                  tickFormatter={(v: number) => fmtCompact(v, true)}
+                  label={{ value: 'Real GMV ($)', angle: -90, position: 'insideLeft', fill: '#8b93a7' }}
+                />
+                <Tooltip contentStyle={{ background: '#131722', border: '1px solid #232a3b' }} cursor={{ strokeDasharray: '4 4' }} />
+                <Scatter data={joined.filter((r) => r.realGmv != null)} fill="#8b5cf6" fillOpacity={0.75} />
+              </ScatterChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="sub">No respondents have a matching GMV row yet.</p>
+          )}
+        </div>
+
+        <div className="card chart-card tall">
+          <h3>Stated bargain price vs real active clients</h3>
+          {joined.some((r) => r.realActiveClients != null) ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <ScatterChart margin={{ top: 10, right: 24, bottom: 24, left: 8 }}>
+                <CartesianGrid stroke="#232a3b" />
+                <XAxis
+                  type="number"
+                  dataKey="bargain"
+                  name="Stated bargain price"
+                  stroke="#8b93a7"
+                  tickFormatter={(v: number) => '$' + v}
+                  label={{ value: 'Stated bargain price ($)', position: 'insideBottom', offset: -6, fill: '#8b93a7' }}
+                />
+                <YAxis
+                  type="number"
+                  dataKey="realActiveClients"
+                  name="Real active clients"
+                  stroke="#8b93a7"
+                  label={{ value: 'Real active clients', angle: -90, position: 'insideLeft', fill: '#8b93a7' }}
+                />
+                <Tooltip contentStyle={{ background: '#131722', border: '1px solid #232a3b' }} cursor={{ strokeDasharray: '4 4' }} />
+                <Scatter data={joined.filter((r) => r.realActiveClients != null)} fill="#8b5cf6" fillOpacity={0.75} />
+              </ScatterChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="sub">No respondents have a matching active-clients row yet.</p>
+          )}
+        </div>
+      </div>
+
+      <div className="card chart-card tall" style={{ marginTop: 14 }}>
+        <h3>Van Westendorp price sensitivity — sample of {n}</h3>
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={vw.curve} margin={{ top: 10, right: 24, bottom: 24, left: 8 }}>
+            <CartesianGrid stroke="#232a3b" />
+            <XAxis
+              dataKey="price"
+              type="number"
+              stroke="#8b93a7"
+              tickFormatter={(v: number) => '$' + v}
+              label={{ value: 'Price ($)', position: 'insideBottom', offset: -6, fill: '#8b93a7' }}
+            />
+            <YAxis
+              stroke="#8b93a7"
+              tickFormatter={(v: number) => (v * 100).toFixed(0) + '%'}
+              label={{ value: '% of respondents', angle: -90, position: 'insideLeft', fill: '#8b93a7' }}
+            />
+            <Tooltip
+              contentStyle={{ background: '#131722', border: '1px solid #232a3b' }}
+              formatter={(v: number) => (v * 100).toFixed(0) + '%'}
+              labelFormatter={(v: number) => '$' + v}
+            />
+            <Legend />
+            <Line type="monotone" dataKey="tooCheapPct" name="Too cheap" stroke={VW_COLORS.tooCheap} dot={false} />
+            <Line type="monotone" dataKey="bargainPct" name="Bargain" stroke={VW_COLORS.bargain} dot={false} />
+            <Line type="monotone" dataKey="expensivePct" name="Expensive" stroke={VW_COLORS.expensive} dot={false} />
+            <Line type="monotone" dataKey="tooExpensivePct" name="Too expensive" stroke={VW_COLORS.tooExpensive} dot={false} />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+
+      <div className="grid cols-4" style={{ marginTop: 14 }}>
+        <div className="card">
+          <h3>PMC</h3>
+          <div className="big">{readout(vw.readouts.pmc)}</div>
+          <div className="sub">Point of marginal cheapness — acceptable low</div>
+        </div>
+        <div className="card">
+          <h3>PME</h3>
+          <div className="big">{readout(vw.readouts.pme)}</div>
+          <div className="sub">Point of marginal expensiveness — acceptable high</div>
+        </div>
+        <div className="card">
+          <h3>OPP</h3>
+          <div className="big">{readout(vw.readouts.opp)}</div>
+          <div className="sub">Optimal price point</div>
+        </div>
+        <div className="card">
+          <h3>IPP</h3>
+          <div className="big">{readout(vw.readouts.ipp)}</div>
+          <div className="sub">Indifference price point</div>
+        </div>
+      </div>
+
+      <p className="footnote">
+        Stated preference from {n} willingness-to-pay interview{n === 1 ? '' : 's'} — directional,
+        not a finding. This does not select or override the usage-based value metric ranked above;
+        it is a second, independent check on the same question.
+      </p>
+    </section>
+  )
 }
 
 function ValueMetricLoaded({ rows, isLive }: { rows: ValueMetricRow[]; isLive: boolean }) {

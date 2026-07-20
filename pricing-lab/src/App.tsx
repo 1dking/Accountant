@@ -5,7 +5,8 @@ import ModuleOutcome from './views/ModuleOutcome'
 import ValueMetric from './views/ValueMetric'
 import Revenue from './views/Revenue'
 import Simulator from './views/Simulator'
-import { resolveAdapter, type AdapterSource, type ValueMetricRow } from './adapters'
+import { OBrainAdapter, resolveAdapter, type AdapterSource, type ValueMetricRow } from './adapters'
+import { createWtpAdapter, type WtpResponse } from './adapters/wtp'
 
 const VIEW_DEFS = [
   { key: 'working', label: "What's Working" },
@@ -27,6 +28,11 @@ export default function App() {
   const [view, setView] = useState<ViewKey>('working')
   const [source, setSource] = useState<AdapterSource | 'loading'>('loading')
   const [valueMetrics, setValueMetrics] = useState<ValueMetricRow[]>([])
+  const [wtpResponses, setWtpResponses] = useState<WtpResponse[]>([])
+  // Independent of `source` above — the Stated-vs-Actual join must always be
+  // against real OBrainAdapter usage, never the demo fallback the main
+  // charts might be showing.
+  const [obrainValueMetrics, setObrainValueMetrics] = useState<ValueMetricRow[]>([])
 
   useEffect(() => {
     let cancelled = false
@@ -36,6 +42,18 @@ export default function App() {
       setSource(adapter.source)
       setValueMetrics(rows)
     })
+    createWtpAdapter()
+      .getWtpResponses()
+      .then((rows) => {
+        if (!cancelled) setWtpResponses(rows)
+      })
+      .catch(() => {})
+    new OBrainAdapter()
+      .getValueMetrics()
+      .then((rows) => {
+        if (!cancelled) setObrainValueMetrics(rows)
+      })
+      .catch(() => {})
     return () => {
       cancelled = true
     }
@@ -45,7 +63,14 @@ export default function App() {
     working: <WhatsWorking />,
     funnel: <TierFunnel />,
     modules: <ModuleOutcome />,
-    value: <ValueMetric liveRows={source === 'obrain' ? valueMetrics : null} loading={source === 'loading'} />,
+    value: (
+      <ValueMetric
+        liveRows={source === 'obrain' ? valueMetrics : null}
+        loading={source === 'loading'}
+        wtpResponses={wtpResponses}
+        obrainRows={obrainValueMetrics}
+      />
+    ),
     revenue: <Revenue />,
     simulator: <Simulator />,
   }
