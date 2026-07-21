@@ -22,27 +22,35 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column("page_templates", sa.Column("org_id", sa.Uuid(), nullable=True))
-    op.create_foreign_key(
-        "fk_page_templates_org_id",
-        "page_templates",
-        "organizations",
-        ["org_id"],
-        ["id"],
-        ondelete="SET NULL",
-    )
-    op.create_index("ix_page_templates_org_id", "page_templates", ["org_id"])
+    # SQLite has no ALTER TABLE ADD CONSTRAINT — Alembic's sqlite dialect
+    # raises NotImplementedError on a plain create_foreign_key/create_index
+    # here and requires batch mode (copy-and-move table rebuild) instead.
+    with op.batch_alter_table("page_templates") as batch_op:
+        batch_op.add_column(sa.Column("org_id", sa.Uuid(), nullable=True))
+        batch_op.create_foreign_key(
+            "fk_page_templates_org_id",
+            "organizations",
+            ["org_id"],
+            ["id"],
+            ondelete="SET NULL",
+        )
+        batch_op.create_index("ix_page_templates_org_id", ["org_id"])
 
     op.execute("""
         UPDATE page_templates
-        SET org_id = u.org_id
-        FROM users u
-        WHERE page_templates.created_by = u.id
-          AND u.org_id IS NOT NULL
+        SET org_id = (
+            SELECT u.org_id FROM users u
+            WHERE u.id = page_templates.created_by
+              AND u.org_id IS NOT NULL
+        )
+        WHERE created_by IN (
+            SELECT u.id FROM users u WHERE u.org_id IS NOT NULL
+        )
     """)
 
 
 def downgrade() -> None:
-    op.drop_index("ix_page_templates_org_id", table_name="page_templates")
-    op.drop_constraint("fk_page_templates_org_id", "page_templates", type_="foreignkey")
-    op.drop_column("page_templates", "org_id")
+    with op.batch_alter_table("page_templates") as batch_op:
+        batch_op.drop_index("ix_page_templates_org_id")
+        batch_op.drop_constraint("fk_page_templates_org_id", type_="foreignkey")
+        batch_op.drop_column("org_id")
