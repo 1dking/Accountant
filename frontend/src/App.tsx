@@ -59,6 +59,7 @@ import PasswordResetRequestPage from '@/pages/PasswordResetRequestPage'
 import PasswordResetConfirmPage from '@/pages/PasswordResetConfirmPage'
 import HelpPage from '@/pages/HelpPage'
 import PublicDocumentPage from '@/pages/PublicDocumentPage'
+import PublicFormPage from '@/pages/PublicFormPage'
 import DocsHomePage from '@/pages/DocsHomePage'
 import SheetsHomePage from '@/pages/SheetsHomePage'
 import SlidesHomePage from '@/pages/SlidesHomePage'
@@ -309,6 +310,7 @@ export default function App() {
             <Route path="/auth/password-reset/confirm/:token" element={<PasswordResetConfirmPage />} />
             <Route path="/auth/google/callback" element={<GoogleCallbackPage />} />
             <Route path="/p/:token" element={<PublicDocumentPage />} />
+            <Route path="/f/:formId" element={<PublicFormPage />} />
             <Route path="/proposals/sign/:token" element={<ProposalSigningPage />} />
             <Route path="/meetings/:id/guest" element={<MeetingGuestJoinPage />} />
             {/* Commit 8 — Google-Meet-style public meeting URL.

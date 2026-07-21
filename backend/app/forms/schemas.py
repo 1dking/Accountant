@@ -77,6 +77,8 @@ class PublicFormResponse(BaseModel):
     description: Optional[str]
     fields_json: str
     style_json: Optional[str]
+    thank_you_type: str
+    thank_you_config_json: Optional[str]
 
     model_config = {"from_attributes": True}
 

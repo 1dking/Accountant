@@ -289,6 +289,11 @@ class PageTemplate(TimestampMixin, Base):
     thumbnail_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     html_content: Mapped[str | None] = mapped_column(Text, nullable=True)
     css_content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Structured section data snapshotted from the source Page, so a page
+    # cloned from this template stays editable in the normal SectionEditor
+    # instead of only as raw HTML/CSS. Nullable — older templates (and ones
+    # created without a source page) simply have none.
+    sections_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     metadata_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     scope: Mapped[TemplateScope] = mapped_column(
         Enum(TemplateScope), default=TemplateScope.ORG, nullable=False,
@@ -296,6 +301,9 @@ class PageTemplate(TimestampMixin, Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True,
+    )
+    org_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True, index=True,
     )
 
 

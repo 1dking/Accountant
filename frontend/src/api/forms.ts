@@ -66,5 +66,7 @@ export async function getPublicForm(id: string) {
 }
 
 export async function submitPublicForm(id: string, data: Record<string, unknown>) {
-  return api.post<ApiResponse<{ message: string }>>(`/forms/public/${id}/submit`, data)
+  // Backend's FormSubmitRequest expects the field values wrapped under a
+  // `data` key, not posted flat at the top level.
+  return api.post<ApiResponse<{ message: string }>>(`/forms/public/${id}/submit`, { data })
 }

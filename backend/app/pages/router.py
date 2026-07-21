@@ -75,9 +75,9 @@ async def list_section_templates(
 @router.get("/templates")
 async def list_templates(
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict:
-    templates = await service.list_templates(db)
+    templates = await service.list_templates(db, current_user)
     return {"data": [TemplateListItem.model_validate(t) for t in templates]}
 
 
@@ -85,9 +85,9 @@ async def list_templates(
 async def get_template(
     template_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict:
-    t = await service.get_template(db, template_id)
+    t = await service.get_template(db, template_id, current_user)
     return {"data": TemplateResponse.model_validate(t)}
 
 
@@ -180,6 +180,7 @@ async def create_template(
             category_type=data.category_type,
             scope=data.scope,
             created_by=current_user.id,
+            org_id=current_user.org_id,
         )
     else:
         t = await service.create_template(
@@ -190,9 +191,11 @@ async def create_template(
             category_type=data.category_type,
             html_content=data.html_content,
             css_content=data.css_content,
+            sections_json=data.sections_json,
             metadata_json=data.metadata_json,
             scope=data.scope,
             created_by=current_user.id,
+            org_id=current_user.org_id,
         )
     return {"data": TemplateResponse.model_validate(t)}
 
@@ -202,9 +205,11 @@ async def update_template(
     template_id: uuid.UUID,
     data: TemplateUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
 ) -> dict:
-    t = await service.update_template(db, template_id, data.model_dump(exclude_none=True))
+    t = await service.update_template(
+        db, template_id, data.model_dump(exclude_none=True), current_user
+    )
     return {"data": TemplateResponse.model_validate(t)}
 
 
@@ -212,9 +217,9 @@ async def update_template(
 async def delete_template(
     template_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_role([Role.ADMIN]))],
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN]))],
 ) -> dict:
-    await service.delete_template(db, template_id)
+    await service.delete_template(db, template_id, current_user)
     return {"data": {"message": "Template deleted"}}
 
 
@@ -265,7 +270,10 @@ async def generate_template_library(
 async def ai_generate(
     data: AIGenerateRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
+    # Admin-only — AI page generation is a paid Gemini call and the owner
+    # wants that cost gated to admin, unlike ai/refine (per-section touch-up)
+    # and ai/chat (editor assist), which stay open to team members.
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN]))],
     request: Request,
 ) -> dict:
     settings = request.app.state.settings

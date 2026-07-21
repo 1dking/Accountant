@@ -177,7 +177,7 @@ export default function FormsPage() {
   }
 
   function getPublicUrl(id: string) {
-    return `${window.location.origin}/api/forms/public/${id}`
+    return `${window.location.origin}/f/${id}`
   }
 
   function copyPublicUrl(id: string) {

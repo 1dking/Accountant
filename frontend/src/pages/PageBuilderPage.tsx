@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { pagesApi } from '@/api/pages'
+import { useAuthStore } from '@/stores/authStore'
 import { toast } from 'sonner'
 import {
   Plus,
@@ -222,6 +223,11 @@ const RESPONSIVE_WIDTHS: Record<ResponsiveSize, string> = {
 
 export default function PageBuilderPage() {
   const queryClient = useQueryClient()
+  const { user } = useAuthStore()
+  // AI page generation is a paid Gemini call — restricted to admin (cost
+  // control). Per-section "Refine with AI" and the O-Brain editor chat stay
+  // open to everyone; only initial page creation is gated.
+  const isAdmin = user?.role === 'admin'
 
   // Navigation state
   const [view, setView] = useState<View>('list')
@@ -1119,7 +1125,9 @@ export default function PageBuilderPage() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Page Builder</h1>
-            <p className="text-gray-500 dark:text-gray-400 mt-1">Build websites and landing pages with AI</p>
+            <p className="text-gray-500 dark:text-gray-400 mt-1">
+              {isAdmin ? 'Build websites and landing pages with AI' : 'Build websites and landing pages from templates'}
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => setShowTemplateBrowser(true)} className="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition">
@@ -1128,12 +1136,14 @@ export default function PageBuilderPage() {
             <button onClick={() => setShowCreateWebsite(true)} className="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition">
               <Globe className="h-4 w-4" /> New Website
             </button>
-            <button
-              onClick={() => setShowAIGenerate(true)}
-              className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-4 py-2 rounded-lg transition shadow-md"
-            >
-              <Sparkles className="h-4 w-4" /> Generate with AI
-            </button>
+            {isAdmin && (
+              <button
+                onClick={() => setShowAIGenerate(true)}
+                className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-4 py-2 rounded-lg transition shadow-md"
+              >
+                <Sparkles className="h-4 w-4" /> Generate with AI
+              </button>
+            )}
             <button onClick={() => setShowCreatePage(true)} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
               <Plus className="h-4 w-4" /> New Page
             </button>
@@ -1584,7 +1594,9 @@ export default function PageBuilderPage() {
           // sections_json via PATCH endpoints. Closes bug #10's
           // architecture mismatch where edits went to opaque html_content.
           // Legacy v1 pages (no generation_session_id) → existing
-          // VisualEditor (iframe-of-the-whole-page editor).
+          // VisualEditor (iframe-of-the-whole-page editor), rendered
+          // outside this branch (see below) so switching tabs doesn't
+          // unmount it and lose its undo/redo history.
           const isV2 = !!detail?.generation_session_id && !!detail?.sections_json
           if (isV2 && detail && selectedPageId) {
             let parsed: PageSection[] = []
@@ -1604,11 +1616,18 @@ export default function PageBuilderPage() {
               />
             )
           }
-          return (
+          return null
+        })()}
+
+        {/* Kept mounted across tab switches (display:none when inactive) —
+            VisualEditor owns its undo/redo stack in local state; unmounting
+            it on every tab switch silently wiped that history. */}
+        {!(!!detail?.generation_session_id && !!detail?.sections_json) && (
+          <div style={{ display: activeTab === 'visual' ? 'block' : 'none' }} className="h-full">
             <VisualEditor html={editHtml} css={editCss} onHtmlChange={handleHtmlChange} onCssChange={handleCssChange}
               onVideoUpload={async (file: File) => { const res = await pagesApi.uploadVideo(file); return unwrap<{ mp4_url: string; webm_url: string; poster_url: string }>(res) }} />
-          )
-        })()}
+          </div>
+        )}
 
         {activeTab === 'html' && (
           <div className="h-full flex flex-col overflow-hidden">

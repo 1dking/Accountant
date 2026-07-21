@@ -270,6 +270,7 @@ class TemplateCreate(BaseModel):
     category_type: Optional[str] = None
     html_content: Optional[str] = None
     css_content: Optional[str] = None
+    sections_json: Optional[str] = None
     metadata_json: Optional[str] = None
     scope: str = "org"  # org | platform
     source_page_id: Optional[uuid.UUID] = None  # if saving from existing page
@@ -297,6 +298,7 @@ class TemplateResponse(BaseModel):
     thumbnail_url: Optional[str] = None
     html_content: Optional[str] = None
     css_content: Optional[str] = None
+    sections_json: Optional[str] = None
     metadata_json: Optional[str] = None
     scope: str
     is_active: bool

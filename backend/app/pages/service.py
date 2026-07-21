@@ -9,9 +9,10 @@ import socket
 import uuid
 from datetime import date, datetime, timedelta, timezone
 
-from sqlalchemy import delete, func, select, and_
+from sqlalchemy import delete, func, select, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.models import User
 from app.core.exceptions import NotFoundError
 from app.pages.models import (
     CustomDomain, DomainStatus,
@@ -868,26 +869,55 @@ async def aggregate_daily_analytics(db: AsyncSession) -> int:
 # ---------------------------------------------------------------------------
 
 
+def _can_see_template(t: PageTemplate, user: User) -> bool:
+    """PLATFORM templates are visible to everyone. ORG templates are visible
+    only within the org that created them — or, when the creator has no
+    formal Organization assigned (the common case today), only to their
+    literal creator. Deliberately does NOT special-case ADMIN: an admin sees
+    their own org's ORG templates plus PLATFORM ones, not every business's."""
+    if t.scope == TemplateScope.PLATFORM:
+        return True
+    if user.org_id is not None:
+        return t.org_id == user.org_id
+    return t.created_by == user.id
+
+
 async def list_templates(
     db: AsyncSession,
+    user: User,
     include_platform: bool = True,
 ) -> list[PageTemplate]:
-    """List all active templates (org + platform)."""
+    """List active templates visible to this user (own org's ORG templates,
+    or own-created ones if they have no org, plus PLATFORM templates)."""
+    if user.org_id is not None:
+        org_cond = and_(PageTemplate.scope == TemplateScope.ORG, PageTemplate.org_id == user.org_id)
+    else:
+        org_cond = and_(PageTemplate.scope == TemplateScope.ORG, PageTemplate.created_by == user.id)
+
     q = select(PageTemplate).where(PageTemplate.is_active == True)
-    if not include_platform:
-        q = q.where(PageTemplate.scope == TemplateScope.ORG)
+    if include_platform:
+        q = q.where(or_(PageTemplate.scope == TemplateScope.PLATFORM, org_cond))
+    else:
+        q = q.where(org_cond)
     q = q.order_by(PageTemplate.name)
     result = await db.execute(q)
     return list(result.scalars().all())
 
 
-async def get_template(db: AsyncSession, template_id: uuid.UUID) -> PageTemplate:
+async def get_template(
+    db: AsyncSession, template_id: uuid.UUID, user: User | None = None
+) -> PageTemplate:
     result = await db.execute(
         select(PageTemplate).where(PageTemplate.id == template_id)
     )
     t = result.scalar_one_or_none()
     if not t:
-        raise NotFoundError("Template not found")
+        raise NotFoundError("Template", str(template_id))
+    if user is not None and not _can_see_template(t, user):
+        # 404, not 403 — consistent with this codebase's IDOR-avoidance
+        # convention (authorization.py): don't confirm another org's
+        # template exists by returning a different status code for it.
+        raise NotFoundError("Template", str(template_id))
     return t
 
 
@@ -902,6 +932,8 @@ async def create_template(
     metadata_json: str | None,
     scope: str,
     created_by: uuid.UUID | None,
+    sections_json: str | None = None,
+    org_id: uuid.UUID | None = None,
 ) -> PageTemplate:
     t = PageTemplate(
         id=uuid.uuid4(),
@@ -911,9 +943,11 @@ async def create_template(
         category_type=category_type,
         html_content=html_content,
         css_content=css_content,
+        sections_json=sections_json,
         metadata_json=metadata_json,
         scope=TemplateScope(scope) if scope else TemplateScope.ORG,
         created_by=created_by,
+        org_id=org_id,
     )
     db.add(t)
     await db.commit()
@@ -930,6 +964,7 @@ async def create_template_from_page(
     category_type: str | None,
     scope: str,
     created_by: uuid.UUID,
+    org_id: uuid.UUID | None = None,
 ) -> PageTemplate:
     """Create a template from an existing page's content."""
     page = await get_page(db, page_id)
@@ -941,6 +976,7 @@ async def create_template_from_page(
         category_type=category_type,
         html_content=page.html_content,
         css_content=page.css_content,
+        sections_json=page.sections_json,
         metadata_json=json.dumps({
             "source_page_id": str(page_id),
             "style_preset": page.style_preset,
@@ -949,6 +985,7 @@ async def create_template_from_page(
         }),
         scope=scope,
         created_by=created_by,
+        org_id=org_id,
     )
 
 
@@ -956,8 +993,9 @@ async def update_template(
     db: AsyncSession,
     template_id: uuid.UUID,
     data: dict,
+    user: User | None = None,
 ) -> PageTemplate:
-    t = await get_template(db, template_id)
+    t = await get_template(db, template_id, user)
     for key, val in data.items():
         if val is not None and hasattr(t, key):
             if key == "scope":
@@ -969,8 +1007,10 @@ async def update_template(
     return t
 
 
-async def delete_template(db: AsyncSession, template_id: uuid.UUID) -> None:
-    t = await get_template(db, template_id)
+async def delete_template(
+    db: AsyncSession, template_id: uuid.UUID, user: User | None = None
+) -> None:
+    t = await get_template(db, template_id, user)
     await db.delete(t)
     await db.commit()
 
@@ -984,7 +1024,7 @@ async def create_page_from_template(
     org_name: str | None = None,
 ) -> Page:
     """Create a new page using a template's content, with auto-branding replacement."""
-    t = await get_template(db, template_id)
+    t = await get_template(db, template_id, user)
     html = t.html_content or ""
     css = t.css_content or ""
 
@@ -1044,6 +1084,7 @@ async def create_page_from_template(
     page = await create_page(db, page_data, user)
     page.html_content = html
     page.css_content = css
+    page.sections_json = t.sections_json
     await db.commit()
     await db.refresh(page)
     return page
