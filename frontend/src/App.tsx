@@ -85,6 +85,8 @@ import PageBuilderPage from '@/pages/PageBuilderPage'
 import AvailabilityPage from '@/pages/AvailabilityPage'
 import BookingsPage from '@/pages/BookingsPage'
 import PublicBookingPage from '@/pages/PublicBookingPage'
+import PublicCardPage from '@/pages/PublicCardPage'
+import BusinessCardPage from '@/pages/BusinessCardPage'
 import BrandingPage from '@/pages/BrandingPage'
 import PortalAdminPage from '@/pages/PortalAdminPage'
 import PipelinesPage from '@/pages/PipelinesPage'
@@ -272,6 +274,7 @@ function AuthenticatedApp() {
         <Route path="/forms" element={<FormsPage />} />
         <Route path="/communication" element={<CommunicationPage />} />
         <Route path="/page-builder" element={<PageBuilderPage />} />
+        <Route path="/business-card" element={<BusinessCardPage />} />
         <Route path="/availability" element={<AvailabilityPage />} />
         <Route path="/bookings" element={<BookingsPage />} />
         {/* The old combined Scheduling page was split into Availability +
@@ -324,6 +327,8 @@ export default function App() {
             {/* Commit 8 — Google-Meet-style public meeting URL.
                 Guests land here, enter name + email, knock the lobby. */}
             <Route path="/m/:slug" element={<MeetingJoinPage />} />
+            {/* Public digital business card */}
+            <Route path="/c/:slug" element={<PublicCardPage />} />
             {/* Public booking */}
             <Route path="/book/:slug" element={<PublicBookingPage />} />
             <Route path="/booking/reschedule/:token" element={<ReschedulePage />} />

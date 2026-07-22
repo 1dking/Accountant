@@ -4,7 +4,7 @@
  */
 
 export const FEATURE_CATEGORIES: Record<string, string[]> = {
-  CRM: ['contacts', 'pipeline', 'tasks'],
+  CRM: ['contacts', 'pipeline', 'tasks', 'cards'],
   Sales: ['invoices', 'estimates', 'proposals'],
   Accounting: [
     'cashbook',
@@ -35,6 +35,7 @@ export const ROLE_DEFAULTS: Record<string, Record<string, boolean>> = {
   team_member: { ...allTrue, platform_admin: false },
   accountant: {
     ...allFalse,
+    cards: true,
     cashbook: true,
     expenses: true,
     invoices: true,
@@ -91,6 +92,7 @@ export const ROUTE_FEATURES: Array<[string, string]> = [
   ['/bookings', 'calendar'],
   ['/availability', 'calendar'],
   ['/scheduling', 'calendar'],
+  ['/business-card', 'cards'],
   ['/pages', 'pages'],
   ['/forms', 'forms'],
   ['/workflows', 'workflows'],
@@ -115,6 +117,7 @@ export function featureForPath(pathname: string): string | null {
 export const FEATURE_LABELS: Record<string, string> = {
   contacts: 'Contacts',
   pipeline: 'Pipeline',
+  cards: 'Business Card',
   invoices: 'Invoices',
   proposals: 'Proposals',
   cashbook: 'Cashbook',

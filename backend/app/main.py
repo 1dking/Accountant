@@ -53,6 +53,7 @@ import app.integrations.plaid.models  # noqa: F401
 import app.integrations.plaid.categorization_models  # noqa: F401
 import app.integrations.stripe.models  # noqa: F401
 import app.integrations.stripe_connect.models  # noqa: F401
+import app.cards.models  # noqa: F401
 import app.integrations.twilio.models  # noqa: F401
 import app.estimates.models  # noqa: F401
 import app.invoicing.reminder_models  # noqa: F401
@@ -254,6 +255,7 @@ def create_app() -> FastAPI:
     from app.integrations.plaid.categorization_router import router as categorization_rules_router
     from app.integrations.stripe.router import router as stripe_router
     from app.integrations.stripe_connect.router import router as stripe_connect_router
+    from app.cards.router import router as cards_router
     from app.integrations.twilio.router import router as twilio_router
     from app.estimates.router import router as estimates_router
     from app.invoicing.reminder_router import router as reminder_router
@@ -310,6 +312,7 @@ def create_app() -> FastAPI:
     fastapi_app.include_router(categorization_rules_router, prefix="/api/integrations/plaid", tags=["categorization-rules"])
     fastapi_app.include_router(stripe_router, prefix="/api/integrations/stripe", tags=["stripe"])
     fastapi_app.include_router(stripe_connect_router, prefix="/api/integrations/stripe-connect", tags=["stripe-connect"])
+    fastapi_app.include_router(cards_router, prefix="/api/cards", tags=["cards"], dependencies=[Depends(require_feature("cards"))])
     fastapi_app.include_router(twilio_router, prefix="/api/integrations/sms", tags=["sms"])
     fastapi_app.include_router(integration_settings_router, prefix="/api/integrations", tags=["integration-settings"])
     fastapi_app.include_router(export_router, prefix="/api/export", tags=["export"], dependencies=[Depends(require_feature("reports"))])

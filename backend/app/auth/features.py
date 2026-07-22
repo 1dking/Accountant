@@ -4,7 +4,7 @@ import json
 from typing import Optional
 
 FEATURE_CATEGORIES: dict[str, list[str]] = {
-    "CRM": ["contacts", "pipeline", "tasks"],
+    "CRM": ["contacts", "pipeline", "tasks", "cards"],
     "Sales": ["invoices", "estimates", "proposals"],
     "Accounting": [
         "cashbook",
@@ -46,6 +46,7 @@ ROLE_DEFAULTS: dict[str, dict[str, bool]] = {
     # own contacts, not the whole agency's.
     "accountant": {
         **_ALL_FALSE,
+        "cards": True,
         "cashbook": True,
         "expenses": True,
         "invoices": True,
