@@ -6,16 +6,27 @@ import type { CompanySettings } from '@/api/settings'
 
 const DEFAULT_NAME = 'O-Brain'
 
-/** Branding for authenticated users — merges branding_settings + company_settings */
-export function useBranding() {
+/**
+ * Branding for authenticated users — merges branding_settings + company_settings.
+ *
+ * `enabled` gates both underlying queries (default true). Callers that
+ * may render while logged out — e.g. BrandThemeProvider, mounted at the
+ * app root for every route — must pass `isAuthenticated` explicitly:
+ * the authenticated /branding endpoint 401s without a token, and the
+ * api client treats any 401 as "redirect to /login", which would loop
+ * on public pages if this query ran unconditionally.
+ */
+export function useBranding(enabled: boolean = true) {
   const { data: brandingData } = useQuery({
     queryKey: ['branding'],
     queryFn: () => brandingApi.get() as Promise<{ data: BrandingSettings | null }>,
+    enabled,
   })
 
   const { data: companyData } = useQuery({
     queryKey: ['company-settings'],
     queryFn: getCompanySettings,
+    enabled,
   })
 
   const branding = brandingData?.data ?? null

@@ -58,6 +58,12 @@ export default function BrandingPage() {
     mutationFn: (data: Record<string, unknown>) => brandingApi.update(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['branding'] })
+      // BrandThemeProvider (mounted at the app root, so it must work
+      // logged-out too) reads the PUBLIC payload, not this page's
+      // authenticated one — without this the CSS vars it sets stay
+      // stale until the next full reload, even though this settings
+      // page itself shows the saved values immediately.
+      queryClient.invalidateQueries({ queryKey: ['branding-public'] })
       toast.success('Branding updated')
     },
   })
@@ -216,6 +222,31 @@ export default function BrandingPage() {
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
               />
             </div>
+          </div>
+          {/* Live preview — these are draft values, not yet saved; the
+              app-wide theme (Sidebar, etc.) only updates after Save
+              Changes writes them and BrandThemeProvider refetches. */}
+          <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Preview</p>
+            <p
+              className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-1"
+              style={{ fontFamily: form.font_heading || undefined }}
+            >
+              Heading font sample
+            </p>
+            <p
+              className="text-sm text-gray-600 dark:text-gray-400 mb-3"
+              style={{ fontFamily: form.font_body || undefined }}
+            >
+              Body font sample — the quick brown fox jumps over the lazy dog.
+            </p>
+            <button
+              type="button"
+              className="px-4 py-2 text-sm font-medium text-white"
+              style={{ background: form.primary_color, borderRadius: form.border_radius || '8px' }}
+            >
+              Button preview
+            </button>
           </div>
         </section>
 

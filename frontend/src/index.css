@@ -23,6 +23,11 @@
   --color-primary-foreground: var(--primary-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
+
+  /* Exposes the brand radius as an arbitrary-value building block —
+     e.g. rounded-(--radius) — for components that want to follow the
+     configured brand radius instead of a hardcoded Tailwind size. */
+  --radius: var(--brand-radius);
 }
 
 :root {
@@ -40,6 +45,16 @@
   --primary-foreground: #ffffff;
   --border: #e5e7eb;
   --input: #e5e7eb;
+
+  /* Brand theme fallbacks — BrandThemeProvider overrides these inline
+     on :root once the branding payload loads; these values only show
+     briefly on first paint or if branding is unconfigured. */
+  --brand-primary: #2563eb;
+  --brand-secondary: #64748b;
+  --brand-accent: #f59e0b;
+  --brand-font-heading: 'Inter', ui-sans-serif, sans-serif;
+  --brand-font-body: 'Inter', ui-sans-serif, sans-serif;
+  --brand-radius: 8px;
 }
 
 .dark {
@@ -65,6 +80,11 @@
    theme (the bug that made the client portal unreadable in dark mode). */
 body {
   color: var(--foreground);
+  font-family: var(--brand-font-body);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--brand-font-heading);
 }
 
 /* Global dark scrollbars — Webkit (Chrome, Edge, Safari) */
