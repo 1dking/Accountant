@@ -47,11 +47,30 @@ async def get_public_calendar(
     slug: str,
     db: Annotated[AsyncSession, Depends(get_db)],
     date: str = Query(None),
+    days: int = Query(1, ge=1, le=31),
 ) -> dict:
+    """Public calendar info + open slots.
+
+    ?date=YYYY-MM-DD           → that day's slots in available_slots (legacy shape).
+    ?date=YYYY-MM-DD&days=N    → additionally, N days of slots grouped per
+                                 day in slot_groups — one round-trip for the
+                                 multi-day public booking page instead of N.
+    """
+    from datetime import date as date_type, timedelta as td
+
     cal = await service.get_calendar_by_slug(db, slug)
     slots = []
+    groups = []
     if date:
         slots = await service.get_available_slots(db, cal.id, date)
+        if days > 1:
+            start = date_type.fromisoformat(date)
+            for offset in range(days):
+                day = start + td(days=offset)
+                day_slots = slots if offset == 0 else await service.get_available_slots(
+                    db, cal.id, day.isoformat()
+                )
+                groups.append({"date": day.isoformat(), "slots": day_slots})
     return {
         "data": PublicCalendarInfo(
             id=cal.id,
@@ -60,6 +79,7 @@ async def get_public_calendar(
             duration_minutes=cal.duration_minutes,
             timezone=cal.timezone,
             available_slots=slots,
+            slot_groups=groups,
         )
     }
 

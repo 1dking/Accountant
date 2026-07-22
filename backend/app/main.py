@@ -191,12 +191,22 @@ def create_app() -> FastAPI:
         response.headers["X-Request-ID"] = cid
         return response
 
+    # Paths that are DESIGNED to be iframed on third-party sites: the
+    # public booking page (the Calendar share hub hands out an <iframe>
+    # embed snippet for it) and the email-capture widget frame. These
+    # get frame-ancestors * instead of X-Frame-Options DENY — everything
+    # else keeps the strict default.
+    EMBEDDABLE_PATH_PREFIXES = ("/book/", "/embed/")
+
     # Security headers middleware — adds standard protective headers to all responses
     @fastapi_app.middleware("http")
     async def add_security_headers(request: Request, call_next):
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
+        if request.url.path.startswith(EMBEDDABLE_PATH_PREFIXES):
+            response.headers["Content-Security-Policy"] = "frame-ancestors *"
+        else:
+            response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = "camera=(self), microphone=(self), geolocation=()"

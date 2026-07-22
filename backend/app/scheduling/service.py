@@ -331,7 +331,18 @@ async def get_available_slots(
         )
     )
     booked = existing.scalars().all()
-    booked_times = [(b.start_time, b.end_time) for b in booked]
+    # SQLite hands back naive datetimes (it has no tz storage); the slot
+    # candidates below are UTC-aware. Comparing the two raises TypeError,
+    # so any booking on the requested day crashed the whole slot list.
+    # Normalize to UTC-aware before comparing.
+    booked_times = []
+    for b in booked:
+        bs, be = b.start_time, b.end_time
+        if bs.tzinfo is None:
+            bs = bs.replace(tzinfo=timezone.utc)
+        if be.tzinfo is None:
+            be = be.replace(tzinfo=timezone.utc)
+        booked_times.append((bs, be))
 
     slots = []
     for slot_range in day_slots:

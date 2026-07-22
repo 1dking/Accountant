@@ -26,6 +26,7 @@ import {
   Globe,
   Calendar,
   CalendarDays,
+  Clock3,
   UserCog,
   ChevronDown,
   ChevronRight,
@@ -127,9 +128,10 @@ const NAV_SECTIONS: NavSection[] = [
     title: 'MEETINGS',
     items: [
       { path: '/calendar', label: 'Calendar', icon: Calendar, featureKey: 'calendar' },
+      { path: '/bookings', label: 'Bookings', icon: CalendarDays, featureKey: 'calendar' },
+      { path: '/availability', label: 'Availability', icon: Clock3, featureKey: 'calendar' },
       { path: '/meetings', label: 'Meetings', icon: Video, featureKey: 'meeting_rooms' },
       { path: '/recordings', label: 'Recordings', icon: Film, featureKey: 'meeting_rooms' },
-      { path: '/scheduling', label: 'Scheduling', icon: CalendarDays, featureKey: 'calendar' },
     ],
   },
   {

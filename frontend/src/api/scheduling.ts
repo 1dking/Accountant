@@ -52,8 +52,11 @@ export const schedulingApi = {
     api.get(`/scheduling/${calendarId}/slots?date=${date}`),
 
   // Public
-  getPublicCalendar: (slug: string, date?: string) =>
-    api.get(`/scheduling/public/${slug}${date ? `?date=${date}` : ''}`),
+  getPublicCalendar: (slug: string, date?: string, days?: number) =>
+    api.get(`/scheduling/public/${slug}${date ? `?date=${date}${days ? `&days=${days}` : ''}` : ''}`),
+
+  createBookingPublic: (slug: string, data: Record<string, unknown>) =>
+    api.post(`/scheduling/public/${slug}/book`, data),
 
   // Public reschedule/cancel (token-based, no auth)
   getRescheduleInfo: (token: string) =>

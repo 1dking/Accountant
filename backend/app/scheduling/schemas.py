@@ -166,6 +166,13 @@ class AvailableSlot(BaseModel):
     end: datetime
 
 
+class SlotGroup(BaseModel):
+    """One day's open slots, for the multi-day public booking page."""
+
+    date: str  # YYYY-MM-DD
+    slots: list[AvailableSlot] = []
+
+
 class PublicCalendarInfo(BaseModel):
     id: uuid.UUID
     name: str
@@ -173,3 +180,7 @@ class PublicCalendarInfo(BaseModel):
     duration_minutes: int
     timezone: str
     available_slots: list[AvailableSlot] = []
+    # Populated only when the public endpoint is asked for a multi-day
+    # window (?days=N). Kept separate from available_slots so existing
+    # single-day callers (ReschedulePage) are untouched.
+    slot_groups: list[SlotGroup] = []

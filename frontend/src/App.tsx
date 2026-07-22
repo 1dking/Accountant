@@ -82,7 +82,9 @@ import WorkflowsPage from '@/pages/WorkflowsPage'
 import FormsPage from '@/pages/FormsPage'
 import CommunicationPage from '@/pages/CommunicationPage'
 import PageBuilderPage from '@/pages/PageBuilderPage'
-import SchedulingPage from '@/pages/SchedulingPage'
+import AvailabilityPage from '@/pages/AvailabilityPage'
+import BookingsPage from '@/pages/BookingsPage'
+import PublicBookingPage from '@/pages/PublicBookingPage'
 import BrandingPage from '@/pages/BrandingPage'
 import PortalAdminPage from '@/pages/PortalAdminPage'
 import PipelinesPage from '@/pages/PipelinesPage'
@@ -270,7 +272,11 @@ function AuthenticatedApp() {
         <Route path="/forms" element={<FormsPage />} />
         <Route path="/communication" element={<CommunicationPage />} />
         <Route path="/page-builder" element={<PageBuilderPage />} />
-        <Route path="/scheduling" element={<SchedulingPage />} />
+        <Route path="/availability" element={<AvailabilityPage />} />
+        <Route path="/bookings" element={<BookingsPage />} />
+        {/* The old combined Scheduling page was split into Availability +
+            Bookings (Arivio-style) — keep old bookmarks working. */}
+        <Route path="/scheduling" element={<Navigate to="/availability" replace />} />
         <Route path="/branding" element={<BrandingPage />} />
         <Route path="/portal-admin" element={<PortalAdminPage />} />
         <Route path="/platform-admin" element={<PlatformAdminPage />} />
@@ -318,7 +324,8 @@ export default function App() {
             {/* Commit 8 — Google-Meet-style public meeting URL.
                 Guests land here, enter name + email, knock the lobby. */}
             <Route path="/m/:slug" element={<MeetingJoinPage />} />
-            {/* Public booking management */}
+            {/* Public booking */}
+            <Route path="/book/:slug" element={<PublicBookingPage />} />
             <Route path="/booking/reschedule/:token" element={<ReschedulePage />} />
             <Route path="/booking/cancel/:token" element={<CancelBookingPage />} />
             {/* Portal routes */}
