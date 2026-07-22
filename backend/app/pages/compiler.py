@@ -730,8 +730,13 @@ def compile_page(
         _safe_str(page.meta_description or page.description or "")
     )
 
+    # Matches the real serving route, /api/pages/p/{slug} (router.py's
+    # serve_published_page, mounted under the /api/pages prefix in
+    # main.py) — not the frontend's own /p/:token route (public document
+    # sharing), which this would otherwise collide with and silently
+    # serve the wrong page for.
     canonical = canonical_url or (
-        f"{public_base_url.rstrip('/')}/p/{page.slug}"
+        f"{public_base_url.rstrip('/')}/api/pages/p/{page.slug}"
         if page.slug
         else public_base_url
     )
