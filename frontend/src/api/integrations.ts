@@ -14,6 +14,7 @@ import type {
   StripePaymentLink,
   StripeSubscription,
   StripeConfig,
+  StripeConnectAccount,
   SmsLog,
 } from '@/types/models'
 
@@ -301,6 +302,22 @@ export async function listStripeSubscriptions() {
 
 export async function cancelStripeSubscription(subId: string) {
   return api.delete<ApiResponse<StripeSubscription>>(`/integrations/stripe/subscriptions/${subId}`)
+}
+
+// ---------------------------------------------------------------------------
+// Stripe Connect (per-tenant connected accounts)
+// ---------------------------------------------------------------------------
+
+export async function connectStripeAccount() {
+  return api.get<ApiResponse<{ url: string }>>('/integrations/stripe-connect/connect')
+}
+
+export async function getStripeConnectStatus() {
+  return api.get<{ data: StripeConnectAccount | null }>('/integrations/stripe-connect/status')
+}
+
+export async function disconnectStripeAccount() {
+  return api.delete<ApiResponse<{ detail: string }>>('/integrations/stripe-connect/disconnect')
 }
 
 // ---------------------------------------------------------------------------

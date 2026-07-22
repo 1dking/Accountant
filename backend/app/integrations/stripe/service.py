@@ -44,6 +44,9 @@ async def create_checkout_session(
     """Create a Stripe Checkout Session for an invoice."""
     from app.invoicing.models import Invoice
 
+    if not settings.stripe_secret_key:
+        raise ValidationError("Stripe is not configured")
+
     _configure_stripe(settings)
 
     result = await db.execute(select(Invoice).where(Invoice.id == invoice_id))
@@ -51,12 +54,16 @@ async def create_checkout_session(
     if not invoice:
         raise NotFoundError(f"Invoice {invoice_id} not found")
 
+    from app.integrations.stripe_connect.service import get_active_connect_account_id
+
+    connect_account_id = await get_active_connect_account_id(db, invoice.created_by)
+
     amount_cents = int(Decimal(str(invoice.total)) * Decimal('100'))
 
     # Use the request origin so URLs work in both dev and production
     origin = base_url.rstrip("/") if base_url else "http://localhost:5173"
 
-    session = stripe_lib.checkout.Session.create(
+    session_kwargs = dict(
         payment_method_types=["card"],
         line_items=[
             {
@@ -79,6 +86,9 @@ async def create_checkout_session(
             "invoice_number": invoice.invoice_number,
         },
     )
+    if connect_account_id:
+        session_kwargs["stripe_account"] = connect_account_id
+    session = stripe_lib.checkout.Session.create(**session_kwargs)
 
     payment_link = StripePaymentLink(
         invoice_id=invoice.id,
@@ -300,8 +310,34 @@ async def handle_webhook_event(
     return {"event_type": event_type, "handled": True}
 
 
+async def _connect_account_mismatch(
+    db: AsyncSession, owner_id: uuid.UUID, expected_connect_account_id: str | None
+) -> bool:
+    """True if this event's connected account doesn't match the record owner's.
+
+    expected_connect_account_id is only set when this event arrived through
+    the Connect-scoped webhook (app.integrations.stripe_connect). The
+    platform's own webhook always passes None here, which skips this check
+    entirely — existing single-tenant behavior is untouched.
+    """
+    if expected_connect_account_id is None:
+        return False
+
+    from app.integrations.stripe_connect.service import get_connect_account_for_user
+
+    owner_account = await get_connect_account_for_user(db, owner_id)
+    if owner_account is None or owner_account.stripe_account_id != expected_connect_account_id:
+        logger.warning(
+            "stripe_connect webhook account mismatch: event acct=%s owner acct=%s",
+            expected_connect_account_id,
+            getattr(owner_account, "stripe_account_id", None),
+        )
+        return True
+    return False
+
+
 async def _handle_checkout_completed(
-    db: AsyncSession, session: dict
+    db: AsyncSession, session: dict, expected_connect_account_id: str | None = None
 ) -> None:
     """When a checkout session completes, mark the invoice as paid."""
     session_id = session.get("id")
@@ -332,6 +368,8 @@ async def _handle_checkout_completed(
             select(Invoice).where(Invoice.id == invoice_uuid)
         )
         invoice = inv_result.scalar_one_or_none()
+        if invoice and await _connect_account_mismatch(db, invoice.created_by, expected_connect_account_id):
+            return
         if invoice:
             payment = InvoicePayment(
                 invoice_id=invoice.id,
@@ -379,13 +417,14 @@ async def _handle_checkout_completed(
             db,
             proposal_id_str=proposal_id_str,
             payment_intent_id=session.get("payment_intent"),
+            expected_connect_account_id=expected_connect_account_id,
         )
 
     await db.commit()
 
 
 async def _handle_payment_intent_succeeded(
-    db: AsyncSession, payment_intent: dict
+    db: AsyncSession, payment_intent: dict, expected_connect_account_id: str | None = None
 ) -> None:
     """When a PaymentIntent succeeds (embedded payment), mark the invoice as paid."""
     from datetime import date as date_type
@@ -430,6 +469,8 @@ async def _handle_payment_intent_succeeded(
             .where(Invoice.id == invoice_uuid)
         )
         invoice = inv_result.scalar_one_or_none()
+        if invoice and await _connect_account_mismatch(db, invoice.created_by, expected_connect_account_id):
+            return
         if invoice:
             amount_paid = Decimal(str(payment_intent.get("amount_received", 0))) / Decimal('100')
 
@@ -485,7 +526,7 @@ async def _handle_payment_intent_succeeded(
 
 
 async def _handle_subscription_payment(
-    db: AsyncSession, invoice: dict
+    db: AsyncSession, invoice: dict, expected_connect_account_id: str | None = None
 ) -> None:
     """When a subscription payment succeeds, create an income record."""
     subscription_id = invoice.get("subscription")
@@ -499,6 +540,8 @@ async def _handle_subscription_payment(
     )
     sub = result.scalar_one_or_none()
     if not sub:
+        return
+    if await _connect_account_mismatch(db, sub.created_by, expected_connect_account_id):
         return
 
     from app.income.models import Income, IncomeCategory
@@ -531,7 +574,7 @@ async def _handle_subscription_payment(
 
 
 async def _handle_subscription_cancelled(
-    db: AsyncSession, subscription: dict
+    db: AsyncSession, subscription: dict, expected_connect_account_id: str | None = None
 ) -> None:
     """When a subscription is cancelled from Stripe's side."""
     sub_id = subscription.get("id")
@@ -541,6 +584,8 @@ async def _handle_subscription_cancelled(
         )
     )
     sub = result.scalar_one_or_none()
+    if sub and await _connect_account_mismatch(db, sub.created_by, expected_connect_account_id):
+        return
     if sub:
         sub.status = SubscriptionStatus.CANCELLED
         await db.commit()

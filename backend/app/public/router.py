@@ -49,8 +49,14 @@ async def view_public_document(
     company = await get_company_branding(db)
     actions = _determine_actions(pat.resource_type, document.get("status", ""))
     is_signed = bool(document.get("signed_by_name"))
-    stripe_configured = bool(settings.stripe_secret_key)
 
+    # Stripe Connect Express onboarding itself requires the platform's own
+    # secret key (see stripe_connect.service.start_onboarding), and every
+    # Connect API call — including on behalf of a connected account — still
+    # authenticates as the platform. So "no platform key, but a tenant has
+    # an active connected account" can't happen; this stays keyed off the
+    # platform key alone.
+    stripe_configured = bool(settings.stripe_secret_key)
     stripe_publishable_key = settings.stripe_publishable_key if stripe_configured else None
 
     return {

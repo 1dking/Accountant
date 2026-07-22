@@ -70,7 +70,12 @@ export default function StripeSettings() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">Stripe Payments</h2>
+      <div>
+        <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">Platform Stripe (fallback)</h2>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          Used only for tenants who haven't connected their own Stripe account under Stripe Connect. Payments still route here whenever a tenant has no active connected account.
+        </p>
+      </div>
 
       {msg && (
         <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">{msg}</div>

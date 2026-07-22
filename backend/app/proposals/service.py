@@ -558,6 +558,10 @@ async def create_proposal_checkout(
     if not settings.stripe_secret_key:
         raise ValidationError("Stripe is not configured")
 
+    from app.integrations.stripe_connect.service import get_active_connect_account_id
+
+    connect_account_id = await get_active_connect_account_id(db, proposal.created_by)
+
     stripe_lib.api_key = settings.stripe_secret_key
     amount_cents = int(proposal.value * 100)
     origin = base_url.rstrip("/") if base_url else settings.public_base_url
@@ -610,6 +614,9 @@ async def create_proposal_checkout(
     else:
         session_params["mode"] = "payment"
 
+    if connect_account_id:
+        session_params["stripe_account"] = connect_account_id
+
     session = stripe_lib.checkout.Session.create(**session_params)
 
     proposal.stripe_checkout_session_id = session.id
@@ -631,10 +638,17 @@ async def handle_proposal_payment_webhook(
     db: AsyncSession,
     proposal_id_str: str,
     payment_intent_id: str | None = None,
+    expected_connect_account_id: str | None = None,
 ) -> None:
     """Handle Stripe webhook for proposal payment completion."""
     proposal_id = uuid.UUID(proposal_id_str)
     proposal = await get_proposal(db, proposal_id)
+
+    if expected_connect_account_id is not None:
+        from app.integrations.stripe.service import _connect_account_mismatch
+
+        if await _connect_account_mismatch(db, proposal.created_by, expected_connect_account_id):
+            return
 
     proposal.payment_status = PaymentStatus.PAID
     proposal.status = ProposalStatus.PAID

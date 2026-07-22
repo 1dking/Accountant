@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useParams } from 'react-router'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { getPublicDocument, acceptEstimate, payPublicDocument } from '@/api/public'
+import type { PaymentIntentResponse } from '@/api/public'
 import PaymentForm from '@/components/public/PaymentForm'
 import SignaturePad from '@/components/public/SignaturePad'
 import { CheckCircle, Loader2, AlertCircle } from 'lucide-react'
@@ -15,7 +16,7 @@ export default function PublicDocumentPage() {
   const [signerName, setSignerName] = useState('')
   const [accepted, setAccepted] = useState(false)
   const [showPaymentForm, setShowPaymentForm] = useState(false)
-  const [paymentData, setPaymentData] = useState<{client_secret: string; publishable_key: string; amount: number; currency: string} | null>(null)
+  const [paymentData, setPaymentData] = useState<PaymentIntentResponse | null>(null)
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['public-document', token],
@@ -410,6 +411,7 @@ export default function PublicDocumentPage() {
                     <PaymentForm
                       clientSecret={paymentData.client_secret}
                       publishableKey={paymentData.publishable_key}
+                      connectedAccountId={paymentData.connected_account_id}
                       amount={paymentData.amount}
                       currency={paymentData.currency}
                       onSuccess={() => {

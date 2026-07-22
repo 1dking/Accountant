@@ -223,7 +223,7 @@ function CreateProposalModal({ onClose }: { onClose: () => void }) {
 
   const contactsQuery = useQuery({
     queryKey: ['contacts', { forProposalCreate: true }],
-    queryFn: () => listContacts({ page_size: 200 }),
+    queryFn: () => listContacts({ page_size: 100 }),
   });
 
   const contacts = contactsQuery.data?.data ?? [];

@@ -802,6 +802,17 @@ export interface StripeConfig {
   publishable_key: string | null
 }
 
+export interface StripeConnectAccount {
+  id: string
+  stripe_account_id: string
+  charges_enabled: boolean
+  payouts_enabled: boolean
+  details_submitted: boolean
+  is_active: boolean
+  onboarding_completed_at: string | null
+  created_at: string
+}
+
 // Twilio SMS
 export interface SmsLog {
   id: string

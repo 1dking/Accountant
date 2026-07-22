@@ -114,7 +114,7 @@ export default function DrivePage() {
       listDocuments({
         folder_id: currentFolderId ?? undefined,
         search: debouncedSearch || undefined,
-        page_size: 200,
+        page_size: 100,
         sort_by: 'created_at',
         sort_order: 'desc',
       }),

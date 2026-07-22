@@ -78,6 +78,7 @@ def _import_all_models():
     import app.integrations.plaid.models  # noqa
     import app.integrations.plaid.categorization_models  # noqa
     import app.integrations.stripe.models  # noqa
+    import app.integrations.stripe_connect.models  # noqa
     import app.integrations.twilio.models  # noqa
     import app.estimates.models  # noqa
     import app.invoicing.reminder_models  # noqa

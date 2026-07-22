@@ -307,6 +307,10 @@ async def create_public_payment_intent(
     if not invoice:
         raise NotFoundError("Invoice", str(pat.resource_id))
 
+    from app.integrations.stripe_connect.service import get_active_connect_account_id
+
+    connect_account_id = await get_active_connect_account_id(db, invoice.created_by)
+
     payable_statuses = {
         InvoiceStatus.SENT,
         InvoiceStatus.VIEWED,
@@ -334,7 +338,8 @@ async def create_public_payment_intent(
     existing_link = existing.scalar_one_or_none()
     if existing_link and existing_link.payment_intent_id:
         try:
-            pi = stripe_lib.PaymentIntent.retrieve(existing_link.payment_intent_id)
+            retrieve_kwargs = {"stripe_account": connect_account_id} if connect_account_id else {}
+            pi = stripe_lib.PaymentIntent.retrieve(existing_link.payment_intent_id, **retrieve_kwargs)
             if pi.status in (
                 "requires_payment_method",
                 "requires_confirmation",
@@ -343,6 +348,7 @@ async def create_public_payment_intent(
                 return {
                     "client_secret": pi.client_secret,
                     "publishable_key": settings.stripe_publishable_key,
+                    "connected_account_id": connect_account_id,
                     "amount": pi.amount,
                     "currency": invoice.currency,
                 }
@@ -351,7 +357,7 @@ async def create_public_payment_intent(
 
     amount_cents = int(round(balance_due * 100))
 
-    payment_intent = stripe_lib.PaymentIntent.create(
+    create_kwargs = dict(
         amount=amount_cents,
         currency=invoice.currency.lower(),
         metadata={
@@ -361,6 +367,9 @@ async def create_public_payment_intent(
         automatic_payment_methods={"enabled": True},
         description=f"Payment for Invoice {invoice.invoice_number}",
     )
+    if connect_account_id:
+        create_kwargs["stripe_account"] = connect_account_id
+    payment_intent = stripe_lib.PaymentIntent.create(**create_kwargs)
 
     payment_link = StripePaymentLink(
         invoice_id=invoice.id,
@@ -376,6 +385,7 @@ async def create_public_payment_intent(
     return {
         "client_secret": payment_intent.client_secret,
         "publishable_key": settings.stripe_publishable_key,
+        "connected_account_id": connect_account_id,
         "amount": amount_cents,
         "currency": invoice.currency,
     }

@@ -51,6 +51,7 @@ class Settings(BaseSettings):
     stripe_secret_key: str = ""
     stripe_publishable_key: str = ""
     stripe_webhook_secret: str = ""
+    stripe_connect_webhook_secret: str = ""
 
     # SMTP defaults
     smtp_host: str = ""

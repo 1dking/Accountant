@@ -89,6 +89,7 @@ export function createShareLink(resourceType: 'estimate' | 'invoice', resourceId
 export interface PaymentIntentResponse {
   client_secret: string
   publishable_key: string
+  connected_account_id: string | null
   amount: number
   currency: string
 }

@@ -11,6 +11,7 @@ import { Loader2, CheckCircle, AlertCircle } from 'lucide-react'
 interface PaymentFormProps {
   clientSecret: string
   publishableKey: string
+  connectedAccountId?: string | null
   amount: number
   currency: string
   onSuccess: () => void
@@ -109,13 +110,17 @@ function CheckoutForm({
 export default function PaymentForm({
   clientSecret,
   publishableKey,
+  connectedAccountId,
   amount,
   currency,
   onSuccess,
 }: PaymentFormProps) {
+  // A PaymentIntent created on a tenant's connected Stripe account can only
+  // be confirmed by Stripe.js when it's loaded scoped to that same account
+  // — the client_secret alone isn't enough (Stripe Connect requirement).
   const stripePromise = useMemo(
-    () => loadStripe(publishableKey),
-    [publishableKey]
+    () => loadStripe(publishableKey, connectedAccountId ? { stripeAccount: connectedAccountId } : undefined),
+    [publishableKey, connectedAccountId]
   )
 
   return (

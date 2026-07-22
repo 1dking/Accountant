@@ -39,8 +39,8 @@ export default function PortalAdminPage() {
   })
 
   const { data: contactsData } = useQuery({
-    queryKey: ['contacts', { page_size: 200, type: 'client' }],
-    queryFn: () => listContacts({ page_size: 200, type: 'client' }),
+    queryKey: ['contacts', { page_size: 100, type: 'client' }],
+    queryFn: () => listContacts({ page_size: 100, type: 'client' }),
   })
 
   const inviteMutation = useMutation({

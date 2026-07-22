@@ -70,6 +70,7 @@ import SlideEditorPage from '@/pages/SlideEditorPage'
 import ProposalsPage from '@/pages/ProposalsPage'
 import ProposalEditorPage from '@/pages/ProposalEditorPage'
 import ProposalSigningPage from '@/pages/ProposalSigningPage'
+import ProposalPaymentRedirectPage from '@/pages/ProposalPaymentRedirectPage'
 import ReconciliationPage from '@/pages/ReconciliationPage'
 import InboxPage from '@/pages/InboxPage'
 import PortalDashboardPage from '@/pages/PortalDashboardPage'
@@ -312,6 +313,7 @@ export default function App() {
             <Route path="/p/:token" element={<PublicDocumentPage />} />
             <Route path="/f/:formId" element={<PublicFormPage />} />
             <Route path="/proposals/sign/:token" element={<ProposalSigningPage />} />
+            <Route path="/proposals/:id/payment" element={<ProposalPaymentRedirectPage />} />
             <Route path="/meetings/:id/guest" element={<MeetingGuestJoinPage />} />
             {/* Commit 8 — Google-Meet-style public meeting URL.
                 Guests land here, enter name + email, knock the lobby. */}

@@ -9,6 +9,7 @@ import SmtpSettings from '@/components/settings/SmtpSettings'
 import GmailSettings from '@/components/settings/GmailSettings'
 import PlaidSettings from '@/components/settings/PlaidSettings'
 import StripeSettings from '@/components/settings/StripeSettings'
+import StripeConnectSettings from '@/components/settings/StripeConnectSettings'
 import SmsSettings from '@/components/settings/SmsSettings'
 import CategorizationRules from '@/components/settings/CategorizationRules'
 import ReminderSettings from '@/components/settings/ReminderSettings'
@@ -38,7 +39,8 @@ const TABS: { id: string; label: string; icon: typeof User; adminOnly?: boolean 
   { id: 'notifications', label: 'Push Notifs', icon: BellRing },
   { id: 'notif-prefs', label: 'Notif Prefs', icon: BellRing },
   { id: 'banking', label: 'Banking', icon: Landmark },
-  { id: 'payments', label: 'Payments', icon: CreditCard },
+  { id: 'stripe_connect', label: 'Stripe Connect', icon: CreditCard, adminOnly: true },
+  { id: 'payments', label: 'Platform Stripe (fallback)', icon: CreditCard },
   { id: 'tax', label: 'Sales Tax', icon: Receipt },
   { id: 'sms', label: 'SMS', icon: MessageSquare },
   { id: 'automation', label: 'Automation', icon: Zap },
@@ -115,6 +117,7 @@ export default function SettingsPage() {
               </div>
             </>
           )}
+          {activeTab === 'stripe_connect' && user?.role === 'admin' && <StripeConnectSettings />}
           {activeTab === 'payments' && <StripeSettings />}
           {activeTab === 'tax' && <TaxSettings />}
           {activeTab === 'sms' && <SmsSettings />}

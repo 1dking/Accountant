@@ -82,6 +82,11 @@ FRONTEND_API_DEPENDENCIES = [
     # Pages v2 — static publish (Session 2)
     ("POST", "/api/pages/{page_id}/publish-static"),
     ("GET", "/api/pages/p/{slug}"),
+
+    # Stripe Connect
+    ("GET", "/api/integrations/stripe-connect/connect"),
+    ("GET", "/api/integrations/stripe-connect/status"),
+    ("DELETE", "/api/integrations/stripe-connect/disconnect"),
 ]
 
 
