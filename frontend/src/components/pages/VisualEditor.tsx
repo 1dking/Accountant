@@ -1,8 +1,10 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import {
   Trash2, Copy, Plus, Undo2, Redo2, AlignLeft,
-  AlignCenter, AlignRight, AlignJustify,
+  AlignCenter, AlignRight, AlignJustify, Columns3, Blocks,
 } from 'lucide-react'
+import { listForms } from '@/api/forms'
+import type { FormListItem } from '@/types/models'
 
 // ---------------------------------------------------------------------------
 // Doc-shape helpers (Pages v2 compat)
@@ -67,6 +69,74 @@ interface SelectedElement {
   text: string
   styles: Record<string, string>
   rect: { x: number; y: number; width: number; height: number }
+  contentType?: string
+}
+
+// Mirrors the injected editor script's selector-path algorithm (see
+// editorScript below) so parent-side DOM mutations — convert-to-image/
+// video/form — can re-select the element they just created without a
+// postMessage round-trip.
+function computeSelectorPath(doc: Document, el: Element): string {
+  const path: string[] = []
+  let cur: Element | null = el
+  while (cur && cur !== doc.body && cur.parentElement) {
+    const idx = Array.from(cur.parentElement.children).indexOf(cur)
+    path.unshift(`${cur.tagName.toLowerCase()}:nth-child(${idx + 1})`)
+    cur = cur.parentElement
+  }
+  return path.join(' > ')
+}
+
+function buildSelectedElement(doc: Document, el: HTMLElement): SelectedElement {
+  const rect = el.getBoundingClientRect()
+  const computed = doc.defaultView?.getComputedStyle(el)
+  const style = (k: keyof CSSStyleDeclaration) => (computed ? String(computed[k] ?? '') : '')
+  return {
+    selector: computeSelectorPath(doc, el),
+    tagName: el.tagName,
+    text: el.textContent?.substring(0, 200) || '',
+    contentType: el.getAttribute('data-content-type') || undefined,
+    styles: {
+      fontFamily: style('fontFamily'), fontSize: style('fontSize'), fontWeight: style('fontWeight'),
+      color: style('color'), backgroundColor: style('backgroundColor'), textAlign: style('textAlign'),
+      lineHeight: style('lineHeight'), letterSpacing: style('letterSpacing'),
+      paddingTop: style('paddingTop'), paddingRight: style('paddingRight'),
+      paddingBottom: style('paddingBottom'), paddingLeft: style('paddingLeft'),
+      marginTop: style('marginTop'), marginRight: style('marginRight'),
+      marginBottom: style('marginBottom'), marginLeft: style('marginLeft'),
+      borderRadius: style('borderRadius'), opacity: style('opacity'),
+      width: style('width'), height: style('height'),
+    },
+    rect: { x: rect.left, y: rect.top, width: rect.width, height: rect.height },
+  }
+}
+
+// Moves the iframe's blue selection outline to match a parent-side
+// re-selection (convert-to-X), so the visual indicator doesn't stay
+// stuck over the element's old location until the next real click.
+function repositionOverlay(doc: Document, el: HTMLElement) {
+  const overlay = doc.getElementById('__editor_overlay')
+  if (!overlay) return
+  const rect = el.getBoundingClientRect()
+  overlay.style.top = `${rect.top + (doc.defaultView?.scrollY || 0)}px`
+  overlay.style.left = `${rect.left + (doc.defaultView?.scrollX || 0)}px`
+  overlay.style.width = `${rect.width}px`
+  overlay.style.height = `${rect.height}px`
+  overlay.style.display = 'block'
+}
+
+// Walks up from whatever's selected (a column itself, or something
+// nested inside one, like its heading or icon) to the nearest grid/flex
+// ancestor with more than one child — the "row of columns" that a new
+// column should actually be added to.
+function findColumnContainer(doc: Document, start: HTMLElement): HTMLElement | null {
+  let cur: HTMLElement | null = start
+  while (cur && cur !== doc.body) {
+    const display = doc.defaultView?.getComputedStyle(cur).display
+    if ((display === 'grid' || display === 'flex') && cur.children.length > 1) return cur
+    cur = cur.parentElement
+  }
+  return null
 }
 
 const FONTS = [
@@ -203,6 +273,24 @@ const SECTION_VARIANTS: Record<string, SectionVariant[]> = {
   ],
 }
 
+// Individual elements insertable into any selected container — a lighter
+// counterpart to SECTION_VARIANTS: atomic blocks rather than whole
+// pre-composed layouts. Each `html` is appended as the selected
+// element's last child by insertElement().
+interface ElementDef { key: string; name: string; icon: string; html: string }
+const ELEMENT_LIBRARY: ElementDef[] = [
+  { key: 'heading', name: 'Heading', icon: '🔠', html: `<h2 class="text-3xl font-bold text-slate-900 mb-2">New Heading</h2>` },
+  { key: 'paragraph', name: 'Paragraph', icon: '📝', html: `<p class="text-slate-600 leading-relaxed">Add your text here.</p>` },
+  { key: 'button', name: 'Button', icon: '🔘', html: `<a href="#" class="inline-block px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition">Click Me</a>` },
+  { key: 'image', name: 'Image', icon: '🖼️', html: `<img src="${PLACEHOLDER_IMGS[0]}" alt="" class="w-full h-auto rounded-lg" />` },
+  { key: 'video', name: 'Video', icon: '🎬', html: `<video controls class="w-full rounded-lg" style="max-height:400px"></video>` },
+  { key: 'form', name: 'Form', icon: '🧾', html: `<div data-content-type="form" class="p-6 border-2 border-dashed border-slate-300 rounded-lg text-center text-slate-400 text-sm">Choose a form in the panel →</div>` },
+  { key: 'icon', name: 'Icon Box', icon: '⭐', html: `<div class="w-12 h-12 rounded-xl bg-indigo-100 text-2xl flex items-center justify-center mb-3">⭐</div>` },
+  { key: 'list', name: 'List', icon: '📃', html: `<ul class="space-y-2 text-slate-600 list-disc list-inside"><li>First item</li><li>Second item</li><li>Third item</li></ul>` },
+  { key: 'divider', name: 'Divider', icon: '➖', html: `<hr class="border-t border-slate-200 my-6" />` },
+  { key: 'spacer', name: 'Spacer', icon: '⬜', html: `<div style="height:40px"></div>` },
+]
+
 // Scaled-down live iframe preview of a section snippet — real Tailwind
 // render, not an icon, so the picker shows what the layout actually
 // looks like. Fixed "design width" doc scaled down via CSS transform.
@@ -228,11 +316,15 @@ export default function VisualEditor({ html, css, onHtmlChange, onCssChange, onV
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const [selected, setSelected] = useState<SelectedElement | null>(null)
   const [panelOpen, setPanelOpen] = useState(false)
-  const [panelTab, setPanelTab] = useState<'typography' | 'colors' | 'image' | 'spacing' | 'section' | 'button' | 'layout' | 'video'>('typography')
+  const [panelTab, setPanelTab] = useState<'typography' | 'colors' | 'image' | 'spacing' | 'section' | 'button' | 'layout' | 'video' | 'form'>('typography')
   const [undoStack, setUndoStack] = useState<string[]>([])
   const [redoStack, setRedoStack] = useState<string[]>([])
   const [showSectionLibrary, setShowSectionLibrary] = useState(false)
   const [pickerCategory, setPickerCategory] = useState<string | null>(null)
+  const [showElementLibrary, setShowElementLibrary] = useState(false)
+  const [forms, setForms] = useState<FormListItem[]>([])
+  const [formsLoading, setFormsLoading] = useState(false)
+  const [formsLoaded, setFormsLoaded] = useState(false)
 
   // Inject editor overlay script into iframe
   const editorScript = `
@@ -302,6 +394,7 @@ export default function VisualEditor({ html, css, onHtmlChange, onCssChange, onV
             selector: path.join(' > '),
             tagName: selectedEl.tagName,
             text: selectedEl.textContent?.substring(0, 200) || '',
+            contentType: selectedEl.getAttribute('data-content-type') || null,
             styles: {
               fontFamily: computed.fontFamily,
               fontSize: computed.fontSize,
@@ -374,6 +467,8 @@ export default function VisualEditor({ html, css, onHtmlChange, onCssChange, onV
         // Auto-detect panel tab
         const tag = e.data.data.tagName
         if (['IMG'].includes(tag)) setPanelTab('image')
+        else if (tag === 'VIDEO') setPanelTab('video')
+        else if (e.data.data.contentType === 'form') setPanelTab('form')
         else if (['BUTTON', 'A'].includes(tag) && e.data.data.text.length < 50) setPanelTab('button')
         else if (['SECTION', 'DIV', 'HEADER', 'FOOTER', 'MAIN'].includes(tag)) setPanelTab('section')
         else setPanelTab('typography')
@@ -458,6 +553,140 @@ export default function VisualEditor({ html, css, onHtmlChange, onCssChange, onV
     } catch { /* ignore */ }
   }, [selected, pushUndo, onHtmlChange])
 
+  // Swap whatever's inside the selected element (a section, a grid
+  // column, anything) for an image, a video, or an embeddable form —
+  // re-selects the newly-created node so its dedicated panel (Image/
+  // Video/Form) opens immediately, matching what a real click would do.
+  const convertSelectedTo = useCallback((type: 'image' | 'video' | 'form') => {
+    if (!selected || !iframeRef.current?.contentDocument) return
+    pushUndo()
+    const doc = iframeRef.current.contentDocument
+    try {
+      const el = doc.querySelector(selected.selector) as HTMLElement
+      if (!el) return
+      el.removeAttribute('data-content-type')
+      if (type === 'image') {
+        el.innerHTML = `<img src="${PLACEHOLDER_IMGS[0]}" alt="" class="w-full h-full object-cover rounded-lg" />`
+        onHtmlChange(getCleanBodyHtml(doc))
+        const img = el.querySelector('img')
+        if (img) {
+          setSelected(buildSelectedElement(doc, img))
+          setPanelTab('image')
+          setPanelOpen(true)
+          repositionOverlay(doc, img)
+        }
+      } else if (type === 'video') {
+        el.innerHTML = `<video controls class="w-full rounded-lg" style="max-height:400px"></video>`
+        onHtmlChange(getCleanBodyHtml(doc))
+        const video = el.querySelector('video')
+        if (video) {
+          setSelected(buildSelectedElement(doc, video))
+          setPanelTab('video')
+          setPanelOpen(true)
+          repositionOverlay(doc, video)
+        }
+      } else {
+        el.setAttribute('data-content-type', 'form')
+        el.innerHTML = `<div class="p-6 border-2 border-dashed border-slate-300 rounded-lg text-center text-slate-400 text-sm">Choose a form in the panel →</div>`
+        onHtmlChange(getCleanBodyHtml(doc))
+        setSelected(buildSelectedElement(doc, el))
+        setPanelTab('form')
+        setPanelOpen(true)
+        repositionOverlay(doc, el)
+      }
+    } catch { /* ignore */ }
+  }, [selected, pushUndo, onHtmlChange])
+
+  // Fetch the account's forms the first time the Form panel opens —
+  // not eagerly, since most editing sessions never touch it.
+  useEffect(() => {
+    if (panelTab !== 'form' || formsLoaded) return
+    setFormsLoading(true)
+    listForms(1, 100)
+      .then(res => setForms(res.data))
+      .catch(() => { /* form list is optional — embedding still works once one exists */ })
+      .finally(() => { setFormsLoading(false); setFormsLoaded(true) })
+  }, [panelTab, formsLoaded])
+
+  const embedForm = useCallback((formId: string) => {
+    if (!formId || !selected || !iframeRef.current?.contentDocument) return
+    pushUndo()
+    const doc = iframeRef.current.contentDocument
+    try {
+      const el = doc.querySelector(selected.selector) as HTMLElement
+      if (!el) return
+      el.setAttribute('data-content-type', 'form')
+      el.innerHTML = `<iframe src="${window.location.origin}/f/${formId}" style="width:100%;min-height:480px;border:0;" title="Embedded form"></iframe>`
+      onHtmlChange(getCleanBodyHtml(doc))
+      setSelected(buildSelectedElement(doc, el))
+    } catch { /* ignore */ }
+  }, [selected, pushUndo, onHtmlChange])
+
+  // Adds another column to whatever row the current selection lives in
+  // (found via findColumnContainer, so this works whether a column
+  // itself, or something nested inside one, is selected) by cloning its
+  // last column — inherits that column's own styling for free — and
+  // widening the grid template so the new column sits in the row
+  // instead of wrapping onto its own line.
+  const addColumn = useCallback(() => {
+    if (!selected || !iframeRef.current?.contentDocument) return
+    const doc = iframeRef.current.contentDocument
+    try {
+      const el = doc.querySelector(selected.selector) as HTMLElement
+      if (!el) return
+      const container = findColumnContainer(doc, el)
+      if (!container || container.children.length === 0) return
+      pushUndo()
+      const lastChild = container.children[container.children.length - 1] as HTMLElement
+      const clone = lastChild.cloneNode(true) as HTMLElement
+      container.appendChild(clone)
+      if (doc.defaultView?.getComputedStyle(container).display === 'grid') {
+        container.style.gridTemplateColumns = `repeat(${container.children.length}, 1fr)`
+      }
+      onHtmlChange(getCleanBodyHtml(doc))
+      setSelected(buildSelectedElement(doc, clone))
+      setPanelOpen(true)
+      repositionOverlay(doc, clone)
+    } catch { /* ignore */ }
+  }, [selected, pushUndo, onHtmlChange])
+
+  const canAddColumn = (() => {
+    if (!selected || !iframeRef.current?.contentDocument) return false
+    const doc = iframeRef.current.contentDocument
+    const el = doc.querySelector(selected.selector) as HTMLElement | null
+    return !!(el && findColumnContainer(doc, el))
+  })()
+
+  // Appends any block from the Element Library as the last child of
+  // whatever's selected — same "acts on the current selection" model as
+  // Convert Content, Add Column, and the section background controls.
+  const insertElement = useCallback((elementHtml: string) => {
+    if (!selected || !iframeRef.current?.contentDocument) return
+    pushUndo()
+    const doc = iframeRef.current.contentDocument
+    try {
+      const el = doc.querySelector(selected.selector) as HTMLElement
+      if (!el) return
+      const temp = doc.createElement('div')
+      temp.innerHTML = elementHtml
+      const node = temp.firstElementChild as HTMLElement | null
+      if (!node) return
+      el.appendChild(node)
+      onHtmlChange(getCleanBodyHtml(doc))
+      setSelected(buildSelectedElement(doc, node))
+      setPanelOpen(true)
+      repositionOverlay(doc, node)
+      setShowElementLibrary(false)
+      // Auto-switch tab to match the new element (mirrors the injected
+      // script's own auto-detect rules).
+      if (node.tagName === 'IMG') setPanelTab('image')
+      else if (node.tagName === 'VIDEO') setPanelTab('video')
+      else if (node.getAttribute('data-content-type') === 'form') setPanelTab('form')
+      else if (['A', 'BUTTON'].includes(node.tagName)) setPanelTab('button')
+      else setPanelTab('typography')
+    } catch { /* ignore */ }
+  }, [selected, pushUndo, onHtmlChange])
+
   // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -470,6 +699,29 @@ export default function VisualEditor({ html, css, onHtmlChange, onCssChange, onV
   }, [undo, redo, selected, deleteSelected])
 
   const parsePixels = (v: string) => parseInt(v) || 0
+
+  // Shown at the top of Section/Image/Video/Form so any selected block —
+  // a whole section or a single grid column — can be swapped to any
+  // other content type, from any of those tabs.
+  const convertButtons = selected && (
+    <div>
+      <label className="block text-gray-500 dark:text-gray-400 mb-1 font-medium">Convert Content</label>
+      <div className="grid grid-cols-3 gap-2">
+        <button onClick={() => convertSelectedTo('image')}
+          className="flex flex-col items-center gap-1 px-2 py-2.5 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
+          <span className="text-base">🖼️</span><span>Image</span>
+        </button>
+        <button onClick={() => convertSelectedTo('video')}
+          className="flex flex-col items-center gap-1 px-2 py-2.5 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
+          <span className="text-base">🎬</span><span>Video</span>
+        </button>
+        <button onClick={() => convertSelectedTo('form')}
+          className="flex flex-col items-center gap-1 px-2 py-2.5 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
+          <span className="text-base">📝</span><span>Form</span>
+        </button>
+      </div>
+    </div>
+  )
 
   return (
     <div className="flex h-full relative">
@@ -515,7 +767,7 @@ export default function VisualEditor({ html, css, onHtmlChange, onCssChange, onV
         <div className="w-72 border-l bg-white dark:bg-gray-800 pt-9 overflow-y-auto shrink-0">
           {/* Panel tabs */}
           <div className="flex flex-wrap gap-1 p-2 border-b">
-            {(['typography', 'colors', 'spacing', 'section', 'image', 'button', 'layout', 'video'] as const).map(tab => (
+            {(['typography', 'colors', 'spacing', 'section', 'image', 'button', 'layout', 'video', 'form'] as const).map(tab => (
               <button
                 key={tab}
                 onClick={() => setPanelTab(tab)}
@@ -689,7 +941,17 @@ export default function VisualEditor({ html, css, onHtmlChange, onCssChange, onV
             {/* Section controls */}
             {panelTab === 'section' && (
               <>
+                {convertButtons}
                 <div className="space-y-2">
+                  <button onClick={addColumn} disabled={!canAddColumn}
+                    title={canAddColumn ? 'Clone the last column in this row' : 'Select a column, or something inside one, first'}
+                    className="w-full flex items-center gap-2 px-3 py-2 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent dark:disabled:hover:bg-transparent">
+                    <Columns3 className="w-4 h-4" /> Add Column
+                  </button>
+                  <button onClick={() => setShowElementLibrary(true)}
+                    className="w-full flex items-center gap-2 px-3 py-2 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300">
+                    <Blocks className="w-4 h-4" /> Add Element
+                  </button>
                   <button onClick={() => setShowSectionLibrary(true)}
                     className="w-full flex items-center gap-2 px-3 py-2 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300">
                     <Plus className="w-4 h-4" /> Add Section Below
@@ -724,6 +986,7 @@ export default function VisualEditor({ html, css, onHtmlChange, onCssChange, onV
             {/* Image controls */}
             {panelTab === 'image' && (
               <>
+                {convertButtons}
                 <div>
                   <label className="block text-gray-500 dark:text-gray-400 mb-1">Image Source</label>
                   <input type="text" placeholder="Image URL"
@@ -877,10 +1140,16 @@ export default function VisualEditor({ html, css, onHtmlChange, onCssChange, onV
               </>
             )}
 
-            {/* Video background */}
+            {/* Video — either the selected element's own content (a
+                <video> inserted via Convert Content) or, when the
+                selection is a section/column instead, a full-bleed
+                background video behind its existing content. */}
             {panelTab === 'video' && (
               <>
-                <p className="text-gray-500 dark:text-gray-400 mb-2">Add a video background to this section.</p>
+                {convertButtons}
+                <p className="text-gray-500 dark:text-gray-400 mb-2">
+                  {selected?.tagName === 'VIDEO' ? 'This video is the block\'s content.' : 'Add a video background to this section.'}
+                </p>
                 <div>
                   <label className="block text-gray-500 dark:text-gray-400 mb-1">Upload Video</label>
                   <input type="file" accept="video/mp4,video/webm,video/quicktime"
@@ -890,39 +1159,54 @@ export default function VisualEditor({ html, css, onHtmlChange, onCssChange, onV
                       if (!file || !onVideoUpload) return
                       try {
                         const result = await onVideoUpload(file)
-                        // Inject video background into selected section
-                        if (iframeRef.current?.contentDocument && selected) {
-                          const el = iframeRef.current.contentDocument.querySelector(selected.selector) as HTMLElement
-                          if (el) {
-                            el.style.position = 'relative'
-                            el.style.overflow = 'hidden'
-                            const video = iframeRef.current.contentDocument.createElement('video')
-                            video.autoplay = true
-                            video.muted = true
-                            video.loop = true
-                            video.playsInline = true
-                            video.poster = result.poster_url
-                            video.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:0;'
-                            const sourceWebm = iframeRef.current.contentDocument.createElement('source')
-                            sourceWebm.src = result.webm_url
-                            sourceWebm.type = 'video/webm'
-                            const sourceMp4 = iframeRef.current.contentDocument.createElement('source')
-                            sourceMp4.src = result.mp4_url
-                            sourceMp4.type = 'video/mp4'
-                            video.appendChild(sourceWebm)
-                            video.appendChild(sourceMp4)
-                            el.insertBefore(video, el.firstChild)
-                            // Add overlay
-                            const overlay = iframeRef.current.contentDocument.createElement('div')
-                            overlay.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.4);z-index:0;'
-                            el.insertBefore(overlay, video.nextSibling)
-                            // Make content relative
-                            Array.from(el.children).forEach((child, i) => {
-                              if (i > 1) (child as HTMLElement).style.position = 'relative'
-                              if (i > 1) (child as HTMLElement).style.zIndex = '1'
-                            })
-                            onHtmlChange(getCleanBodyHtml(iframeRef.current.contentDocument))
-                          }
+                        if (!iframeRef.current?.contentDocument || !selected) return
+                        const doc = iframeRef.current.contentDocument
+                        const el = doc.querySelector(selected.selector) as HTMLElement
+                        if (!el) return
+                        pushUndo()
+                        if (selected.tagName === 'VIDEO') {
+                          // Direct-content video: set this element's own source.
+                          el.innerHTML = ''
+                          el.setAttribute('poster', result.poster_url)
+                          const sourceWebm = doc.createElement('source')
+                          sourceWebm.src = result.webm_url
+                          sourceWebm.type = 'video/webm'
+                          const sourceMp4 = doc.createElement('source')
+                          sourceMp4.src = result.mp4_url
+                          sourceMp4.type = 'video/mp4'
+                          el.appendChild(sourceWebm)
+                          el.appendChild(sourceMp4)
+                          ;(el as HTMLVideoElement).load()
+                          onHtmlChange(getCleanBodyHtml(doc))
+                        } else {
+                          // Legacy path: video BACKGROUND behind the
+                          // selected section's existing content.
+                          el.style.position = 'relative'
+                          el.style.overflow = 'hidden'
+                          const video = doc.createElement('video')
+                          video.autoplay = true
+                          video.muted = true
+                          video.loop = true
+                          video.playsInline = true
+                          video.poster = result.poster_url
+                          video.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:0;'
+                          const sourceWebm = doc.createElement('source')
+                          sourceWebm.src = result.webm_url
+                          sourceWebm.type = 'video/webm'
+                          const sourceMp4 = doc.createElement('source')
+                          sourceMp4.src = result.mp4_url
+                          sourceMp4.type = 'video/mp4'
+                          video.appendChild(sourceWebm)
+                          video.appendChild(sourceMp4)
+                          el.insertBefore(video, el.firstChild)
+                          const overlay = doc.createElement('div')
+                          overlay.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.4);z-index:0;'
+                          el.insertBefore(overlay, video.nextSibling)
+                          Array.from(el.children).forEach((child, i) => {
+                            if (i > 1) (child as HTMLElement).style.position = 'relative'
+                            if (i > 1) (child as HTMLElement).style.zIndex = '1'
+                          })
+                          onHtmlChange(getCleanBodyHtml(doc))
                         }
                       } catch { /* ignore */ }
                     }} />
@@ -930,12 +1214,77 @@ export default function VisualEditor({ html, css, onHtmlChange, onCssChange, onV
                 <div>
                   <label className="block text-gray-500 dark:text-gray-400 mb-1">Or paste URL</label>
                   <input type="text" placeholder="https://..."
-                    className="w-full p-1.5 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200" />
+                    className="w-full p-1.5 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
+                    onChange={e => {
+                      const url = e.target.value.trim()
+                      if (!url || !iframeRef.current?.contentDocument || !selected) return
+                      pushUndo()
+                      const doc = iframeRef.current.contentDocument
+                      try {
+                        const el = doc.querySelector(selected.selector) as HTMLElement
+                        if (!el) return
+                        if (selected.tagName === 'VIDEO') {
+                          el.innerHTML = `<source src="${url}">`
+                          ;(el as HTMLVideoElement).load()
+                        } else {
+                          el.style.position = 'relative'
+                          el.style.overflow = 'hidden'
+                          const video = doc.createElement('video')
+                          video.autoplay = true
+                          video.muted = true
+                          video.loop = true
+                          video.playsInline = true
+                          video.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:0;'
+                          video.innerHTML = `<source src="${url}">`
+                          el.insertBefore(video, el.firstChild)
+                          const overlay = doc.createElement('div')
+                          overlay.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.4);z-index:0;'
+                          el.insertBefore(overlay, video.nextSibling)
+                          Array.from(el.children).forEach((child, i) => {
+                            if (i > 1) (child as HTMLElement).style.position = 'relative'
+                            if (i > 1) (child as HTMLElement).style.zIndex = '1'
+                          })
+                        }
+                        onHtmlChange(getCleanBodyHtml(doc))
+                      } catch { /* ignore */ }
+                    }} />
                 </div>
-                <div>
-                  <label className="block text-gray-500 dark:text-gray-400 mb-1">Overlay Opacity</label>
-                  <input type="range" min="0" max="80" step="5" value={40} className="w-full" />
-                </div>
+                {selected?.tagName !== 'VIDEO' && (
+                  <div>
+                    <label className="block text-gray-500 dark:text-gray-400 mb-1">Overlay Opacity</label>
+                    <input type="range" min="0" max="80" step="5" value={40} className="w-full" />
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Form — embed one of the account's real forms via its
+                public /f/:formId page. */}
+            {panelTab === 'form' && (
+              <>
+                {convertButtons}
+                <p className="text-gray-500 dark:text-gray-400 mb-2">Embed one of your forms here.</p>
+                {formsLoading ? (
+                  <p className="text-gray-400">Loading forms…</p>
+                ) : forms.length === 0 ? (
+                  <div className="text-gray-500 dark:text-gray-400 space-y-2">
+                    <p>You don't have any forms yet.</p>
+                    <a href="/forms" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Create a form →</a>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-gray-500 dark:text-gray-400 mb-1">Form</label>
+                    <select
+                      defaultValue=""
+                      className="w-full p-1.5 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
+                      onChange={e => embedForm(e.target.value)}>
+                      <option value="" disabled>Choose a form…</option>
+                      {forms.map(f => (
+                        <option key={f.id} value={f.id}>{f.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -1014,6 +1363,39 @@ export default function VisualEditor({ html, css, onHtmlChange, onCssChange, onV
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Element Library Modal — atomic blocks appended to whatever's
+          selected, the lighter counterpart to the Section Library above. */}
+      {showElementLibrary && (
+        <div
+          className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+          onClick={() => setShowElementLibrary(false)}>
+          <div
+            className="relative w-[480px] max-w-[92vw] max-h-[80vh] overflow-hidden rounded-2xl border border-indigo-400/20 bg-slate-950 shadow-[0_0_90px_-15px_rgba(99,102,241,0.5)]"
+            onClick={e => e.stopPropagation()}>
+            <div className="pointer-events-none absolute -top-24 -left-24 w-72 h-72 rounded-full bg-indigo-600/20 blur-3xl" />
+            <div className="relative flex items-center justify-between px-6 py-4 border-b border-white/10">
+              <div>
+                <p className="text-xs font-medium tracking-widest uppercase text-indigo-400 mb-1">Element Library</p>
+                <h3 className="text-lg font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">Add an element</h3>
+              </div>
+              <button
+                onClick={() => setShowElementLibrary(false)}
+                className="w-8 h-8 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-colors">✕</button>
+            </div>
+            <div className="relative p-6 overflow-y-auto max-h-[calc(80vh-73px)] grid grid-cols-3 gap-3">
+              {ELEMENT_LIBRARY.map(item => (
+                <button key={item.key}
+                  onClick={() => insertElement(item.html)}
+                  className="flex flex-col items-center gap-2 p-4 rounded-xl border border-white/10 bg-white/[0.03] hover:border-indigo-400/60 hover:bg-white/[0.06] transition-all text-slate-200">
+                  <span className="text-2xl">{item.icon}</span>
+                  <span className="text-xs font-medium">{item.name}</span>
+                </button>
+              ))}
             </div>
           </div>
         </div>
