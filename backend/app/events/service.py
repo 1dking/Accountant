@@ -99,12 +99,17 @@ async def emit_event(
         properties_json=json.dumps(properties, default=_json_default),
         dedupe_key=dedupe_key,
     )
-    db.add(row)
     try:
-        await db.commit()
+        # A savepoint, not the outer transaction: a duplicate-key collision
+        # here must only undo this row, not roll back (and expire) whatever
+        # the caller already has loaded — a plain session-wide rollback did
+        # exactly that and crashed unrelated code right after this returns.
+        async with db.begin_nested():
+            db.add(row)
+            await db.flush()
     except IntegrityError:
-        await db.rollback()
         return None
+    await db.commit()
     await db.refresh(row)
     return row
 

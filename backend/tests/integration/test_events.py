@@ -61,6 +61,35 @@ class TestEmitEvent:
         count = await db.execute(select(Event).where(Event.event == "payment_processed"))
         assert len(count.scalars().all()) == 1
 
+    async def test_dedupe_collision_does_not_expire_callers_loaded_objects(
+        self, db, admin_user, sample_invoice
+    ):
+        """A duplicate envelope used to roll back the WHOLE session (not just
+        the failed insert), expiring every other object the caller had
+        loaded. In production this surfaced as a MissingGreenlet crash right
+        after emit_event returned, the moment the caller's code touched an
+        already-loaded attribute on an object it assumed was still fine —
+        see test_cumulative_payments_mark_paid, which hit this whenever two
+        equal-amount same-day payments produced identical dedupe keys.
+        """
+        ts = datetime(2026, 6, 15, tzinfo=timezone.utc)
+        kwargs = dict(
+            event="payment_processed", org_id=resolve_org_id(admin_user),
+            properties={"amountUSD": 750.0, "source": "invoice"}, timestamp=ts,
+        )
+        # Load an attribute now, before the collision, so we can prove it
+        # survives untouched — not just that a fresh reload would work.
+        _ = sample_invoice.contact_id
+
+        first = await emit_event(db, **kwargs)
+        assert first is not None
+        second = await emit_event(db, **kwargs)  # identical envelope -> collision
+        assert second is None
+
+        # Must not require a DB round-trip (would raise MissingGreenlet
+        # outside an awaited context if the object had been expired).
+        assert sample_invoice.contact_id is not None
+
     async def test_different_properties_do_not_collide(self, db, admin_user):
         ts = datetime(2026, 6, 15, tzinfo=timezone.utc)
         org = resolve_org_id(admin_user)
