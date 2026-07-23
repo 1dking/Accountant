@@ -1,8 +1,14 @@
 """Add business_cards table (digital business card, Arivio port)
 
 Revision ID: r4s5t6u7v8w9
-Revises: q3r4s5t6u7v8
+Revises: o1p2q3r4s5t6
 Create Date: 2026-07-22
+
+Note: this originally pointed at q3r4s5t6u7v8, a revision that only
+ever existed as an uncommitted local file (another session's WIP office-
+comments migration) — never in git, never on the deploy target. That
+broke the committed migration chain outright. Re-pointed at
+o1p2q3r4s5t6 (Stripe Connect), the actual, already-deployed head.
 """
 from typing import Sequence, Union
 
@@ -10,7 +16,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "r4s5t6u7v8w9"
-down_revision: Union[str, None] = "q3r4s5t6u7v8"
+down_revision: Union[str, None] = "o1p2q3r4s5t6"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
