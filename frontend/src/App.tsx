@@ -87,6 +87,7 @@ import BookingsPage from '@/pages/BookingsPage'
 import PublicBookingPage from '@/pages/PublicBookingPage'
 import PublicCardPage from '@/pages/PublicCardPage'
 import BusinessCardPage from '@/pages/BusinessCardPage'
+import WidgetFramePage from '@/pages/WidgetFramePage'
 import BrandingPage from '@/pages/BrandingPage'
 import PortalAdminPage from '@/pages/PortalAdminPage'
 import PipelinesPage from '@/pages/PipelinesPage'
@@ -329,6 +330,8 @@ export default function App() {
             <Route path="/m/:slug" element={<MeetingJoinPage />} />
             {/* Public digital business card */}
             <Route path="/c/:slug" element={<PublicCardPage />} />
+            {/* Embeddable email-capture widget iframe */}
+            <Route path="/embed/:widgetKey" element={<WidgetFramePage />} />
             {/* Public booking */}
             <Route path="/book/:slug" element={<PublicBookingPage />} />
             <Route path="/booking/reschedule/:token" element={<ReschedulePage />} />

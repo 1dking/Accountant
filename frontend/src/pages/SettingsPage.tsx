@@ -10,6 +10,7 @@ import GmailSettings from '@/components/settings/GmailSettings'
 import PlaidSettings from '@/components/settings/PlaidSettings'
 import StripeSettings from '@/components/settings/StripeSettings'
 import StripeConnectSettings from '@/components/settings/StripeConnectSettings'
+import WidgetSettings from '@/components/settings/WidgetSettings'
 import SmsSettings from '@/components/settings/SmsSettings'
 import CategorizationRules from '@/components/settings/CategorizationRules'
 import ReminderSettings from '@/components/settings/ReminderSettings'
@@ -44,6 +45,7 @@ const TABS: { id: string; label: string; icon: typeof User; adminOnly?: boolean 
   { id: 'tax', label: 'Sales Tax', icon: Receipt },
   { id: 'sms', label: 'SMS', icon: MessageSquare },
   { id: 'automation', label: 'Automation', icon: Zap },
+  { id: 'widget', label: 'Embed Widget', icon: MessageSquare },
   { id: 'reminders', label: 'Reminders', icon: Bell },
   { id: 'news', label: 'News', icon: Newspaper },
   { id: 'mobile', label: 'Mobile App', icon: Smartphone },
@@ -122,6 +124,7 @@ export default function SettingsPage() {
           {activeTab === 'tax' && <TaxSettings />}
           {activeTab === 'sms' && <SmsSettings />}
           {activeTab === 'automation' && <AutomationSettings />}
+          {activeTab === 'widget' && <WidgetSettings />}
           {activeTab === 'reminders' && <ReminderSettings />}
           {activeTab === 'news' && <NewsPreferences />}
           {activeTab === 'mobile' && <MobileAppSettings />}
