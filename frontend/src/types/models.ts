@@ -1334,6 +1334,8 @@ export interface Workflow {
   created_at: string
   updated_at: string
   steps?: WorkflowStep[]
+  definition_json?: string
+  editor?: 'steps' | 'canvas'
 }
 
 export interface WorkflowStep {

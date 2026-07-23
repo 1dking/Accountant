@@ -67,8 +67,29 @@ class WorkflowResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     steps: list[WorkflowStepResponse] = Field(default_factory=list)
+    definition_json: Optional[str] = None
+    editor: str = "steps"
 
     model_config = {"from_attributes": True}
+
+
+# ---------------------------------------------------------------------------
+# Canvas (graph) schemas
+# ---------------------------------------------------------------------------
+
+
+class WorkflowDefinitionUpdate(BaseModel):
+    definition_json: str
+    editor: str = Field("canvas", pattern="^(steps|canvas)$")
+
+
+class ValidateDefinitionRequest(BaseModel):
+    definition_json: str
+
+
+class ValidateDefinitionResponse(BaseModel):
+    valid: bool
+    errors: list[str] = Field(default_factory=list)
 
 
 class WorkflowListItem(BaseModel):

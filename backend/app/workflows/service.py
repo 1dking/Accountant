@@ -3,6 +3,7 @@ import json
 import logging
 import re
 import uuid
+from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import delete, func, select
@@ -170,6 +171,21 @@ async def update_workflow(
             )
             db.add(step)
 
+    await db.commit()
+    await db.refresh(workflow)
+    return workflow
+
+
+async def update_workflow_definition(
+    db: AsyncSession, workflow_id: uuid.UUID, definition_json: str, editor: str
+) -> Workflow:
+    """Save a canvas graph. Validated by the caller (router) before this runs."""
+    result = await db.execute(select(Workflow).where(Workflow.id == workflow_id))
+    workflow = result.scalar_one_or_none()
+    if workflow is None:
+        raise NotFoundError("Workflow", str(workflow_id))
+    workflow.definition_json = definition_json
+    workflow.editor = editor
     await db.commit()
     await db.refresh(workflow)
     return workflow
@@ -677,13 +693,249 @@ async def _execute_action(
         )
 
 
+# ---------------------------------------------------------------------------
+# Canvas (graph) validation + execution
+# ---------------------------------------------------------------------------
+
+
+def validate_definition(definition: dict) -> list[str]:
+    """Validate a canvas graph definition. Port of Arivio's graph.ts checks:
+    exactly one trigger node, every node reachable from it, no orphan edges,
+    at most one edge per condition handle, and (v1) no cycles."""
+    errors: list[str] = []
+    nodes = definition.get("nodes") or []
+    edges = definition.get("edges") or []
+    start_node_id = definition.get("start_node_id")
+
+    node_ids = [n.get("id") for n in nodes]
+    if len(set(node_ids)) != len(node_ids):
+        errors.append("duplicate node ids")
+    node_id_set = set(node_ids)
+
+    triggers = [n for n in nodes if n.get("kind") == "trigger"]
+    if len(triggers) != 1:
+        errors.append(f"workflow must have exactly one trigger node (found {len(triggers)})")
+
+    if not start_node_id or start_node_id not in node_id_set:
+        errors.append("start_node_id must reference an existing node")
+
+    for edge in edges:
+        if edge.get("source") not in node_id_set:
+            errors.append(f"edge {edge.get('id')} has unknown source {edge.get('source')!r}")
+        if edge.get("target") not in node_id_set:
+            errors.append(f"edge {edge.get('id')} has unknown target {edge.get('target')!r}")
+
+    handle_counts: dict[tuple, int] = defaultdict(int)
+    for edge in edges:
+        handle_counts[(edge.get("source"), edge.get("source_handle"))] += 1
+    nodes_by_id = {n.get("id"): n for n in nodes}
+    for (source, handle), count in handle_counts.items():
+        node = nodes_by_id.get(source)
+        if node and node.get("kind") == "condition" and count > 1:
+            errors.append(f"condition node {source} has more than one edge on handle {handle!r}")
+
+    if errors:
+        # Structural errors make reachability/cycle analysis meaningless.
+        return errors
+
+    adjacency: dict[str, list[str]] = defaultdict(list)
+    for edge in edges:
+        adjacency[edge["source"]].append(edge["target"])
+
+    visited: set[str] = set()
+    stack = [start_node_id]
+    while stack:
+        current = stack.pop()
+        if current in visited:
+            continue
+        visited.add(current)
+        stack.extend(adjacency.get(current, []))
+    unreachable = node_id_set - visited
+    if unreachable:
+        errors.append(f"unreachable nodes: {sorted(unreachable)}")
+
+    WHITE, GRAY, BLACK = 0, 1, 2
+    color = {nid: WHITE for nid in node_id_set}
+    has_cycle = False
+
+    def _dfs(u: str) -> None:
+        nonlocal has_cycle
+        color[u] = GRAY
+        for v in adjacency.get(u, []):
+            if color.get(v) == GRAY:
+                has_cycle = True
+                return
+            if color.get(v) == WHITE:
+                _dfs(v)
+                if has_cycle:
+                    return
+        color[u] = BLACK
+
+    _dfs(start_node_id)
+    if has_cycle:
+        errors.append("workflow graph contains a cycle")
+
+    return errors
+
+
+#: Hard cap on nodes visited per execution -- backstops a cycle that slipped
+#: past validate_definition (e.g. an old definition saved before validation
+#: existed) so a broken graph fails loudly instead of looping forever.
+_GRAPH_EXECUTION_BUDGET = 200
+
+
+async def _execute_graph(
+    db: AsyncSession,
+    workflow: Workflow,
+    definition: dict,
+    contact_id: uuid.UUID | None,
+    event_data: dict | None,
+    execution: WorkflowExecution,
+) -> tuple[ExecutionStatus, str | None]:
+    """Walk a canvas graph from its start node, executing action/condition/
+    delay nodes as it goes. Reuses ``_execute_action`` untouched for action
+    nodes -- every action the linear engine can run, the graph can too."""
+    nodes_by_id = {n["id"]: n for n in definition.get("nodes", [])}
+    adjacency: dict[str, list[tuple]] = defaultdict(list)
+    for edge in definition.get("edges", []):
+        adjacency[edge["source"]].append((edge.get("source_handle"), edge["target"]))
+
+    def _next_node(node_id: str, handle: str | None = None) -> str | None:
+        for h, target in adjacency.get(node_id, []):
+            if handle is None or h == handle:
+                return target
+        return None
+
+    current = definition.get("start_node_id")
+    visited: set[str] = set()
+    budget = _GRAPH_EXECUTION_BUDGET
+
+    while current is not None:
+        if budget <= 0 or current in visited:
+            return ExecutionStatus.FAILED, json.dumps(
+                {"error": "execution budget exceeded or cycle detected", "node_id": current}
+            )
+        budget -= 1
+        visited.add(current)
+
+        node = nodes_by_id.get(current)
+        if node is None:
+            return ExecutionStatus.FAILED, json.dumps(
+                {"error": f"unknown node {current}"}
+            )
+
+        kind = node.get("kind")
+
+        if kind == "trigger":
+            current = _next_node(current)
+            continue
+
+        if kind == "action":
+            try:
+                action_type = ActionType(node["action_type"])
+            except (KeyError, ValueError):
+                return ExecutionStatus.FAILED, json.dumps(
+                    {"error": f"invalid action_type on node {current}"}
+                )
+            # A transient (unpersisted) WorkflowStep -- _execute_action only
+            # reads its fields, so the graph doesn't need a workflow_steps row.
+            fake_step = WorkflowStep(
+                id=uuid.uuid4(),
+                workflow_id=workflow.id,
+                step_order=0,
+                action_type=action_type,
+                action_config_json=json.dumps(node.get("config") or {}),
+                condition_json=None,
+                wait_duration_seconds=node.get("wait_duration_seconds"),
+            )
+            exec_step = WorkflowExecutionStep(
+                id=uuid.uuid4(), execution_id=execution.id, step_id=None,
+                status=ExecutionStatus.RUNNING,
+            )
+            db.add(exec_step)
+            await db.flush()
+            try:
+                step_status, result_json = await _execute_action(
+                    db, workflow, fake_step, contact_id, event_data
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.exception("Workflow %s: graph node %s failed", workflow.id, current)
+                step_status, result_json = ExecutionStatus.FAILED, json.dumps(
+                    {"error": str(exc)}
+                )
+            exec_step.status = step_status
+            exec_step.result_json = result_json
+            exec_step.completed_at = datetime.now(timezone.utc)
+            await db.flush()
+
+            if step_status == ExecutionStatus.WAITING:
+                return ExecutionStatus.WAITING, None
+            if step_status == ExecutionStatus.FAILED:
+                return ExecutionStatus.FAILED, result_json
+            current = _next_node(current)
+            continue
+
+        if kind == "delay":
+            exec_step = WorkflowExecutionStep(
+                id=uuid.uuid4(), execution_id=execution.id, step_id=None,
+                status=ExecutionStatus.WAITING,
+                result_json=json.dumps(
+                    {"action": "wait_delay", "wait_seconds": node.get("wait_duration_seconds", 0)}
+                ),
+            )
+            db.add(exec_step)
+            await db.flush()
+            return ExecutionStatus.WAITING, None
+
+        if kind == "condition":
+            condition = node.get("condition") or {}
+            field = condition.get("field", "")
+            operator = condition.get("operator", "eq")
+            value = condition.get("value")
+            actual = (event_data or {}).get(field)
+
+            if operator == "eq":
+                branch_true = actual == value
+            elif operator == "neq":
+                branch_true = actual != value
+            elif operator == "contains":
+                branch_true = bool(value and actual and value in str(actual))
+            elif operator == "exists":
+                branch_true = actual is not None
+            else:
+                branch_true = False
+            handle = "true" if branch_true else "false"
+
+            exec_step = WorkflowExecutionStep(
+                id=uuid.uuid4(), execution_id=execution.id, step_id=None,
+                status=ExecutionStatus.COMPLETED,
+                result_json=json.dumps({"action": "condition", "node_id": current, "branch": handle}),
+                completed_at=datetime.now(timezone.utc),
+            )
+            db.add(exec_step)
+            await db.flush()
+            current = _next_node(current, handle)
+            continue
+
+        return ExecutionStatus.FAILED, json.dumps(
+            {"error": f"unknown node kind {kind!r} on node {current}"}
+        )
+
+    return ExecutionStatus.COMPLETED, None
+
+
 async def execute_workflow(
     db: AsyncSession,
     workflow_id: uuid.UUID,
     contact_id: uuid.UUID | None = None,
     event_data: dict | None = None,
 ) -> WorkflowExecution:
-    """Create an execution record and iterate through the workflow steps."""
+    """Create an execution record and run the workflow.
+
+    Dual-mode: a canvas-authored workflow (``definition_json`` set) walks the
+    graph via ``_execute_graph``; a step-authored workflow runs the original
+    linear loop below, byte-for-byte unchanged.
+    """
     result = await db.execute(select(Workflow).where(Workflow.id == workflow_id))
     workflow = result.scalar_one_or_none()
     if workflow is None:
@@ -697,6 +949,29 @@ async def execute_workflow(
     )
     db.add(execution)
     await db.flush()
+
+    if workflow.definition_json:
+        try:
+            definition = json.loads(workflow.definition_json)
+        except json.JSONDecodeError:
+            execution.status = ExecutionStatus.FAILED
+            execution.error_message = json.dumps({"error": "invalid definition_json"})
+            execution.completed_at = datetime.now(timezone.utc)
+            await db.commit()
+            await db.refresh(execution)
+            return execution
+
+        overall_status, overall_error = await _execute_graph(
+            db, workflow, definition, contact_id, event_data, execution
+        )
+        execution.status = overall_status
+        if overall_status in (ExecutionStatus.COMPLETED, ExecutionStatus.FAILED):
+            execution.completed_at = datetime.now(timezone.utc)
+        if overall_error:
+            execution.error_message = overall_error
+        await db.commit()
+        await db.refresh(execution)
+        return execution
 
     # Fetch ordered steps
     steps_result = await db.execute(

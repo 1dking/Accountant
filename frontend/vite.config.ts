@@ -52,6 +52,7 @@ export default defineConfig({
           yjs: ['yjs', 'y-websocket'],
           livekit: ['livekit-client', '@livekit/components-react'],
           ui: ['@tanstack/react-query', 'zustand', '@dnd-kit/core'],
+          flow: ['@xyflow/react'],
         },
       },
     },

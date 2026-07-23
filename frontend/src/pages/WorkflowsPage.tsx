@@ -37,6 +37,9 @@ import type {
   WorkflowTemplate,
   WorkflowExecution,
 } from '@/types/models'
+import StepConfigForm from '@/components/workflows/StepConfigForm'
+import { Link } from 'react-router'
+import { Workflow as CanvasIcon } from 'lucide-react'
 
 const TRIGGER_TYPES = [
   { value: 'contact_created', label: 'Contact Created' },
@@ -563,19 +566,11 @@ export default function WorkflowsPage() {
                         )}
                       </div>
 
-                      <div>
-                        <label className="block text-xs text-gray-500 dark:text-gray-400 mb-0.5">
-                          Action Config (JSON)
-                        </label>
-                        <textarea
-                          value={step.action_config_json}
-                          onChange={(e) =>
-                            updateStep(idx, { action_config_json: e.target.value })
-                          }
-                          rows={2}
-                          className="w-full px-2 py-1.5 text-xs font-mono border border-gray-200 dark:border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100 resize-none"
-                        />
-                      </div>
+                      <StepConfigForm
+                        value={step.action_config_json}
+                        onChange={(value) => updateStep(idx, { action_config_json: value })}
+                        rows={2}
+                      />
 
                       {step.action_type === 'condition' && (
                         <div className="mt-2">
@@ -701,6 +696,13 @@ function WorkflowRow({
         </td>
         <td className="px-4 py-3 text-right">
           <div className="flex items-center justify-end gap-1">
+            <Link
+              to={`/workflows/${wf.id}/canvas`}
+              className="p-1.5 rounded-lg text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+              title="Open in canvas"
+            >
+              <CanvasIcon className="h-4 w-4" />
+            </Link>
             <button
               onClick={onEdit}
               className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"

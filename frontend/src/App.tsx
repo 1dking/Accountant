@@ -79,6 +79,7 @@ import PortalProposalsPage from '@/pages/PortalProposalsPage'
 import PortalFilesPage from '@/pages/PortalFilesPage'
 import PortalMeetingsPage from '@/pages/PortalMeetingsPage'
 import WorkflowsPage from '@/pages/WorkflowsPage'
+import WorkflowCanvasPage from '@/pages/WorkflowCanvasPage'
 import FormsPage from '@/pages/FormsPage'
 import CommunicationPage from '@/pages/CommunicationPage'
 import PageBuilderPage from '@/pages/PageBuilderPage'
@@ -272,6 +273,7 @@ function AuthenticatedApp() {
         <Route path="/slides" element={<SlidesHomePage />} />
         <Route path="/slides/:id" element={<SlideEditorPage />} />
         <Route path="/workflows" element={<WorkflowsPage />} />
+        <Route path="/workflows/:id/canvas" element={<WorkflowCanvasPage />} />
         <Route path="/forms" element={<FormsPage />} />
         <Route path="/communication" element={<CommunicationPage />} />
         <Route path="/page-builder" element={<PageBuilderPage />} />

@@ -77,6 +77,10 @@ class Workflow(TimestampMixin, Base):
     created_by: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id"), nullable=False
     )
+    #: Canvas graph representation -- {"version":1,"start_node_id","nodes":[...],"edges":[...]}.
+    #: Additive: workflow_steps and the linear executor are untouched when this is null.
+    definition_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    editor: Mapped[str] = mapped_column(String(20), default="steps", server_default="steps")
 
 
 class WorkflowStep(Base):

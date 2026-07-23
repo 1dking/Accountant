@@ -79,3 +79,21 @@ export async function dispatchEvent(eventType: string, payload: Record<string, u
     payload,
   })
 }
+
+export interface ValidateDefinitionResult {
+  valid: boolean
+  errors: string[]
+}
+
+export async function validateWorkflowDefinition(id: string, definitionJson: string) {
+  return api.post<ApiResponse<ValidateDefinitionResult>>(`/workflows/${id}/validate`, {
+    definition_json: definitionJson,
+  })
+}
+
+export async function saveWorkflowDefinition(id: string, definitionJson: string, editor: string) {
+  return api.put<ApiResponse<Workflow>>(`/workflows/${id}/definition`, {
+    definition_json: definitionJson,
+    editor,
+  })
+}

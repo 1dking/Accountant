@@ -12,7 +12,10 @@ from app.workflows import service
 from app.workflows.schemas import (
     DispatchEventRequest,
     ToggleRequest,
+    ValidateDefinitionRequest,
+    ValidateDefinitionResponse,
     WorkflowCreate,
+    WorkflowDefinitionUpdate,
     WorkflowExecutionResponse,
     WorkflowExecutionStepResponse,
     WorkflowListItem,
@@ -99,6 +102,8 @@ async def create_workflow(
             created_at=wf_data["workflow"].created_at,
             updated_at=wf_data["workflow"].updated_at,
             steps=[WorkflowStepResponse.model_validate(s) for s in wf_data["steps"]],
+            definition_json=wf_data["workflow"].definition_json,
+            editor=wf_data["workflow"].editor,
         )
     }
 
@@ -122,6 +127,8 @@ async def get_workflow(
             created_at=wf_data["workflow"].created_at,
             updated_at=wf_data["workflow"].updated_at,
             steps=[WorkflowStepResponse.model_validate(s) for s in wf_data["steps"]],
+            definition_json=wf_data["workflow"].definition_json,
+            editor=wf_data["workflow"].editor,
         )
     }
 
@@ -147,6 +154,8 @@ async def update_workflow(
             created_at=wf_data["workflow"].created_at,
             updated_at=wf_data["workflow"].updated_at,
             steps=[WorkflowStepResponse.model_validate(s) for s in wf_data["steps"]],
+            definition_json=wf_data["workflow"].definition_json,
+            editor=wf_data["workflow"].editor,
         )
     }
 
@@ -175,6 +184,71 @@ async def toggle_workflow(
             "name": workflow.name,
             "is_active": workflow.is_active,
         }
+    }
+
+
+# ---------------------------------------------------------------------------
+# Canvas (graph)
+# ---------------------------------------------------------------------------
+
+
+@router.post("/{workflow_id}/validate")
+async def validate_workflow_definition(
+    workflow_id: uuid.UUID,
+    data: ValidateDefinitionRequest,
+    _: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
+) -> dict:
+    """Validate a canvas graph before save/activate. Does not persist anything."""
+    import json
+
+    try:
+        definition = json.loads(data.definition_json)
+    except json.JSONDecodeError:
+        return {"data": ValidateDefinitionResponse(valid=False, errors=["definition_json is not valid JSON"])}
+    errors = service.validate_definition(definition)
+    return {"data": ValidateDefinitionResponse(valid=not errors, errors=errors)}
+
+
+@router.put("/{workflow_id}/definition")
+async def update_workflow_definition(
+    workflow_id: uuid.UUID,
+    data: WorkflowDefinitionUpdate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
+) -> dict:
+    """Save a canvas graph. Rejects an invalid graph rather than persisting
+    something the executor would only fail on later."""
+    import json
+
+    from app.core.exceptions import ValidationError
+
+    try:
+        definition = json.loads(data.definition_json)
+    except json.JSONDecodeError:
+        raise ValidationError("definition_json is not valid JSON")
+    errors = service.validate_definition(definition)
+    if errors:
+        raise ValidationError("; ".join(errors))
+
+    workflow = await service.update_workflow_definition(
+        db, workflow_id, data.definition_json, data.editor
+    )
+    wf_data = await service.get_workflow(db, workflow.id)
+    return {
+        "data": WorkflowResponse(
+            id=wf_data["workflow"].id,
+            name=wf_data["workflow"].name,
+            description=wf_data["workflow"].description,
+            trigger_type=wf_data["workflow"].trigger_type,
+            trigger_config_json=wf_data["workflow"].trigger_config_json,
+            is_active=wf_data["workflow"].is_active,
+            created_by=wf_data["workflow"].created_by,
+            created_at=wf_data["workflow"].created_at,
+            updated_at=wf_data["workflow"].updated_at,
+            steps=[WorkflowStepResponse.model_validate(s) for s in wf_data["steps"]],
+            definition_json=wf_data["workflow"].definition_json,
+            editor=wf_data["workflow"].editor,
+        )
     }
 
 
