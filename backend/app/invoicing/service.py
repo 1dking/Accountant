@@ -130,6 +130,19 @@ async def create_invoice(
         details={"invoice_number": invoice.invoice_number, "total": invoice.total},
     )
 
+    from app.workflows.models import TriggerType
+    from app.workflows.service import safe_dispatch
+
+    await safe_dispatch(
+        db,
+        TriggerType.INVOICE_CREATED,
+        event_data={
+            "invoice_number": invoice.invoice_number,
+            "total": float(invoice.total),
+        },
+        contact_id=invoice.contact_id,
+    )
+
     return invoice
 
 
@@ -255,6 +268,19 @@ async def send_invoice(db: AsyncSession, invoice_id: uuid.UUID, user: User) -> I
     invoice.status = InvoiceStatus.SENT
     await db.commit()
     await db.refresh(invoice)
+
+    from app.workflows.models import TriggerType
+    from app.workflows.service import safe_dispatch
+
+    await safe_dispatch(
+        db,
+        TriggerType.INVOICE_SENT,
+        event_data={
+            "invoice_number": invoice.invoice_number,
+            "total": float(invoice.total),
+        },
+        contact_id=invoice.contact_id,
+    )
     return invoice
 
 
@@ -355,6 +381,29 @@ async def record_payment(
                 invoice.id, str(exc)[:200],
             )
 
+    from app.workflows.models import TriggerType
+    from app.workflows.service import safe_dispatch
+
+    await safe_dispatch(
+        db,
+        TriggerType.PAYMENT_RECEIVED,
+        event_data={
+            "invoice_number": invoice.invoice_number,
+            "amount": float(payment.amount),
+        },
+        contact_id=invoice.contact_id,
+    )
+    if was_paid_transition:
+        await safe_dispatch(
+            db,
+            TriggerType.INVOICE_PAID,
+            event_data={
+                "invoice_number": invoice.invoice_number,
+                "total": float(invoice.total),
+            },
+            contact_id=invoice.contact_id,
+        )
+
     return payment
 
 
@@ -411,4 +460,18 @@ async def check_overdue_invoices(db: AsyncSession) -> int:
         count += 1
     if count:
         await db.commit()
+
+        from app.workflows.models import TriggerType
+        from app.workflows.service import safe_dispatch
+
+        for inv in invoices:
+            await safe_dispatch(
+                db,
+                TriggerType.INVOICE_OVERDUE,
+                event_data={
+                    "invoice_number": inv.invoice_number,
+                    "total": float(inv.total),
+                },
+                contact_id=inv.contact_id,
+            )
     return count

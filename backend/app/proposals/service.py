@@ -332,6 +332,16 @@ async def send_proposal(
 
     await db.commit()
 
+    from app.workflows.models import TriggerType
+    from app.workflows.service import safe_dispatch
+
+    await safe_dispatch(
+        db,
+        TriggerType.PROPOSAL_SENT,
+        event_data={"proposal_title": proposal.title},
+        contact_id=proposal.contact_id,
+    )
+
     # Re-fetch rather than refresh(): refresh() expires the eager-loaded
     # relationships without reloading them, so the caller's serialization
     # would lazy-load them outside the async context.
@@ -368,6 +378,16 @@ async def mark_viewed(db: AsyncSession, proposal_id: uuid.UUID, ip_address: str 
             resource_id=str(proposal.id),
         )
 
+        from app.workflows.models import TriggerType
+        from app.workflows.service import safe_dispatch
+
+        await safe_dispatch(
+            db,
+            TriggerType.PROPOSAL_VIEWED,
+            event_data={"proposal_title": proposal.title},
+            contact_id=proposal.contact_id,
+        )
+
     return proposal
 
 
@@ -385,6 +405,16 @@ async def mark_declined(db: AsyncSession, proposal_id: uuid.UUID, user: User) ->
     db.add(activity)
     await db.commit()
     await db.refresh(proposal)
+
+    from app.workflows.models import TriggerType
+    from app.workflows.service import safe_dispatch
+
+    await safe_dispatch(
+        db,
+        TriggerType.PROPOSAL_DECLINED,
+        event_data={"proposal_title": proposal.title},
+        contact_id=proposal.contact_id,
+    )
     return proposal
 
 
@@ -403,6 +433,16 @@ async def mark_completed(db: AsyncSession, proposal_id: uuid.UUID, user: User) -
     db.add(activity)
     await db.commit()
     await db.refresh(proposal)
+
+    from app.workflows.models import TriggerType
+    from app.workflows.service import safe_dispatch
+
+    await safe_dispatch(
+        db,
+        TriggerType.PROPOSAL_SIGNED,
+        event_data={"proposal_title": proposal.title},
+        contact_id=proposal.contact_id,
+    )
     return proposal
 
 
@@ -527,6 +567,17 @@ async def sign_proposal(
 
     await db.commit()
     await db.refresh(proposal)
+
+    if all_signed:
+        from app.workflows.models import TriggerType
+        from app.workflows.service import safe_dispatch
+
+        await safe_dispatch(
+            db,
+            TriggerType.PROPOSAL_SIGNED,
+            event_data={"proposal_title": proposal.title},
+            contact_id=proposal.contact_id,
+        )
 
     return {
         "signed": True,

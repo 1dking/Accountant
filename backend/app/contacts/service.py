@@ -72,6 +72,21 @@ async def create_contact(
         },
     )
 
+    from app.workflows.models import TriggerType
+    from app.workflows.service import safe_dispatch
+
+    await safe_dispatch(
+        db,
+        TriggerType.CONTACT_CREATED,
+        event_data={
+            "contact_name": contact.contact_name,
+            "company_name": contact.company_name,
+            "email": contact.email,
+            "type": contact.type.value if contact.type else None,
+        },
+        contact_id=contact.id,
+    )
+
     return contact
 
 
@@ -232,6 +247,16 @@ async def add_tag(
     db.add(tag)
     await db.commit()
     await db.refresh(tag)
+
+    from app.workflows.models import TriggerType
+    from app.workflows.service import safe_dispatch
+
+    await safe_dispatch(
+        db,
+        TriggerType.CONTACT_TAG_ADDED,
+        event_data={"tag_name": tag_name},
+        contact_id=contact_id,
+    )
     return tag
 
 
@@ -251,6 +276,16 @@ async def remove_tag(
         raise NotFoundError("ContactTag", f"{contact_id}:{tag_name}")
     await db.delete(tag)
     await db.commit()
+
+    from app.workflows.models import TriggerType
+    from app.workflows.service import safe_dispatch
+
+    await safe_dispatch(
+        db,
+        TriggerType.CONTACT_TAG_REMOVED,
+        event_data={"tag_name": tag_name},
+        contact_id=contact_id,
+    )
 
 
 async def bulk_tag(

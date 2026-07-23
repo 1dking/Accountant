@@ -222,6 +222,21 @@ async def create_booking(
     db.add(booking)
     await db.commit()
     await db.refresh(booking)
+
+    from app.workflows.models import TriggerType
+    from app.workflows.service import safe_dispatch
+
+    await safe_dispatch(
+        db,
+        TriggerType.APPOINTMENT_BOOKED,
+        event_data={
+            "calendar_name": cal.name,
+            "guest_name": booking.guest_name,
+            "guest_email": booking.guest_email,
+            "start_time": booking.start_time.isoformat(),
+        },
+        contact_id=contact_id,
+    )
     return booking
 
 
@@ -283,6 +298,20 @@ async def cancel_booking(
     booking.cancellation_reason = reason
     await db.commit()
     await db.refresh(booking)
+
+    from app.workflows.models import TriggerType
+    from app.workflows.service import safe_dispatch
+
+    await safe_dispatch(
+        db,
+        TriggerType.APPOINTMENT_CANCELLED,
+        event_data={
+            "guest_name": booking.guest_name,
+            "guest_email": booking.guest_email,
+            "reason": reason,
+        },
+        contact_id=booking.contact_id,
+    )
     return booking
 
 
@@ -530,6 +559,20 @@ async def cancel_booking_by_token(
     booking.cancellation_reason = reason or "Cancelled by guest"
     await db.commit()
     await db.refresh(booking)
+
+    from app.workflows.models import TriggerType
+    from app.workflows.service import safe_dispatch
+
+    await safe_dispatch(
+        db,
+        TriggerType.APPOINTMENT_CANCELLED,
+        event_data={
+            "guest_name": booking.guest_name,
+            "guest_email": booking.guest_email,
+            "reason": booking.cancellation_reason,
+        },
+        contact_id=booking.contact_id,
+    )
     return booking
 
 

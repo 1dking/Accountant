@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import User
 from app.contacts.models import ActivityType
-from app.contacts.service import add_tag, log_contact_activity, remove_tag
+from app.contacts.service import log_contact_activity
 from app.core.exceptions import NotFoundError
 from app.workflows.models import (
     ActionType,
@@ -1119,6 +1119,21 @@ async def get_executions(
 # ---------------------------------------------------------------------------
 # Event dispatch
 # ---------------------------------------------------------------------------
+
+
+async def safe_dispatch(
+    db: AsyncSession,
+    event_type: TriggerType,
+    event_data: dict | None = None,
+    contact_id: uuid.UUID | None = None,
+) -> None:
+    """Fire-and-forget dispatch for domain code: an automation failure must
+    never break the operation that triggered it (same contract the forms
+    webhook established)."""
+    try:
+        await dispatch_event(db, event_type, event_data, contact_id)
+    except Exception:  # noqa: BLE001
+        logger.exception("workflow dispatch failed for %s", event_type.value)
 
 
 async def dispatch_event(
