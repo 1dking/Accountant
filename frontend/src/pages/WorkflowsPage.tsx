@@ -38,7 +38,7 @@ import type {
   WorkflowExecution,
 } from '@/types/models'
 import StepConfigForm from '@/components/workflows/StepConfigForm'
-import { Link } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { Workflow as CanvasIcon } from 'lucide-react'
 
 const TRIGGER_TYPES = [
@@ -104,6 +104,7 @@ function statusIcon(status: string) {
 
 export default function WorkflowsPage() {
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -146,6 +147,22 @@ export default function WorkflowsPage() {
       closeDialog()
     },
     onError: (err: any) => toast.error(err.message || 'Failed to create workflow'),
+  })
+
+  const createCanvasMutation = useMutation({
+    mutationFn: () =>
+      createWorkflow({
+        name: 'Untitled automation',
+        trigger_type: 'contact_created',
+        trigger_config_json: '{}',
+        steps: [],
+      }),
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ['workflows'] })
+      navigate(`/workflows/${res.data.id}/canvas`)
+    },
+    onError: (err: unknown) =>
+      toast.error(err instanceof Error ? err.message : 'Failed to start a new automation'),
   })
 
   const updateMutation = useMutation({
@@ -300,13 +317,27 @@ export default function WorkflowsPage() {
           <Zap className="h-6 w-6 text-amber-500" />
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Workflows</h1>
         </div>
-        <button
-          onClick={() => setDialogOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="h-4 w-4" />
-          New Workflow
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => createCanvasMutation.mutate()}
+            disabled={createCanvasMutation.isPending}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors disabled:opacity-50"
+          >
+            {createCanvasMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <CanvasIcon className="h-4 w-4" />
+            )}
+            Automation Canvas
+          </button>
+          <button
+            onClick={() => setDialogOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            New Workflow
+          </button>
+        </div>
       </div>
 
       {/* Workflows list */}
@@ -318,7 +349,16 @@ export default function WorkflowsPage() {
         <div className="text-center py-20 text-gray-400 dark:text-gray-500">
           <Zap className="h-12 w-12 mx-auto mb-3 opacity-50" />
           <p className="text-lg font-medium">No workflows yet</p>
-          <p className="text-sm mt-1">Create your first automation workflow to get started.</p>
+          <p className="text-sm mt-1">
+            Build one visually with the drag-and-drop{' '}
+            <button
+              onClick={() => createCanvasMutation.mutate()}
+              className="text-purple-600 dark:text-purple-400 hover:underline font-medium"
+            >
+              Automation Canvas
+            </button>
+            , or use the classic step editor above.
+          </p>
         </div>
       ) : (
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
