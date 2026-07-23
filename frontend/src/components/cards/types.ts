@@ -13,4 +13,8 @@ export interface CardTemplateProps {
   cardUrl: string
   onSaveContact: () => void
   onShowQr: () => void
+  /** Present only when the org has wallet credentials configured
+   * (card.wallet_available) — templates render the buttons only then. */
+  onAddAppleWallet?: () => void
+  onAddGoogleWallet?: () => void
 }

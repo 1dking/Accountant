@@ -30,6 +30,8 @@ export const TRIGGER_LIBRARY: { value: string; label: string }[] = [
   { value: 'email_opened', label: 'Email Opened' },
   { value: 'scheduled', label: 'Scheduled' },
   { value: 'webhook_received', label: 'Webhook Received' },
+  { value: 'card_viewed', label: 'Business Card Viewed' },
+  { value: 'card_contact_saved', label: 'Business Card Contact Saved' },
 ]
 
 export const ACTION_LIBRARY: { value: string; label: string }[] = [

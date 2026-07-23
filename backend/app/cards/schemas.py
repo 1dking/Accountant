@@ -78,6 +78,12 @@ class CardResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class CardAnalyticsResponse(BaseModel):
+    total_views: int = 0
+    unique_visitors: int = 0
+    total_vcard_downloads: int = 0
+
+
 class PublicCardResponse(BaseModel):
     """The public payload — palette fully resolved server-side (card
     value, else org branding, else default), plus the resolved booking

@@ -70,6 +70,20 @@ export default function PublicCardPage() {
           window.location.href = `/api/cards/public/${card.slug}/vcard`
         }}
         onShowQr={() => setShowQr(true)}
+        onAddAppleWallet={
+          card.wallet_available.apple
+            ? () => {
+                window.location.href = `/api/cards/public/${card.slug}/wallet/apple`
+              }
+            : undefined
+        }
+        onAddGoogleWallet={
+          card.wallet_available.google
+            ? () => {
+                window.location.href = `/api/cards/public/${card.slug}/wallet/google`
+              }
+            : undefined
+        }
       />
       {showQr && (
         <QrShareOverlay url={cardUrl} displayName={card.display_name} onClose={() => setShowQr(false)} />

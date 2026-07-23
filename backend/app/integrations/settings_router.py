@@ -29,6 +29,16 @@ INTEGRATION_FIELDS = {
     "smtp": ["host", "port", "username", "password", "from_email"],
     "cloudflare_r2": ["access_key_id", "secret_access_key", "bucket_name", "endpoint", "account_id"],
     "assemblyai": ["api_key"],
+    # Wallet passes for business cards. Deliberately NOT in SETTINGS_MAP:
+    # nothing outside app/cards/wallet/ needs these, so they're read from
+    # IntegrationConfig directly there instead of polluting the global
+    # Settings() singleton with cert blobs. "google_wallet" is separate
+    # from "google" (OAuth) — do not merge them.
+    "apple_wallet": [
+        "team_id", "pass_type_identifier", "p12_certificate_base64",
+        "p12_password", "wwdr_certificate_base64",
+    ],
+    "google_wallet": ["issuer_id", "service_account_json"],
 }
 
 SETTINGS_MAP = {
@@ -93,6 +103,8 @@ NON_SECRET_FIELDS = {
     "livekit": {"url"},
     "cloudflare_r2": {"bucket_name", "endpoint", "account_id"},
     "plaid": {"environment"},
+    "apple_wallet": {"team_id", "pass_type_identifier"},
+    "google_wallet": {"issuer_id"},
 }
 
 

@@ -14,7 +14,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import Role, User
 from app.cards import service
-from app.cards.schemas import CardResponse, CardUpdate
+from app.cards.models import CardEventType
+from app.cards.schemas import CardAnalyticsResponse, CardResponse, CardUpdate
 from app.cards.vcard import build_vcard
 from app.core.exceptions import NotFoundError, ValidationError
 from app.dependencies import get_current_user, get_db, require_role
@@ -81,6 +82,16 @@ async def check_slug(
     return {"data": {"slug": normalized, "available": not taken, "reason": "taken" if taken else None}}
 
 
+@router.get("/me/analytics", response_model=dict)
+async def get_my_card_analytics(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    card = await service.get_or_create_card(db, user)
+    stats = await service.get_card_analytics(db, card.id)
+    return {"data": CardAnalyticsResponse(**stats)}
+
+
 @router.post("/me/avatar", response_model=dict)
 async def upload_avatar(
     request: Request,
@@ -115,10 +126,23 @@ async def upload_avatar(
 @router.get("/public/{slug}", response_model=dict)
 async def get_public_card(
     slug: str,
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     card = await service.get_public_card(db, slug)
     payload = await service.build_public_payload(db, card)
+    # ?src=nfc / ?src=qr (written onto NFC tags, QR codes) folds into the
+    # referrer so analytics can attribute the share channel for free.
+    src = request.query_params.get("src")
+    referrer = f"src:{src}" if src else request.headers.get("referer")
+    await service.record_card_view(
+        db,
+        card,
+        CardEventType.VIEW,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+        referrer=referrer,
+    )
     return {"data": payload}
 
 
@@ -129,6 +153,14 @@ async def download_vcard(
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> Response:
     card = await service.get_public_card(db, slug)
+    await service.record_card_view(
+        db,
+        card,
+        CardEventType.VCARD_DOWNLOAD,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+        referrer=request.headers.get("referer"),
+    )
     base = str(request.base_url).rstrip("/")
     vcf = build_vcard(
         display_name=card.display_name,
@@ -168,6 +200,78 @@ async def card_manifest(
             {"src": "/icons/icon-512x512.png", "sizes": "512x512", "type": "image/png"},
         ],
     }
+
+
+@router.get("/public/{slug}/wallet/apple")
+async def apple_wallet_pass(
+    slug: str,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> Response:
+    """Signed .pkpass — 404 until an admin uploads Apple credentials."""
+    from app.cards.wallet import APPLE_WALLET, load_wallet_config
+    from app.cards.wallet import apple as apple_wallet
+
+    card = await service.get_public_card(db, slug)
+    config = await load_wallet_config(db, APPLE_WALLET)
+    if not apple_wallet.is_configured(config):
+        raise NotFoundError("Wallet pass", slug)
+
+    payload = await service.build_public_payload(db, card)
+    base = str(request.base_url).rstrip("/")
+    pkpass = apple_wallet.build_pkpass(
+        config,
+        serial_number=str(card.id),
+        display_name=card.display_name,
+        job_title=card.job_title,
+        company_name=card.company_name,
+        email=card.email,
+        phone=card.phone,
+        website=card.website,
+        card_url=f"{base}/c/{card.slug}",
+        bg_color=payload.bg_color,
+        text_color=payload.text_color,
+        accent_color=payload.accent_color,
+    )
+    safe_name = card.display_name.replace(" ", "-")
+    return Response(
+        content=pkpass,
+        media_type="application/vnd.apple.pkpass",
+        headers={"Content-Disposition": f'attachment; filename="{safe_name}.pkpass"'},
+    )
+
+
+@router.get("/public/{slug}/wallet/google")
+async def google_wallet_pass(
+    slug: str,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """302 to the signed Save-to-Google-Wallet URL — 404 until configured."""
+    from fastapi.responses import RedirectResponse
+
+    from app.cards.wallet import GOOGLE_WALLET, load_wallet_config
+    from app.cards.wallet import google as google_wallet
+
+    card = await service.get_public_card(db, slug)
+    config = await load_wallet_config(db, GOOGLE_WALLET)
+    if not google_wallet.is_configured(config):
+        raise NotFoundError("Wallet pass", slug)
+
+    payload = await service.build_public_payload(db, card)
+    base = str(request.base_url).rstrip("/")
+    generic_object = google_wallet.build_generic_object(
+        config,
+        card_id=card.id,
+        display_name=card.display_name,
+        job_title=card.job_title,
+        company_name=card.company_name,
+        email=card.email,
+        phone=card.phone,
+        card_url=f"{base}/c/{card.slug}",
+        bg_color=payload.bg_color,
+    )
+    return RedirectResponse(google_wallet.build_save_url(config, generic_object), status_code=302)
 
 
 @router.get("/public/{slug}/avatar")

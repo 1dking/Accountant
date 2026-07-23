@@ -32,6 +32,8 @@ class TriggerType(str, enum.Enum):
     EMAIL_OPENED = "email_opened"
     SCHEDULED = "scheduled"
     WEBHOOK_RECEIVED = "webhook_received"
+    CARD_VIEWED = "card_viewed"
+    CARD_CONTACT_SAVED = "card_contact_saved"
 
 
 class ActionType(str, enum.Enum):

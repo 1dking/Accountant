@@ -1,9 +1,21 @@
 
+import enum
 import uuid
-from sqlalchemy import Boolean, ForeignKey, String, Text
+from datetime import datetime
+
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base, TimestampMixin
+
+
+class CardEventType(str, enum.Enum):
+    """App-level enum backed by a plain string column — deliberately NOT a
+    native DB enum, so future event types (wallet_added, nfc_tap) don't
+    need an ALTER TYPE migration."""
+
+    VIEW = "view"
+    VCARD_DOWNLOAD = "vcard_download"
 
 
 class BusinessCard(TimestampMixin, Base):
@@ -55,3 +67,24 @@ class BusinessCard(TimestampMixin, Base):
         ForeignKey("scheduling_calendars.id", ondelete="SET NULL"), nullable=True
     )
     show_booking: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class CardAnalyticsEvent(Base):
+    """Append-only visit log for public card pages (mirrors the pages
+    module's dedicated-table precedent, scaled down — no daily rollup;
+    card traffic is light enough for live COUNT/COUNT(DISTINCT))."""
+
+    __tablename__ = "card_analytics_events"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    card_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("business_cards.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    event_type: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    #: sha256(ip)[:16] — same anonymization as pages/service.py's ip_hash.
+    visitor_hash: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    referrer: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )

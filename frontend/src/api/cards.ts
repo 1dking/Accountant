@@ -50,8 +50,15 @@ export interface PublicCard {
   wallet_available: { apple: boolean; google: boolean }
 }
 
+export interface CardAnalytics {
+  total_views: number
+  unique_visitors: number
+  total_vcard_downloads: number
+}
+
 export const cardsApi = {
   getMyCard: () => api.get<{ data: BusinessCard }>('/cards/me'),
+  getMyCardAnalytics: () => api.get<{ data: CardAnalytics }>('/cards/me/analytics'),
   updateMyCard: (data: Partial<BusinessCard>) => api.put<{ data: BusinessCard }>('/cards/me', data),
   checkSlug: (slug: string) =>
     api.get<{ data: { slug: string; available: boolean; reason: string | null } }>(

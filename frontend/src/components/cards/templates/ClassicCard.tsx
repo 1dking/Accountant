@@ -1,8 +1,14 @@
-import { Mail, Phone, Globe, CalendarDays, QrCode, UserPlus } from 'lucide-react'
+import { Mail, Phone, Globe, CalendarDays, QrCode, UserPlus, Wallet } from 'lucide-react'
 import type { CardTemplateProps } from '../types'
 
 /** Classic — centered avatar, stacked action buttons (Arivio classic.tsx). */
-export default function ClassicCard({ card, onSaveContact, onShowQr }: CardTemplateProps) {
+export default function ClassicCard({
+  card,
+  onSaveContact,
+  onShowQr,
+  onAddAppleWallet,
+  onAddGoogleWallet,
+}: CardTemplateProps) {
   const initials = card.display_name
     .split(' ')
     .map((w) => w[0])
@@ -60,6 +66,26 @@ export default function ClassicCard({ card, onSaveContact, onShowQr }: CardTempl
             >
               <CalendarDays className="w-4 h-4" /> Book a meeting
             </a>
+          )}
+          {(onAddAppleWallet || onAddGoogleWallet) && (
+            <div className="flex gap-2">
+              {onAddAppleWallet && (
+                <button
+                  onClick={onAddAppleWallet}
+                  className="flex-1 flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-semibold bg-black text-white"
+                >
+                  <Wallet className="w-3.5 h-3.5" /> Apple Wallet
+                </button>
+              )}
+              {onAddGoogleWallet && (
+                <button
+                  onClick={onAddGoogleWallet}
+                  className="flex-1 flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-semibold border border-gray-800 text-gray-900 bg-white"
+                >
+                  <Wallet className="w-3.5 h-3.5" /> Google Wallet
+                </button>
+              )}
+            </div>
           )}
         </div>
 

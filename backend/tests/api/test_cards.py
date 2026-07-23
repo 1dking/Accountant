@@ -175,3 +175,165 @@ async def test_booking_url_resolves_from_linked_calendar(
 
     resp = await client.get(f"/api/cards/public/{card.slug}")
     assert resp.json()["data"]["booking_url"] == "/book/intro-call-test"
+
+
+# ---------------------------------------------------------------------------
+# Phase 6: analytics + workflow triggers + wallet endpoints
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.critical
+async def test_public_view_records_analytics(client: AsyncClient, admin_user: User, db):
+    await client.put(
+        "/api/cards/me", json={"is_published": True}, headers=auth_header(admin_user)
+    )
+    card = await get_or_create_card(db, admin_user)
+
+    assert (await client.get(f"/api/cards/public/{card.slug}")).status_code == 200
+    assert (await client.get(f"/api/cards/public/{card.slug}/vcard")).status_code == 200
+
+    resp = await client.get("/api/cards/me/analytics", headers=auth_header(admin_user))
+    assert resp.status_code == 200
+    stats = resp.json()["data"]
+    assert stats["total_views"] == 1
+    assert stats["total_vcard_downloads"] == 1
+    assert stats["unique_visitors"] == 1
+
+
+@pytest.mark.critical
+async def test_card_viewed_fires_workflow_with_null_contact(
+    client: AsyncClient, admin_user: User, db
+):
+    from sqlalchemy import select
+
+    from app.workflows.models import (
+        ActionType,
+        TriggerType,
+        Workflow,
+        WorkflowExecution,
+        WorkflowStep,
+    )
+
+    workflow = Workflow(
+        name="Card view alert",
+        trigger_type=TriggerType.CARD_VIEWED,
+        trigger_config_json="{}",
+        is_active=True,
+        created_by=admin_user.id,
+    )
+    db.add(workflow)
+    await db.flush()
+    db.add(
+        WorkflowStep(
+            workflow_id=workflow.id,
+            step_order=0,
+            action_type=ActionType.SEND_NOTIFICATION,
+            action_config_json='{"message": "Card viewed: {card_display_name}"}',
+        )
+    )
+    await db.commit()
+
+    await client.put(
+        "/api/cards/me", json={"is_published": True}, headers=auth_header(admin_user)
+    )
+    card = await get_or_create_card(db, admin_user)
+    assert (await client.get(f"/api/cards/public/{card.slug}")).status_code == 200
+
+    executions = (
+        await db.execute(
+            select(WorkflowExecution).where(WorkflowExecution.workflow_id == workflow.id)
+        )
+    ).scalars().all()
+    assert len(executions) == 1
+    assert executions[0].contact_id is None
+
+
+@pytest.mark.high
+async def test_repeat_views_same_visitor_dedupe_dispatch_not_analytics(
+    client: AsyncClient, admin_user: User, db
+):
+    from sqlalchemy import select
+
+    from app.workflows.models import TriggerType, Workflow, WorkflowExecution
+
+    workflow = Workflow(
+        name="Card view dedupe",
+        trigger_type=TriggerType.CARD_VIEWED,
+        trigger_config_json="{}",
+        is_active=True,
+        created_by=admin_user.id,
+    )
+    db.add(workflow)
+    await db.commit()
+
+    await client.put(
+        "/api/cards/me", json={"is_published": True}, headers=auth_header(admin_user)
+    )
+    card = await get_or_create_card(db, admin_user)
+    for _ in range(3):
+        assert (await client.get(f"/api/cards/public/{card.slug}")).status_code == 200
+
+    # Analytics stays honest: 3 raw views. Dispatch dedupes: 1 execution.
+    stats = (
+        await client.get("/api/cards/me/analytics", headers=auth_header(admin_user))
+    ).json()["data"]
+    assert stats["total_views"] == 3
+    assert stats["unique_visitors"] == 1
+
+    executions = (
+        await db.execute(
+            select(WorkflowExecution).where(WorkflowExecution.workflow_id == workflow.id)
+        )
+    ).scalars().all()
+    assert len(executions) == 1
+
+
+@pytest.mark.critical
+async def test_vcard_download_fires_card_contact_saved(
+    client: AsyncClient, admin_user: User, db
+):
+    from sqlalchemy import select
+
+    from app.workflows.models import TriggerType, Workflow, WorkflowExecution
+
+    workflow = Workflow(
+        name="Contact saved alert",
+        trigger_type=TriggerType.CARD_CONTACT_SAVED,
+        trigger_config_json="{}",
+        is_active=True,
+        created_by=admin_user.id,
+    )
+    db.add(workflow)
+    await db.commit()
+
+    await client.put(
+        "/api/cards/me", json={"is_published": True}, headers=auth_header(admin_user)
+    )
+    card = await get_or_create_card(db, admin_user)
+    # Unlike views, every explicit save dispatches — no dedupe window.
+    assert (await client.get(f"/api/cards/public/{card.slug}/vcard")).status_code == 200
+    assert (await client.get(f"/api/cards/public/{card.slug}/vcard")).status_code == 200
+
+    executions = (
+        await db.execute(
+            select(WorkflowExecution).where(WorkflowExecution.workflow_id == workflow.id)
+        )
+    ).scalars().all()
+    assert len(executions) == 2
+
+
+@pytest.mark.high
+async def test_wallet_endpoints_404_when_unconfigured(
+    client: AsyncClient, admin_user: User, db
+):
+    await client.put(
+        "/api/cards/me", json={"is_published": True}, headers=auth_header(admin_user)
+    )
+    card = await get_or_create_card(db, admin_user)
+
+    assert (await client.get(f"/api/cards/public/{card.slug}/wallet/apple")).status_code == 404
+    assert (await client.get(f"/api/cards/public/{card.slug}/wallet/google")).status_code == 404
+
+    # And the public payload advertises neither.
+    payload = (await client.get(f"/api/cards/public/{card.slug}")).json()["data"]
+    assert payload["wallet_available"] == {"apple": False, "google": False}

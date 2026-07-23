@@ -54,6 +54,12 @@ export default function BusinessCardPage() {
   })
   const calendars = (calsData?.data ?? []).filter((c) => c.is_active)
 
+  const { data: analyticsData } = useQuery({
+    queryKey: ['my-card-analytics'],
+    queryFn: () => cardsApi.getMyCardAnalytics(),
+  })
+  const analytics = analyticsData?.data
+
   const saveMutation = useMutation({
     mutationFn: (payload: Draft) => cardsApi.updateMyCard(payload),
     onSuccess: () => {
@@ -287,6 +293,30 @@ export default function BusinessCardPage() {
               </select>
             )}
           </section>
+
+          {/* Analytics */}
+          {analytics && (
+            <section className="bg-white dark:bg-gray-900 border rounded-lg p-5">
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Analytics</h2>
+              <div className="grid grid-cols-3 gap-3">
+                {(
+                  [
+                    ['Views', analytics.total_views],
+                    ['Unique visitors', analytics.unique_visitors],
+                    ['Contacts saved', analytics.total_vcard_downloads],
+                  ] as const
+                ).map(([label, value]) => (
+                  <div
+                    key={label}
+                    className="rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-4 text-center"
+                  >
+                    <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{value}</p>
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{label}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* Share */}
           <section className="bg-white dark:bg-gray-900 border rounded-lg p-5 space-y-3">
