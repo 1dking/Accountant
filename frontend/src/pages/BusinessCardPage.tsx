@@ -13,12 +13,11 @@ import { Copy, ExternalLink, Save, Upload } from 'lucide-react'
 import { cardsApi, type BusinessCard, type PublicCard } from '@/api/cards'
 import { schedulingApi } from '@/api/scheduling'
 import ClassicCard from '@/components/cards/templates/ClassicCard'
-import ModernCard from '@/components/cards/templates/ModernCard'
-import MinimalCard from '@/components/cards/templates/MinimalCard'
+import {
+  CARD_TEMPLATES as TEMPLATES,
+  CARD_TEMPLATE_OPTIONS,
+} from '@/components/cards/templates'
 import { toast } from 'sonner'
-
-const TEMPLATES = { classic: ClassicCard, modern: ModernCard, minimal: MinimalCard } as const
-const TEMPLATE_OPTIONS = ['classic', 'modern', 'minimal'] as const
 
 const INPUT =
   'w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100'
@@ -144,23 +143,49 @@ export default function BusinessCardPage() {
 
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         <div className="space-y-4">
-          {/* Template */}
+          {/* Template — live mini-previews rendered in the user's own palette */}
           <section className="bg-white dark:bg-gray-900 border rounded-lg p-5">
             <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Template</h2>
-            <div className="flex gap-2">
-              {TEMPLATE_OPTIONS.map((t) => (
-                <button
-                  key={t}
-                  onClick={() => set('template', t)}
-                  className={`px-4 py-2 text-sm rounded-lg border capitalize transition-colors ${
-                    (draft.template ?? 'classic') === t
-                      ? 'border-[var(--brand-primary)] text-[var(--brand-primary)] font-medium'
-                      : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400'
-                  }`}
-                >
-                  {t}
-                </button>
-              ))}
+            <div className="grid grid-cols-3 gap-3">
+              {CARD_TEMPLATE_OPTIONS.map(({ id, label }) => {
+                const Thumb = TEMPLATES[id]
+                const selected = (draft.template ?? 'classic') === id
+                return (
+                  <button
+                    key={id}
+                    onClick={() => set('template', id)}
+                    className={`group text-left rounded-lg border-2 overflow-hidden transition-all ${
+                      selected
+                        ? 'border-[var(--brand-primary)] ring-2 ring-[var(--brand-primary)]/30'
+                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500'
+                    }`}
+                  >
+                    <div className="relative h-40 overflow-hidden bg-gray-100 dark:bg-gray-800 pointer-events-none select-none">
+                      <div
+                        className="absolute top-0 left-1/2 w-[320px] h-[460px] origin-top-left [&>div]:!min-h-full"
+                        style={{ transform: 'scale(0.35)', marginLeft: '-56px' }}
+                        aria-hidden
+                      >
+                        <Thumb
+                          card={{ ...preview, template: id }}
+                          cardUrl={cardUrl}
+                          onSaveContact={() => {}}
+                          onShowQr={() => {}}
+                        />
+                      </div>
+                    </div>
+                    <p
+                      className={`px-2 py-1.5 text-xs font-medium text-center ${
+                        selected
+                          ? 'text-[var(--brand-primary)]'
+                          : 'text-gray-600 dark:text-gray-400'
+                      }`}
+                    >
+                      {label}
+                    </p>
+                  </button>
+                )
+              })}
             </div>
           </section>
 

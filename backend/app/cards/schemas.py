@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, field_validator
 HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
 _COLOR_FIELDS = ("bg_color", "text_color", "accent_color", "button_color", "button_text_color")
 
-TEMPLATES = {"classic", "modern", "minimal"}
+TEMPLATES = {"classic", "modern", "minimal", "gradient", "split", "bold"}
 
 
 class CardUpdate(BaseModel):

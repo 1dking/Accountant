@@ -26,7 +26,7 @@ class BusinessCard(TimestampMixin, Base):
 
     slug: Mapped[str] = mapped_column(String(100), unique=True, index=True)
     is_published: Mapped[bool] = mapped_column(Boolean, default=False)
-    template: Mapped[str] = mapped_column(String(20), default="classic")  # classic|modern|minimal
+    template: Mapped[str] = mapped_column(String(20), default="classic")  # see schemas.TEMPLATES
 
     # Identity
     display_name: Mapped[str] = mapped_column(String(255))

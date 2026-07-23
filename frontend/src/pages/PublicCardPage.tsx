@@ -13,15 +13,8 @@ import { useParams } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { cardsApi } from '@/api/cards'
 import ClassicCard from '@/components/cards/templates/ClassicCard'
-import ModernCard from '@/components/cards/templates/ModernCard'
-import MinimalCard from '@/components/cards/templates/MinimalCard'
+import { CARD_TEMPLATES as TEMPLATES } from '@/components/cards/templates'
 import QrShareOverlay from '@/components/cards/QrShareOverlay'
-
-const TEMPLATES = {
-  classic: ClassicCard,
-  modern: ModernCard,
-  minimal: MinimalCard,
-} as const
 
 export default function PublicCardPage() {
   const { slug } = useParams<{ slug: string }>()

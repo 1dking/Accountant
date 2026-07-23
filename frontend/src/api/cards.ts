@@ -4,7 +4,7 @@ export interface BusinessCard {
   id: string
   slug: string
   is_published: boolean
-  template: 'classic' | 'modern' | 'minimal'
+  template: 'classic' | 'modern' | 'minimal' | 'gradient' | 'split' | 'bold'
   display_name: string
   job_title: string | null
   company_name: string | null
@@ -29,7 +29,7 @@ export interface BusinessCard {
 
 export interface PublicCard {
   slug: string
-  template: 'classic' | 'modern' | 'minimal'
+  template: 'classic' | 'modern' | 'minimal' | 'gradient' | 'split' | 'bold'
   display_name: string
   job_title: string | null
   company_name: string | null
