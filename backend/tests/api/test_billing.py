@@ -179,6 +179,22 @@ async def test_webhook_subscription_deleted_downgrades_to_starter(
     assert refreshed.stripe_subscription_id is None
 
 
+@pytest.mark.critical
+async def test_period_end_read_from_subscription_item():
+    """Newer Stripe API versions dropped the top-level current_period_end and
+    put it on the subscription item — read both shapes or the renewal date
+    silently stays blank."""
+    # Modern shape: item-level only.
+    assert service._period_end(
+        {"id": "sub_1", "items": {"data": [{"current_period_end": 1787590096}]}}
+    ) == 1787590096
+    # Legacy shape: top level.
+    assert service._period_end({"id": "sub_1", "current_period_end": 123}) == 123
+    # Neither present.
+    assert service._period_end({"id": "sub_1", "items": {"data": [{}]}}) is None
+    assert service._period_end(None) is None
+
+
 @pytest.mark.normal
 async def test_webhook_ignores_non_subscription_events(
     db: AsyncSession, admin_user: User

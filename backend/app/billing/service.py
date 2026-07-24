@@ -144,6 +144,33 @@ async def create_checkout(
     return {"checkout_url": session.url, "session_id": session.id}
 
 
+def _period_end(stripe_sub) -> int | None:
+    """Read the renewal timestamp off a Stripe Subscription.
+
+    Newer Stripe API versions dropped the top-level `current_period_end` and
+    expose it per subscription item instead, so check both — top level first
+    for older payloads, then the first item."""
+    if stripe_sub is None:
+        return None
+
+    def _get(obj, key):
+        if isinstance(obj, dict):
+            return obj.get(key)
+        return getattr(obj, key, None)
+
+    cpe = _get(stripe_sub, "current_period_end")
+    if cpe:
+        return int(cpe)
+
+    items = _get(stripe_sub, "items")
+    data = _get(items, "data") if items is not None else None
+    if data:
+        cpe = _get(data[0], "current_period_end")
+        if cpe:
+            return int(cpe)
+    return None
+
+
 async def _activate_from_subscription(
     db: AsyncSession, sub: AccountSubscription, plan_key: str, stripe_sub, period: str | None
 ) -> None:
@@ -154,13 +181,9 @@ async def _activate_from_subscription(
     sub.stripe_subscription_id = getattr(stripe_sub, "id", None) or (
         stripe_sub.get("id") if isinstance(stripe_sub, dict) else None
     )
-    cpe = None
-    if isinstance(stripe_sub, dict):
-        cpe = stripe_sub.get("current_period_end")
-    else:
-        cpe = getattr(stripe_sub, "current_period_end", None)
+    cpe = _period_end(stripe_sub)
     if cpe:
-        sub.current_period_end = datetime.fromtimestamp(int(cpe), tz=timezone.utc)
+        sub.current_period_end = datetime.fromtimestamp(cpe, tz=timezone.utc)
     await db.commit()
 
 
@@ -240,9 +263,9 @@ async def handle_stripe_event(db: AsyncSession, event_type: str, obj: dict) -> N
             sub.current_period_end = None
         else:
             sub.status = obj.get("status", sub.status)
-            cpe = obj.get("current_period_end")
+            cpe = _period_end(obj)
             if cpe:
-                sub.current_period_end = datetime.fromtimestamp(int(cpe), tz=timezone.utc)
+                sub.current_period_end = datetime.fromtimestamp(cpe, tz=timezone.utc)
         await db.commit()
 
 
