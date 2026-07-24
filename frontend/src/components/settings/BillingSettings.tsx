@@ -214,7 +214,7 @@ export default function BillingSettings() {
         </span>
         {billingPeriod === 'annual' && (
           <span className="ml-1 text-[10px] font-bold bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full">
-            SAVE UP TO 20%
+            2 MONTHS FREE
           </span>
         )}
       </div>

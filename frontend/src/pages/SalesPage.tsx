@@ -14,9 +14,9 @@
  * crosses a segment boundary.
  *
  * Honesty rules baked in: counters state product facts, the logo strip lists
- * real integrations (not invented customers), pricing shows the seeded tier
- * numbers, and annual pricing says "talk to us" because the seeded annual
- * values are incoherent (flagged to the owner) — we don't invent prices.
+ * real integrations (not invented customers), and pricing shows the seeded
+ * tier numbers — monthly and annual alike. Annual is "2 months free"
+ * (monthly * 10 / 12), the same rule the backend seeds and charges.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
@@ -269,26 +269,32 @@ function Counter({ target, suffix, label }: { target: number; suffix: string; la
 interface Plan {
   name: string
   monthly: string
+  annual: string
   featured?: boolean
   bullets: string[]
 }
 
 // Real seeded platform tiers (platform_admin DEFAULT_PRICING_SETTINGS).
+// Annual is "2 months free" ($/mo billed yearly) — same rule the backend
+// seeds and the billing page charges.
 const PLANS: Plan[] = [
   {
     name: 'Starter',
     monthly: '$0',
+    annual: '$0',
     bullets: ['CRM, invoicing & meetings included', '3 published pages', '1 GB drive storage', '50 AI messages / month'],
   },
   {
     name: 'Pro',
     monthly: '$29',
+    annual: '$24',
     featured: true,
     bullets: ['Everything in Starter', '25 published pages', '10 GB drive storage', '500 AI messages / month'],
   },
   {
     name: 'Business',
     monthly: '$79',
+    annual: '$66',
     bullets: ['Everything in Pro', '100 published pages', '50 GB drive storage', 'For teams running everything here'],
   },
 ]
@@ -576,13 +582,12 @@ export default function SalesPage() {
               <div key={plan.name} className={`sp-plan${plan.featured ? ' featured' : ''}`}>
                 {plan.featured && <span className="sp-plan-flag">Most popular</span>}
                 <h3>{plan.name}</h3>
-                {annual && plan.monthly !== '$0' ? (
-                  <div className="sp-plan-talk">Talk to us</div>
-                ) : (
-                  <div className="sp-plan-price">
-                    {plan.monthly}
-                    <small> /month</small>
-                  </div>
+                <div className="sp-plan-price">
+                  {annual ? plan.annual : plan.monthly}
+                  <small> /month</small>
+                </div>
+                {annual && plan.monthly !== '$0' && (
+                  <div className="sp-plan-billed">billed yearly — 2 months free</div>
                 )}
                 <ul style={{ textAlign: 'left' }}>
                   {plan.bullets.map((b) => (

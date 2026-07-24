@@ -98,14 +98,16 @@ DEFAULT_PRICING_SETTINGS = [
     {"key": "max_storage_business_gb", "value": "50", "category": "limits",
      "description": "Max storage for Business plan (GB)", "value_type": "number"},
     # Annual plan pricing ($/mo billed yearly)
-    # Starter is the free tier — it must be $0 in both billing periods.
+    # Annual = "2 months free": monthly * 10 / 12, rounded. Starter is the free
+    # tier, so it stays $0 in both periods. Matches the O-Brain tier pricing
+    # below, which already follows this rule.
     {"key": "plan_starter_annual_price", "value": "0", "category": "pricing",
      "description": "Starter plan annual price ($/mo billed yearly)", "value_type": "number"},
-    {"key": "plan_pro_annual_price", "value": "164", "category": "pricing",
+    {"key": "plan_pro_annual_price", "value": "24", "category": "pricing",
      "description": "Pro plan annual price ($/mo billed yearly)", "value_type": "number"},
-    {"key": "plan_business_annual_price", "value": "331", "category": "pricing",
+    {"key": "plan_business_annual_price", "value": "66", "category": "pricing",
      "description": "Business plan annual price ($/mo billed yearly)", "value_type": "number"},
-    {"key": "plan_enterprise_annual_price", "value": "499", "category": "pricing",
+    {"key": "plan_enterprise_annual_price", "value": "166", "category": "pricing",
      "description": "Enterprise plan annual price ($/mo billed yearly)", "value_type": "number"},
     # O-Brain tier pricing (monthly)
     {"key": "obrain_essential_price", "value": "49", "category": "pricing",

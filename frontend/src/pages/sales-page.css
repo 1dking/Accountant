@@ -768,11 +768,11 @@
   color: var(--sp-body-dim);
 }
 
-.sp-plan-talk {
-  font-size: 1.6rem;
-  font-weight: 700;
+.sp-plan-billed {
+  font-size: 0.8rem;
+  font-weight: 600;
   color: var(--sp-accent-strong);
-  line-height: 1.8;
+  margin-top: 0.35rem;
 }
 
 .sp-plan ul {
