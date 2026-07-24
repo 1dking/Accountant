@@ -66,11 +66,36 @@ export default function PublicCardPage() {
       <Template
         card={card}
         cardUrl={cardUrl}
-        onSaveContact={() => {
-          // Phones get the vCard inline so the OS opens its native
-          // "add contact" sheet directly; desktop gets a .vcf download.
-          const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
-          window.location.href = `/api/cards/public/${card.slug}/vcard${isMobile ? '?open=1' : ''}`
+        onSaveContact={async () => {
+          const vcardUrl = `/api/cards/public/${card.slug}/vcard`
+          const ua = navigator.userAgent
+          // iOS: inline vCard navigation opens Safari's native add-contact
+          // sheet directly — the best possible flow there.
+          if (/iPhone|iPad|iPod/i.test(ua)) {
+            window.location.href = `${vcardUrl}?open=1`
+            return
+          }
+          // Android: the OS never opens .vcf navigations directly (they all
+          // land in the download manager), but sharing the file puts
+          // Contacts one tap away as a share target. Fall back to the plain
+          // download when file-sharing isn't available (desktop, old
+          // browsers).
+          if (/Android/i.test(ua) && navigator.canShare) {
+            try {
+              const blob = await (await fetch(vcardUrl)).blob()
+              const file = new File([blob], `${card.display_name.replace(/\s+/g, '-')}.vcf`, {
+                type: 'text/vcard',
+              })
+              if (navigator.canShare({ files: [file] })) {
+                await navigator.share({ files: [file], title: card.display_name })
+                return
+              }
+            } catch (err) {
+              // User dismissed the share sheet — not an error, do nothing.
+              if (err instanceof Error && err.name === 'AbortError') return
+            }
+          }
+          window.location.href = vcardUrl
         }}
         onShowQr={() => setShowQr(true)}
         onAddAppleWallet={
