@@ -49,6 +49,11 @@ async def chat(
     user: Annotated[User, Depends(get_current_user)],
 ):
     """Stream a chat response via SSE."""
+    # Check before the stream opens — once SSE starts, a 402 can't be sent.
+    from app.billing.limits import enforce_ai_message_limit
+
+    await enforce_ai_message_limit(db, user)
+
     return StreamingResponse(
         chat_service.chat_stream(
             db=db,

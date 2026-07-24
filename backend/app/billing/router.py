@@ -20,6 +20,17 @@ async def get_subscription(
     return {"data": SubscriptionResponse(**service._payload(sub))}
 
 
+@router.get("/usage")
+async def get_usage(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    """Current usage against the plan's caps. `limit: null` means unlimited."""
+    from app.billing.limits import get_usage_summary
+
+    return {"data": await get_usage_summary(db, user)}
+
+
 @router.post("/checkout")
 async def create_checkout(
     body: CheckoutRequest,

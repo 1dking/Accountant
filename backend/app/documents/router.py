@@ -195,6 +195,11 @@ async def upload(
     file_data = await file.read()
     settings = request.app.state.settings
 
+    # Refuse before storing anything if this file would exceed the plan's cap.
+    from app.billing.limits import enforce_storage_limit
+
+    await enforce_storage_limit(db, current_user, incoming_bytes=len(file_data))
+
     # Resolve folder from relative_path (folder uploads)
     target_folder_id = folder_id
     if relative_path:

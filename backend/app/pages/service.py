@@ -378,6 +378,12 @@ async def delete_page(db: AsyncSession, page_id: uuid.UUID) -> None:
 
 async def publish_page(db: AsyncSession, page_id: uuid.UUID, user) -> Page:
     page = await get_page(db, page_id)
+    # Only a NEW publish consumes plan quota — re-publishing a live page is
+    # already counted, so it must never be blocked.
+    if page.status != PageStatus.PUBLISHED:
+        from app.billing.limits import enforce_page_limit
+
+        await enforce_page_limit(db, user)
     page.status = PageStatus.PUBLISHED
     # Copy draft content to live
     page.live_html_content = page.html_content

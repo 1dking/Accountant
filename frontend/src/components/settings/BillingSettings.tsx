@@ -15,6 +15,73 @@ const PLAN_LABELS: Record<string, string> = {
   enterprise: 'Enterprise',
 }
 
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`
+  const units = ['KB', 'MB', 'GB', 'TB']
+  let v = n / 1024
+  let i = 0
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024
+    i++
+  }
+  return `${v < 10 ? v.toFixed(1) : Math.round(v)} ${units[i]}`
+}
+
+/** One usage meter. A null limit means the plan is unlimited, so no bar. */
+function UsageBar({
+  label,
+  used,
+  limit,
+  format = (n: number) => String(n),
+  suffix = '',
+}: {
+  label: string
+  used: number
+  limit: number | null
+  format?: (n: number) => string
+  suffix?: string
+}) {
+  const unlimited = limit === null
+  const pct = unlimited || limit === 0 ? 0 : Math.min(100, (used / limit) * 100)
+  const atCap = !unlimited && used >= (limit ?? 0)
+  const near = !unlimited && !atCap && pct >= 80
+
+  return (
+    <div>
+      <div className="flex items-baseline justify-between mb-1.5">
+        <span className="text-xs font-medium text-gray-600 dark:text-gray-300">{label}</span>
+        <span className={cn(
+          'text-xs font-semibold',
+          atCap ? 'text-red-600 dark:text-red-400'
+            : near ? 'text-amber-600 dark:text-amber-400'
+              : 'text-gray-900 dark:text-white',
+        )}>
+          {format(used)}
+          {unlimited ? ' / Unlimited' : ` / ${format(limit)}${suffix}`}
+        </span>
+      </div>
+      {unlimited ? (
+        <div className="h-1.5 rounded-full bg-gradient-to-r from-purple-400 to-blue-400 opacity-40" />
+      ) : (
+        <div className="h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+          <div
+            className={cn(
+              'h-full rounded-full transition-all',
+              atCap ? 'bg-red-500' : near ? 'bg-amber-500' : 'bg-blue-600',
+            )}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      )}
+      {atCap && (
+        <p className="mt-1 text-[10px] text-red-600 dark:text-red-400">
+          Limit reached — upgrade to continue.
+        </p>
+      )}
+    </div>
+  )
+}
+
 const PLAN_TIERS = [
   {
     key: 'starter',
@@ -98,6 +165,12 @@ export default function BillingSettings() {
     queryFn: () => billingApi.getSubscription(),
   })
   const subscription = subData?.data
+
+  const { data: usageData } = useQuery({
+    queryKey: ['billing-usage'],
+    queryFn: () => billingApi.getUsage(),
+  })
+  const usage = usageData?.data
   const currentPlan: string = subscription?.plan_key ?? 'starter'
 
   // Handle the Stripe Checkout return (success_url / cancel_url land here with query params)
@@ -113,6 +186,7 @@ export default function BillingSettings() {
           const plan = res?.data?.plan_key
           toast.success(plan ? `You're now on the ${PLAN_LABELS[plan] ?? plan} plan.` : 'Subscription activated.')
           queryClient.invalidateQueries({ queryKey: ['billing-subscription'] })
+          queryClient.invalidateQueries({ queryKey: ['billing-usage'] })
         })
         .catch(() => toast.error('We could not confirm your subscription. If you were charged, contact support.'))
     } else if (subStatus === 'cancelled') {
@@ -137,6 +211,7 @@ export default function BillingSettings() {
       // Free tier: plan switched server-side, no Stripe redirect
       toast.success('You\'re on the Starter plan.')
       queryClient.invalidateQueries({ queryKey: ['billing-subscription'] })
+      queryClient.invalidateQueries({ queryKey: ['billing-usage'] })
       setCheckoutKey(null)
     },
     onError: (err) => {
@@ -191,6 +266,30 @@ export default function BillingSettings() {
           </button>
         )}
       </div>
+
+      {/* Usage against the current plan's caps */}
+      {usage && (
+        <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-5">
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">
+            Your usage this billing period
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+            <UsageBar label="Published pages" used={usage.pages.used} limit={usage.pages.limit} />
+            <UsageBar
+              label="Storage"
+              used={usage.storage.used}
+              limit={usage.storage.limit}
+              format={formatBytes}
+            />
+            <UsageBar
+              label="O-Brain messages"
+              used={usage.ai_messages.used}
+              limit={usage.ai_messages.limit}
+              suffix="/mo"
+            />
+          </div>
+        </div>
+      )}
 
       {/* Monthly / Annual toggle */}
       <div className="flex items-center justify-center gap-3">
