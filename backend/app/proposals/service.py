@@ -814,6 +814,118 @@ async def verify_and_mark_proposal_payment(
     return _payload()
 
 
+async def refund_proposal(
+    db: AsyncSession, proposal_id: uuid.UUID, settings, amount: Decimal | None = None
+) -> dict:
+    """Refund a paid proposal through Stripe (full or partial). Admin/owner
+    only — gated in the router. Supports repeated partial refunds by tracking
+    a cumulative `refunded_amount`."""
+    proposal = await get_proposal(db, proposal_id)
+
+    if proposal.status != ProposalStatus.PAID:
+        raise ValidationError("Only a paid proposal can be refunded")
+    if not proposal.stripe_checkout_session_id:
+        raise ValidationError("No Stripe payment is on file for this proposal")
+    if not settings.stripe_secret_key:
+        raise ValidationError("Stripe is not configured")
+
+    already = proposal.refunded_amount or Decimal("0")
+    remaining = Decimal(str(proposal.value)) - already
+    if remaining <= 0:
+        raise ValidationError("This proposal has already been fully refunded")
+
+    refund_amount = Decimal(str(amount)) if amount is not None else remaining
+    if refund_amount <= 0:
+        raise ValidationError("Refund amount must be greater than zero")
+    if refund_amount > remaining:
+        raise ValidationError(
+            f"Refund exceeds the refundable balance ({proposal.currency} {remaining})"
+        )
+
+    import stripe as stripe_lib
+
+    stripe_lib.api_key = settings.stripe_secret_key
+    from app.integrations.stripe_connect.service import get_active_connect_account_id
+
+    connect_account_id = await get_active_connect_account_id(db, proposal.created_by)
+    kwargs = {"stripe_account": connect_account_id} if connect_account_id else {}
+
+    # The refund needs the PaymentIntent; resolve it from the stored session.
+    session = stripe_lib.checkout.Session.retrieve(
+        proposal.stripe_checkout_session_id, **kwargs
+    )
+    payment_intent_id = session.get("payment_intent")
+    if not payment_intent_id:
+        raise ValidationError("Could not locate the payment to refund")
+
+    refund = stripe_lib.Refund.create(
+        payment_intent=payment_intent_id,
+        amount=int((refund_amount * 100).to_integral_value()),
+        **kwargs,
+    )
+
+    proposal.refunded_amount = already + refund_amount
+    proposal.refunded_at = datetime.now(timezone.utc)
+    fully_refunded = proposal.refunded_amount >= Decimal(str(proposal.value))
+
+    db.add(
+        ProposalActivity(
+            proposal_id=proposal.id,
+            action="refunded",
+            metadata_json=json.dumps({
+                "refund_id": refund.get("id"),
+                "amount": float(refund_amount),
+                "currency": proposal.currency,
+                "fully_refunded": fully_refunded,
+            }),
+        )
+    )
+    await db.commit()
+
+    # Offset the recorded income so the cashbook reflects the refund.
+    try:
+        from datetime import date as date_type
+
+        from app.income.models import Income, IncomeCategory
+
+        db.add(
+            Income(
+                contact_id=proposal.contact_id,
+                category=IncomeCategory.SERVICE,
+                description=f"Refund: {proposal.title} ({proposal.proposal_number})",
+                amount=-refund_amount,
+                currency=proposal.currency,
+                date=date_type.today(),
+                payment_method="stripe",
+                reference=refund.get("id"),
+                created_by=proposal.created_by,
+            )
+        )
+        await db.commit()
+    except Exception:  # noqa: BLE001 — the refund itself succeeded; bookkeeping is best-effort
+        logger.exception("refund %s: failed to write offsetting income", refund.get("id"))
+        await db.rollback()
+
+    from app.notifications.service import create_notification
+    await create_notification(
+        db,
+        user_id=proposal.created_by,
+        type="refund_issued",
+        title="Refund Issued",
+        message=f'Refunded {proposal.currency} {refund_amount} for "{proposal.title}"',
+        resource_type="proposal",
+        resource_id=str(proposal.id),
+    )
+
+    return {
+        "refund_id": refund.get("id"),
+        "amount": float(refund_amount),
+        "currency": proposal.currency,
+        "total_refunded": float(proposal.refunded_amount),
+        "fully_refunded": fully_refunded,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Dashboard stats
 # ---------------------------------------------------------------------------

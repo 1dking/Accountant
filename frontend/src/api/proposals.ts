@@ -70,6 +70,7 @@ export interface ProposalListItem {
   viewed_at: string | null
   signed_at: string | null
   paid_at: string | null
+  refunded_amount?: number | null
   contact?: { company_name: string; contact_name: string | null; email: string | null } | null
   created_at: string
   updated_at: string
@@ -224,6 +225,23 @@ export interface ProposalPaymentStatus {
 
 export async function getProposalPaymentStatus(id: string) {
   return api.get<ApiResponse<ProposalPaymentStatus>>(`/proposals/${id}/payment-status`)
+}
+
+export interface RefundResult {
+  refund_id: string
+  amount: number
+  currency: string
+  total_refunded: number
+  fully_refunded: boolean
+}
+
+/** Refund a paid proposal via Stripe. Omit `amount` for a full refund of the
+ * remaining balance; pass a value for a partial refund. Admin/owner only. */
+export async function refundProposal(id: string, amount?: number) {
+  return api.post<ApiResponse<RefundResult>>(
+    `/proposals/${id}/refund`,
+    amount != null ? { amount } : {}
+  )
 }
 
 // Recipients

@@ -98,6 +98,12 @@ class Proposal(TimestampMixin, Base):
     viewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     signed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    #: Cumulative amount refunded via Stripe (supports repeated partial
+    #: refunds). Tracked as its own column rather than a payment_status enum
+    #: value so we avoid a native-enum migration; the UI derives
+    #: "refunded / partially refunded" from this vs. `value`.
+    refunded_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    refunded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Follow-up settings
     follow_up_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)

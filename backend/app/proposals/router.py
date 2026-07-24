@@ -27,6 +27,7 @@ from app.proposals.schemas import (
     ProposalUpdate,
     RecipientCreate,
     RecipientResponse,
+    RefundRequest,
     SignProposalRequest,
     SigningPageData,
     TemplateCreate,
@@ -307,6 +308,21 @@ async def create_checkout(
     settings = request.app.state.settings
     base_url = str(request.base_url).rstrip("/")
     result = await service.create_proposal_checkout(db, proposal_id, settings, base_url)
+    return {"data": result}
+
+
+@router.post("/{proposal_id}/refund")
+async def refund_proposal(
+    proposal_id: uuid.UUID,
+    body: RefundRequest,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(require_role([Role.ADMIN]))],
+) -> dict:
+    """Refund a paid proposal via Stripe (full, or a custom partial amount).
+    Owner/admin only."""
+    settings = request.app.state.settings
+    result = await service.refund_proposal(db, proposal_id, settings, amount=body.amount)
     return {"data": result}
 
 

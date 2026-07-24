@@ -28,6 +28,7 @@ import {
   declineProposal,
   completeProposal,
   convertToTemplate,
+  refundProposal,
 } from '@/api/proposals';
 import type { ProposalListItem, ProposalStatus, ProposalStats } from '@/api/proposals';
 import { listContacts } from '@/api/contacts';
@@ -167,6 +168,13 @@ function ActionsDropdown({
       action: 'decline',
       show: ['sent', 'viewed', 'waiting_signature'].includes(proposal.status),
     },
+    {
+      label: 'Refund',
+      action: 'refund',
+      show:
+        proposal.status === 'paid' &&
+        (proposal.refunded_amount ?? 0) < proposal.value,
+    },
     { label: 'Convert to Template', action: 'convert_template', show: true },
     { label: 'Delete', action: 'delete', show: true, danger: true },
   ];
@@ -206,6 +214,143 @@ function ActionsDropdown({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// RefundModal
+// ---------------------------------------------------------------------------
+
+function RefundModal({
+  proposal,
+  onClose,
+}: {
+  proposal: ProposalListItem;
+  onClose: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const alreadyRefunded = proposal.refunded_amount ?? 0;
+  const remaining = Math.max(0, proposal.value - alreadyRefunded);
+
+  const [mode, setMode] = useState<'full' | 'partial'>('full');
+  const [amount, setAmount] = useState<string>(remaining.toFixed(2));
+
+  const refundMutation = useMutation({
+    mutationFn: () => refundProposal(proposal.id, mode === 'partial' ? Number(amount) : undefined),
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ['proposals'] });
+      queryClient.invalidateQueries({ queryKey: ['proposal-stats'] });
+      toast.success(
+        res.data.fully_refunded
+          ? `Fully refunded ${formatCurrency(res.data.total_refunded, proposal.currency)}`
+          : `Refunded ${formatCurrency(res.data.amount, proposal.currency)}`,
+      );
+      onClose();
+    },
+    onError: (err: unknown) =>
+      toast.error(err instanceof Error ? err.message : 'Refund failed'),
+  });
+
+  const partialValue = Number(amount);
+  const partialInvalid =
+    mode === 'partial' && (!Number.isFinite(partialValue) || partialValue <= 0 || partialValue > remaining + 1e-9);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="w-full max-w-md bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-xl">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800">
+          <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Refund payment</h2>
+          <button onClick={onClose} className="p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="px-5 py-4 space-y-4">
+          <div className="text-sm text-gray-600 dark:text-gray-400">
+            <p className="font-medium text-gray-900 dark:text-gray-100">{proposal.title}</p>
+            <p className="mt-0.5">
+              Paid {formatCurrency(proposal.value, proposal.currency)}
+              {alreadyRefunded > 0 && (
+                <> · already refunded {formatCurrency(alreadyRefunded, proposal.currency)}</>
+              )}
+            </p>
+            <p className="mt-0.5 text-gray-500">
+              Refundable balance: {formatCurrency(remaining, proposal.currency)}
+            </p>
+          </div>
+
+          <div className="flex gap-2">
+            <button
+              onClick={() => setMode('full')}
+              className={cn(
+                'flex-1 px-3 py-2 text-sm rounded-lg border transition-colors',
+                mode === 'full'
+                  ? 'border-blue-500 text-blue-600 dark:text-blue-400 font-medium'
+                  : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400',
+              )}
+            >
+              Full ({formatCurrency(remaining, proposal.currency)})
+            </button>
+            <button
+              onClick={() => setMode('partial')}
+              className={cn(
+                'flex-1 px-3 py-2 text-sm rounded-lg border transition-colors',
+                mode === 'partial'
+                  ? 'border-blue-500 text-blue-600 dark:text-blue-400 font-medium'
+                  : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400',
+              )}
+            >
+              Custom amount
+            </button>
+          </div>
+
+          {mode === 'partial' && (
+            <div>
+              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                Amount to refund ({proposal.currency})
+              </label>
+              <input
+                type="number"
+                min="0.01"
+                max={remaining}
+                step="0.01"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                autoFocus
+              />
+              {partialInvalid && (
+                <p className="text-[11px] text-red-500 mt-1">
+                  Enter an amount between 0 and {formatCurrency(remaining, proposal.currency)}.
+                </p>
+              )}
+            </div>
+          )}
+
+          <p className="text-[11px] text-gray-400 dark:text-gray-500">
+            The refund is issued to the client’s original payment method via Stripe and recorded in your cashbook.
+          </p>
+        </div>
+
+        <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-gray-100 dark:border-gray-800">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => refundMutation.mutate()}
+            disabled={refundMutation.isPending || partialInvalid || remaining <= 0}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50"
+          >
+            {refundMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+            Refund{' '}
+            {formatCurrency(mode === 'full' ? remaining : partialValue || 0, proposal.currency)}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -431,6 +576,7 @@ export default function ProposalsPage() {
   const [dateTo, setDateTo] = useState('');
   const [page, setPage] = useState(1);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [refundTarget, setRefundTarget] = useState<ProposalListItem | null>(null);
 
   // Data queries
   const statsQuery = useQuery({
@@ -551,6 +697,9 @@ export default function ProposalsPage() {
           break;
         case 'convert_template':
           convertMutation.mutate(proposal.id);
+          break;
+        case 'refund':
+          setRefundTarget(proposal);
           break;
         case 'delete':
           if (window.confirm('Are you sure you want to delete this proposal?')) {
@@ -867,6 +1016,9 @@ export default function ProposalsPage() {
 
       {/* Create modal */}
       {showCreateModal && <CreateProposalModal onClose={() => setShowCreateModal(false)} />}
+      {refundTarget && (
+        <RefundModal proposal={refundTarget} onClose={() => setRefundTarget(null)} />
+      )}
     </div>
   );
 }

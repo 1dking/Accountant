@@ -123,6 +123,12 @@ class ProposalCreate(BaseModel):
     follow_up_hours: int = Field(default=48, ge=1)
 
 
+class RefundRequest(BaseModel):
+    """Optional partial-refund amount; omit for a full refund of the
+    remaining balance."""
+    amount: Decimal | None = Field(default=None, gt=0)
+
+
 class ProposalUpdate(BaseModel):
     title: str | None = Field(None, min_length=1, max_length=500)
     content_json: str | None = None
@@ -157,6 +163,8 @@ class ProposalResponse(BaseModel):
     viewed_at: datetime | None
     signed_at: datetime | None
     paid_at: datetime | None
+    refunded_amount: Decimal | None = None
+    refunded_at: datetime | None = None
     follow_up_enabled: bool
     follow_up_hours: int
     contact: "ContactResponse | None" = None  # from contacts schemas
@@ -183,6 +191,7 @@ class ProposalListItem(BaseModel):
     viewed_at: datetime | None
     signed_at: datetime | None
     paid_at: datetime | None
+    refunded_amount: Decimal | None = None
     contact: "ContactResponse | None" = None
     created_at: datetime
     updated_at: datetime

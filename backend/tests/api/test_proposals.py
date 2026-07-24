@@ -920,3 +920,121 @@ async def test_ghl_settings(
     assert "sync_count" in data
     assert isinstance(data["connected"], bool)
     assert isinstance(data["sync_count"], int)
+
+
+# ---------------------------------------------------------------------------
+# Admin refunds
+# ---------------------------------------------------------------------------
+
+
+async def _make_paid_proposal(db, admin_user, contact_id, value=1000.00):
+    """Insert a PAID proposal with a stored checkout session, ready to refund."""
+    import uuid as _uuid
+    from decimal import Decimal
+    from app.proposals.models import Proposal, ProposalStatus, PaymentStatus
+
+    p = Proposal(
+        id=_uuid.uuid4(),
+        proposal_number="PAID-" + _uuid.uuid4().hex[:6].upper(),
+        contact_id=contact_id,
+        title="Refundable proposal",
+        content_json="[]",
+        status=ProposalStatus.PAID,
+        payment_status=PaymentStatus.PAID,
+        value=Decimal(str(value)),
+        currency="USD",
+        collect_payment=True,
+        payment_mode="one_time",
+        stripe_checkout_session_id="cs_test_refund",
+        created_by=admin_user.id,
+    )
+    db.add(p)
+    await db.commit()
+    await db.refresh(p)
+    return p
+
+
+def _mock_stripe(monkeypatch, app):
+    """Stub Stripe so refunds don't hit the network, and give the app a
+    (fake) Stripe key so the 'not configured' guard passes."""
+    import sys
+    import types
+
+    app.state.settings.stripe_secret_key = "sk_test_dummy"
+
+    fake = types.ModuleType("stripe")
+    fake.api_key = None
+    fake.checkout = types.SimpleNamespace(
+        Session=types.SimpleNamespace(
+            retrieve=lambda sid, **kw: {"payment_intent": "pi_test_123"}
+        )
+    )
+    fake.Refund = types.SimpleNamespace(
+        create=lambda **kw: {"id": "re_test_" + str(kw.get("amount"))}
+    )
+    monkeypatch.setitem(sys.modules, "stripe", fake)
+    return fake
+
+
+@pytest.mark.critical
+async def test_full_refund(client, app, admin_user, sample_contact, db, monkeypatch):
+    _mock_stripe(monkeypatch, app)
+    p = await _make_paid_proposal(db, admin_user, sample_contact.id, value=1000.00)
+
+    resp = await client.post(
+        f"/api/proposals/{p.id}/refund", json={}, headers=auth_header(admin_user)
+    )
+    assert resp.status_code == 200, resp.text
+    data = resp.json()["data"]
+    assert data["amount"] == 1000.0
+    assert data["fully_refunded"] is True
+
+    await db.refresh(p)
+    assert float(p.refunded_amount) == 1000.0
+
+
+@pytest.mark.critical
+async def test_partial_then_remainder_refund(client, app, admin_user, sample_contact, db, monkeypatch):
+    _mock_stripe(monkeypatch, app)
+    p = await _make_paid_proposal(db, admin_user, sample_contact.id, value=1000.00)
+
+    r1 = await client.post(
+        f"/api/proposals/{p.id}/refund", json={"amount": 400}, headers=auth_header(admin_user)
+    )
+    assert r1.status_code == 200
+    assert r1.json()["data"]["fully_refunded"] is False
+
+    # Over-refunding the remainder is rejected.
+    over = await client.post(
+        f"/api/proposals/{p.id}/refund", json={"amount": 700}, headers=auth_header(admin_user)
+    )
+    assert over.status_code in (400, 422)
+
+    r2 = await client.post(
+        f"/api/proposals/{p.id}/refund", json={"amount": 600}, headers=auth_header(admin_user)
+    )
+    assert r2.status_code == 200
+    assert r2.json()["data"]["fully_refunded"] is True
+
+    await db.refresh(p)
+    assert float(p.refunded_amount) == 1000.0
+
+
+@pytest.mark.high
+async def test_refund_requires_admin(client, app, team_member_user, sample_contact, db, monkeypatch):
+    _mock_stripe(monkeypatch, app)
+    p = await _make_paid_proposal(db, team_member_user, sample_contact.id)
+    resp = await client.post(
+        f"/api/proposals/{p.id}/refund", json={}, headers=auth_header(team_member_user)
+    )
+    assert resp.status_code == 403
+
+
+@pytest.mark.high
+async def test_refund_unpaid_rejected(client, app, admin_user, sample_contact, db, monkeypatch):
+    _mock_stripe(monkeypatch, app)
+    created = await _create_proposal(client, admin_user, sample_contact.id)
+    resp = await client.post(
+        f"/api/proposals/{created['id']}/refund", json={}, headers=auth_header(admin_user)
+    )
+    assert resp.status_code in (400, 422)  # ValidationError -> 422 in this app
