@@ -214,6 +214,18 @@ export async function createCheckout(id: string) {
   return api.post<ApiResponse<{ checkout_url: string; session_id: string }>>(`/proposals/${id}/checkout`)
 }
 
+export interface ProposalPaymentStatus {
+  paid: boolean
+  title: string
+  proposal_number: string
+  amount: number
+  currency: string
+}
+
+export async function getProposalPaymentStatus(id: string) {
+  return api.get<ApiResponse<ProposalPaymentStatus>>(`/proposals/${id}/payment-status`)
+}
+
 // Recipients
 export async function addRecipient(proposalId: string, data: { email: string; name: string; role?: string; signing_order?: number }) {
   return api.post<ApiResponse<ProposalRecipient>>(`/proposals/${proposalId}/recipients`, data)

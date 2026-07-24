@@ -310,6 +310,21 @@ async def create_checkout(
     return {"data": result}
 
 
+@router.get("/{proposal_id}/payment-status")
+async def payment_status(
+    proposal_id: uuid.UUID,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    """Public: the payer's 'payment received' page calls this on return from
+    Stripe. It verifies the checkout session with Stripe and marks the
+    proposal paid if so — closing the loop even when the webhook is
+    misconfigured. Returns a minimal, non-sensitive status payload."""
+    settings = request.app.state.settings
+    result = await service.verify_and_mark_proposal_payment(db, proposal_id, settings)
+    return {"data": result}
+
+
 # ---------------------------------------------------------------------------
 # Proposal detail endpoints (must come AFTER /templates, /sign, etc.)
 # ---------------------------------------------------------------------------

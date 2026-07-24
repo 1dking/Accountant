@@ -630,8 +630,11 @@ async def create_proposal_checkout(
             },
             "quantity": 1,
         }],
-        "success_url": f"{origin}/proposals/{proposal.id}?payment=success",
-        "cancel_url": f"{origin}/proposals/{proposal.id}?payment=cancelled",
+        # Public pages — the payer is the client, not a logged-in user, so
+        # these must NOT be the auth-gated /proposals/{id} editor (that bounces
+        # them to the login screen after paying).
+        "success_url": f"{origin}/proposals/{proposal.id}/paid?session_id={{CHECKOUT_SESSION_ID}}",
+        "cancel_url": f"{origin}/proposals/{proposal.id}/paid?status=cancelled",
         "metadata": {
             "proposal_id": str(proposal.id),
             "proposal_number": proposal.proposal_number,
@@ -685,21 +688,14 @@ async def create_proposal_checkout(
     return {"checkout_url": session.url, "session_id": session.id}
 
 
-async def handle_proposal_payment_webhook(
-    db: AsyncSession,
-    proposal_id_str: str,
-    payment_intent_id: str | None = None,
-    expected_connect_account_id: str | None = None,
-) -> None:
-    """Handle Stripe webhook for proposal payment completion."""
-    proposal_id = uuid.UUID(proposal_id_str)
-    proposal = await get_proposal(db, proposal_id)
-
-    if expected_connect_account_id is not None:
-        from app.integrations.stripe.service import _connect_account_mismatch
-
-        if await _connect_account_mismatch(db, proposal.created_by, expected_connect_account_id):
-            return
+async def _apply_proposal_paid(
+    db: AsyncSession, proposal: Proposal, payment_intent_id: str | None = None
+) -> bool:
+    """Mark a proposal paid + record income + notify. Idempotent: a second
+    call (e.g. webhook AND the on-return verify both fire) is a no-op, so
+    income is never double-booked. Returns True if this call did the work."""
+    if proposal.status == ProposalStatus.PAID:
+        return False
 
     proposal.payment_status = PaymentStatus.PAID
     proposal.status = ProposalStatus.PAID
@@ -751,6 +747,71 @@ async def handle_proposal_payment_webhook(
         resource_type="proposal",
         resource_id=str(proposal.id),
     )
+    return True
+
+
+async def handle_proposal_payment_webhook(
+    db: AsyncSession,
+    proposal_id_str: str,
+    payment_intent_id: str | None = None,
+    expected_connect_account_id: str | None = None,
+) -> None:
+    """Handle Stripe webhook for proposal payment completion."""
+    proposal_id = uuid.UUID(proposal_id_str)
+    proposal = await get_proposal(db, proposal_id)
+
+    if expected_connect_account_id is not None:
+        from app.integrations.stripe.service import _connect_account_mismatch
+
+        if await _connect_account_mismatch(db, proposal.created_by, expected_connect_account_id):
+            return
+
+    await _apply_proposal_paid(db, proposal, payment_intent_id)
+
+
+async def verify_and_mark_proposal_payment(
+    db: AsyncSession, proposal_id: uuid.UUID, settings
+) -> dict:
+    """Confirm payment with Stripe when the payer returns from checkout, and
+    mark the proposal paid if so. This is a belt-and-suspenders alongside the
+    webhook: it closes the loop even if the webhook endpoint/secret is
+    misconfigured, and it lets the public 'payment received' page show a real,
+    verified status instead of trusting the redirect."""
+    proposal = await get_proposal(db, proposal_id)
+
+    def _payload() -> dict:
+        return {
+            "paid": proposal.status == ProposalStatus.PAID,
+            "title": proposal.title,
+            "proposal_number": proposal.proposal_number,
+            "amount": float(proposal.value),
+            "currency": proposal.currency,
+        }
+
+    if proposal.status == ProposalStatus.PAID:
+        return _payload()
+    if not proposal.stripe_checkout_session_id or not settings.stripe_secret_key:
+        return _payload()
+
+    import stripe as stripe_lib
+
+    stripe_lib.api_key = settings.stripe_secret_key
+    from app.integrations.stripe_connect.service import get_active_connect_account_id
+
+    connect_account_id = await get_active_connect_account_id(db, proposal.created_by)
+    try:
+        kwargs = {"stripe_account": connect_account_id} if connect_account_id else {}
+        session = stripe_lib.checkout.Session.retrieve(
+            proposal.stripe_checkout_session_id, **kwargs
+        )
+    except Exception:  # noqa: BLE001 — a Stripe hiccup shouldn't 500 the page
+        logger.exception("verify payment: retrieve failed for proposal %s", proposal_id)
+        return _payload()
+
+    if session.get("payment_status") == "paid":
+        await _apply_proposal_paid(db, proposal, session.get("payment_intent"))
+
+    return _payload()
 
 
 # ---------------------------------------------------------------------------
