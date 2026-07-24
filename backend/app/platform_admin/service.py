@@ -98,7 +98,8 @@ DEFAULT_PRICING_SETTINGS = [
     {"key": "max_storage_business_gb", "value": "50", "category": "limits",
      "description": "Max storage for Business plan (GB)", "value_type": "number"},
     # Annual plan pricing ($/mo billed yearly)
-    {"key": "plan_starter_annual_price", "value": "81", "category": "pricing",
+    # Starter is the free tier — it must be $0 in both billing periods.
+    {"key": "plan_starter_annual_price", "value": "0", "category": "pricing",
      "description": "Starter plan annual price ($/mo billed yearly)", "value_type": "number"},
     {"key": "plan_pro_annual_price", "value": "164", "category": "pricing",
      "description": "Pro plan annual price ($/mo billed yearly)", "value_type": "number"},

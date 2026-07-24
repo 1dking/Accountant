@@ -36,12 +36,22 @@ async def _pricing(db: AsyncSession) -> dict[str, str]:
 
 
 def _plan_amount(pricing: dict[str, str], plan_key: str, period: str) -> float:
+    """The plan's MONTHLY rate for the chosen period. Annual settings are stored
+    as '$/mo billed yearly', so this is a per-month figure either way — see
+    _charge_amount for what Stripe actually bills."""
     key = f"plan_{plan_key}_annual_price" if period == "annual" else f"plan_{plan_key}_price"
     raw = pricing.get(key) or pricing.get(f"plan_{plan_key}_price") or "0"
     try:
         return float(raw)
     except (TypeError, ValueError):
         return 0.0
+
+
+def _charge_amount(monthly_rate: float, period: str) -> float:
+    """What Stripe charges per billing interval. Annual plans bill 12x the
+    stored per-month rate once a year — the settings are '$/mo billed yearly',
+    which is also how the UI presents them ('billed yearly ($X*12/yr)')."""
+    return monthly_rate * 12 if period == "annual" else monthly_rate
 
 
 async def get_subscription(db: AsyncSession, user: User) -> AccountSubscription:
@@ -65,16 +75,36 @@ async def create_checkout(
 
     sub = await get_subscription(db, user)
     pricing = await _pricing(db)
-    amount = _plan_amount(pricing, plan_key, period)
+    monthly_rate = _plan_amount(pricing, plan_key, period)
 
-    # Free tier (or a $0-priced plan) needs no payment — just switch.
-    if plan_key == "starter" or amount <= 0:
+    # Starter is the free tier by design — switch with no payment.
+    if plan_key == "starter":
         sub.plan_key = plan_key
         sub.status = "active"
         sub.billing_period = None
         sub.stripe_subscription_id = None
         await db.commit()
         return {"free": True, "plan_key": plan_key}
+
+    # A paid plan priced at $0 is a misconfiguration, not a free plan. Failing
+    # loudly beats silently giving the product away.
+    if monthly_rate <= 0:
+        raise ValidationError(
+            f"Pricing for the {PLAN_NAMES[plan_key]} plan is not configured. "
+            "Set it in Platform Admin → Pricing & Limits."
+        )
+
+    # Annual is stored as '$/mo billed yearly', so it must be cheaper per month
+    # than monthly. If it isn't, the pricing table is wrong — refuse rather than
+    # overcharge on a yearly commitment.
+    if period == "annual":
+        monthly_price = _plan_amount(pricing, plan_key, "monthly")
+        if monthly_price > 0 and monthly_rate >= monthly_price:
+            raise ValidationError(
+                f"Annual pricing for the {PLAN_NAMES[plan_key]} plan is misconfigured "
+                f"(${monthly_rate:g}/mo annual vs ${monthly_price:g}/mo monthly). "
+                "Fix it in Platform Admin → Pricing & Limits, or choose monthly."
+            )
 
     if not settings.stripe_secret_key:
         raise ValidationError("Stripe is not configured")
@@ -90,6 +120,7 @@ async def create_checkout(
 
     origin = base_url.rstrip("/") if base_url else settings.public_base_url
     interval = "year" if period == "annual" else "month"
+    charge = _charge_amount(monthly_rate, period)
 
     session = stripe_lib.checkout.Session.create(
         mode="subscription",
@@ -98,7 +129,7 @@ async def create_checkout(
             "price_data": {
                 "currency": "usd",
                 "product_data": {"name": f"O-Brain {PLAN_NAMES[plan_key]}"},
-                "unit_amount": int(round(amount * 100)),
+                "unit_amount": int(round(charge * 100)),
                 "recurring": {"interval": interval},
             },
             "quantity": 1,

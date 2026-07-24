@@ -89,6 +89,57 @@ async def test_checkout_paid_plan_without_stripe_configured_errors(
     assert resp.status_code == 422, resp.text
 
 
+@pytest.mark.critical
+async def test_annual_charges_twelve_times_the_monthly_rate():
+    """Annual settings are stored as '$/mo billed yearly', so a yearly interval
+    must bill 12x that rate — not the per-month figure once a year."""
+    assert service._charge_amount(23.0, "annual") == 276.0
+    assert service._charge_amount(23.0, "monthly") == 23.0
+
+
+@pytest.mark.critical
+async def test_checkout_paid_plan_with_zero_price_is_rejected(
+    client: AsyncClient, db: AsyncSession, admin_user: User
+):
+    """A paid plan priced at $0 is a misconfiguration — it must NOT silently
+    hand out the plan for free."""
+    db.add(PlatformSetting(key="plan_pro_price", value="0", category="pricing"))
+    await db.commit()
+
+    resp = await client.post(
+        CHECKOUT_URL,
+        json={"plan_key": "pro", "period": "monthly"},
+        headers=auth_header(admin_user),
+    )
+    assert resp.status_code == 422, resp.text
+    assert "not configured" in resp.text.lower()
+
+    # And the account must still be on Starter, not silently upgraded.
+    sub = await service.get_subscription(db, admin_user)
+    assert sub.plan_key == "starter"
+
+
+@pytest.mark.critical
+async def test_checkout_rejects_incoherent_annual_pricing(
+    client: AsyncClient, db: AsyncSession, admin_user: User
+):
+    """If the annual per-month rate isn't cheaper than monthly, refuse rather
+    than lock someone into an overpriced yearly commitment."""
+    db.add_all([
+        PlatformSetting(key="plan_pro_price", value="29", category="pricing"),
+        PlatformSetting(key="plan_pro_annual_price", value="164", category="pricing"),
+    ])
+    await db.commit()
+
+    resp = await client.post(
+        CHECKOUT_URL,
+        json={"plan_key": "pro", "period": "annual"},
+        headers=auth_header(admin_user),
+    )
+    assert resp.status_code == 422, resp.text
+    assert "misconfigured" in resp.text.lower()
+
+
 @pytest.mark.normal
 async def test_checkout_unknown_plan_rejected(
     client: AsyncClient, admin_user: User

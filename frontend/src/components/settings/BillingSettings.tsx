@@ -6,6 +6,7 @@ import { Check, Sparkles, Zap, Crown, Rocket, Brain, Loader2, CreditCard } from 
 import { cn } from '@/lib/utils'
 import { platformAdminApi } from '@/api/platformAdmin'
 import { billingApi } from '@/api/billing'
+import { ApiClientError } from '@/api/client'
 
 const PLAN_LABELS: Record<string, string> = {
   starter: 'Starter',
@@ -138,8 +139,11 @@ export default function BillingSettings() {
       queryClient.invalidateQueries({ queryKey: ['billing-subscription'] })
       setCheckoutKey(null)
     },
-    onError: () => {
-      toast.error('Could not start checkout. Please try again.')
+    onError: (err) => {
+      // Surface the real reason (e.g. misconfigured plan pricing) — the admin
+      // needs to know what to fix, not just "try again".
+      const msg = err instanceof ApiClientError ? err.error?.message : null
+      toast.error(msg || 'Could not start checkout. Please try again.')
       setCheckoutKey(null)
     },
   })
@@ -151,7 +155,10 @@ export default function BillingSettings() {
       if (url) window.location.href = url
       else toast.error('Billing portal is unavailable right now.')
     },
-    onError: () => toast.error('Could not open the billing portal.'),
+    onError: (err) => {
+      const msg = err instanceof ApiClientError ? err.error?.message : null
+      toast.error(msg || 'Could not open the billing portal.')
+    },
   })
 
   if (isLoading) {
