@@ -1164,6 +1164,28 @@ export interface OfficeCollaborator {
   permission: OfficePermission
 }
 
+export interface OfficeVersion {
+  id: string
+  version_number: number
+  title: string
+  created_by: string
+  created_at: string
+  content_json?: Record<string, unknown> | null
+}
+
+export interface OfficeComment {
+  id: string
+  document_id: string
+  user_id: string
+  user_name: string
+  user_email: string
+  parent_id: string | null
+  content: string
+  is_edited: boolean
+  created_at: string
+  updated_at: string
+}
+
 // Reconciliation
 export type MatchStatus = 'pending' | 'confirmed' | 'rejected'
 

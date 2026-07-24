@@ -30,7 +30,12 @@ pnpm install --frozen-lockfile --silent
 pnpm run build
 cd ..
 
-echo ">>> Restarting backend"
+echo ">>> Installing Hocuspocus dependencies"
+cd backend/hocuspocus
+npm install --production --quiet 2>/dev/null || npm install --production
+cd ../..
+
+echo ">>> Restarting backend + Hocuspocus"
 bash stop.sh 2>/dev/null || true
 bash start.sh
 
@@ -56,6 +61,16 @@ else
     echo "Health check FAILED — backend did not come up within 30s"
     tail -20 backend/uvicorn.log
     exit 1
+fi
+
+# Non-fatal: Hocuspocus (real-time Docs collaboration) is optional --
+# DocEditorPage.tsx falls back to REST autosave if it's unreachable, so a
+# down collaboration server degrades a feature, it doesn't break editing.
+if curl -sf http://localhost:1234/ > /dev/null 2>&1; then
+    echo "Hocuspocus healthy"
+else
+    echo "WARNING: Hocuspocus did not come up — real-time collaboration will be unavailable (editing still works via autosave)"
+    tail -20 hocuspocus.log 2>/dev/null || true
 fi
 
 echo "=== $(date) === Deployment complete ==="

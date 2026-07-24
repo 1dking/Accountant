@@ -385,6 +385,74 @@ def create_app() -> FastAPI:
     async def websocket_endpoint_api(websocket: WebSocket, token: str = Query(...)):
         await _ws_handler(websocket, token)
 
+    # ---- Docs real-time collaboration (Hocuspocus) proxy ----
+    # DreamHost's proxy only exposes port 8000 -- Hocuspocus (a separate Node
+    # process on 127.0.0.1:1234) is unreachable from the browser directly.
+    # This is a protocol-agnostic byte pipe under /api/* (the proven WS path,
+    # see the comment above _ws_handler) so the collaboration server rides
+    # through the same proxy chain as everything else. Hocuspocus's own
+    # onAuthenticate hook validates the token against /api/auth/me -- this
+    # proxy does no auth itself, it just forwards bytes both ways.
+    @fastapi_app.websocket("/api/collaborate/{doc_id}")
+    async def collaborate_proxy(websocket: WebSocket, doc_id: str):
+        import asyncio
+
+        import websockets as ws_client
+
+        await websocket.accept()
+
+        query = websocket.url.query
+        upstream_url = f"ws://127.0.0.1:{settings.hocuspocus_port}/{doc_id}"
+        if query:
+            upstream_url += f"?{query}"
+
+        try:
+            async with ws_client.connect(upstream_url) as upstream:
+                logger.info("collaborate_proxy: connected to upstream %s", upstream_url)
+
+                async def pump_client_to_upstream():
+                    while True:
+                        message = await websocket.receive()
+                        if message["type"] == "websocket.disconnect":
+                            return
+                        if message.get("bytes") is not None:
+                            await upstream.send(message["bytes"])
+                        elif message.get("text") is not None:
+                            await upstream.send(message["text"])
+
+                async def pump_upstream_to_client():
+                    async for message in upstream:
+                        if isinstance(message, bytes):
+                            await websocket.send_bytes(message)
+                        else:
+                            await websocket.send_text(message)
+
+                tasks = [
+                    asyncio.create_task(pump_client_to_upstream()),
+                    asyncio.create_task(pump_upstream_to_client()),
+                ]
+                try:
+                    done, _pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+                    for task in done:
+                        exc = task.exception()
+                        if exc is not None:
+                            logger.warning("collaborate_proxy pump task failed: %r", exc)
+                finally:
+                    for task in tasks:
+                        task.cancel()
+        except WebSocketDisconnect:
+            pass
+        except (OSError, ws_client.exceptions.WebSocketException) as exc:
+            # Hocuspocus process unreachable/down -- close so the client's
+            # provider falls back to disconnected state (REST autosave still
+            # covers editing; see DocEditorPage.tsx's connectionStatus).
+            logger.warning("collaborate_proxy: upstream unavailable: %r", exc)
+            try:
+                await websocket.close(code=1011, reason="Collaboration server unavailable")
+            except RuntimeError:
+                pass
+        logger.info("collaborate_proxy: connection for %s ended", doc_id)
+
     # System endpoints
     @fastapi_app.get("/api/system/health")
     async def health():

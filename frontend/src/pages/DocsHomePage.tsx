@@ -7,7 +7,7 @@ import { useDebounce } from '@/hooks/useDebounce'
 import { FileText, Plus, Search, FileEdit, ClipboardList, Mail } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-type ViewTab = 'owned' | 'shared' | 'starred'
+type ViewTab = 'owned' | 'shared' | 'starred' | 'trash'
 
 const TEMPLATES = [
   { title: 'Blank', icon: Plus, description: 'Start from scratch' },
@@ -15,6 +15,73 @@ const TEMPLATES = [
   { title: 'Project Proposal', icon: FileEdit, description: 'Project plan template' },
   { title: 'Letter', icon: Mail, description: 'Professional letter' },
 ]
+
+// Real starter content per template — plain Tiptap/ProseMirror JSON built
+// from only the nodes StarterKit ships (heading/paragraph/bulletList),
+// so it renders correctly with no extra editor extensions required.
+const heading = (level: number, text: string) => ({ type: 'heading', attrs: { level }, content: [{ type: 'text', text }] })
+const para = (text?: string) => (text ? { type: 'paragraph', content: [{ type: 'text', text }] } : { type: 'paragraph' })
+const bulletList = (items: string[]) => ({
+  type: 'bulletList',
+  content: items.map((text) => ({ type: 'listItem', content: [para(text)] })),
+})
+
+const TEMPLATE_CONTENT: Record<string, Record<string, unknown>> = {
+  'Meeting Notes': {
+    type: 'doc',
+    content: [
+      heading(1, 'Meeting Notes'),
+      para('Date:    Attendees:    Location:'),
+      heading(2, 'Agenda'),
+      bulletList(['Topic one', 'Topic two', 'Topic three']),
+      heading(2, 'Discussion'),
+      para('Summarize what was discussed for each agenda item.'),
+      heading(2, 'Action Items'),
+      bulletList(['Task — Owner: — Due:', 'Task — Owner: — Due:']),
+      heading(2, 'Next Meeting'),
+      para('Date and time of the follow-up, if any.'),
+    ],
+  },
+  'Project Proposal': {
+    type: 'doc',
+    content: [
+      heading(1, 'Project Proposal'),
+      para('Prepared for:    Prepared by:    Date:'),
+      heading(2, 'Overview'),
+      para('One or two sentences describing the project and the problem it solves.'),
+      heading(2, 'Objectives'),
+      bulletList(['Primary objective', 'Secondary objective', 'Success metric']),
+      heading(2, 'Scope of Work'),
+      para('Describe what is included — and explicitly what is not — in this engagement.'),
+      heading(2, 'Timeline'),
+      para('Key milestones and target dates.'),
+      heading(2, 'Investment'),
+      para('Pricing and payment terms.'),
+      heading(2, 'Next Steps'),
+      para('What needs to happen for this proposal to move forward.'),
+    ],
+  },
+  Letter: {
+    type: 'doc',
+    content: [
+      para('[Your Name]'),
+      para('[Your Address]'),
+      para('[City, State ZIP]'),
+      para(''),
+      para('[Date]'),
+      para(''),
+      para('[Recipient Name]'),
+      para('[Recipient Address]'),
+      para(''),
+      para('Dear [Recipient Name],'),
+      para(''),
+      para('Write the body of your letter here.'),
+      para(''),
+      para('Sincerely,'),
+      para('[Your Name]'),
+    ],
+  },
+}
 
 export default function DocsHomePage() {
   const navigate = useNavigate()
@@ -28,7 +95,7 @@ export default function DocsHomePage() {
     queryFn: () =>
       listOfficeDocs({
         doc_type: 'document',
-        view: activeTab,
+        view: activeTab === 'trash' ? 'trashed' : activeTab,
         search: debouncedSearch || undefined,
       }),
   })
@@ -36,8 +103,8 @@ export default function DocsHomePage() {
   const documents = data?.data ?? []
 
   const createMutation = useMutation({
-    mutationFn: (title: string) =>
-      createOfficeDoc({ title: title || undefined, doc_type: 'document' }),
+    mutationFn: ({ title, content_json }: { title: string; content_json?: Record<string, unknown> }) =>
+      createOfficeDoc({ title: title || undefined, doc_type: 'document', content_json }),
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ['office-docs'] })
       navigate(`/docs/${res.data.id}`)
@@ -46,13 +113,14 @@ export default function DocsHomePage() {
 
   const handleTemplateClick = (template: typeof TEMPLATES[0]) => {
     const title = template.title === 'Blank' ? 'Untitled document' : template.title
-    createMutation.mutate(title)
+    createMutation.mutate({ title, content_json: TEMPLATE_CONTENT[template.title] })
   }
 
   const tabs: { key: ViewTab; label: string }[] = [
     { key: 'owned', label: 'Owned by me' },
     { key: 'shared', label: 'Shared with me' },
     { key: 'starred', label: 'Starred' },
+    { key: 'trash', label: 'Trash' },
   ]
 
   return (
@@ -66,7 +134,7 @@ export default function DocsHomePage() {
               Docs
             </h1>
             <button
-              onClick={() => createMutation.mutate('Untitled document')}
+              onClick={() => createMutation.mutate({ title: 'Untitled document' })}
               disabled={createMutation.isPending}
               className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
             >
@@ -143,18 +211,20 @@ export default function DocsHomePage() {
           <div className="text-center py-16">
             <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
             <h3 className="text-gray-900 dark:text-gray-100 font-medium mb-1">
-              {search ? 'No documents found' : 'No documents yet'}
+              {search ? 'No documents found' : activeTab === 'trash' ? 'Trash is empty' : 'No documents yet'}
             </h3>
             <p className="text-sm text-gray-500 dark:text-gray-400">
               {search
                 ? 'Try a different search term'
+                : activeTab === 'trash'
+                ? 'Documents you move to trash will appear here'
                 : 'Create a new document to get started'}
             </p>
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {documents.map((doc) => (
-              <OfficeDocCard key={doc.id} document={doc} />
+              <OfficeDocCard key={doc.id} document={doc} isTrashed={activeTab === 'trash'} />
             ))}
           </div>
         )}

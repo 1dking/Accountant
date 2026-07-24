@@ -5,6 +5,9 @@ import { getOfficeDoc, updateOfficeDoc, starOfficeDoc } from '@/api/office'
 import { useAuthStore } from '@/stores/authStore'
 import EditorTopBar from '@/components/office/EditorTopBar'
 import DocToolbar from '@/components/office/DocToolbar'
+import CommentsPanel from '@/components/office/CommentsPanel'
+import VersionHistoryPanel from '@/components/office/VersionHistoryPanel'
+import AiAssistPopover from '@/components/office/AiAssistPopover'
 import {
   ChevronDown,
   ChevronRight,
@@ -16,6 +19,9 @@ import {
   ZoomOut,
   ListTree,
   PanelLeftClose,
+  MessageSquare,
+  History,
+  Sparkles,
 } from 'lucide-react'
 
 import { useEditor, EditorContent } from '@tiptap/react'
@@ -27,7 +33,20 @@ import Image from '@tiptap/extension-image'
 import Placeholder from '@tiptap/extension-placeholder'
 import { Table, TableRow, TableCell, TableHeader } from '@tiptap/extension-table'
 import { TextStyle, Color, FontSize } from '@tiptap/extension-text-style'
+import Collaboration from '@tiptap/extension-collaboration'
 import type { JSONContent } from '@tiptap/react'
+import * as Y from 'yjs'
+import { HocuspocusProvider, WebSocketStatus } from '@hocuspocus/provider'
+
+// ─── Collaboration cursor colors ───────────────────────────────────────────
+
+const CURSOR_COLORS = ['#f87171', '#fb923c', '#fbbf24', '#a3e635', '#34d399', '#22d3ee', '#60a5fa', '#a78bfa', '#f472b6']
+
+function colorForUser(userId: string): string {
+  let hash = 0
+  for (let i = 0; i < userId.length; i++) hash = (hash * 31 + userId.charCodeAt(i)) >>> 0
+  return CURSOR_COLORS[hash % CURSOR_COLORS.length]
+}
 
 // ─── Markdown Converter ─────────────────────────────────────────────────────
 
@@ -200,12 +219,108 @@ export default function DocEditorPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { user: _user } = useAuthStore()
-  const [connectionStatus] = useState<'connected' | 'connecting' | 'disconnected'>('connected')
-  const [connectedUsers] = useState<{ name: string; color: string }[]>([])
+  const { user } = useAuthStore()
+  const [connectionStatus, setConnectionStatus] = useState<WebSocketStatus>(WebSocketStatus.Connecting)
+  const [connectedUsers, setConnectedUsers] = useState<{ name: string; color: string }[]>([])
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const initialLoadRef = useRef(false)
+  const contentSeededRef = useRef(false)
   const importInputRef = useRef<HTMLInputElement>(null)
+
+  // ─── Real-time collaboration (Hocuspocus) ────────────────────────────────
+  // Y.Doc + provider are created once per mount via the lazy-ref pattern --
+  // both are safe to construct synchronously (the provider just starts an
+  // async connection attempt, like `new WebSocket(url)`). Torn down on
+  // unmount below. If Hocuspocus is unreachable, the editor still works:
+  // Collaboration binds to the local Y.Doc regardless of connection state,
+  // and the REST autosave a few lines down keeps saving content_json as
+  // it always has.
+  const ydocRef = useRef<Y.Doc | null>(null)
+  if (!ydocRef.current) {
+    ydocRef.current = new Y.Doc()
+  }
+  const providerRef = useRef<HocuspocusProvider | null>(null)
+  if (!providerRef.current && id) {
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    providerRef.current = new HocuspocusProvider({
+      url: `${wsProtocol}//${window.location.host}/api/collaborate/${id}`,
+      name: id,
+      document: ydocRef.current,
+      token: () => localStorage.getItem('access_token') || '',
+    })
+  }
+
+  useEffect(() => {
+    return () => {
+      // Only the provider (a live network resource) is torn down here --
+      // NOT the Y.Doc. useEditor() binds Collaboration to whichever Y.Doc
+      // instance existed at editor-construction time and never re-reads
+      // ydocRef afterwards (Tiptap only reacts to extension changes via an
+      // explicit deps array, which this component doesn't use). Under React
+      // StrictMode's dev-only double-invoke, destroying+recreating the
+      // Y.Doc here left the editor permanently bound to an already-
+      // destroyed Y.Doc while a second, live provider synced a different
+      // one -- edits looked local-only forever. The Y.Doc itself holds no
+      // network resource, so leaving it alone until the page genuinely
+      // unmounts is safe.
+      providerRef.current?.destroy()
+      providerRef.current = null
+    }
+  }, [])
+
+  useEffect(() => {
+    const provider = providerRef.current
+    if (!provider) return
+
+    // No CollaborationCursor extension (see extensions list below) --
+    // @tiptap/extension-collaboration-cursor@3.0.0 still targets the old
+    // y-prosemirror sync plugin, incompatible with @tiptap/extension-
+    // collaboration@3.20's newer @tiptap/y-tiptap engine (crashes on
+    // mount). Presence/awareness still works without it -- set our own
+    // local user field so other clients can show us in their
+    // connectedUsers list.
+    provider.awareness?.setLocalStateField('user', {
+      name: user?.full_name || 'Anonymous',
+      color: colorForUser(user?.id || 'anon'),
+    })
+
+    const handleStatus = ({ status }: { status: WebSocketStatus }) => setConnectionStatus(status)
+    const handleAwarenessChange = () => {
+      const states = provider.awareness?.getStates()
+      if (!states) return
+      const localClientId = provider.awareness?.clientID
+      const others: { name: string; color: string }[] = []
+      states.forEach((state: any, clientId: number) => {
+        if (clientId === localClientId) return
+        if (state?.user?.name) others.push({ name: state.user.name, color: state.user.color })
+      })
+      setConnectedUsers(others)
+    }
+
+    provider.on('status', handleStatus)
+    provider.on('awarenessChange', handleAwarenessChange)
+    handleAwarenessChange()
+
+    // Belt-and-suspenders catch-up: the provider may already be connected
+    // by the time this effect attaches (it's constructed eagerly during
+    // render, before any effects run), so a 'status' event firing in that
+    // window is missed and the pill would stick on "Connecting" forever
+    // despite a genuinely working connection. A short poll is simpler and
+    // more robust than chasing exact event-ordering guarantees across
+    // React's dev-mode double-invoked effects.
+    const pollId = window.setInterval(() => {
+      // Read providerRef.current fresh (not the closed-over `provider`)
+      // so this stays correct even if this effect instance is bound to an
+      // earlier provider than the one currently live.
+      const liveStatus = providerRef.current?.configuration?.websocketProvider?.status
+      if (liveStatus) setConnectionStatus(liveStatus)
+    }, 500)
+
+    return () => {
+      provider.off('status', handleStatus)
+      provider.off('awarenessChange', handleAwarenessChange)
+      window.clearInterval(pollId)
+    }
+  }, [providerRef.current, user?.id, user?.full_name])
 
   // UI state
   const [tocOpen, setTocOpen] = useState(true)
@@ -219,6 +334,9 @@ export default function DocEditorPage() {
   const [showColorMenu, setShowColorMenu] = useState(false)
   const [tocHeadings, setTocHeadings] = useState<TocHeading[]>([])
   const [wordCount, setWordCount] = useState(0)
+  const [rightPanel, setRightPanel] = useState<'none' | 'comments' | 'history'>('none')
+  const [aiOpen, setAiOpen] = useState(false)
+  const [aiSelectedText, setAiSelectedText] = useState('')
 
   const downloadMenuRef = useRef<HTMLDivElement>(null)
   const fontSizeMenuRef = useRef<HTMLDivElement>(null)
@@ -250,7 +368,11 @@ export default function DocEditorPage() {
 
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      // Collaboration's Y.UndoManager (via yUndoPlugin) replaces
+      // StarterKit's local history -- it works identically whether or not
+      // the Hocuspocus provider is actually connected, since undo/redo
+      // operates on the local Y.Doc.
+      StarterKit.configure({ history: false } as any),
       Underline,
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       Highlight,
@@ -263,6 +385,7 @@ export default function DocEditorPage() {
       TextStyle,
       Color,
       FontSize,
+      Collaboration.configure({ document: ydocRef.current }),
     ],
     editorProps: {
       attributes: {
@@ -317,20 +440,44 @@ export default function DocEditorPage() {
   }, [])
 
   // ─── Load Initial Content ─────────────────────────────────────────────────
+  // With Collaboration active, content lives in the Y.Doc -- calling
+  // setContent unconditionally would stomp whatever other collaborators
+  // already synced in. Only seed from the REST-loaded content_json if the
+  // Y.Doc is genuinely empty (a brand-new document, or the very first time
+  // this doc is opened after this feature shipped). A fallback timer covers
+  // the case where Hocuspocus never connects at all -- the editor still
+  // needs real content to show, not a permanently blank page.
 
   useEffect(() => {
-    if (!editor || !doc || initialLoadRef.current) return
-    initialLoadRef.current = true
+    const provider = providerRef.current
+    const ydoc = ydocRef.current
+    if (!provider || !ydoc || !editor || !doc || contentSeededRef.current) return
 
-    if (doc.content_json && typeof doc.content_json === 'object') {
-      editor.commands.setContent(doc.content_json)
+    const trySeed = () => {
+      if (contentSeededRef.current) return
+      contentSeededRef.current = true
+
+      const fragment = ydoc.getXmlFragment('default')
+      if (fragment.length === 0 && doc.content_json && typeof doc.content_json === 'object') {
+        editor.commands.setContent(doc.content_json)
+      }
+      setTimeout(() => {
+        updateWordCount(editor)
+        updateToc(editor)
+      }, 100)
     }
 
-    // Initial word count + TOC
-    setTimeout(() => {
-      updateWordCount(editor)
-      updateToc(editor)
-    }, 100)
+    if (provider.isSynced) {
+      trySeed()
+      return
+    }
+
+    provider.on('synced', trySeed)
+    const fallbackTimer = setTimeout(trySeed, 4000)
+    return () => {
+      provider.off('synced', trySeed)
+      clearTimeout(fallbackTimer)
+    }
   }, [editor, doc, updateWordCount, updateToc])
 
   // ─── Cleanup ──────────────────────────────────────────────────────────────
@@ -520,6 +667,31 @@ export default function DocEditorPage() {
     setShowColorMenu(false)
   }, [editor])
 
+  // ─── AI Assist ────────────────────────────────────────────────────────────
+
+  const openAiAssist = useCallback(() => {
+    if (!editor) return
+    const { from, to } = editor.state.selection
+    const text = from !== to ? editor.state.doc.textBetween(from, to, ' ') : ''
+    setAiSelectedText(text)
+    setAiOpen(true)
+  }, [editor])
+
+  const handleAiReplaceSelection = useCallback((text: string) => {
+    if (!editor) return
+    editor.chain().focus().deleteSelection().insertContent(text).run()
+  }, [editor])
+
+  const handleAiInsert = useCallback((text: string) => {
+    if (!editor) return
+    editor.chain().focus().insertContent(text).run()
+  }, [editor])
+
+  const handleVersionRestored = useCallback((contentJson: Record<string, unknown>) => {
+    if (!editor) return
+    editor.commands.setContent(contentJson)
+  }, [editor])
+
   // ─── Zoom Style ───────────────────────────────────────────────────────────
 
   const zoomStyle = useMemo(() => ({
@@ -685,7 +857,45 @@ export default function DocEditorPage() {
           Find
         </button>
 
+        {/* Ask AI */}
+        <button
+          onClick={openAiAssist}
+          className="flex items-center gap-1 px-2 py-1 text-sm rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          title="Ask AI"
+        >
+          <Sparkles className="h-3.5 w-3.5 text-blue-500" />
+          Ask AI
+        </button>
+
         <div className="flex-1" />
+
+        {/* Comments Toggle */}
+        <button
+          onClick={() => setRightPanel(rightPanel === 'comments' ? 'none' : 'comments')}
+          className={`flex items-center gap-1 px-2 py-1 text-sm rounded-md border transition-colors ${
+            rightPanel === 'comments'
+              ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+              : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+          }`}
+          title="Toggle Comments"
+        >
+          <MessageSquare className="h-3.5 w-3.5" />
+          Comments
+        </button>
+
+        {/* Version History Toggle */}
+        <button
+          onClick={() => setRightPanel(rightPanel === 'history' ? 'none' : 'history')}
+          className={`flex items-center gap-1 px-2 py-1 text-sm rounded-md border transition-colors ${
+            rightPanel === 'history'
+              ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+              : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+          }`}
+          title="Toggle Version History"
+        >
+          <History className="h-3.5 w-3.5" />
+          History
+        </button>
 
         {/* TOC Toggle */}
         <button
@@ -801,6 +1011,12 @@ export default function DocEditorPage() {
             </div>
           </div>
         </div>
+
+        {/* ─── Right Panel: Comments / Version History ────────────────── */}
+        {rightPanel === 'comments' && <CommentsPanel docId={id} />}
+        {rightPanel === 'history' && (
+          <VersionHistoryPanel docId={id} onRestored={handleVersionRestored} />
+        )}
       </div>
 
       {/* ─── Bottom Status Bar ───────────────────────────────────────────── */}
@@ -850,6 +1066,16 @@ export default function DocEditorPage() {
           </button>
         </div>
       </div>
+
+      {/* ─── AI Assist Popover ──────────────────────────────────────────── */}
+      <AiAssistPopover
+        docId={id}
+        selectedText={aiSelectedText}
+        isOpen={aiOpen}
+        onClose={() => setAiOpen(false)}
+        onReplaceSelection={handleAiReplaceSelection}
+        onInsert={handleAiInsert}
+      />
 
       {/* ─── Styles ──────────────────────────────────────────────────────── */}
       <style>{`

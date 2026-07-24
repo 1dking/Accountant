@@ -91,6 +91,11 @@ class Settings(BaseSettings):
     livekit_api_key: str = ""
     livekit_api_secret: str = ""
 
+    # Hocuspocus (Docs real-time collaboration) -- local-only process,
+    # reached through the /api/collaborate WebSocket proxy in main.py since
+    # DreamHost's proxy only exposes port 8000.
+    hocuspocus_port: int = 1234
+
     # Gemini AI (page builder)
     gemini_api_key: str = ""
 

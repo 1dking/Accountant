@@ -76,16 +76,37 @@ const server = new Hocuspocus({
       /**
        * Save Yjs state back to the backend whenever the document changes.
        * Debounced by Hocuspocus (default: 2 seconds after last change).
+       *
+       * Must never throw -- an uncaught rejection here previously crashed
+       * the entire Node process (taking collaboration down for every
+       * connected document, not just this one), e.g. when documentName
+       * didn't match a real document or the backend hiccuped. Log and
+       * move on; the client's own REST autosave (DocEditorPage.tsx) is
+       * the authoritative save path regardless.
        */
       async store({ documentName, state }) {
-        await apiFetch(`/api/office/${documentName}/state`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/octet-stream" },
-          body: state,
-        });
+        try {
+          await apiFetch(`/api/office/${documentName}/state`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/octet-stream" },
+            body: state,
+          });
+        } catch (err) {
+          console.error(`Failed to persist Yjs state for ${documentName}:`, err.message);
+        }
       },
     }),
   ],
+});
+
+// Last-resort safety net -- a crashed Hocuspocus process takes down
+// real-time collaboration for every open document until something
+// restarts it. Log and keep running rather than exiting.
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught exception (Hocuspocus keeps running):", err);
+});
+process.on("unhandledRejection", (reason) => {
+  console.error("Unhandled rejection (Hocuspocus keeps running):", reason);
 });
 
 server.listen().then(() => {

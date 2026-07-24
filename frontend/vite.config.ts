@@ -49,7 +49,7 @@ export default defineConfig({
             '@tiptap/extension-text-align', '@tiptap/extension-underline',
             '@tiptap/extension-highlight',
           ],
-          yjs: ['yjs', 'y-websocket'],
+          yjs: ['yjs', 'y-websocket', '@hocuspocus/provider'],
           livekit: ['livekit-client', '@livekit/components-react'],
           ui: ['@tanstack/react-query', 'zustand', '@dnd-kit/core'],
           flow: ['@xyflow/react'],
@@ -64,7 +64,13 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/api': 'http://localhost:8000',
+      '/api': {
+        target: 'http://localhost:8000',
+        // /api/ws and /api/collaborate are WebSocket routes proxied through
+        // the FastAPI app (see backend/app/main.py) -- ws:true lets Vite
+        // upgrade those alongside the plain HTTP /api/* routes.
+        ws: true,
+      },
       '/ws': {
         target: 'ws://localhost:8000',
         ws: true,
