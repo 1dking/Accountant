@@ -18,6 +18,10 @@ class TwilioPhoneNumber(TimestampMixin, Base):
     )
     friendly_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     capabilities_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Twilio subaccount isolation. NULL = legacy number still on the PARENT
+    # account (see telephony/service.py::migrate_legacy_numbers).
+    tenant_key: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    subaccount_sid: Mapped[str | None] = mapped_column(String(64), nullable=True)
     webhooks_configured_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

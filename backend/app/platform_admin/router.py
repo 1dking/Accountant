@@ -886,3 +886,213 @@ async def recover_orphan_voicemails_endpoint(
     settings = request.app.state.settings
     result = await recover_orphan_voicemails(db, settings)
     return {"data": result}
+
+
+# ---------------------------------------------------------------------------
+# Telephony kill switch (operator-only)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/telephony/accounts")
+async def list_telephony_accounts(
+    admin: Annotated[User, Depends(require_platform_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    """Every tenant's telephony posture, for the operator console."""
+    from sqlalchemy import select as _select
+
+    from app.billing.models import TelephonyAccount
+    from app.communication import telephony
+
+    rows = (await db.execute(_select(TelephonyAccount))).scalars().all()
+    return {
+        "data": [
+            {
+                "id": str(a.id),
+                "tenant_key": a.tenant_key,
+                "owner_user_id": str(a.owner_user_id),
+                "subaccount_sid": a.subaccount_sid,
+                "status": a.status,
+                "suspended_at": a.suspended_at,
+                "suspended_reason": a.suspended_reason,
+                "numbers_held": await telephony.count_numbers(db, a.tenant_key),
+                "max_numbers": telephony.max_numbers_for(a),
+                "daily_spend_cap_usd": telephony.daily_cap_for(a),
+            }
+            for a in rows
+        ]
+    }
+
+
+@router.post("/telephony/accounts/{account_id}/suspend")
+async def suspend_telephony(
+    account_id: uuid.UUID,
+    request: Request,
+    admin: Annotated[User, Depends(require_platform_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    """Manually pull the kill switch on a tenant's telephony."""
+    from app.billing.models import TelephonyAccount
+    from app.communication import telephony
+
+    account = await db.get(TelephonyAccount, account_id)
+    if account is None:
+        raise NotFoundError("TelephonyAccount", str(account_id))
+    await telephony.suspend(
+        db, account, f"suspended by operator {admin.email}", request.app.state.settings
+    )
+    return {"data": {"suspended": True, "tenant_key": account.tenant_key}}
+
+
+@router.post("/telephony/accounts/{account_id}/reactivate")
+async def reactivate_telephony(
+    account_id: uuid.UUID,
+    request: Request,
+    admin: Annotated[User, Depends(require_platform_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    """Reverse a suspension — the required counterpart to the kill switch."""
+    from app.billing.models import TelephonyAccount
+    from app.communication import telephony
+
+    account = await db.get(TelephonyAccount, account_id)
+    if account is None:
+        raise NotFoundError("TelephonyAccount", str(account_id))
+    await telephony.reactivate(db, account, request.app.state.settings)
+    return {"data": {"reactivated": True, "tenant_key": account.tenant_key}}
+
+
+@router.get("/ai-usage")
+async def list_ai_usage(
+    admin: Annotated[User, Depends(require_platform_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    """AI credit consumption per tenant this month — spots runaway accounts."""
+    from sqlalchemy import select as _select
+
+    from app.billing.ai_meter import current_period
+    from app.billing.models import AiUsage
+
+    period = current_period()
+    rows = (
+        await db.execute(
+            _select(AiUsage).where(AiUsage.period == period).order_by(AiUsage.credits_used.desc())
+        )
+    ).scalars().all()
+    return {
+        "data": [
+            {
+                "tenant_key": r.tenant_key,
+                "period": r.period,
+                "credits_used": r.credits_used,
+                "calls": r.call_count,
+                "estimated_spend_usd": round((r.credits_used or 0) / 1000.0, 3),
+            }
+            for r in rows
+        ]
+    }
+
+
+# ---------------------------------------------------------------------------
+# Telephony rate card + realised margin (operator-only)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/telephony/rate-card")
+async def get_rate_card(
+    admin: Annotated[User, Depends(require_platform_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    scope: str = Query("global"),
+    scope_key: str | None = Query(None),
+) -> dict:
+    """The rate card for a scope, with our cost, sell price and margin."""
+    from app.billing.rate_card import UNITS, full_card, global_markup
+
+    card = await full_card(
+        db,
+        tenant_key=scope_key if scope == "tenant" else None,
+        plan_key=scope_key if scope == "plan" else None,
+    )
+    return {
+        "data": {
+            "scope": scope,
+            "scope_key": scope_key,
+            "global_markup": await global_markup(db),
+            "units": card,
+            "available_units": UNITS,
+        }
+    }
+
+
+@router.put("/telephony/rate-card")
+async def update_rate_card(
+    body: dict,
+    admin: Annotated[User, Depends(require_platform_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    """Create or update one rate-card row.
+
+    Body: unit, scope, scope_key, our_cost_usd, sell_price_usd,
+    markup_multiplier, is_enabled, notes.
+    """
+    from app.billing.rate_card import upsert_rate
+
+    try:
+        row = await upsert_rate(
+            db,
+            unit=body["unit"],
+            scope=body.get("scope", "global"),
+            scope_key=body.get("scope_key"),
+            our_cost_usd=body.get("our_cost_usd"),
+            sell_price_usd=body.get("sell_price_usd"),
+            markup_multiplier=body.get("markup_multiplier"),
+            is_enabled=body.get("is_enabled"),
+            notes=body.get("notes"),
+        )
+    except (KeyError, ValueError) as exc:
+        raise ValidationError(str(exc))
+    return {"data": {"id": str(row.id), "unit": row.unit, "scope": row.scope}}
+
+
+@router.get("/telephony/margin")
+async def telephony_margin(
+    admin: Annotated[User, Depends(require_platform_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    period: str | None = Query(None, description="YYYY-MM, defaults to this month"),
+) -> dict:
+    """Realised margin per tenant: our Twilio cost vs what we billed.
+
+    This is the number that proves the markup works — it comes from the ledger,
+    not from an estimate.
+    """
+    from app.billing.telephony_metering import margin_report
+
+    report = await margin_report(db, period)
+    total_cost = round(sum(r["our_cost_usd"] for r in report), 4)
+    total_billed = round(sum(r["billed_usd"] for r in report), 4)
+    margin = round(total_billed - total_cost, 4)
+    return {
+        "data": {
+            "period": report[0]["period"] if report else period,
+            "tenants": report,
+            "totals": {
+                "our_cost_usd": total_cost,
+                "billed_usd": total_billed,
+                "margin_usd": margin,
+                "margin_pct": round((margin / total_billed) * 100, 1) if total_billed else 0.0,
+            },
+        }
+    }
+
+
+@router.post("/telephony/meter-now")
+async def meter_now(
+    request: Request,
+    admin: Annotated[User, Depends(require_platform_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    period: str = Query("yesterday"),
+) -> dict:
+    """Run the metering pull on demand rather than waiting for the scheduler."""
+    from app.billing.telephony_metering import meter_all
+
+    return {"data": await meter_all(db, request.app.state.settings, period=period)}

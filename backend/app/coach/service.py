@@ -55,6 +55,11 @@ async def analyze_meeting_transcript(
 ) -> MeetingIntelligence | None:
     """Analyze a meeting transcript using Claude and store results."""
     from app.brain.models import MeetingTranscript
+    from app.billing.ai_meter import safe_consume_by_user_id
+
+    # Background spender: charge the meter first, skip the work if empty.
+    if not await safe_consume_by_user_id(db, user_id, "meeting_summary"):
+        return None
 
     # Check if already analyzed
     existing = await db.execute(
@@ -413,6 +418,10 @@ async def generate_monthly_report(
     db: AsyncSession, user_id: uuid.UUID, month: str | None = None
 ) -> MonthlyReport | None:
     """Generate or retrieve monthly intelligence report."""
+    from app.billing.ai_meter import safe_consume_by_user_id
+
+    if not await safe_consume_by_user_id(db, user_id, "coach_report"):
+        return None
     if not month:
         now = datetime.now(timezone.utc)
         prev = now.replace(day=1) - timedelta(days=1)

@@ -348,11 +348,62 @@ async def _complete_past_bookings() -> None:
         logger.exception("Error completing past bookings")
 
 
+async def _meter_telephony_usage() -> None:
+    """Job: pull yesterday's Twilio usage per subaccount, rebill it, and record
+    our actual cost alongside so realised margin is queryable."""
+    try:
+        async with _session_factory() as db:
+            from app.billing.telephony_metering import meter_all
+
+            result = await meter_all(db, _settings, period="yesterday")
+            if result.get("tenants"):
+                logger.info(
+                    "telephony.metered tenants=%s billed=$%.4f cost=$%.4f margin=$%.4f",
+                    result["tenants"], result["billed_usd"],
+                    result["our_cost_usd"], result["margin_usd"],
+                )
+    except Exception:
+        logger.exception("Error metering telephony usage")
+
+
+async def _refresh_a2p_registrations() -> None:
+    """Job: poll carrier review status for pending A2P registrations.
+
+    Campaign review takes 10-15 days, so hourly is plenty.
+    """
+    try:
+        async with _session_factory() as db:
+            from app.communication.a2p import refresh_all_pending
+
+            updated = await refresh_all_pending(db, _settings)
+            if updated:
+                logger.info("a2p.status_refreshed updated=%d", updated)
+    except Exception:
+        logger.exception("Error refreshing A2P registrations")
+
+
 def setup_scheduler(session_factory: Any, settings: Any = None) -> None:
     """Register all periodic jobs and start the scheduler."""
     global _session_factory, _settings
     _session_factory = session_factory
     _settings = settings
+
+    # Telephony rebilling: meter yesterday's usage once a day, after Twilio has
+    # finalised it. Idempotent on the ledger's external_ref, so a retry or an
+    # overlapping run cannot double-bill.
+    scheduler.add_job(
+        _meter_telephony_usage,
+        CronTrigger(hour=6, minute=30),
+        id="meter_telephony_usage",
+        replace_existing=True,
+    )
+
+    scheduler.add_job(
+        _refresh_a2p_registrations,
+        IntervalTrigger(hours=1),
+        id="refresh_a2p_registrations",
+        replace_existing=True,
+    )
 
     scheduler.add_job(
         _process_recurring_rules,

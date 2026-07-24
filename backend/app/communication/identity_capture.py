@@ -342,12 +342,13 @@ async def _send_capture_ask(
     settings = Settings()
     sent_status = "failed"
     twilio_sid = None
-    if settings.twilio_account_sid and settings.twilio_auth_token:
+    # Tenant subaccount, not the parent account. Fails CLOSED: an automated
+    # sender that cannot resolve an active subaccount must not send at all.
+    from app.communication.telephony import outbound_client_for_user_id
+
+    twilio_client, _tenant_account = await outbound_client_for_user_id(db, user_id, settings)
+    if twilio_client is not None:
         try:
-            from twilio.rest import Client
-            twilio_client = Client(
-                settings.twilio_account_sid, settings.twilio_auth_token
-            )
             tw_msg = twilio_client.messages.create(
                 body=body, from_=from_twilio, to=to_unknown
             )
@@ -460,12 +461,13 @@ async def _on_identity_extracted(
     # Send confirmation SMS
     confirmation = CONFIRMATION_TEMPLATE.format(name=name.split()[0])
     settings = Settings()
-    if settings.twilio_account_sid and settings.twilio_auth_token:
+    # Tenant subaccount, not the parent account. Fails CLOSED: an automated
+    # sender that cannot resolve an active subaccount must not send at all.
+    from app.communication.telephony import outbound_client_for_user_id
+
+    twilio_client, _tenant_account = await outbound_client_for_user_id(db, user_id, settings)
+    if twilio_client is not None:
         try:
-            from twilio.rest import Client
-            twilio_client = Client(
-                settings.twilio_account_sid, settings.twilio_auth_token
-            )
             tw_msg = twilio_client.messages.create(
                 body=confirmation, from_=from_twilio, to=to_unknown
             )

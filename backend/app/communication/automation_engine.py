@@ -121,6 +121,9 @@ async def trigger_flow_for_call(
                 return
 
             # Snapshot the values we need (DB session closes after this block)
+            # — including the owning user id, which the telephony subaccount
+            # lookup needs once this session is gone.
+            flow_user_id = call_log.user_id
             user_row = await db.execute(
                 select(User).where(User.id == call_log.user_id)
             )
@@ -176,8 +179,20 @@ async def trigger_flow_for_call(
             )
             return
 
-        from twilio.rest import Client
-        twilio_client = Client(settings.twilio_account_sid, settings.twilio_auth_token)
+        # Tenant subaccount. This loop sends repeatedly on a timer, so it is
+        # the highest-volume automated spender — it fails closed if the tenant
+        # is suspended or has no subaccount.
+        from app.communication.telephony import outbound_client_for_user_id
+
+        async with session_factory() as _db:
+            twilio_client, _tenant_account = await outbound_client_for_user_id(
+                _db, flow_user_id, settings
+            )
+        if twilio_client is None:
+            logger.warning(
+                "automation_flow.skipped_no_tenant_telephony call_log_id=%s", call_log_id
+            )
+            return
 
         for step_data in snapshotted_steps:
             if step_data["delay_minutes"] > 0:

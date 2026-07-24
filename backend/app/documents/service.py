@@ -1043,6 +1043,22 @@ async def remove_tag_from_document(
 # ---------------------------------------------------------------------------
 
 
+def _autoextract_allowed(file_data: bytes, settings) -> bool:
+    """Shared gate for the quick-capture extraction path.
+
+    Mirrors documents/router.py::_maybe_autoextract — honours the
+    ``ai_auto_extract`` off switch (which was dead config) and the vision size
+    ceiling, so both upload routes are guarded identically.
+    """
+    if not getattr(settings, "ai_auto_extract", True):
+        return False
+    try:
+        from app.ai.guards import MAX_VISION_BYTES
+    except Exception:  # noqa: BLE001
+        return True
+    return len(file_data) <= MAX_VISION_BYTES
+
+
 async def quick_capture(
     db: AsyncSession,
     storage: StorageBackend,
@@ -1080,14 +1096,23 @@ async def quick_capture(
     extractable_types = {
         "image/png", "image/jpeg", "image/webp", "image/gif", "application/pdf",
     }
-    if content_type in extractable_types:
+    if content_type in extractable_types and _autoextract_allowed(file_data, settings):
         try:
             from app.ai.service import process_document_ai
+            from app.billing.ai_meter import safe_consume
 
-            _doc, extraction_result = await process_document_ai(
-                db, storage, document.id, settings,
-            )
-            extraction_dict = extraction_result.model_dump(mode="json")
+            # Same hard spend ceiling as the Drive upload path — quick capture
+            # is the same AI call reached from a different screen.
+            if await safe_consume(db, user, "doc_extract"):
+                _doc, extraction_result = await process_document_ai(
+                    db, storage, document.id, settings,
+                )
+                extraction_dict = extraction_result.model_dump(mode="json")
+            else:
+                logger.info(
+                    "Quick capture: skipped AI extraction for %s — tenant out of AI credits",
+                    document.id,
+                )
         except Exception:
             logger.warning(
                 "Quick capture: AI extraction failed for document %s", document.id, exc_info=True,

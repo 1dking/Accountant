@@ -156,22 +156,93 @@ async def _resolve_folder_from_path(
     return current_parent
 
 
-async def _run_ai_extraction(document_id: uuid.UUID, storage_path: str, settings) -> None:
-    """Background task: run AI extraction on a newly uploaded document."""
+#: Cap on concurrent auto-extractions PER TENANT. Previously every upload
+#: spawned an unbounded asyncio task (and its own DB engine), so a bulk upload
+#: fired hundreds of parallel Claude calls at once.
+MAX_CONCURRENT_EXTRACTIONS_PER_TENANT = 2
+
+#: tenant_key -> asyncio.Semaphore. Process-local, which is the right scope:
+#: it bounds burst concurrency on this worker. The AI meter is the hard,
+#: cross-process spend ceiling.
+_extraction_semaphores: dict[str, "asyncio.Semaphore"] = {}
+
+
+def _extraction_semaphore(tenant_key: str) -> "asyncio.Semaphore":
+    sem = _extraction_semaphores.get(tenant_key)
+    if sem is None:
+        sem = asyncio.Semaphore(MAX_CONCURRENT_EXTRACTIONS_PER_TENANT)
+        _extraction_semaphores[tenant_key] = sem
+    return sem
+
+
+async def _maybe_autoextract(db, user, document, file_data: bytes, settings) -> bool:
+    """Decide whether to auto-extract an upload, and charge for it up front.
+
+    Every gate that was missing before lives here. Returns True if extraction
+    was scheduled. Never raises — a refused extraction must not fail the upload
+    itself, since the file is already stored.
+    """
+    from app.ai.guards import MAX_VISION_BYTES
+    from app.ai.service import EXTRACTABLE_MIME_TYPES
+
+    if document.mime_type not in EXTRACTABLE_MIME_TYPES or not settings.anthropic_api_key:
+        return False
+
+    # 1. The off switch that was declared in config but never read.
+    if not getattr(settings, "ai_auto_extract", True):
+        logger.info("auto-extract disabled by settings; skipping document %s", document.id)
+        return False
+
+    # 2. Size ceiling — refuse before any token is spent.
+    if len(file_data) > MAX_VISION_BYTES:
+        logger.info(
+            "auto-extract skipped for %s: %d bytes exceeds vision ceiling %d",
+            document.id, len(file_data), MAX_VISION_BYTES,
+        )
+        return False
+
+    # 3. Charge the AI meter up front. No credits -> no call. This is the hard
+    #    spend ceiling; the semaphore below only bounds burst concurrency.
+    try:
+        from app.billing.ai_meter import safe_consume, tenant_key_for
+
+        if not await safe_consume(db, user, "doc_extract"):
+            logger.info("auto-extract skipped for %s: tenant out of AI credits", document.id)
+            return False
+        tenant_key = tenant_key_for(user)
+    except Exception:  # noqa: BLE001 — metering must not break uploads
+        logger.exception("auto-extract metering failed; skipping to be safe")
+        return False
+
+    asyncio.create_task(
+        _run_ai_extraction(document.id, document.storage_path, settings, tenant_key)
+    )
+    return True
+
+
+async def _run_ai_extraction(
+    document_id: uuid.UUID, storage_path: str, settings, tenant_key: str = "unknown"
+) -> None:
+    """Background task: run AI extraction on a newly uploaded document.
+
+    Serialised per tenant so a bulk upload cannot fan out into hundreds of
+    simultaneous vision calls.
+    """
     from app.ai.service import process_document_ai
     from app.database import build_engine, build_session_factory
 
-    engine = build_engine(settings.database_url)
-    session_factory = build_session_factory(engine)
-    try:
-        async with session_factory() as db:
-            storage = LocalStorage(settings.storage_path)
-            await process_document_ai(db, storage, document_id, settings)
-            logger.info("Auto-extraction completed for document %s", document_id)
-    except Exception:
-        logger.exception("Auto-extraction failed for document %s", document_id)
-    finally:
-        await engine.dispose()
+    async with _extraction_semaphore(tenant_key):
+        engine = build_engine(settings.database_url)
+        session_factory = build_session_factory(engine)
+        try:
+            async with session_factory() as db:
+                storage = LocalStorage(settings.storage_path)
+                await process_document_ai(db, storage, document_id, settings)
+                logger.info("Auto-extraction completed for document %s", document_id)
+        except Exception:
+            logger.exception("Auto-extraction failed for document %s", document_id)
+        finally:
+            await engine.dispose()
 
 
 @router.post("/upload", status_code=201)
@@ -220,13 +291,7 @@ async def upload(
         title=title,
     )
 
-    # Fire-and-forget AI extraction (asyncio.create_task so it doesn't block response)
-    from app.ai.service import EXTRACTABLE_MIME_TYPES
-
-    if document.mime_type in EXTRACTABLE_MIME_TYPES and settings.anthropic_api_key:
-        asyncio.create_task(
-            _run_ai_extraction(document.id, document.storage_path, settings)
-        )
+    await _maybe_autoextract(db, current_user, document, file_data, settings)
 
     return {"data": DocumentUploadResponse.model_validate(document)}
 

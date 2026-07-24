@@ -165,17 +165,31 @@ async def enforce_storage_limit(db: AsyncSession, user: User, incoming_bytes: in
 
 
 async def enforce_ai_message_limit(db: AsyncSession, user: User) -> None:
+    """Gate an O-Brain chat message.
+
+    Two ceilings apply, and BOTH must pass:
+
+    1. the plan's message count (unchanged, human-legible: "500 messages"), and
+    2. the tenant's AI credit balance — the single meter that every other model
+       path also decrements. This is what replaced ``_UNLIMITED_AI``: Business
+       and Enterprise no longer have a message cap, but they are no longer
+       unlimited either, because credits still bind.
+    """
+    from app.billing.ai_meter import consume
+
     plan = await get_plan_key(db, user)
     limit = (await get_limits(db, plan))["ai_messages"]
-    if limit is None:
-        return
-    used = await count_ai_messages_this_month(db, user)
-    if used >= limit:
-        raise PlanLimitError(
-            f"Your {plan.title()} plan includes {limit} O-Brain messages per month and you have "
-            f"used {used}. Upgrade your plan for more.",
-            resource="ai_messages", used=used, limit=limit,
-        )
+    if limit is not None:
+        used = await count_ai_messages_this_month(db, user)
+        if used >= limit:
+            raise PlanLimitError(
+                f"Your {plan.title()} plan includes {limit} O-Brain messages per month and you have "
+                f"used {used}. Upgrade your plan for more.",
+                resource="ai_messages", used=used, limit=limit,
+            )
+
+    # Charges the meter and raises AiCreditsExhausted (402) when empty.
+    await consume(db, user, "chat")
 
 
 async def get_usage_summary(db: AsyncSession, user: User) -> dict:

@@ -94,7 +94,8 @@ Return ONLY the JSON array, no other text."""
     # Call Claude
     client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
     response = await client.messages.create(
-        model=settings.anthropic_model,
+        # Bank-transaction categorisation: fixed label set, short prompt.
+        model=getattr(settings, "anthropic_model_fast", None) or settings.anthropic_model,
         max_tokens=4096,
         messages=[{"role": "user", "content": prompt}],
     )

@@ -42,6 +42,12 @@ async def extract_receipt_data(
             f"Supported types: images (PNG, JPEG, WebP, GIF) and PDF."
         )
 
+    # Bound the cost BEFORE spending a token: refuse oversized input, downscale
+    # images, and trim long PDFs (Claude bills a PDF per page as an image).
+    from app.ai.guards import prepare_for_vision
+
+    file_data, mime_type, _billable_pages = prepare_for_vision(file_data, mime_type)
+
     # Base64-encode
     b64_data = base64.standard_b64encode(file_data).decode("utf-8")
 
@@ -70,7 +76,9 @@ async def extract_receipt_data(
     # Call Claude
     client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
     response = await client.messages.create(
-        model=settings.anthropic_model,
+        # Structured JSON extraction from a fixed prompt — routed to the
+        # cheaper model (~3x less than Sonnet for identical output shape).
+        model=getattr(settings, "anthropic_model_fast", None) or settings.anthropic_model,
         max_tokens=4096,
         messages=[
             {

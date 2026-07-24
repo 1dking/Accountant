@@ -317,16 +317,21 @@ async def classify_and_respond(
             )
             return
 
-        # ── Send the SMS
-        if not settings.twilio_account_sid or not settings.twilio_auth_token:
-            logger.warning("conversation_engine.skipped_twilio_not_configured")
+        # ── Send the SMS on the TENANT's subaccount.
+        # This is an AI auto-reply: it sends without a human in the loop, so it
+        # fails closed — a suspended or unresolvable tenant sends nothing.
+        from app.communication.telephony import outbound_client_for_user_id
+
+        twilio_client, _tenant_account = await outbound_client_for_user_id(
+            db, user_id, settings
+        )
+        if twilio_client is None:
+            logger.warning(
+                "conversation_engine.skipped_no_tenant_telephony contact_id=%s", contact_id
+            )
             return
 
         try:
-            from twilio.rest import Client
-            twilio_client = Client(
-                settings.twilio_account_sid, settings.twilio_auth_token
-            )
             tw_msg = twilio_client.messages.create(
                 body=draft, from_=from_number, to=to_number
             )

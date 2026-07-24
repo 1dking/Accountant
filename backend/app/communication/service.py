@@ -363,8 +363,28 @@ async def get_capability_token(db: AsyncSession, user: User, settings: Settings)
 async def send_sms(
     db: AsyncSession, user: User, to_number: str, body: str, settings: Settings
 ) -> SmsMessage:
-    """Send an SMS via Twilio and log it."""
-    client = _get_twilio_client(settings)
+    """Send an SMS via Twilio and log it.
+
+    Guards run BEFORE the Twilio call, in cost order: rate limit (cheapest),
+    recipient allow-list, then subaccount resolution (which also enforces
+    suspension).
+    """
+    from app.billing import telephony_credits
+    from app.communication import a2p, guards, telephony
+
+    await guards.enforce_sms_rate_limit(db, user)
+    await guards.enforce_recipient_allowed(db, user, to_number)
+    # US carriers filter unregistered A2P traffic — fail closed rather than
+    # burn the number's reputation.
+    await a2p.require_sms_registered(db, user)
+    # Prepaid: refuse BEFORE sending. We never front more than was purchased.
+    await telephony_credits.require_credit(
+        db, user, unit="sms_outbound", action="send this message"
+    )
+
+    # Per-tenant subaccount, never the parent account. ensure_account() raises
+    # TelephonySuspended if this tenant has been killed by a usage trigger.
+    client, _tenant_account = await telephony.client_for(db, user, settings)
 
     # Determine FROM: prefer the user's assigned Twilio number; fall back to the global.
     user_phone_result = await db.execute(
@@ -632,9 +652,18 @@ async def handle_missed_call(
             user_id=user_id,
         )
 
-    # Send auto-reply SMS
+    # Send auto-reply SMS on the TENANT's subaccount.
+    # Reachable by anyone who dials the number, so an attacker could otherwise
+    # trigger unlimited outbound SMS by calling repeatedly. Fails closed.
     try:
-        client = _get_twilio_client(settings)
+        from app.communication.telephony import outbound_client_for_user_id
+
+        client, _tenant_account = await outbound_client_for_user_id(db, user_id, settings)
+        if client is None:
+            logger.info(
+                "handle_missed_call: no tenant telephony for user %s — no auto-reply", user_id
+            )
+            return call
         auto_reply = "Sorry we missed your call. We will get back to you shortly."
         client.messages.create(
             body=auto_reply,

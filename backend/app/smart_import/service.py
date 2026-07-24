@@ -58,12 +58,24 @@ async def process_import(
     """Process an uploaded file with AI to extract transactions."""
     import anthropic
 
+    from app.billing.ai_meter import safe_consume_by_user_id
+
     result = await db.execute(
         select(SmartImport).where(SmartImport.id == import_id)
     )
     imp = result.scalar_one_or_none()
     if not imp:
         raise NotFoundError("SmartImport", str(import_id))
+
+    # Charge the AI meter before the model call. Refusing here costs the user
+    # an error; refusing after the call costs us the tokens.
+    if not await safe_consume_by_user_id(db, imp.user_id, "smart_import"):
+        imp.status = ImportStatus.FAILED.value
+        imp.error_message = (
+            "Out of AI credits for this month. Upgrade your plan to run more imports."
+        )
+        await db.commit()
+        return imp
 
     imp.status = ImportStatus.PROCESSING.value
     await db.commit()

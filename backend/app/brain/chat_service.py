@@ -96,6 +96,22 @@ async def get_or_create_conversation(
     return conv
 
 
+
+def _cacheable_tools(tools: list[dict]) -> list[dict]:
+    """Mark the LAST tool definition as a cache breakpoint.
+
+    Anthropic caches everything up to and including a cache_control marker, so
+    one marker on the final tool covers the whole (static) tool schema block.
+    Returns copies — never mutates the module-level TOOL_DEFINITIONS, or the
+    marker would accumulate across requests.
+    """
+    if not tools:
+        return tools
+    out = [dict(t) for t in tools]
+    out[-1]["cache_control"] = {"type": "ephemeral"}
+    return out
+
+
 async def check_rate_limit(db: AsyncSession, user_id: uuid.UUID) -> tuple[bool, int]:
     """Check if user is within rate limit. Returns (allowed, minutes_until_reset)."""
     one_hour_ago = datetime.utcnow() - timedelta(hours=1)
@@ -448,9 +464,21 @@ async def chat_stream(
             async with client.messages.stream(
                 model=settings.anthropic_model,
                 max_tokens=2048,
-                system=system_prompt,
+                # Prompt caching. The system prompt carries the business
+                # context and is re-sent on EVERY message and every tool
+                # round-trip; cached reads bill a fraction of input rate.
+                # This is the single largest AI saving available — there was
+                # no caching anywhere in the codebase before this.
+                system=[
+                    {
+                        "type": "text",
+                        "text": system_prompt,
+                        "cache_control": {"type": "ephemeral"},
+                    }
+                ],
                 messages=messages,
-                tools=TOOL_DEFINITIONS,
+                # Tool schemas are static, so cache them alongside the prompt.
+                tools=_cacheable_tools(TOOL_DEFINITIONS),
             ) as stream:
                 async for text in stream.text_stream:
                     full_response += text

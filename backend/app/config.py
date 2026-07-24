@@ -31,6 +31,12 @@ class Settings(BaseSettings):
     # AI
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-sonnet-4-20250514"
+    #: Cheaper model for STRUCTURED EXTRACTION (receipts, bank categorisation,
+    #: identity capture). These return a fixed JSON shape from a short prompt
+    #: and do not need a frontier model; routing them here is ~3x cheaper.
+    anthropic_model_fast: str = "claude-haiku-4-5-20251001"
+    #: Master switch for automatic AI extraction on upload. Previously declared
+    #: here and NEVER READ anywhere — now honoured by both upload paths.
     ai_auto_extract: bool = True
 
     # Encryption
@@ -67,6 +73,17 @@ class Settings(BaseSettings):
     twilio_auth_token: str = ""
     twilio_from_number: str = ""
     twilio_kyc_required: bool = False  # V1: bypass KYC for internal use; enable for SaaS launch
+    # Telephony rebilling rollout flags — BOTH default OFF so a deploy changes
+    # nothing for existing users. Flip once tenants have credit balances and
+    # A2P registrations seeded:
+    #   telephony_enforce_a2p    -> outbound SMS requires an approved A2P
+    #                               10DLC registration (fail-closed carrier rule)
+    #   telephony_enforce_credit -> outbound SMS / number purchase require
+    #                               prepaid credit (the "never front money" gate)
+    # Metering, the ledger, top-ups and the rate card are ALWAYS on — usage is
+    # recorded and billed from day one; only the BLOCKING is staged.
+    telephony_enforce_a2p: bool = False
+    telephony_enforce_credit: bool = False
     # Voice (AccessToken-based — distinct from account_sid/auth_token)
     twilio_api_key_sid: str = ""
     twilio_api_key_secret: str = ""

@@ -1202,12 +1202,23 @@ async def purchase_number(
     if not settings.twilio_account_sid or not settings.twilio_auth_token:
         raise ForbiddenError("Twilio is not configured.")
 
-    from twilio.rest import Client
+    # Buy on the TENANT's subaccount, never the parent, and only after the
+    # per-tenant number cap, the suspension check (inside ensure_account) and
+    # the platform circuit breaker have all passed.
+    from app.billing import telephony_credits
+    from app.communication import telephony
 
-    client = Client(settings.twilio_account_sid, settings.twilio_auth_token)
+    tenant_client, tenant_account = await telephony.client_for(db, current_user, settings)
+    await telephony.enforce_number_cap(db, tenant_account)
+    # A number is a recurring monthly charge, so it needs a month of credit
+    # up front — and this is also where "Pro has no telephony" is enforced,
+    # because require_credit resolves the rate card first.
+    await telephony_credits.require_credit(
+        db, current_user, unit="number_monthly", action="buy a phone number"
+    )
 
     try:
-        purchased = client.incoming_phone_numbers.create(
+        purchased = tenant_client.incoming_phone_numbers.create(
             phone_number=phone_number
         )
     except Exception as e:
@@ -1240,6 +1251,11 @@ async def purchase_number(
         friendly_name=purchased.friendly_name or phone_number,
         capabilities_json=capabilities_data,
         webhooks_configured_at=webhooks_configured_at,
+        # Bind the number to the tenant that bought it so the cap can count it
+        # and so it can never be used from another tenant's context.
+        tenant_key=tenant_account.tenant_key,
+        subaccount_sid=tenant_account.subaccount_sid,
+        assigned_user_id=current_user.id,
     )
     db.add(phone)
     await db.commit()
