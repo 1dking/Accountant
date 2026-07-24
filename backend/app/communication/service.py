@@ -47,15 +47,41 @@ def _strip_non_digits(phone: str) -> str:
     return digits
 
 
-async def _find_contact_by_phone(db: AsyncSession, phone: str) -> Contact | None:
-    """Find a contact by phone number, stripping non-digits for comparison."""
+async def _tenant_user_ids(db: AsyncSession, user: User) -> list:
+    """The user ids that make up this user's tenant.
+
+    Solo account -> just the user. Org account -> every member of the org.
+    Used to scope the OUTBOUND recipient check so a tenant can only text/call
+    numbers saved as contacts within its own tenant.
+    """
+    from app.auth.models import User as _User
+
+    if getattr(user, "org_id", None) is None:
+        return [user.id]
+    rows = await db.execute(select(_User.id).where(_User.org_id == user.org_id))
+    ids = [r for (r,) in rows.all()]
+    return ids or [user.id]
+
+
+async def _find_contact_by_phone(
+    db: AsyncSession, phone: str, *, owner_user_ids: list | None = None
+) -> Contact | None:
+    """Find a contact by phone number, stripping non-digits for comparison.
+
+    ``owner_user_ids`` scopes the lookup to contacts created by those users —
+    required for the OUTBOUND recipient check, so one tenant cannot send to a
+    number merely because ANOTHER tenant saved it. When None (the default) the
+    lookup is unscoped, which the INBOUND-attribution callers rely on to match
+    an incoming caller to whichever tenant owns them.
+    """
     stripped = _strip_non_digits(phone)
     if not stripped:
         return None
     # Check contacts where stripped phone matches
-    result = await db.execute(
-        select(Contact).where(Contact.phone.isnot(None))
-    )
+    query = select(Contact).where(Contact.phone.isnot(None))
+    if owner_user_ids is not None:
+        query = query.where(Contact.created_by.in_(owner_user_ids))
+    result = await db.execute(query)
     for contact in result.scalars().all():
         if contact.phone and _strip_non_digits(contact.phone) == stripped:
             logger.info(
@@ -336,6 +362,17 @@ async def get_capability_token(db: AsyncSession, user: User, settings: Settings)
             "Twilio Voice is not configured. Missing: " + ", ".join(missing)
         )
 
+    # Early block: don't even mint a dialer token for an account whose plan has
+    # no telephony or whose prepaid balance is empty. The authoritative per-call
+    # gate is /voice/twiml (destination-aware); this just stops the dialer
+    # initializing for accounts that can't legally place a call. Honours the
+    # staging flag + operator exemption inside require_credit.
+    from app.billing import telephony_credits
+
+    await telephony_credits.require_credit(
+        db, user, unit="voice_outbound_min", action="use the dialer"
+    )
+
     from twilio.jwt.access_token import AccessToken
     from twilio.jwt.access_token.grants import VoiceGrant
 
@@ -394,9 +431,13 @@ async def send_sms(
         iso_country=getattr(user_phone, "iso_country", None),
         settings=settings,
     )
-    # Prepaid: refuse BEFORE sending. We never front more than was purchased.
-    await telephony_credits.require_credit(
-        db, user, unit="sms_outbound", action="send this message"
+    # Prepaid: DEBIT synchronously before sending, so a funded account can no
+    # longer burst at a frozen balance. Segment estimate keeps a long message
+    # from being under-charged. Raises 402 at insufficient balance / spend cap.
+    _segments = max(1, (len(body or "") + 159) // 160)
+    await telephony_credits.debit_now(
+        db, user, unit="sms_outbound", action="send this message",
+        quantity=_segments, description="Outbound SMS",
     )
 
     # Per-tenant subaccount, never the parent account. ensure_account() raises
@@ -672,6 +713,14 @@ async def handle_missed_call(
         if client is None:
             logger.info(
                 "handle_missed_call: no tenant telephony for user %s — no auto-reply", user_id
+            )
+            return call
+        # Same prepaid wall as manual sends: no credit -> no auto-reply.
+        from app.billing.telephony_credits import safe_debit_by_user_id
+
+        if not await safe_debit_by_user_id(db, user_id, unit="sms_outbound"):
+            logger.info(
+                "handle_missed_call: no credit for user %s — skipping auto-reply", user_id
             )
             return call
         auto_reply = "Sorry we missed your call. We will get back to you shortly."

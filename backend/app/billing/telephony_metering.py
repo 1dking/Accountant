@@ -50,6 +50,12 @@ TWILIO_CATEGORY_MAP: dict[str, str] = {
     "transcriptions": "transcription_min",
 }
 
+#: Twilio categories that are now debited SYNCHRONOUSLY at send/call time
+#: (telephony_credits.debit_now). The daily meter must NOT charge the tenant
+#: for these again, or every outbound message/call is billed twice. Their real
+#: cost still surfaces in ``unmapped_cost`` for margin visibility.
+LIVE_DEBITED_CATEGORIES = frozenset({"sms-outbound", "calls-outbound", "mms-outbound"})
+
 
 async def meter_subaccount(
     db: AsyncSession, account, settings, *, period: str = "yesterday"
@@ -91,6 +97,12 @@ async def meter_subaccount(
         qty = float(getattr(rec, "count", 0) or 0)
         actual_cost_usd = abs(float(getattr(rec, "price", 0) or 0))
         if qty <= 0 and actual_cost_usd <= 0:
+            continue
+
+        # Outbound SMS/calls are debited live at send time — metering them here
+        # would double-charge. Record the actual cost for margin, don't re-bill.
+        if category in LIVE_DEBITED_CATEGORIES:
+            cost_total += int(round(actual_cost_usd * MICROS_PER_USD))
             continue
 
         unit = TWILIO_CATEGORY_MAP.get(category)

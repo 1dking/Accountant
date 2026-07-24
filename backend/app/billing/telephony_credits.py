@@ -222,6 +222,172 @@ async def require_credit(
         raise InsufficientTelephonyCredit(row.balance_micros, needed, action)
 
 
+async def enforce_spend_caps(db: AsyncSession, user: User) -> None:
+    """Block when the tenant is over its daily or monthly telephony spend cap.
+
+    Reads the caps stored on TelephonyAccount (previously displayed but never
+    enforced) and compares them to billed spend in the ledger. No provisioned
+    subaccount -> no caps yet. Raises TelephonyCapReached (402).
+    """
+    from sqlalchemy import func
+
+    from app.billing.ai_meter import tenant_key_for
+    from app.billing.models import TelephonyAccount
+    from app.communication.telephony import (
+        TelephonyCapReached,
+        daily_cap_for,
+        monthly_cap_for,
+    )
+
+    tenant = tenant_key_for(user)
+    account = (
+        await db.execute(
+            select(TelephonyAccount).where(TelephonyAccount.tenant_key == tenant)
+        )
+    ).scalar_one_or_none()
+    if account is None:
+        return
+
+    now = datetime.now(timezone.utc)
+    day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    month = current_period(now)
+
+    async def _billed_since(since: datetime | None = None, period: str | None = None) -> int:
+        q = select(func.coalesce(func.sum(TelephonyLedgerEntry.billed_micros), 0)).where(
+            TelephonyLedgerEntry.tenant_key == tenant,
+            TelephonyLedgerEntry.entry_type.in_(("usage", "a2p_fee")),
+        )
+        if since is not None:
+            q = q.where(TelephonyLedgerEntry.created_at >= since)
+        if period is not None:
+            q = q.where(TelephonyLedgerEntry.period == period)
+        return int(await db.scalar(q) or 0)
+
+    daily_cap = int(daily_cap_for(account) * MICROS_PER_USD)
+    if daily_cap > 0 and await _billed_since(since=day_start) >= daily_cap:
+        raise TelephonyCapReached(
+            f"Daily telephony spend cap of ${daily_cap / MICROS_PER_USD:.2f} reached. "
+            "It resets at midnight UTC, or an admin can raise it.",
+            resource="daily_spend_cap",
+        )
+
+    monthly_cap = int(monthly_cap_for(account) * MICROS_PER_USD)
+    if monthly_cap > 0 and await _billed_since(period=month) >= monthly_cap:
+        raise TelephonyCapReached(
+            f"Monthly telephony spend cap of ${monthly_cap / MICROS_PER_USD:.2f} reached. "
+            "Contact an admin to raise it.",
+            resource="monthly_spend_cap",
+        )
+
+
+async def debit_now(
+    db: AsyncSession,
+    user: User,
+    *,
+    unit: str,
+    action: str,
+    quantity: float = 1.0,
+    description: str | None = None,
+) -> int:
+    """Charge outbound telephony against prepaid credit SYNCHRONOUSLY.
+
+    This is the real spend wall: it atomically decrements the balance BEFORE
+    the message/call goes out, so a funded account can no longer send an
+    unbounded burst at a frozen balance (the old ``require_credit`` only read).
+
+    Order of gates: staging flag / exemption -> plan enabled -> spend caps ->
+    atomic balance decrement. Raises 402 (InsufficientTelephonyCredit) or 403
+    (TelephonyNotAvailable) / 402 (TelephonyCapReached). Returns credits
+    charged (0 when metering is off or the account is exempt).
+
+    The daily metering job SKIPS the units debited here (see
+    telephony_metering.LIVE_DEBITED_CATEGORIES), so there is no double-charge.
+    """
+    import uuid as _uuid
+
+    from app.communication.a2p import is_exempt_account
+    from app.config import Settings
+
+    settings = Settings()
+    if not settings.telephony_enforce_credit:
+        return 0
+    if is_exempt_account(user, settings):
+        return 0
+
+    from app.billing.rate_card import require_enabled
+
+    rate = await require_enabled(db, user, unit)  # 403 if plan has no telephony
+    await enforce_spend_caps(db, user)
+
+    row = await get_or_create(db, user)
+    needed = int(round(rate.sell_price_micros * quantity))
+    cost = int(round(rate.our_cost_micros * quantity))
+
+    # Atomic conditional decrement: only succeeds while balance covers the
+    # charge, so two concurrent sends can't both pass on the same dollar.
+    result = await db.execute(
+        update(TelephonyCredit)
+        .where(
+            TelephonyCredit.tenant_key == row.tenant_key,
+            TelephonyCredit.balance_micros >= needed,
+        )
+        .values(
+            balance_micros=TelephonyCredit.balance_micros - needed,
+            lifetime_spent_micros=TelephonyCredit.lifetime_spent_micros + needed,
+        )
+    )
+    if (result.rowcount or 0) == 0:
+        raise InsufficientTelephonyCredit(row.balance_micros, needed, action)
+
+    new_balance = await get_balance_micros(db, row.tenant_key)
+    db.add(TelephonyLedgerEntry(
+        tenant_key=row.tenant_key,
+        period=current_period(),
+        entry_type="usage",
+        unit=unit,
+        quantity=quantity,
+        our_cost_micros=cost,
+        billed_micros=needed,
+        balance_after_micros=new_balance,
+        external_ref=f"live:{_uuid.uuid4().hex}",
+        description=description or f"{unit} x{quantity:g}",
+    ))
+    await db.commit()
+    return needed
+
+
+async def safe_debit(db: AsyncSession, user: User, *, unit: str, quantity: float = 1.0) -> bool:
+    """Background/automated variant: debit if possible, else DON'T send.
+
+    Automated inbound-reply senders must not raise a 402 at nobody, but at zero
+    balance they must still stop spending. Returns True if the caller may send.
+    """
+    try:
+        await debit_now(db, user, unit=unit, action="send", quantity=quantity)
+        return True
+    except (InsufficientTelephonyCredit,) as exc:  # noqa: F841
+        logger.info("telephony: automated send skipped — no credit for %s", unit)
+        return False
+    except Exception:  # noqa: BLE001 — plan/cap gates: don't send, don't crash the job
+        logger.info("telephony: automated send skipped — telephony gate for %s", unit)
+        return False
+
+
+async def safe_debit_by_user_id(db: AsyncSession, user_id, *, unit: str, quantity: float = 1.0) -> bool:
+    """:func:`safe_debit` for automated senders that only carry a user id.
+
+    Unknown user -> do not send (fail closed): an unattributable automated send
+    can't be billed to anyone, so it must not go out.
+    """
+    if user_id is None:
+        return False
+    user = await db.get(User, user_id)
+    if user is None:
+        logger.warning("telephony: automated send blocked — user %s not found", user_id)
+        return False
+    return await safe_debit(db, user, unit=unit, quantity=quantity)
+
+
 # ---------------------------------------------------------------------------
 # Top-ups
 # ---------------------------------------------------------------------------

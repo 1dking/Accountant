@@ -219,6 +219,20 @@ async def trigger_flow_for_call(
             )
             body = _render_message(synth, user_booking_link)
 
+            # Prepaid wall per step: stop the sequence once credit runs out.
+            async with session_factory() as _cdb:
+                from app.billing.telephony_credits import safe_debit_by_user_id
+
+                _segments = max(1, (len(body or "") + 159) // 160)
+                if not await safe_debit_by_user_id(
+                    _cdb, flow_user_id, unit="sms_outbound", quantity=_segments
+                ):
+                    logger.info(
+                        "automation_flow.stopped_no_credit call_log_id=%s step_order=%s",
+                        call_log_id, step_data["step_order"],
+                    )
+                    return
+
             try:
                 twilio_msg = twilio_client.messages.create(
                     body=body, from_=from_number, to=to_number,

@@ -114,6 +114,39 @@ async def enforce_sms_rate_limit(db: AsyncSession, user: User) -> None:
             raise TelephonyRateLimited(window, limit, "SMS")
 
 
+async def _count_calls_since(db: AsyncSession, user: User, since: datetime) -> int:
+    from app.communication.models import CallLog
+
+    return await db.scalar(
+        select(func.count()).select_from(CallLog).where(
+            CallLog.user_id == user.id,
+            CallLog.direction == "outbound",
+            CallLog.created_at >= since,
+        )
+    ) or 0
+
+
+async def enforce_call_rate_limit(db: AsyncSession, user: User) -> None:
+    """Minute / hour / day ceilings on outbound CALLS. Raises 429.
+
+    Wires the CALLS_PER_* constants that previously had no caller — the browser
+    dialer could place unlimited outbound calls on the parent account.
+    """
+    now = datetime.now(timezone.utc)
+    for window, delta, limit in (
+        ("minute", timedelta(minutes=1), CALLS_PER_MINUTE),
+        ("hour", timedelta(hours=1), CALLS_PER_HOUR),
+        ("day", timedelta(days=1), CALLS_PER_DAY),
+    ):
+        made = await _count_calls_since(db, user, now - delta)
+        if made >= limit:
+            logger.warning(
+                "telephony: CALL rate limit hit for user %s — %d in the last %s (limit %d)",
+                user.id, made, window, limit,
+            )
+            raise TelephonyRateLimited(window, limit, "Call")
+
+
 async def enforce_recipient_allowed(
     db: AsyncSession, user: User, to_number: str, *, allow_unknown: bool = False
 ) -> None:
@@ -128,9 +161,12 @@ async def enforce_recipient_allowed(
     if allow_unknown:
         return
 
-    from app.communication.service import _find_contact_by_phone
+    from app.communication.service import _find_contact_by_phone, _tenant_user_ids
 
-    contact = await _find_contact_by_phone(db, to_number)
+    # Scope to THIS tenant's contacts — a number saved by another tenant must
+    # not make it a valid destination for this one.
+    owner_ids = await _tenant_user_ids(db, user)
+    contact = await _find_contact_by_phone(db, to_number, owner_user_ids=owner_ids)
     if contact is None:
         logger.warning(
             "telephony: blocked outbound to %s for user %s — not a saved contact",

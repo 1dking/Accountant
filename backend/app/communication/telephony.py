@@ -146,6 +146,18 @@ async def ensure_account(db: AsyncSession, user: User, settings) -> TelephonyAcc
             sub.sid,
         )
 
+    # Arm the kill switch: Twilio Usage Triggers that call our webhook at the
+    # daily/monthly spend thresholds (the monthly one auto-suspends). Previously
+    # this function had no caller, so no trigger ever existed.
+    try:
+        base_url = getattr(settings, "public_base_url", "") or ""
+        create_usage_triggers(account, settings, base_url)
+    except Exception:  # noqa: BLE001 — a missing trigger must not block provisioning
+        logger.exception(
+            "telephony: FAILED to create usage triggers on %s — kill switch not armed",
+            sub.sid,
+        )
+
     return account
 
 

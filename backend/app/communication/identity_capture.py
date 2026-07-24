@@ -347,7 +347,11 @@ async def _send_capture_ask(
     from app.communication.telephony import outbound_client_for_user_id
 
     twilio_client, _tenant_account = await outbound_client_for_user_id(db, user_id, settings)
-    if twilio_client is not None:
+    from app.billing.telephony_credits import safe_debit_by_user_id
+
+    if twilio_client is not None and await safe_debit_by_user_id(
+        db, user_id, unit="sms_outbound"
+    ):
         try:
             tw_msg = twilio_client.messages.create(
                 body=body, from_=from_twilio, to=to_unknown
@@ -466,7 +470,11 @@ async def _on_identity_extracted(
     from app.communication.telephony import outbound_client_for_user_id
 
     twilio_client, _tenant_account = await outbound_client_for_user_id(db, user_id, settings)
-    if twilio_client is not None:
+    from app.billing.telephony_credits import safe_debit_by_user_id
+
+    if twilio_client is not None and await safe_debit_by_user_id(
+        db, user_id, unit="sms_outbound"
+    ):
         try:
             tw_msg = twilio_client.messages.create(
                 body=confirmation, from_=from_twilio, to=to_unknown

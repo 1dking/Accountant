@@ -330,6 +330,14 @@ async def classify_and_respond(
                 "conversation_engine.skipped_no_tenant_telephony contact_id=%s", contact_id
             )
             return
+        # Prepaid wall applies to AI auto-replies too — no credit, no send.
+        from app.billing.telephony_credits import safe_debit_by_user_id
+
+        if not await safe_debit_by_user_id(db, user_id, unit="sms_outbound"):
+            logger.warning(
+                "conversation_engine.skipped_no_credit contact_id=%s", contact_id
+            )
+            return
 
         try:
             tw_msg = twilio_client.messages.create(

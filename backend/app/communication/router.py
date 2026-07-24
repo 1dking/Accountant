@@ -391,6 +391,79 @@ async def _mark_kind_voicemail(db: AsyncSession, parent_call_sid: str) -> None:
         await db.commit()
 
 
+async def _voice_gate(db, user_uuid, to_number: str, settings):
+    """Gate an outbound browser-dialer call. Returns None to allow, or a
+    VoiceResponse (spoken reason + hangup) to block.
+
+    Enforces, in order: attributable caller -> geo (US/CA) -> recipient is a
+    contact in the caller's tenant -> per-tenant call rate limit -> prepaid
+    credit debit (1-minute hold, reconciled at call-status). Operator-exempt
+    accounts bypass the recipient and credit checks but still obey geo + rate.
+    """
+    from twilio.twiml.voice_response import VoiceResponse
+
+    from app.auth.models import User
+    from app.billing import telephony_credits
+    from app.communication import a2p, guards
+    from app.core.exceptions import AppError
+
+    def _reject(msg: str) -> VoiceResponse:
+        vr = VoiceResponse()
+        vr.say(msg, voice="Polly.Joanna")
+        vr.hangup()
+        return vr
+
+    # Must be attributable to a user, or we cannot gate it.
+    if user_uuid is None:
+        logger.warning("voice_gate: unattributable call to %s — rejected", to_number)
+        return _reject("This call could not be authorized. Goodbye.")
+    user = await db.get(User, user_uuid)
+    if user is None:
+        return _reject("This call could not be authorized. Goodbye.")
+
+    # Geo: US + CA only, in-app (never rely on Console geo alone), same rule
+    # the SMS path enforces. Applies even to exempt operators.
+    if not guards.is_allowed_destination(to_number):
+        logger.warning("voice_gate: geo-blocked destination %s for user %s", to_number, user.id)
+        return _reject("Calls to this destination are not permitted. Goodbye.")
+
+    # Call rate limit (wires CALLS_PER_*), per tenant.
+    try:
+        await guards.enforce_call_rate_limit(db, user)
+    except AppError:
+        return _reject("You have reached the call limit. Please try again later.")
+
+    exempt = a2p.is_exempt_account(user, settings)
+    if not exempt:
+        # Recipient must be a contact in THIS tenant — no dialing arbitrary
+        # numbers. Reuses the tenant-scoped lookup.
+        from app.communication.service import _find_contact_by_phone, _tenant_user_ids
+
+        contact = await _find_contact_by_phone(
+            db, to_number, owner_user_ids=await _tenant_user_ids(db, user)
+        )
+        if contact is None:
+            logger.warning("voice_gate: %s not a contact for user %s", to_number, user.id)
+            return _reject(
+                "You can only call saved contacts. Add this number as a contact first. Goodbye."
+            )
+
+        # Prepaid: 1-minute hold up front; the remainder is reconciled when the
+        # call completes (/voice/call-status). No credit -> no call.
+        try:
+            await telephony_credits.debit_now(
+                db, user, unit="voice_outbound_min", action="place this call",
+                quantity=1, description=f"Outbound call to {to_number}",
+            )
+        except AppError:
+            return _reject(
+                "You do not have enough telephony credit to place this call. "
+                "Please top up. Goodbye."
+            )
+
+    return None
+
+
 @router.post("/voice/twiml")
 async def voice_twiml(
     form: Annotated[dict, Depends(verified_twilio_form)],
@@ -431,6 +504,17 @@ async def voice_twiml(
     # Fall back to the global TWILIO_FROM_NUMBER if user has no assigned number
     if not caller_id:
         caller_id = settings.twilio_from_number or None
+
+    # ── OUTBOUND VOICE GATE ────────────────────────────────────────────────
+    # This webhook is the outgoing_application_sid handler — every browser-
+    # dialer call passes through here with the destination in `To`, so it is
+    # the authoritative place to enforce geo / recipient / rate / credit.
+    # Before this patch there was NO gate: any authenticated user could dial
+    # anything on the parent account. On any failure we return a spoken message
+    # and hang up WITHOUT dialing.
+    block = await _voice_gate(db, user_uuid, to_number, settings)
+    if block is not None:
+        return _xml_response(str(block))
 
     response = VoiceResponse()
     response.say(
@@ -957,6 +1041,33 @@ async def voice_call_status(
         call_log.status = call_status
 
     await db.commit()
+
+    # Reconcile outbound voice credit: 1 minute was held at /voice/twiml; debit
+    # the remaining minutes now that the true duration is known. Uses charge()
+    # (allows negative) because the call already happened — the NEXT call's
+    # gate catches a negative balance.
+    if call_status == "completed" and (call_log.direction or "") == "outbound" and call_log.user_id:
+        try:
+            import math as _math
+
+            from app.billing import telephony_credits
+            from app.billing.ai_meter import tenant_key_for
+            from app.billing.rate_card import resolve_for_user
+
+            total_min = max(1, _math.ceil(int(call_log.duration_seconds or 0) / 60))
+            remaining = total_min - 1  # 1 minute already held at initiation
+            owner = await db.get(User, call_log.user_id)
+            if remaining > 0 and owner is not None:
+                rate = await resolve_for_user(db, owner, "voice_outbound_min")
+                if rate.is_enabled:
+                    await telephony_credits.charge(
+                        db, tenant_key_for(owner),
+                        unit="voice_outbound_min", quantity=remaining, rate=rate,
+                        external_ref=f"live:call:{parent_call_sid}",
+                        description="Outbound call — duration reconcile",
+                    )
+        except Exception:  # noqa: BLE001 — reconciliation must never break the webhook
+            logger.exception("voice/call-status: credit reconcile failed for %s", parent_call_sid)
 
     if call_status == "completed":
         from app.workflows.models import TriggerType
