@@ -1,8 +1,18 @@
-import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { Check, Sparkles, Zap, Crown, Rocket, Brain } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router'
+import { toast } from 'sonner'
+import { Check, Sparkles, Zap, Crown, Rocket, Brain, Loader2, CreditCard } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { platformAdminApi } from '@/api/platformAdmin'
+import { billingApi } from '@/api/billing'
+
+const PLAN_LABELS: Record<string, string> = {
+  starter: 'Starter',
+  pro: 'Professional',
+  business: 'Business',
+  enterprise: 'Enterprise',
+}
 
 const PLAN_TIERS = [
   {
@@ -70,14 +80,79 @@ const OBRAIN_TIERS = [
 
 export default function BillingSettings() {
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('monthly')
+  const [checkoutKey, setCheckoutKey] = useState<string | null>(null)
+  const queryClient = useQueryClient()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const { data: pricingData, isLoading } = useQuery({
     queryKey: ['billing-pricing'],
     queryFn: () => platformAdminApi.getPricing(),
   })
 
-  const pricing = (pricingData as any)?.data ?? {}
+  const pricing = pricingData?.data ?? {}
   const p = (key: string) => Number(pricing[key] || 0)
+
+  const { data: subData } = useQuery({
+    queryKey: ['billing-subscription'],
+    queryFn: () => billingApi.getSubscription(),
+  })
+  const subscription = subData?.data
+  const currentPlan: string = subscription?.plan_key ?? 'starter'
+
+  // Handle the Stripe Checkout return (success_url / cancel_url land here with query params)
+  useEffect(() => {
+    const subStatus = searchParams.get('sub')
+    const sessionId = searchParams.get('session_id')
+    if (!subStatus) return
+
+    if (subStatus === 'success' && sessionId) {
+      billingApi
+        .verify(sessionId)
+        .then((res) => {
+          const plan = res?.data?.plan_key
+          toast.success(plan ? `You're now on the ${PLAN_LABELS[plan] ?? plan} plan.` : 'Subscription activated.')
+          queryClient.invalidateQueries({ queryKey: ['billing-subscription'] })
+        })
+        .catch(() => toast.error('We could not confirm your subscription. If you were charged, contact support.'))
+    } else if (subStatus === 'cancelled') {
+      toast('Checkout cancelled — no changes made.')
+    }
+    // Strip the billing query params so a refresh doesn't re-verify
+    const next = new URLSearchParams(searchParams)
+    next.delete('sub')
+    next.delete('session_id')
+    setSearchParams(next, { replace: true })
+  }, [searchParams, setSearchParams, queryClient])
+
+  const checkoutMutation = useMutation({
+    mutationFn: ({ planKey }: { planKey: string }) => billingApi.createCheckout(planKey, billingPeriod),
+    onMutate: ({ planKey }) => setCheckoutKey(planKey),
+    onSuccess: (res) => {
+      const data = res?.data
+      if (data?.checkout_url) {
+        window.location.href = data.checkout_url
+        return
+      }
+      // Free tier: plan switched server-side, no Stripe redirect
+      toast.success('You\'re on the Starter plan.')
+      queryClient.invalidateQueries({ queryKey: ['billing-subscription'] })
+      setCheckoutKey(null)
+    },
+    onError: () => {
+      toast.error('Could not start checkout. Please try again.')
+      setCheckoutKey(null)
+    },
+  })
+
+  const portalMutation = useMutation({
+    mutationFn: () => billingApi.openPortal(),
+    onSuccess: (res) => {
+      const url = res?.data?.url
+      if (url) window.location.href = url
+      else toast.error('Billing portal is unavailable right now.')
+    },
+    onError: () => toast.error('Could not open the billing portal.'),
+  })
 
   if (isLoading) {
     return (
@@ -89,9 +164,25 @@ export default function BillingSettings() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Plan & Billing</h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Choose the plan that fits your business.</p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Plan & Billing</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            You're currently on the{' '}
+            <span className="font-semibold text-gray-900 dark:text-white">{PLAN_LABELS[currentPlan] ?? currentPlan}</span>{' '}
+            plan{subscription?.billing_period ? ` (${subscription.billing_period})` : ''}.
+          </p>
+        </div>
+        {subscription?.has_stripe_customer && (
+          <button
+            onClick={() => portalMutation.mutate()}
+            disabled={portalMutation.isPending}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-60"
+          >
+            {portalMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
+            Manage billing
+          </button>
+        )}
       </div>
 
       {/* Monthly / Annual toggle */}
@@ -173,16 +264,28 @@ export default function BillingSettings() {
                   </li>
                 ))}
               </ul>
-              <button
-                className={cn(
-                  'w-full py-2 rounded-lg text-sm font-medium transition-colors',
-                  tier.popular
-                    ? 'bg-purple-600 text-white hover:bg-purple-700'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-600',
-                )}
-              >
-                {tier.key === 'starter' ? 'Current Plan' : 'Upgrade'}
-              </button>
+              {(() => {
+                const isCurrent = tier.key === currentPlan
+                const isBusy = checkoutMutation.isPending && checkoutKey === tier.key
+                return (
+                  <button
+                    disabled={isCurrent || checkoutMutation.isPending}
+                    onClick={() => checkoutMutation.mutate({ planKey: tier.key })}
+                    className={cn(
+                      'w-full py-2 rounded-lg text-sm font-medium transition-colors inline-flex items-center justify-center gap-2',
+                      isCurrent
+                        ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-default'
+                        : tier.popular
+                          ? 'bg-purple-600 text-white hover:bg-purple-700'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-600',
+                      checkoutMutation.isPending && !isBusy && 'opacity-60',
+                    )}
+                  >
+                    {isBusy && <Loader2 className="w-4 h-4 animate-spin" />}
+                    {isCurrent ? 'Current Plan' : tier.key === 'starter' ? 'Downgrade to free' : 'Choose plan'}
+                  </button>
+                )
+              })()}
             </div>
           )
         })}

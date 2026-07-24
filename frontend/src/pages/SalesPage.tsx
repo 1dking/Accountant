@@ -421,10 +421,6 @@ export default function SalesPage() {
     }
   }, [])
 
-  const scrollToDemo = useCallback(() => {
-    document.getElementById('sp-demo')?.scrollIntoView({ behavior: 'smooth' })
-  }, [])
-
   // Demo-request form → the product's own inbound lead webhook.
   const [form, setForm] = useState({ name: '', email: '', company: '', message: '' })
   const [formState, setFormState] = useState<'idle' | 'sending' | 'ok' | 'error'>('idle')
@@ -459,9 +455,9 @@ export default function SalesPage() {
           <Link to="/login" className="sp-btn sp-btn-ghost sp-btn-small">
             Log in
           </Link>
-          <button className="sp-btn sp-btn-primary sp-btn-small" onClick={scrollToDemo}>
+          <Link to="/register" className="sp-btn sp-btn-primary sp-btn-small">
             Get started free
-          </button>
+          </Link>
         </div>
       </nav>
 
@@ -481,9 +477,9 @@ export default function SalesPage() {
               follow-up — one login for the whole company.
             </p>
             <div className="sp-hero-cta">
-              <button className="sp-btn sp-btn-primary" onClick={scrollToDemo}>
+              <Link to="/register" className="sp-btn sp-btn-primary">
                 Get started free
-              </button>
+              </Link>
               <Link to="/login" className="sp-btn sp-btn-ghost">
                 Log in
               </Link>
@@ -593,13 +589,13 @@ export default function SalesPage() {
                     <li key={b}>{b}</li>
                   ))}
                 </ul>
-                <button
+                <Link
+                  to="/register"
                   className={`sp-btn ${plan.featured ? 'sp-btn-primary' : 'sp-btn-ghost'}`}
-                  style={plan.featured ? undefined : { color: 'var(--sp-body-text)', borderColor: '#ddd9ee' }}
-                  onClick={scrollToDemo}
+                  style={plan.featured ? { textAlign: 'center' } : { color: 'var(--sp-body-text)', borderColor: '#ddd9ee', textAlign: 'center' }}
                 >
-                  {plan.monthly === '$0' ? 'Start free' : 'Book a demo'}
-                </button>
+                  {plan.monthly === '$0' ? 'Start free' : 'Start free trial'}
+                </Link>
               </div>
             ))}
           </div>

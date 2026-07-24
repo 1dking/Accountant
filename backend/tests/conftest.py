@@ -81,6 +81,7 @@ def _import_all_models():
     import app.integrations.stripe_connect.models  # noqa
     import app.cards.models  # noqa
     import app.widget.models  # noqa
+    import app.billing.models  # noqa
     import app.integrations.twilio.models  # noqa
     import app.estimates.models  # noqa
     import app.invoicing.reminder_models  # noqa

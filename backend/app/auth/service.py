@@ -70,9 +70,10 @@ async def register_user(
     user_data: UserCreate,
     settings: Settings,
 ) -> User:
-    # Only allow registration when no users exist (first-time setup)
+    # Allow registration when self-serve signup is on, or during first-time
+    # setup (zero users). Otherwise it's invite-only.
     user_count = await db.scalar(select(func.count()).select_from(User))
-    if user_count > 0:
+    if user_count > 0 and not settings.allow_public_registration:
         raise ForbiddenError("Registration is closed. Contact an admin to get an account.")
 
     # Check if email already exists

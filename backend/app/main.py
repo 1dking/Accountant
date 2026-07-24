@@ -55,6 +55,7 @@ import app.integrations.stripe.models  # noqa: F401
 import app.integrations.stripe_connect.models  # noqa: F401
 import app.cards.models  # noqa: F401
 import app.widget.models  # noqa: F401
+import app.billing.models  # noqa: F401
 import app.integrations.twilio.models  # noqa: F401
 import app.estimates.models  # noqa: F401
 import app.invoicing.reminder_models  # noqa: F401
@@ -258,6 +259,7 @@ def create_app() -> FastAPI:
     from app.integrations.stripe_connect.router import router as stripe_connect_router
     from app.cards.router import router as cards_router
     from app.widget.router import router as widget_router
+    from app.billing.router import router as billing_router
     from app.integrations.twilio.router import router as twilio_router
     from app.estimates.router import router as estimates_router
     from app.invoicing.reminder_router import router as reminder_router
@@ -316,6 +318,7 @@ def create_app() -> FastAPI:
     fastapi_app.include_router(stripe_connect_router, prefix="/api/integrations/stripe-connect", tags=["stripe-connect"])
     fastapi_app.include_router(cards_router, prefix="/api/cards", tags=["cards"], dependencies=[Depends(require_feature("cards"))])
     fastapi_app.include_router(widget_router, prefix="/api/widget", tags=["widget"], dependencies=[Depends(require_feature("forms"))])
+    fastapi_app.include_router(billing_router, prefix="/api/billing", tags=["billing"])
     fastapi_app.include_router(twilio_router, prefix="/api/integrations/sms", tags=["sms"])
     fastapi_app.include_router(integration_settings_router, prefix="/api/integrations", tags=["integration-settings"])
     fastapi_app.include_router(export_router, prefix="/api/export", tags=["export"], dependencies=[Depends(require_feature("reports"))])

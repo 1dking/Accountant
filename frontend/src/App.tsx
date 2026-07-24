@@ -13,6 +13,7 @@ import { useBranding } from '@/hooks/useBranding'
 import AppShell from '@/components/layout/AppShell'
 import InstallBanner from '@/components/layout/InstallBanner'
 import LoginPage from '@/pages/LoginPage'
+import RegisterPage from '@/pages/RegisterPage'
 import SalesPage from '@/pages/SalesPage'
 import DashboardPage from '@/pages/DashboardPage'
 import AdminTeamPage from '@/pages/AdminTeamPage'
@@ -320,6 +321,7 @@ export default function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
             <Route path="/auth/password-reset/request" element={<PasswordResetRequestPage />} />
             <Route path="/auth/password-reset/confirm/:token" element={<PasswordResetConfirmPage />} />
             <Route path="/auth/google/callback" element={<GoogleCallbackPage />} />

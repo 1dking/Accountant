@@ -307,6 +307,15 @@ async def handle_webhook_event(
     elif event_type == "customer.subscription.deleted":
         await _handle_subscription_cancelled(db, data_object)
 
+    # Account-subscription (O-Brain plan) lifecycle. Safe no-op for any
+    # event that isn't one of our account subscriptions.
+    try:
+        from app.billing.service import handle_stripe_event
+
+        await handle_stripe_event(db, event_type, data_object)
+    except Exception:  # noqa: BLE001
+        logger.exception("billing webhook hook failed for %s", event_type)
+
     return {"event_type": event_type, "handled": True}
 
 

@@ -79,6 +79,12 @@ class Settings(BaseSettings):
     # Public access
     public_base_url: str = "http://localhost:5173"
 
+    # Self-serve signup — when True, anyone can create their own workspace
+    # (each signup becomes the ADMIN of their own account). When False,
+    # only first-time setup (zero users) is allowed and everyone else must
+    # be provisioned by an admin.
+    allow_public_registration: bool = True
+
     # Cloudflare R2 Storage
     cloudflare_account_id: str = ""
     r2_access_key_id: str = ""

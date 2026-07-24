@@ -62,12 +62,39 @@ async def test_register_first_user_succeeds(client: AsyncClient, db: AsyncSessio
 
 
 @pytest.mark.normal
-async def test_register_when_users_exist_fails(
+async def test_register_public_registration_open_by_default(
     client: AsyncClient,
     db: AsyncSession,
     admin_user: User,
 ):
-    """POST /register returns 403 when at least one user already exists."""
+    """Self-serve signup: with public registration on (the default), anyone can
+    create their own workspace even when other users already exist."""
+    resp = await client.post(
+        REGISTER_URL,
+        json={
+            "email": "newcomer@example.com",
+            "password": "SecurePass1!",
+            "full_name": "Newcomer",
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    data = resp.json()["data"]
+    assert data["email"] == "newcomer@example.com"
+    # Each self-serve signup owns their workspace, so they register as ADMIN.
+    assert data["role"] == "admin"
+
+
+@pytest.mark.normal
+async def test_register_when_registration_closed_fails(
+    client: AsyncClient,
+    db: AsyncSession,
+    admin_user: User,
+    app,
+    monkeypatch,
+):
+    """When public registration is disabled, POST /register is gated to the
+    first user only and returns 403 once any user exists."""
+    monkeypatch.setattr(app.state.settings, "allow_public_registration", False)
     resp = await client.post(
         REGISTER_URL,
         json={
