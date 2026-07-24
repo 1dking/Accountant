@@ -162,6 +162,7 @@ class JournalLine(Base):
     description: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     entry: Mapped["JournalEntry"] = relationship(back_populates="lines")
+    account: Mapped["ChartAccount"] = relationship(lazy="selectin")
 
 
 class BillStatus(str, enum.Enum):

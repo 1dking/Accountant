@@ -39,6 +39,7 @@ import {
   Lightbulb,
   Trash2,
   ListTree,
+  BookText,
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { getTrashCount } from '@/api/cashbook'
@@ -91,6 +92,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { path: '/cashbook', label: 'Cashbook', icon: BookOpen, featureKey: 'cashbook' },
       { path: '/accounting/chart-of-accounts', label: 'Chart of Accounts', icon: ListTree, featureKey: 'expenses' },
+      { path: '/accounting/journal', label: 'Journal', icon: BookText, featureKey: 'expenses' },
       { path: '/cashbook/reconcile', label: 'Reconcile', icon: Scale, featureKey: 'cashbook' },
       { path: '/smart-import', label: 'Smart Import', icon: Zap, featureKey: 'smart_import' },
       { path: '/email-scan', label: 'Email Scanner', icon: MailSearch, featureKey: 'email_scanner' },

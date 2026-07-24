@@ -164,6 +164,70 @@ export async function deactivateChartAccount(id: string) {
   return api.delete<ApiResponse<ChartAccount>>(`/accounting/accounts/${id}`)
 }
 
+// ---------------------------------------------------------------------------
+// Journal entries (Phase 1.2 — manual double-entry posting)
+// ---------------------------------------------------------------------------
+
+export type JournalStatus = 'posted' | 'void'
+
+export interface JournalLine {
+  id: string
+  account_id: string
+  account_code: string | null
+  account_name: string | null
+  debit: string
+  credit: string
+  description: string | null
+}
+
+export interface JournalLineInput {
+  account_id: string
+  debit: string
+  credit: string
+  description?: string | null
+}
+
+export interface JournalEntry {
+  id: string
+  entry_number: number
+  date: string
+  memo: string | null
+  source: string
+  source_id: string | null
+  status: JournalStatus
+  created_by: string
+  created_at: string
+  lines: JournalLine[]
+  total: string
+}
+
+export interface JournalEntryInput {
+  date: string
+  memo?: string | null
+  lines: JournalLineInput[]
+}
+
+export async function listJournalEntries(params: { date_from?: string; date_to?: string; include_void?: boolean } = {}) {
+  const q = new URLSearchParams()
+  if (params.date_from) q.set('date_from', params.date_from)
+  if (params.date_to) q.set('date_to', params.date_to)
+  if (params.include_void === false) q.set('include_void', 'false')
+  const query = q.toString()
+  return api.get<ApiResponse<JournalEntry[]>>(`/accounting/journal${query ? `?${query}` : ''}`)
+}
+
+export async function createJournalEntry(data: JournalEntryInput) {
+  return api.post<ApiResponse<JournalEntry>>('/accounting/journal', data)
+}
+
+export async function getJournalEntry(id: string) {
+  return api.get<ApiResponse<JournalEntry>>(`/accounting/journal/${id}`)
+}
+
+export async function voidJournalEntry(id: string) {
+  return api.post<ApiResponse<JournalEntry>>(`/accounting/journal/${id}/void`)
+}
+
 // Accounting Periods
 export async function listPeriods() {
   return api.get<ApiResponse<AccountingPeriod[]>>('/accounting/periods')
