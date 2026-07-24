@@ -72,6 +72,9 @@ class TransactionCategory(TimestampMixin, Base):
     icon: Mapped[str | None] = mapped_column(String(50), nullable=True)
     is_system: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     display_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    # Phase 1: maps this category to a Chart-of-Accounts income/expense account
+    # so cashbook entries can be expanded into double-entry postings.
+    coa_account_id: Mapped[uuid.UUID | None] = mapped_column(nullable=True)
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
@@ -98,6 +101,8 @@ class PaymentAccount(TimestampMixin, Base):
         ForeignKey("tax_rates.id", ondelete="SET NULL"), nullable=True
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    # Phase 1: maps this payment account to a CoA asset account.
+    coa_account_id: Mapped[uuid.UUID | None] = mapped_column(nullable=True)
 
     # Relationships
     entries: Mapped[list["CashbookEntry"]] = relationship(

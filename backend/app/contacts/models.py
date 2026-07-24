@@ -86,6 +86,9 @@ class Contact(TimestampMixin, Base):
     zip_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
     country: Mapped[str] = mapped_column(String(100), default="US", nullable=False)
     tax_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    # Phase 1: flag a vendor as 1099-reportable (contractor). Year-end totals
+    # come from payments recorded to this contact.
+    is_1099_vendor: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="0")
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_by: Mapped[uuid.UUID] = mapped_column(

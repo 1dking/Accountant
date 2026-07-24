@@ -45,6 +45,7 @@ import EstimatesPage from '@/pages/EstimatesPage'
 import NewEstimatePage from '@/pages/NewEstimatePage'
 import EstimateDetailPage from '@/pages/EstimateDetailPage'
 import CashbookPage from '@/pages/CashbookPage'
+import ChartOfAccountsPage from '@/pages/ChartOfAccountsPage'
 import NewCashbookEntryPage from '@/pages/NewCashbookEntryPage'
 import CashbookEntryDetailPage from '@/pages/CashbookEntryDetailPage'
 import DrivePage from '@/pages/DrivePage'
@@ -233,6 +234,7 @@ function AuthenticatedApp() {
         <Route path="/cashbook/entries/:id" element={<CashbookEntryDetailPage />} />
         <Route path="/cashbook/reconcile" element={<ReconciliationPage />} />
         <Route path="/cashbook/trash" element={<TrashPage />} />
+        <Route path="/accounting/chart-of-accounts" element={<ChartOfAccountsPage />} />
         <Route path="/expenses" element={<ExpensesPage />} />
         <Route path="/expenses/new" element={<NewExpensePage />} />
         <Route path="/expenses/dashboard" element={<ExpenseDashboardPage />} />

@@ -89,6 +89,7 @@ def _import_all_models():
     import app.integrations.settings_models  # noqa
     import app.accounting.period_models  # noqa
     import app.accounting.tax_models  # noqa
+    import app.accounting.ledger_models  # noqa
     import app.cashbook.models  # noqa
     import app.meetings.models  # noqa
     import app.office.models  # noqa

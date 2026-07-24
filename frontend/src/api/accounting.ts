@@ -104,6 +104,66 @@ export async function listPendingApprovals() {
   return api.get<ApiResponse<ExpenseApproval[]>>('/accounting/expenses/pending-approvals')
 }
 
+// ---------------------------------------------------------------------------
+// Chart of Accounts (Phase 1 — double-entry spine)
+// ---------------------------------------------------------------------------
+
+export type CoaAccountType = 'asset' | 'liability' | 'equity' | 'income' | 'expense'
+
+export interface ChartAccount {
+  id: string
+  code: string
+  name: string
+  account_type: CoaAccountType
+  normal_balance: 'debit' | 'credit'
+  description: string | null
+  parent_id: string | null
+  is_active: boolean
+  is_system: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface ChartAccountInput {
+  code: string
+  name: string
+  account_type: CoaAccountType
+  description?: string | null
+  parent_id?: string | null
+  is_active?: boolean
+}
+
+export interface CoaSeedResult {
+  accounts_created: number
+  categories_mapped: number
+  payment_accounts_mapped: number
+  already_seeded: boolean
+}
+
+export async function listChartAccounts(params: { account_type?: CoaAccountType; include_inactive?: boolean } = {}) {
+  const q = new URLSearchParams()
+  if (params.account_type) q.set('account_type', params.account_type)
+  if (params.include_inactive) q.set('include_inactive', 'true')
+  const query = q.toString()
+  return api.get<ApiResponse<ChartAccount[]>>(`/accounting/accounts${query ? `?${query}` : ''}`)
+}
+
+export async function seedChartOfAccounts(migrate = true) {
+  return api.post<ApiResponse<CoaSeedResult>>(`/accounting/accounts/seed?migrate=${migrate}`)
+}
+
+export async function createChartAccount(data: ChartAccountInput) {
+  return api.post<ApiResponse<ChartAccount>>('/accounting/accounts', data)
+}
+
+export async function updateChartAccount(id: string, data: Partial<ChartAccountInput>) {
+  return api.patch<ApiResponse<ChartAccount>>(`/accounting/accounts/${id}`, data)
+}
+
+export async function deactivateChartAccount(id: string) {
+  return api.delete<ApiResponse<ChartAccount>>(`/accounting/accounts/${id}`)
+}
+
 // Accounting Periods
 export async function listPeriods() {
   return api.get<ApiResponse<AccountingPeriod[]>>('/accounting/periods')
