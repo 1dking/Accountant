@@ -18,6 +18,12 @@ class TwilioPhoneNumber(TimestampMixin, Base):
     )
     friendly_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     capabilities_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # A2P 10DLC is a US carrier programme. US and Canadian numbers are BOTH
+    # +1, so origin cannot be derived from the number string — it comes from
+    # Twilio's iso_country at purchase time. number_type separates long codes
+    # (10DLC applies) from toll-free (separate Toll-Free Verification path).
+    iso_country: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    number_type: Mapped[str | None] = mapped_column(String(16), nullable=True)
     # Twilio subaccount isolation. NULL = legacy number still on the PARENT
     # account (see telephony/service.py::migrate_legacy_numbers).
     tenant_key: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)

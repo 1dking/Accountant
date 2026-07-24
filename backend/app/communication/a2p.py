@@ -121,22 +121,116 @@ def _next_step(status: str) -> str:
     }.get(status, "")
 
 
-async def require_sms_registered(db: AsyncSession, user: User) -> None:
-    """Gate outbound SMS on an approved campaign.
+# ---------------------------------------------------------------------------
+# Who actually needs 10DLC
+# ---------------------------------------------------------------------------
 
-    Deliberately fail-CLOSED once active: sending unregistered A2P traffic gets
-    numbers filtered by carriers and puts the account's reputation at risk.
+#: North American toll-free area codes. Toll-free numbers are NOT part of
+#: 10DLC — they use Twilio's separate Toll-Free Verification programme.
+TOLLFREE_NPAS = frozenset({"800", "833", "844", "855", "866", "877", "888"})
 
-    Staged behind ``telephony_enforce_a2p`` (default OFF) so deploying the
-    rebilling stack does not hard-cut SMS for existing tenants. Registration,
-    status tracking and fee billing all run regardless — only the BLOCK is
-    flagged. Checked inside the guard rather than at call sites so every
-    future sender inherits the rollout state automatically.
+#: A2P 10DLC is a US carrier programme. Canadian long codes are exempt.
+A2P_REQUIRED_COUNTRIES = frozenset({"US"})
+
+
+def classify_number(phone_number: str | None, iso_country: str | None = None) -> str:
+    """Classify a sending number: "us_longcode" | "ca_longcode" | "tollfree"
+    | "unknown".
+
+    US and Canadian numbers share the +1 country code, so origin CANNOT be
+    derived from the number string — ``iso_country`` comes from Twilio at
+    purchase time. Toll-free IS derivable, from the NPA.
     """
-    from app.config import Settings
+    digits = "".join(ch for ch in (phone_number or "") if ch.isdigit())
+    if digits.startswith("1") and len(digits) == 11:
+        npa = digits[1:4]
+    elif len(digits) == 10:
+        npa = digits[:3]
+    else:
+        npa = ""
 
-    if not Settings().telephony_enforce_a2p:
+    if npa in TOLLFREE_NPAS:
+        return "tollfree"
+
+    country = (iso_country or "").upper()
+    if country == "US":
+        return "us_longcode"
+    if country == "CA":
+        return "ca_longcode"
+    return "unknown"
+
+
+def number_requires_a2p(phone_number: str | None, iso_country: str | None = None) -> bool:
+    """Does this sending number need an approved 10DLC campaign?
+
+    Only US long codes do. Canadian long codes are outside the programme, and
+    toll-free uses Toll-Free Verification instead — blocking either on 10DLC
+    would be wrong.
+
+    ``unknown`` (origin not yet recorded) returns False deliberately: refusing
+    to send because WE never stored the country is our bug, not the tenant's.
+    The backfill fills these in; until then the other gates still apply.
+    """
+    return classify_number(phone_number, iso_country) in (
+        c.lower() + "_longcode" for c in A2P_REQUIRED_COUNTRIES
+    )
+
+
+def is_exempt_account(user: User, settings=None) -> bool:
+    """Operator-owned accounts bypass telephony enforcement entirely.
+
+    Same comma-separated-email shape as ``super_admin_emails``.
+    """
+    if settings is None:
+        from app.config import Settings
+
+        settings = Settings()
+    raw = getattr(settings, "telephony_exempt_emails", "") or ""
+    exempt = {e.strip().lower() for e in raw.split(",") if e.strip()}
+    return bool(exempt) and (user.email or "").lower() in exempt
+
+
+async def require_sms_registered(
+    db: AsyncSession,
+    user: User,
+    *,
+    from_number: str | None = None,
+    iso_country: str | None = None,
+    settings=None,
+) -> None:
+    """Gate outbound SMS on an approved 10DLC campaign — where it applies.
+
+    A2P 10DLC is a **US carrier programme**, so the requirement attaches to the
+    SENDING number, not to the account:
+
+      * US long code  -> approved campaign required (fail-closed; unregistered
+                         US traffic gets filtered and burns the number)
+      * CA long code  -> exempt, outside the programme
+      * toll-free     -> exempt from 10DLC; Toll-Free Verification is the
+                         separate path and is not enforced here
+      * unknown origin-> allowed (see number_requires_a2p)
+
+    Operator-owned accounts in ``telephony_exempt_emails`` bypass entirely.
+
+    Staged behind ``telephony_enforce_a2p``. Checked inside the guard rather
+    than at call sites so every sender inherits the rollout state.
+    """
+    if settings is None:
+        from app.config import Settings
+
+        settings = Settings()
+
+    if not settings.telephony_enforce_a2p:
         return
+    if is_exempt_account(user, settings):
+        return
+    if not number_requires_a2p(from_number, iso_country):
+        logger.debug(
+            "a2p: skipping 10DLC gate for %s (%s)",
+            from_number, classify_number(from_number, iso_country),
+        )
+        return
+
     reg = await get_registration(db, user)
     if reg is None or reg.status != "approved":
         raise SmsNotRegistered(reg.status if reg else "not_started")

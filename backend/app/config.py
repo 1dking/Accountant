@@ -84,6 +84,10 @@ class Settings(BaseSettings):
     # recorded and billed from day one; only the BLOCKING is staged.
     telephony_enforce_a2p: bool = False
     telephony_enforce_credit: bool = False
+    #: Comma-separated emails whose accounts bypass telephony enforcement
+    #: (A2P + prepaid credit). For operator-owned accounts — same shape as
+    #: super_admin_emails. Everyone else is enforced normally.
+    telephony_exempt_emails: str = ""
     # Voice (AccessToken-based — distinct from account_sid/auth_token)
     twilio_api_key_sid: str = ""
     twilio_api_key_secret: str = ""

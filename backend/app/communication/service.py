@@ -366,17 +366,34 @@ async def send_sms(
     """Send an SMS via Twilio and log it.
 
     Guards run BEFORE the Twilio call, in cost order: rate limit (cheapest),
-    recipient allow-list, then subaccount resolution (which also enforces
-    suspension).
+    recipient allow-list, then the A2P and prepaid gates, then subaccount
+    resolution (which also enforces suspension).
+
+    The sending number is resolved FIRST, because whether 10DLC applies depends
+    on that number's origin — US long codes need it, Canadian long codes and
+    toll-free do not.
     """
     from app.billing import telephony_credits
     from app.communication import a2p, guards, telephony
 
     await guards.enforce_sms_rate_limit(db, user)
     await guards.enforce_recipient_allowed(db, user, to_number)
-    # US carriers filter unregistered A2P traffic — fail closed rather than
-    # burn the number's reputation.
-    await a2p.require_sms_registered(db, user)
+
+    # Determine FROM: prefer the user's assigned Twilio number; fall back to the global.
+    user_phone_result = await db.execute(
+        select(TwilioPhoneNumber).where(TwilioPhoneNumber.assigned_user_id == user.id)
+    )
+    user_phone = user_phone_result.scalar_one_or_none()
+    from_number = user_phone.phone_number if user_phone else settings.twilio_from_number
+
+    # A2P 10DLC is a US carrier programme, so the gate is keyed to the SENDING
+    # number, not the account. Canadian and toll-free numbers skip it.
+    await a2p.require_sms_registered(
+        db, user,
+        from_number=from_number,
+        iso_country=getattr(user_phone, "iso_country", None),
+        settings=settings,
+    )
     # Prepaid: refuse BEFORE sending. We never front more than was purchased.
     await telephony_credits.require_credit(
         db, user, unit="sms_outbound", action="send this message"
@@ -385,13 +402,6 @@ async def send_sms(
     # Per-tenant subaccount, never the parent account. ensure_account() raises
     # TelephonySuspended if this tenant has been killed by a usage trigger.
     client, _tenant_account = await telephony.client_for(db, user, settings)
-
-    # Determine FROM: prefer the user's assigned Twilio number; fall back to the global.
-    user_phone_result = await db.execute(
-        select(TwilioPhoneNumber).where(TwilioPhoneNumber.assigned_user_id == user.id)
-    )
-    user_phone = user_phone_result.scalar_one_or_none()
-    from_number = user_phone.phone_number if user_phone else settings.twilio_from_number
 
     if not from_number:
         logger.warning(

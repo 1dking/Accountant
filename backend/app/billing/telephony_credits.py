@@ -202,9 +202,14 @@ async def require_credit(
     so enforcing plan shape while the flag is off would hard-cut every current
     user on deploy, which is exactly what staging exists to prevent.
     """
+    from app.communication.a2p import is_exempt_account
     from app.config import Settings
 
-    if not Settings().telephony_enforce_credit:
+    settings = Settings()
+    if not settings.telephony_enforce_credit:
+        return
+    # Operator-owned accounts bypass enforcement entirely.
+    if is_exempt_account(user, settings):
         return
 
     from app.billing.rate_card import require_enabled

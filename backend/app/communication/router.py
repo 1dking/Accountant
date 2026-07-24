@@ -1171,6 +1171,17 @@ async def search_available_numbers(
     }
 
 
+
+def _classify_purchased(purchased) -> str:
+    """Long code vs toll-free, for the A2P gate."""
+    from app.communication.a2p import classify_number
+
+    kind = classify_number(
+        getattr(purchased, "phone_number", None), getattr(purchased, "iso_country", None)
+    )
+    return "tollfree" if kind == "tollfree" else "longcode"
+
+
 @router.post("/twilio/purchase")
 async def purchase_number(
     request: Request,
@@ -1256,6 +1267,10 @@ async def purchase_number(
         tenant_key=tenant_account.tenant_key,
         subaccount_sid=tenant_account.subaccount_sid,
         assigned_user_id=current_user.id,
+        # Origin decides whether 10DLC applies later — US and CA are both +1,
+        # so this can only be captured here, from Twilio.
+        iso_country=getattr(purchased, "iso_country", None),
+        number_type=_classify_purchased(purchased),
     )
     db.add(phone)
     await db.commit()

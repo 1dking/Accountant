@@ -335,19 +335,22 @@ async def test_sms_locked_until_a2p_approved(
     """US carriers filter unregistered A2P traffic — fail closed."""
     from app.communication import a2p
 
+    # Gate is keyed to the SENDING number: a US long code is what needs 10DLC.
+    us = {"from_number": "+14155551234", "iso_country": "US"}
+
     with pytest.raises(a2p.SmsNotRegistered) as exc:
-        await a2p.require_sms_registered(db, admin_user)
+        await a2p.require_sms_registered(db, admin_user, **us)
     assert exc.value.status_code == 403
 
     reg = await a2p.get_or_create(db, admin_user)
     reg.status = "campaign_pending"
     await db.commit()
     with pytest.raises(a2p.SmsNotRegistered):
-        await a2p.require_sms_registered(db, admin_user)
+        await a2p.require_sms_registered(db, admin_user, **us)
 
     reg.status = "approved"
     await db.commit()
-    await a2p.require_sms_registered(db, admin_user)  # must not raise
+    await a2p.require_sms_registered(db, admin_user, **us)  # must not raise
 
 
 @pytest.mark.normal
@@ -429,3 +432,114 @@ async def test_flags_off_metering_still_records(db: AsyncSession, admin_user: Us
     assert entry is not None
     assert entry.billed_micros > 0
     assert await telephony_credits.get_balance_micros(db, row.tenant_key) < 5 * MICROS_PER_USD
+
+
+# ---------------------------------------------------------------------------
+# A2P applies to US long codes only
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.critical
+async def test_a2p_applies_only_to_us_long_codes():
+    """10DLC is a US carrier programme. Canadian long codes are outside it,
+    and toll-free uses Toll-Free Verification instead — gating either on
+    10DLC would block traffic that never needed registering."""
+    from app.communication.a2p import classify_number, number_requires_a2p
+
+    assert classify_number("+14155551234", "US") == "us_longcode"
+    assert number_requires_a2p("+14155551234", "US") is True
+
+    assert classify_number("+16475551234", "CA") == "ca_longcode"
+    assert number_requires_a2p("+16475551234", "CA") is False
+
+    for tf in ("+18005551234", "+18335551234", "+18885551234"):
+        assert classify_number(tf, "US") == "tollfree"
+        assert number_requires_a2p(tf, "US") is False
+
+
+@pytest.mark.critical
+async def test_unknown_origin_does_not_block():
+    """US and CA are both +1, so a number with no stored origin is ambiguous.
+    Failing closed there would punish tenants for OUR missing backfill."""
+    from app.communication.a2p import number_requires_a2p
+
+    assert number_requires_a2p("+14155551234", None) is False
+    assert number_requires_a2p(None, None) is False
+
+
+@pytest.mark.critical
+async def test_canadian_number_sends_without_registration(
+    db: AsyncSession, admin_user: User, enforcement_on
+):
+    """The end-to-end point: a CA number sends with no A2P registration."""
+    from app.communication import a2p
+
+    # US number, unregistered -> blocked.
+    with pytest.raises(a2p.SmsNotRegistered):
+        await a2p.require_sms_registered(
+            db, admin_user, from_number="+14155551234", iso_country="US"
+        )
+
+    # Canadian number, same unregistered account -> allowed.
+    await a2p.require_sms_registered(
+        db, admin_user, from_number="+16475551234", iso_country="CA"
+    )
+
+    # Toll-free, same account -> allowed (separate verification path).
+    await a2p.require_sms_registered(
+        db, admin_user, from_number="+18005551234", iso_country="US"
+    )
+
+
+@pytest.mark.critical
+async def test_exempt_account_bypasses_both_gates(
+    db: AsyncSession, admin_user: User, monkeypatch
+):
+    """Operator-owned accounts keep working with enforcement fully on."""
+    monkeypatch.setenv("TELEPHONY_ENFORCE_CREDIT", "true")
+    monkeypatch.setenv("TELEPHONY_ENFORCE_A2P", "true")
+    monkeypatch.setenv("TELEPHONY_EXEMPT_EMAILS", admin_user.email)
+
+    from app.communication import a2p
+
+    # US long code, no registration, zero balance, starter plan — all bypassed.
+    await _set_plan(db, admin_user, "starter")
+    await _fund(db, admin_user, 0)
+
+    await a2p.require_sms_registered(
+        db, admin_user, from_number="+14155551234", iso_country="US"
+    )
+    await telephony_credits.require_credit(
+        db, admin_user, unit="sms_outbound", action="send a message"
+    )
+
+
+@pytest.mark.normal
+async def test_non_exempt_account_still_enforced(
+    db: AsyncSession, admin_user: User, team_member_user: User, monkeypatch
+):
+    """The exemption list is exact — it must not leak to other accounts."""
+    monkeypatch.setenv("TELEPHONY_ENFORCE_CREDIT", "true")
+    monkeypatch.setenv("TELEPHONY_ENFORCE_A2P", "true")
+    monkeypatch.setenv("TELEPHONY_EXEMPT_EMAILS", admin_user.email)
+
+    from app.communication import a2p
+
+    assert a2p.is_exempt_account(admin_user) is True
+    assert a2p.is_exempt_account(team_member_user) is False
+
+    with pytest.raises(a2p.SmsNotRegistered):
+        await a2p.require_sms_registered(
+            db, team_member_user, from_number="+14155551234", iso_country="US"
+        )
+
+
+@pytest.mark.normal
+async def test_empty_exempt_list_exempts_nobody(db: AsyncSession, admin_user: User):
+    """An unset list must not accidentally exempt everyone."""
+    from app.communication.a2p import is_exempt_account
+
+    class _S:
+        telephony_exempt_emails = ""
+
+    assert is_exempt_account(admin_user, _S()) is False
