@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import uuid
-from typing import TYPE_CHECKING
 
-from fastapi import APIRouter, Depends
+# Request must be imported at runtime, not under TYPE_CHECKING: FastAPI
+# resolves the endpoint's string annotations at import time, and an
+# unresolvable "Request" turned it into a bogus query field that broke
+# /openapi.json (and Swagger /docs) for the whole app.
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-
-if TYPE_CHECKING:
-    from fastapi import Request
 
 from app.auth.models import Role, User
 from app.dependencies import get_current_user, get_db, require_role
@@ -88,7 +88,7 @@ async def apply_rules(
 
 @router.post("/ai-categorize", response_model=dict)
 async def ai_categorize(
-    request: "Request",
+    request: Request,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role([Role.ACCOUNTANT, Role.ADMIN])),
 ):

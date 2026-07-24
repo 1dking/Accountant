@@ -151,7 +151,16 @@ async def download_vcard(
     slug: str,
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
+    open_inline: bool = Query(False, alias="open"),
 ) -> Response:
+    """Serve the vCard.
+
+    ``?open=1`` (sent by the card page on phones) serves it inline so the
+    OS hands it straight to the Contacts UI — Safari/Chrome show the
+    native "add contact" sheet. The default stays ``attachment`` so
+    desktop clicks (and any direct link) download a .vcf file instead of
+    rendering vCard text in the tab.
+    """
     card = await service.get_public_card(db, slug)
     await service.record_card_view(
         db,
@@ -172,10 +181,11 @@ async def download_vcard(
         card_url=f"{base}/c/{card.slug}",
     )
     safe_name = card.display_name.replace(" ", "-")
+    disposition = "inline" if open_inline else "attachment"
     return Response(
         content=vcf.encode("utf-8"),
         media_type="text/vcard; charset=utf-8",
-        headers={"Content-Disposition": f'attachment; filename="{safe_name}.vcf"'},
+        headers={"Content-Disposition": f'{disposition}; filename="{safe_name}.vcf"'},
     )
 
 

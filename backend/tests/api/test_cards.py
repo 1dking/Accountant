@@ -337,3 +337,22 @@ async def test_wallet_endpoints_404_when_unconfigured(
     # And the public payload advertises neither.
     payload = (await client.get(f"/api/cards/public/{card.slug}")).json()["data"]
     assert payload["wallet_available"] == {"apple": False, "google": False}
+
+
+@pytest.mark.critical
+async def test_vcard_open_param_serves_inline(client: AsyncClient, admin_user: User, db):
+    """?open=1 (sent by phones) must serve inline so the OS hands the
+    vCard to the native Contacts UI instead of downloading a file."""
+    await client.put(
+        "/api/cards/me", json={"is_published": True}, headers=auth_header(admin_user)
+    )
+    card = await get_or_create_card(db, admin_user)
+
+    default = await client.get(f"/api/cards/public/{card.slug}/vcard")
+    assert "attachment" in default.headers["content-disposition"]
+
+    inline = await client.get(f"/api/cards/public/{card.slug}/vcard?open=1")
+    assert inline.status_code == 200
+    assert "inline" in inline.headers["content-disposition"]
+    assert "attachment" not in inline.headers["content-disposition"]
+    assert "BEGIN:VCARD" in inline.text

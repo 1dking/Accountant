@@ -67,7 +67,10 @@ export default function PublicCardPage() {
         card={card}
         cardUrl={cardUrl}
         onSaveContact={() => {
-          window.location.href = `/api/cards/public/${card.slug}/vcard`
+          // Phones get the vCard inline so the OS opens its native
+          // "add contact" sheet directly; desktop gets a .vcf download.
+          const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+          window.location.href = `/api/cards/public/${card.slug}/vcard${isMobile ? '?open=1' : ''}`
         }}
         onShowQr={() => setShowQr(true)}
         onAddAppleWallet={
