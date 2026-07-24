@@ -3,7 +3,7 @@ import math
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Body, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import Role, User
@@ -38,6 +38,22 @@ async def list_templates(
 ) -> dict:
     """Return pre-built workflow templates as JSON."""
     return {"data": service.WORKFLOW_TEMPLATES}
+
+
+@router.post("/webhook/{webhook_key}", status_code=202)
+async def inbound_workflow_webhook(
+    webhook_key: str,
+    payload: Annotated[dict, Body(...)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    """Fire a WEBHOOK_RECEIVED workflow from an external system.
+
+    No auth — the secret key in the URL is the credential, the same contract as
+    the inbound form webhook. Always answers 202 so a caller can never probe
+    which keys exist.
+    """
+    execution = await service.trigger_by_webhook_key(db, webhook_key, payload)
+    return {"data": {"received": True, "triggered": execution is not None}}
 
 
 @router.post("/dispatch")
@@ -168,6 +184,21 @@ async def delete_workflow(
 ) -> dict:
     await service.delete_workflow(db, workflow_id)
     return {"data": {"message": "Workflow deleted"}}
+
+
+@router.post("/{workflow_id}/webhook-key")
+async def get_or_rotate_webhook_key(
+    workflow_id: uuid.UUID,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
+    rotate: bool = Query(False, description="Mint a new key, revoking the old URL"),
+) -> dict:
+    """Return this workflow's inbound webhook URL (minting a key on first call)."""
+    wf_data = await service.get_workflow(db, workflow_id)
+    key = await service.ensure_webhook_key(db, wf_data["workflow"], rotate=rotate)
+    base = str(request.base_url).rstrip("/")
+    return {"data": {"webhook_key": key, "webhook_url": f"{base}/api/workflows/webhook/{key}"}}
 
 
 @router.post("/{workflow_id}/toggle")

@@ -44,6 +44,39 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
+# Pipeline
+# ---------------------------------------------------------------------------
+
+async def dispatch_stage_changed(db: AsyncSession, proposal, from_status) -> None:
+    """Fire PIPELINE_STAGE_CHANGED for a proposal status move.
+
+    The Pipelines board IS proposal status (Draft → Sent → Viewed → Won/Lost),
+    so every status transition is a pipeline stage change. Called alongside the
+    specific per-status triggers, not instead of them: a user may automate on
+    "any stage change" without enumerating each status.
+    """
+    if from_status == proposal.status:
+        return
+    from app.workflows.models import TriggerType
+    from app.workflows.service import safe_dispatch
+
+    def _val(s):
+        return getattr(s, "value", s)
+
+    await safe_dispatch(
+        db,
+        TriggerType.PIPELINE_STAGE_CHANGED,
+        event_data={
+            "proposal_id": str(proposal.id),
+            "proposal_title": proposal.title,
+            "from_stage": _val(from_status),
+            "to_stage": _val(proposal.status),
+        },
+        contact_id=proposal.contact_id,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Number generation
 # ---------------------------------------------------------------------------
 
@@ -317,6 +350,7 @@ async def send_proposal(
         errors = "; ".join(f"{f['email']}: {f['error']}" for f in failed) or "unknown error"
         raise ValidationError(f"Proposal could not be emailed to any recipient ({errors})")
 
+    _prev_stage = proposal.status
     proposal.status = ProposalStatus.SENT
     proposal.sent_at = datetime.now(timezone.utc)
 
@@ -341,6 +375,7 @@ async def send_proposal(
         event_data={"proposal_title": proposal.title},
         contact_id=proposal.contact_id,
     )
+    await dispatch_stage_changed(db, proposal, _prev_stage)
 
     # Re-fetch rather than refresh(): refresh() expires the eager-loaded
     # relationships without reloading them, so the caller's serialization
@@ -353,6 +388,7 @@ async def mark_viewed(db: AsyncSession, proposal_id: uuid.UUID, ip_address: str 
     proposal = await get_proposal(db, proposal_id)
 
     if proposal.status == ProposalStatus.SENT:
+        _prev_stage = proposal.status
         proposal.status = ProposalStatus.VIEWED
         proposal.viewed_at = datetime.now(timezone.utc)
 
@@ -387,6 +423,7 @@ async def mark_viewed(db: AsyncSession, proposal_id: uuid.UUID, ip_address: str 
             event_data={"proposal_title": proposal.title},
             contact_id=proposal.contact_id,
         )
+        await dispatch_stage_changed(db, proposal, _prev_stage)
 
     return proposal
 
@@ -394,6 +431,7 @@ async def mark_viewed(db: AsyncSession, proposal_id: uuid.UUID, ip_address: str 
 async def mark_declined(db: AsyncSession, proposal_id: uuid.UUID, user: User) -> Proposal:
     """Mark proposal as declined."""
     proposal = await get_proposal(db, proposal_id, user)
+    _prev_stage = proposal.status
     proposal.status = ProposalStatus.DECLINED
 
     activity = ProposalActivity(
@@ -415,12 +453,14 @@ async def mark_declined(db: AsyncSession, proposal_id: uuid.UUID, user: User) ->
         event_data={"proposal_title": proposal.title},
         contact_id=proposal.contact_id,
     )
+    await dispatch_stage_changed(db, proposal, _prev_stage)
     return proposal
 
 
 async def mark_completed(db: AsyncSession, proposal_id: uuid.UUID, user: User) -> Proposal:
     """Manually mark proposal as signed/completed."""
     proposal = await get_proposal(db, proposal_id, user)
+    _prev_stage = proposal.status
     proposal.status = ProposalStatus.SIGNED
     proposal.signed_at = datetime.now(timezone.utc)
 
@@ -443,6 +483,7 @@ async def mark_completed(db: AsyncSession, proposal_id: uuid.UUID, user: User) -
         event_data={"proposal_title": proposal.title},
         contact_id=proposal.contact_id,
     )
+    await dispatch_stage_changed(db, proposal, _prev_stage)
     return proposal
 
 
@@ -547,6 +588,7 @@ async def sign_proposal(
     signers = [r for r in proposal.recipients if r.role == "signer"]
     all_signed = all(r.signed_at is not None for r in signers)
 
+    _prev_stage = proposal.status
     if all_signed:
         proposal.status = ProposalStatus.SIGNED
         proposal.signed_at = datetime.now(timezone.utc)
@@ -578,6 +620,7 @@ async def sign_proposal(
             event_data={"proposal_title": proposal.title},
             contact_id=proposal.contact_id,
         )
+        await dispatch_stage_changed(db, proposal, _prev_stage)
 
     return {
         "signed": True,
@@ -698,6 +741,7 @@ async def _apply_proposal_paid(
         return False
 
     proposal.payment_status = PaymentStatus.PAID
+    _prev_stage = proposal.status
     proposal.status = ProposalStatus.PAID
     proposal.paid_at = datetime.now(timezone.utc)
 
@@ -747,6 +791,8 @@ async def _apply_proposal_paid(
         resource_type="proposal",
         resource_id=str(proposal.id),
     )
+
+    await dispatch_stage_changed(db, proposal, _prev_stage)
     return True
 
 

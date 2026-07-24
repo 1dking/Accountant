@@ -318,6 +318,36 @@ async def _sync_google_calendars() -> None:
         logger.exception("Error syncing Google Calendar")
 
 
+async def _run_scheduled_workflows() -> None:
+    """Job: fire workflows whose trigger is SCHEDULED and that are due."""
+    try:
+        async with _session_factory() as db:
+            from app.workflows.service import run_scheduled_workflows
+
+            ran = await run_scheduled_workflows(db)
+            if ran:
+                logger.info("Ran %d scheduled workflows", ran)
+    except Exception:
+        logger.exception("Error running scheduled workflows")
+
+
+async def _complete_past_bookings() -> None:
+    """Job: mark confirmed bookings whose end time has passed as COMPLETED.
+
+    Nothing else ever set COMPLETED, so the APPOINTMENT_COMPLETED trigger had
+    no source event — this is that source.
+    """
+    try:
+        async with _session_factory() as db:
+            from app.scheduling.service import complete_past_bookings
+
+            done = await complete_past_bookings(db)
+            if done:
+                logger.info("Marked %d bookings completed", done)
+    except Exception:
+        logger.exception("Error completing past bookings")
+
+
 def setup_scheduler(session_factory: Any, settings: Any = None) -> None:
     """Register all periodic jobs and start the scheduler."""
     global _session_factory, _settings
@@ -328,6 +358,22 @@ def setup_scheduler(session_factory: Any, settings: Any = None) -> None:
         _process_recurring_rules,
         CronTrigger(hour=1, minute=0),
         id="process_recurring_rules",
+        replace_existing=True,
+    )
+
+    # Time-based workflow trigger. 15 minutes is the granularity the SCHEDULED
+    # cron matcher buckets against — keep the two in step if this changes.
+    scheduler.add_job(
+        _run_scheduled_workflows,
+        IntervalTrigger(minutes=15),
+        id="run_scheduled_workflows",
+        replace_existing=True,
+    )
+
+    scheduler.add_job(
+        _complete_past_bookings,
+        IntervalTrigger(minutes=15),
+        id="complete_past_bookings",
         replace_existing=True,
     )
 

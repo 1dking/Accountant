@@ -194,6 +194,37 @@ async def resolve_smtp_config(
 # Email sending
 # ---------------------------------------------------------------------------
 
+async def create_open_tracker(
+    db: AsyncSession,
+    to_email: str,
+    kind: str | None = None,
+    contact_id: Optional[uuid.UUID] = None,
+) -> str:
+    """Register an open-tracking token and return the pixel <img> HTML.
+
+    Appended to an email body by callers that want open tracking. Returns ""
+    when tracking can't be set up, so a failure here never blocks the send.
+    """
+    import secrets
+
+    from app.config import Settings
+    from app.email.models import EmailOpen
+
+    try:
+        token = secrets.token_urlsafe(32)
+        db.add(EmailOpen(token=token, to_email=to_email, kind=kind, contact_id=contact_id))
+        await db.commit()
+        base = Settings().public_base_url.rstrip("/")
+        url = f"{base}/api/email/track/open/{token}.gif"
+        return (
+            f'<img src="{url}" width="1" height="1" alt="" '
+            'style="display:block;width:1px;height:1px;border:0" />'
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception("could not create email open tracker")
+        return ""
+
+
 async def send_email(
     smtp_config: SmtpConfig,
     to: str,
@@ -377,6 +408,7 @@ async def send_invoice_email(
         (f"Invoice-{invoice.invoice_number}.pdf", pdf_bytes, "application/pdf"),
     ]
 
+    html_body += await create_open_tracker(db, to_email, "invoice", getattr(invoice, "contact_id", None))
     await send_email(smtp_config, to_email, email_subject, html_body, attachments)
 
     return {"detail": f"Invoice email sent to {to_email}"}
@@ -440,6 +472,7 @@ async def send_payment_reminder(
         year=datetime.now(timezone.utc).year,
     )
 
+    html_body += await create_open_tracker(db, to_email, "payment_reminder", getattr(invoice, "contact_id", None))
     await send_email(smtp_config, to_email, email_subject, html_body)
 
     return {"detail": f"Payment reminder sent to {to_email}"}
@@ -658,7 +691,10 @@ async def send_proposal_email(
         )
 
         try:
-            await send_email(smtp_config, recipient.email, email_subject, html_body)
+            body = html_body + await create_open_tracker(
+                db, recipient.email, "proposal", getattr(proposal, "contact_id", None)
+            )
+            await send_email(smtp_config, recipient.email, email_subject, body)
             sent.append(recipient.email)
         except Exception as exc:  # noqa: BLE001 — one bad address must not strand the others
             logger.exception(

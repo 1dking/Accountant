@@ -1307,3 +1307,141 @@ WORKFLOW_TEMPLATES = [
         ],
     },
 ]
+
+
+# ---------------------------------------------------------------------------
+# Inbound webhook trigger (WEBHOOK_RECEIVED)
+# ---------------------------------------------------------------------------
+
+def _trigger_config(workflow: Workflow) -> dict:
+    if not workflow.trigger_config_json:
+        return {}
+    try:
+        cfg = json.loads(workflow.trigger_config_json)
+        return cfg if isinstance(cfg, dict) else {}
+    except (json.JSONDecodeError, TypeError):
+        return {}
+
+
+async def ensure_webhook_key(db: AsyncSession, workflow: Workflow, rotate: bool = False) -> str:
+    """Return this workflow's inbound webhook key, minting one on first use.
+
+    The key in the URL is the only credential, so it is generated with
+    ``secrets`` and can be rotated to revoke a leaked URL.
+    """
+    import secrets
+
+    cfg = _trigger_config(workflow)
+    if rotate or not cfg.get("webhook_key"):
+        cfg["webhook_key"] = secrets.token_urlsafe(32)
+        workflow.trigger_config_json = json.dumps(cfg)
+        await db.commit()
+        await db.refresh(workflow)
+    return cfg["webhook_key"]
+
+
+async def trigger_by_webhook_key(
+    db: AsyncSession, webhook_key: str, payload: dict
+) -> WorkflowExecution | None:
+    """Run the single ACTIVE webhook workflow owning this key.
+
+    Deliberately not a broadcast to every WEBHOOK_RECEIVED workflow: the key
+    identifies one workflow, so an unrelated workflow must never see another's
+    payload. Returns None when no active workflow matches.
+    """
+    if not webhook_key:
+        return None
+
+    result = await db.execute(
+        select(Workflow).where(
+            Workflow.is_active == True,  # noqa: E712
+            Workflow.trigger_type == TriggerType.WEBHOOK_RECEIVED,
+        )
+    )
+    for workflow in result.scalars().all():
+        if _trigger_config(workflow).get("webhook_key") == webhook_key:
+            return await execute_workflow(
+                db, workflow.id, None, {"payload": payload, "source": "webhook"}
+            )
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Time-based trigger (SCHEDULED)
+# ---------------------------------------------------------------------------
+
+def _due(cfg: dict, now: datetime, last_run: datetime | None) -> bool:
+    """Is a SCHEDULED workflow due to run?
+
+    Config shapes supported:
+      {"interval_minutes": 60}                  — every N minutes
+      {"cron": {"hour": 9, "minute": 0}}        — daily at HH:MM (UTC)
+      {"cron": {"day": 1, "hour": 9}}           — monthly on day N
+      {"cron": {"weekday": 0, "hour": 9}}       — weekly (0=Monday)
+    """
+    interval = cfg.get("interval_minutes")
+    if interval:
+        try:
+            interval = int(interval)
+        except (TypeError, ValueError):
+            return False
+        if interval <= 0:
+            return False
+        return last_run is None or (now - last_run) >= timedelta(minutes=interval)
+
+    cron = cfg.get("cron")
+    if not isinstance(cron, dict):
+        return False
+
+    hour = cron.get("hour")
+    minute = cron.get("minute", 0)
+    if hour is not None and now.hour != int(hour):
+        return False
+    if minute is not None and now.minute // 15 != int(minute) // 15:
+        # 15-minute granularity — the poller runs every 15 minutes, so match
+        # the bucket rather than the exact minute or it would never fire.
+        return False
+    if cron.get("day") is not None and now.day != int(cron["day"]):
+        return False
+    if cron.get("weekday") is not None and now.weekday() != int(cron["weekday"]):
+        return False
+
+    # Never run the same slot twice.
+    if last_run is not None and (now - last_run) < timedelta(minutes=30):
+        return False
+    return True
+
+
+async def run_scheduled_workflows(db: AsyncSession, now: datetime | None = None) -> int:
+    """Execute every active SCHEDULED workflow that is due. Returns the count."""
+    now = now or datetime.now(timezone.utc)
+    result = await db.execute(
+        select(Workflow).where(
+            Workflow.is_active == True,  # noqa: E712
+            Workflow.trigger_type == TriggerType.SCHEDULED,
+        )
+    )
+    workflows = list(result.scalars().all())
+    if not workflows:
+        return 0
+
+    ran = 0
+    for workflow in workflows:
+        cfg = _trigger_config(workflow)
+        last_row = await db.execute(
+            select(func.max(WorkflowExecution.started_at)).where(
+                WorkflowExecution.workflow_id == workflow.id
+            )
+        )
+        last_run = last_row.scalar()
+        if last_run is not None and last_run.tzinfo is None:
+            last_run = last_run.replace(tzinfo=timezone.utc)
+
+        if not _due(cfg, now, last_run):
+            continue
+        try:
+            await execute_workflow(db, workflow.id, None, {"scheduled_at": now.isoformat()})
+            ran += 1
+        except Exception:  # noqa: BLE001
+            logger.exception("scheduled workflow %s failed", workflow.id)
+    return ran

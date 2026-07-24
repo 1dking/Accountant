@@ -86,6 +86,22 @@ async def sms_webhook(
                 session_factory=request.app.state.session_factory,
             )
 
+    if sms is not None:
+        from app.workflows.models import TriggerType
+        from app.workflows.service import safe_dispatch
+
+        await safe_dispatch(
+            db,
+            TriggerType.SMS_RECEIVED,
+            event_data={
+                "from_number": from_number,
+                "to_number": to_number,
+                "body": body,
+                "sms_id": str(sms.id),
+            },
+            contact_id=sms.contact_id,
+        )
+
     return {"data": {"message": "OK"}}
 
 
@@ -941,6 +957,23 @@ async def voice_call_status(
         call_log.status = call_status
 
     await db.commit()
+
+    if call_status == "completed":
+        from app.workflows.models import TriggerType
+        from app.workflows.service import safe_dispatch
+
+        await safe_dispatch(
+            db,
+            TriggerType.CALL_COMPLETED,
+            event_data={
+                "call_id": str(call_log.id),
+                "direction": call_log.direction,
+                "duration_seconds": call_log.duration_seconds,
+                "from_number": call_log.from_number,
+                "to_number": call_log.to_number,
+            },
+            contact_id=call_log.contact_id,
+        )
 
     # Trigger missed_call automation for cell_only users.
     # Use BackgroundTasks (not asyncio.create_task) for the same weak-ref

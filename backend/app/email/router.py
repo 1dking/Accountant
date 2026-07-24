@@ -1,7 +1,10 @@
 
+import logging
 import uuid
+from datetime import datetime, timezone
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,7 +25,61 @@ from .schemas import (
 )
 from .template_schemas import TEMPLATES, get_schema, template_keys
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
+
+# 1x1 transparent GIF — the smallest valid image to answer a tracking pixel.
+_PIXEL_GIF = bytes([
+    0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x01, 0x00, 0x01, 0x00, 0x80, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0x21, 0xF9, 0x04, 0x01, 0x00,
+    0x00, 0x00, 0x00, 0x2C, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00,
+    0x00, 0x02, 0x02, 0x44, 0x01, 0x00, 0x3B,
+])
+
+
+@router.get("/track/open/{token}.gif")
+async def track_email_open(
+    token: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> Response:
+    """Email open tracking pixel — public, no auth (the recipient is not a user).
+
+    Always returns the pixel, whatever happens, so a broken or expired token
+    never shows a broken image in someone's inbox. Fires EMAIL_OPENED on the
+    first open only; later opens just increment the counter.
+    """
+    headers = {"Cache-Control": "no-store, no-cache, must-revalidate", "Pragma": "no-cache"}
+    try:
+        from app.email.models import EmailOpen
+
+        result = await db.execute(select(EmailOpen).where(EmailOpen.token == token))
+        record = result.scalar_one_or_none()
+        if record is not None:
+            first_open = record.opened_at is None
+            if first_open:
+                record.opened_at = datetime.now(timezone.utc)
+            record.open_count = (record.open_count or 0) + 1
+            await db.commit()
+
+            if first_open:
+                from app.workflows.models import TriggerType
+                from app.workflows.service import safe_dispatch
+
+                await safe_dispatch(
+                    db,
+                    TriggerType.EMAIL_OPENED,
+                    event_data={
+                        "to_email": record.to_email,
+                        "kind": record.kind,
+                        "opened_at": record.opened_at.isoformat(),
+                    },
+                    contact_id=record.contact_id,
+                )
+    except Exception:  # noqa: BLE001
+        logger.exception("email open tracking failed for token")
+
+    return Response(content=_PIXEL_GIF, media_type="image/gif", headers=headers)
 
 
 # ---------------------------------------------------------------------------

@@ -777,3 +777,44 @@ async def send_booking_reminder(
     except Exception as e:
         logger.warning("Failed to send booking reminder (%s): %s", reminder_type, e)
         return False
+
+
+async def complete_past_bookings(db: AsyncSession, now: datetime | None = None) -> int:
+    """Move confirmed bookings whose end time has passed to COMPLETED and fire
+    APPOINTMENT_COMPLETED for each.
+
+    Nothing else in the codebase ever set COMPLETED, so this is the sole source
+    of that state and of the trigger. Only CONFIRMED bookings advance —
+    cancelled ones stay cancelled, and pending ones were never confirmed.
+    """
+    now = now or datetime.now(timezone.utc)
+    result = await db.execute(
+        select(CalendarBooking).where(
+            CalendarBooking.status == BookingStatus.CONFIRMED,
+            CalendarBooking.end_time <= now,
+        )
+    )
+    bookings = list(result.scalars().all())
+    if not bookings:
+        return 0
+
+    for booking in bookings:
+        booking.status = BookingStatus.COMPLETED
+    await db.commit()
+
+    from app.workflows.models import TriggerType
+    from app.workflows.service import safe_dispatch
+
+    for booking in bookings:
+        await safe_dispatch(
+            db,
+            TriggerType.APPOINTMENT_COMPLETED,
+            event_data={
+                "booking_id": str(booking.id),
+                "guest_name": booking.guest_name,
+                "guest_email": booking.guest_email,
+                "start_time": booking.start_time.isoformat() if booking.start_time else None,
+                "end_time": booking.end_time.isoformat() if booking.end_time else None,
+            },
+        )
+    return len(bookings)
