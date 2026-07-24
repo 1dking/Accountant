@@ -228,6 +228,64 @@ export async function voidJournalEntry(id: string) {
   return api.post<ApiResponse<JournalEntry>>(`/accounting/journal/${id}/void`)
 }
 
+// ---------------------------------------------------------------------------
+// Ledger reports (Phase 1.3 — Trial Balance + General Ledger)
+// ---------------------------------------------------------------------------
+
+export interface TrialBalanceRow {
+  code: string
+  name: string
+  account_type: CoaAccountType
+  debit: string
+  credit: string
+}
+
+export interface TrialBalance {
+  rows: TrialBalanceRow[]
+  total_debit: string
+  total_credit: string
+  balanced: boolean
+}
+
+export interface GeneralLedgerPosting {
+  date: string
+  ref: string
+  source: string
+  memo: string | null
+  debit: string
+  credit: string
+  balance: string
+}
+
+export interface GeneralLedgerAccount {
+  code: string
+  name: string
+  account_type: CoaAccountType
+  normal_balance: 'debit' | 'credit'
+  postings: GeneralLedgerPosting[]
+  total_debit: string
+  total_credit: string
+  closing_balance: string
+}
+
+function reportQuery(params: { date_from?: string; date_to?: string }): string {
+  const q = new URLSearchParams()
+  if (params.date_from) q.set('date_from', params.date_from)
+  if (params.date_to) q.set('date_to', params.date_to)
+  const s = q.toString()
+  return s ? `?${s}` : ''
+}
+
+export async function getTrialBalance(params: { date_from?: string; date_to?: string } = {}) {
+  return api.get<ApiResponse<TrialBalance>>(`/accounting/reports/trial-balance${reportQuery(params)}`)
+}
+
+export async function getGeneralLedger(params: { date_from?: string; date_to?: string } = {}) {
+  return api.get<ApiResponse<{ accounts: GeneralLedgerAccount[] }>>(
+    `/accounting/reports/general-ledger${reportQuery(params)}`,
+  )
+}
+
 // Accounting Periods
 export async function listPeriods() {
   return api.get<ApiResponse<AccountingPeriod[]>>('/accounting/periods')
