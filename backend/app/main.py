@@ -270,6 +270,7 @@ def create_app() -> FastAPI:
     from app.accounting.coa_router import router as coa_router
     from app.accounting.journal_router import router as journal_router
     from app.accounting.ledger_report_router import router as ledger_report_router
+    from app.accounting.ap_router import router as ap_router
     from app.invoicing.credit_router import router as credit_notes_router
     from app.accounting.tax_router import router as tax_router
     from app.cashbook.router import router as cashbook_router
@@ -330,6 +331,7 @@ def create_app() -> FastAPI:
     fastapi_app.include_router(coa_router, prefix="/api/accounting", tags=["chart-of-accounts"], dependencies=[Depends(require_feature("expenses"))])
     fastapi_app.include_router(journal_router, prefix="/api/accounting", tags=["journal"], dependencies=[Depends(require_feature("expenses"))])
     fastapi_app.include_router(ledger_report_router, prefix="/api/accounting", tags=["ledger-reports"], dependencies=[Depends(require_feature("expenses"))])
+    fastapi_app.include_router(ap_router, prefix="/api/accounting", tags=["accounts-payable"], dependencies=[Depends(require_feature("expenses"))])
     fastapi_app.include_router(credit_notes_router, prefix="/api/invoices", tags=["credit-notes"], dependencies=[Depends(require_feature("invoices"))])
     fastapi_app.include_router(tax_router, prefix="/api", tags=["sales-tax"], dependencies=[Depends(require_feature("tax"))])
     fastapi_app.include_router(cashbook_router, prefix="/api/cashbook", tags=["cashbook"], dependencies=[Depends(require_feature("cashbook"))])

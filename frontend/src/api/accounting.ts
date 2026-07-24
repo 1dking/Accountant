@@ -286,6 +286,81 @@ export async function getGeneralLedger(params: { date_from?: string; date_to?: s
   )
 }
 
+// ---------------------------------------------------------------------------
+// Accounts Payable / vendor bills (Phase 1.4)
+// ---------------------------------------------------------------------------
+
+export type BillStatus = 'draft' | 'pending' | 'approved' | 'paid' | 'void'
+
+export interface VendorBillLine {
+  id: string
+  account_id: string
+  account_code: string | null
+  account_name: string | null
+  description: string | null
+  amount: string
+}
+
+export interface VendorBillLineInput {
+  account_id: string
+  description?: string | null
+  amount: string
+}
+
+export interface VendorBill {
+  id: string
+  bill_number: string
+  vendor_name: string
+  vendor_contact_id: string | null
+  bill_date: string
+  due_date: string | null
+  memo: string | null
+  total_amount: string
+  status: BillStatus
+  approval_journal_id: string | null
+  payment_journal_id: string | null
+  scheduled_payment_date: string | null
+  paid_at: string | null
+  created_at: string
+  lines: VendorBillLine[]
+}
+
+export interface VendorBillInput {
+  vendor_name: string
+  vendor_contact_id?: string | null
+  bill_number?: string | null
+  bill_date: string
+  due_date?: string | null
+  memo?: string | null
+  status?: BillStatus | null
+  lines: VendorBillLineInput[]
+}
+
+export async function listBills(status?: BillStatus) {
+  const q = status ? `?status=${status}` : ''
+  return api.get<ApiResponse<VendorBill[]>>(`/accounting/bills${q}`)
+}
+
+export async function getApprovalQueue() {
+  return api.get<ApiResponse<VendorBill[]>>('/accounting/bills/approval-queue')
+}
+
+export async function createBill(data: VendorBillInput) {
+  return api.post<ApiResponse<VendorBill>>('/accounting/bills', data)
+}
+
+export async function approveBill(id: string) {
+  return api.post<ApiResponse<VendorBill>>(`/accounting/bills/${id}/approve`)
+}
+
+export async function payBill(id: string, cash_account_id: string, payment_date: string) {
+  return api.post<ApiResponse<VendorBill>>(`/accounting/bills/${id}/pay`, { cash_account_id, payment_date })
+}
+
+export async function voidBill(id: string) {
+  return api.post<ApiResponse<VendorBill>>(`/accounting/bills/${id}/void`)
+}
+
 // Accounting Periods
 export async function listPeriods() {
   return api.get<ApiResponse<AccountingPeriod[]>>('/accounting/periods')

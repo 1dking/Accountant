@@ -235,3 +235,4 @@ class VendorBillLine(Base):
     amount: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False)
 
     bill: Mapped["VendorBill"] = relationship(back_populates="lines")
+    account: Mapped["ChartAccount"] = relationship(lazy="selectin")
