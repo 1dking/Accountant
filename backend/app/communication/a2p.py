@@ -132,6 +132,21 @@ TOLLFREE_NPAS = frozenset({"800", "833", "844", "855", "866", "877", "888"})
 #: A2P 10DLC is a US carrier programme. Canadian long codes are exempt.
 A2P_REQUIRED_COUNTRIES = frozenset({"US"})
 
+#: Canadian area codes (NANP). Needed because Twilio's IncomingPhoneNumber
+#: resource does not expose iso_country in the SDK version we run, and US/CA
+#: share the +1 country code — so origin is inferred from the NPA instead.
+#: Deterministic and free; the alternative (Lookup API) is billable per call.
+CANADA_NPAS = frozenset({
+    "204", "226", "236", "249", "250", "263", "289",
+    "306", "343", "354", "365", "367", "368", "382", "387",
+    "403", "416", "418", "428", "431", "437", "438", "450", "468", "474",
+    "506", "514", "519", "548", "579", "581", "584", "587",
+    "604", "613", "639", "647", "672", "683",
+    "705", "709", "742", "753", "778", "780", "782",
+    "807", "819", "825", "867", "873", "879",
+    "902", "905",
+})
+
 
 def classify_number(phone_number: str | None, iso_country: str | None = None) -> str:
     """Classify a sending number: "us_longcode" | "ca_longcode" | "tollfree"
@@ -152,11 +167,17 @@ def classify_number(phone_number: str | None, iso_country: str | None = None) ->
     if npa in TOLLFREE_NPAS:
         return "tollfree"
 
+    # Explicit country wins when we have it.
     country = (iso_country or "").upper()
     if country == "US":
         return "us_longcode"
     if country == "CA":
         return "ca_longcode"
+
+    # Otherwise infer from the area code. Canada's NPAs are a fixed set, so a
+    # match is definitive; any other NANP code is US.
+    if npa:
+        return "ca_longcode" if npa in CANADA_NPAS else "us_longcode"
     return "unknown"
 
 

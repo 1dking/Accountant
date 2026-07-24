@@ -458,13 +458,16 @@ async def test_a2p_applies_only_to_us_long_codes():
 
 
 @pytest.mark.critical
-async def test_unknown_origin_does_not_block():
-    """US and CA are both +1, so a number with no stored origin is ambiguous.
-    Failing closed there would punish tenants for OUR missing backfill."""
-    from app.communication.a2p import number_requires_a2p
+async def test_unparseable_number_does_not_block():
+    """A number we cannot classify at all (no NANP area code) must not be
+    blocked — failing closed there would punish tenants for OUR gap. Note a
+    +1 number IS classifiable via its area code, so this covers only genuinely
+    unknown input: missing, malformed, or non-NANP."""
+    from app.communication.a2p import classify_number, number_requires_a2p
 
-    assert number_requires_a2p("+14155551234", None) is False
-    assert number_requires_a2p(None, None) is False
+    for bad in (None, "", "12345", "+442071838750"):
+        assert classify_number(bad) == "unknown", bad
+        assert number_requires_a2p(bad) is False, bad
 
 
 @pytest.mark.critical
@@ -543,3 +546,38 @@ async def test_empty_exempt_list_exempts_nobody(db: AsyncSession, admin_user: Us
         telephony_exempt_emails = ""
 
     assert is_exempt_account(admin_user, _S()) is False
+
+
+@pytest.mark.critical
+async def test_country_inferred_from_area_code_when_twilio_omits_it():
+    """Twilio's IncomingPhoneNumber does not expose iso_country in the SDK
+    version we run, and US/CA share +1 — so origin is inferred from the NPA.
+    Canada's area codes are a fixed set, making the match definitive."""
+    from app.communication.a2p import classify_number, number_requires_a2p
+
+    # Real numbers on the production account (Ontario 365, toll-free 844).
+    assert classify_number("+13659092096") == "ca_longcode"
+    assert classify_number("+13653873093") == "ca_longcode"
+    assert classify_number("+18448181086") == "tollfree"
+    for num in ("+13659092096", "+13653873093", "+18448181086"):
+        assert number_requires_a2p(num) is False
+
+    # A spread of Canadian NPAs across provinces.
+    for ca in ("+16475551234", "+14165551234", "+16045551234",
+               "+15145551234", "+13065551234", "+19025551234"):
+        assert classify_number(ca) == "ca_longcode", ca
+
+    # US NPAs still require 10DLC.
+    for us in ("+12125551234", "+14155551234", "+13125551234", "+17185551234"):
+        assert classify_number(us) == "us_longcode", us
+        assert number_requires_a2p(us) is True
+
+
+@pytest.mark.normal
+async def test_explicit_country_overrides_area_code_inference():
+    """A stored iso_country is authoritative — inference is only the fallback."""
+    from app.communication.a2p import classify_number
+
+    # 365 is Canadian by NPA, but an explicit US tag wins.
+    assert classify_number("+13659092096", "US") == "us_longcode"
+    assert classify_number("+14155551234", "CA") == "ca_longcode"
