@@ -44,6 +44,13 @@ async def ai_categorize_transactions(
             "Anthropic API key is not configured. Set ANTHROPIC_API_KEY in your environment."
         )
 
+    # Background AI spend — skip (don't raise) when the tenant is out of credit.
+    from app.billing.ai_meter import safe_consume_by_user_id
+
+    if not await safe_consume_by_user_id(db, user_id, "plaid_categorize"):
+        logger.info("plaid categorize skipped for %s — no AI credits", user_id)
+        return 0
+
     # Fetch categories
     categories = await _get_categories(db)
     if not categories:

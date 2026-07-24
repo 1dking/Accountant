@@ -138,6 +138,12 @@ async def generate_brief(db: AsyncSession, contact_id: uuid.UUID) -> str | None:
     if not ctx.strip():
         return None
 
+    # Meter against the contact owner's AI credits (background — skip if empty).
+    from app.billing.ai_meter import safe_consume_by_user_id
+
+    if not await safe_consume_by_user_id(db, contact.created_by, "contact_brief"):
+        return None
+
     try:
         client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
         response = await client.messages.create(

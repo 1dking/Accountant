@@ -363,6 +363,11 @@ async def ai_assist(
     from app.ai.router import _check_ai_rate_limit
 
     _check_ai_rate_limit(str(current_user.id))
+    # Meter the in-document assist call before the stream opens (a 402 can't be
+    # sent once the SSE stream has started).
+    from app.billing.ai_meter import consume
+
+    await consume(db, current_user, "doc_assist")
 
     doc = await service.get_document(db, doc_id, current_user)
 

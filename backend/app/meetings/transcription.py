@@ -127,6 +127,21 @@ async def submit_meeting_transcription(
 
     headers = {"authorization": settings.assemblyai_api_key}
     try:
+        # Meter transcription against the meeting owner (background — skip if
+        # out of credit). Nominal 1 unit; per-minute reconcile is later-phase.
+        from app.billing.ai_meter import safe_consume_by_user_id
+        from app.meetings.models import Meeting
+
+        _mtg = await db.get(Meeting, recording.meeting_id)
+        if _mtg is not None and not await safe_consume_by_user_id(
+            db, _mtg.created_by, "transcription_minute"
+        ):
+            logger.info(
+                "meeting.transcription_skipped recording_id=%s reason=no_ai_credits",
+                recording.id,
+            )
+            return None
+
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.post(
                 f"{_ASSEMBLY_BASE}/transcript",

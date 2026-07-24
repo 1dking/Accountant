@@ -60,6 +60,11 @@ async def extract_document(
 ) -> dict:
     """Trigger AI extraction on a document. Returns structured receipt/invoice data."""
     _check_ai_rate_limit(str(current_user.id))
+    # Meter the vision call — user-triggered, so a 402 is the right signal when
+    # the tenant is out of AI credits.
+    from app.billing.ai_meter import consume
+
+    await consume(db, current_user, "doc_extract")
     settings = request.app.state.settings
     start = time.monotonic()
 

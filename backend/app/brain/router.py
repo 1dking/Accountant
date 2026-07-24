@@ -250,6 +250,10 @@ async def add_knowledge(
     db: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
 ):
+    # Meter the embedding call behind knowledge ingestion.
+    from app.billing.ai_meter import consume
+
+    await consume(db, user, "embedding_batch")
     result = await knowledge_service.add_knowledge(
         db, user.id, body.content, body.title, body.category,
     )
@@ -307,6 +311,10 @@ async def search(
     db: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
 ):
+    # Semantic search embeds the query — meter it (tiny; skip-free via consume).
+    from app.billing.ai_meter import consume
+
+    await consume(db, user, "embedding_batch")
     source_types = [body.source_type] if body.source_type else body.source_types
     results = await search_brain(
         db, user.id, body.query, limit=body.limit or 10, source_types=source_types,

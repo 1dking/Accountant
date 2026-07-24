@@ -462,6 +462,11 @@ async def _absorb_inner(
             ):
                 async with semaphore:
                     extracted: dict | None = None
+                    # Meter the per-email AI summarise (background — skip if empty).
+                    from app.billing.ai_meter import safe_consume_by_user_id
+
+                    if not await safe_consume_by_user_id(db, user_id, "email_absorb"):
+                        return None
                     try:
                         extracted = await _summarize_email(
                             subject=_subject,

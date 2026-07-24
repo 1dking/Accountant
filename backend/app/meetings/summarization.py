@@ -200,6 +200,19 @@ async def submit_summary(
     template = meeting.template if meeting else MeetingTemplate.GENERIC
 
     try:
+        # Meter the summary model call against the meeting owner's AI credits.
+        from app.billing.ai_meter import safe_consume_by_user_id
+        from app.meetings.models import Meeting
+
+        _mtg = await db.get(Meeting, transcript.meeting_id)
+        if _mtg is not None and not await safe_consume_by_user_id(
+            db, _mtg.created_by, "meeting_summary"
+        ):
+            logger.info(
+                "meeting.summary_skipped transcript_id=%s reason=no_ai_credits", transcript.id
+            )
+            return None
+
         result = await _call_claude(transcript.full_text, settings, template)
     except Exception as exc:
         row.status = SummaryStatus.FAILED

@@ -242,7 +242,7 @@ async def create_page_from_template(
 @router.post("/templates/generate-library", status_code=200)
 async def generate_template_library(
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_role([Role.ADMIN]))],
+    user: Annotated[User, Depends(require_role([Role.ADMIN]))],
     request: Request,
     replace: bool = Query(False, description="Replace existing templates"),
 ) -> dict:
@@ -257,6 +257,10 @@ async def generate_template_library(
     if not gemini_key:
         return {"data": {"error": "Gemini API key not configured in settings"}}
 
+    # Bulk generation (~30 templates) — meter accordingly.
+    from app.billing.ai_meter import consume
+
+    await consume(db, user, "page_generate", units=30)
     stats = await generate_all_templates(db, gemini_key, replace_existing=replace)
     return {"data": stats}
 
@@ -276,6 +280,9 @@ async def ai_generate(
     current_user: Annotated[User, Depends(require_role([Role.ADMIN]))],
     request: Request,
 ) -> dict:
+    from app.billing.ai_meter import consume
+
+    await consume(db, current_user, "page_generate")
     settings = request.app.state.settings
     result = await service.ai_generate_page(
         db,
@@ -296,6 +303,9 @@ async def ai_refine(
     current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
     request: Request,
 ) -> dict:
+    from app.billing.ai_meter import consume
+
+    await consume(db, current_user, "page_generate")
     settings = request.app.state.settings
     result = await service.ai_refine_page(
         db,
@@ -314,6 +324,9 @@ async def ai_chat(
     current_user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
     request: Request,
 ) -> dict:
+    from app.billing.ai_meter import consume
+
+    await consume(db, current_user, "doc_assist")
     settings = request.app.state.settings
     result = await service.ai_chat_generate(
         db, data.page_id, data.message, settings=settings,
@@ -1019,6 +1032,8 @@ async def submit_session_prompt(
     if len(prompt) > 4000:
         raise HTTPException(status_code=400, detail="prompt must be <= 4000 chars")
 
+    from app.billing.ai_meter import consume
+    await consume(db, user, "page_generate")
     settings = request.app.state.settings
     try:
         session = await submit_prompt(db, session_id, user.id, prompt, settings)
@@ -1072,6 +1087,8 @@ async def trigger_session_generation(
             detail=f"Session must be 'approved' to generate; current: {session.status}",
         )
 
+    from app.billing.ai_meter import consume
+    await consume(db, user, "page_generate")
     background_tasks.add_task(
         generate_page_task,
         session_id=session.id,
@@ -1100,6 +1117,8 @@ async def refine_page_section(
     if len(instruction) > 2000:
         raise HTTPException(status_code=400, detail="instruction must be <= 2000 chars")
 
+    from app.billing.ai_meter import consume
+    await consume(db, user, "page_generate")
     settings = request.app.state.settings
     try:
         page = await refine_section(

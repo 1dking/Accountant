@@ -292,6 +292,11 @@ async def handle_unknown_sms_task(
                 return
 
             # state == 'expecting_answer'
+            # Meter the identity-extraction model call (background — skip if empty).
+            from app.billing.ai_meter import safe_consume_by_user_id
+
+            if not await safe_consume_by_user_id(db, user_id, "identity_capture"):
+                return
             extraction = await extract_identity(inbound_body)
             confidence = extraction.get("confidence", "none")
             name = extraction.get("name")

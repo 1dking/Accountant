@@ -406,6 +406,21 @@ async def process_queue(db: AsyncSession) -> int:
             async with aiofiles.open(item.recording_path, "rb") as f:
                 audio_bytes = await f.read()
 
+            # Meter transcription against the owner's AI credits (background —
+            # skip if empty). Duration in minutes is unknown pre-transcription,
+            # so charge a nominal 1 unit here; per-minute reconciliation is a
+            # later-phase refinement.
+            from app.billing.ai_meter import safe_consume_by_user_id
+
+            if not await safe_consume_by_user_id(
+                db, item.user_id, "transcription_minute"
+            ):
+                logger.info("transcription skipped for %s — no AI credits", item.user_id)
+                item.status = TranscriptionStatus.FAILED
+                item.error_message = "Out of AI credits"
+                await db.commit()
+                continue
+
             if item.source_type == "meeting":
                 await process_meeting_recording(
                     db, item.user_id, uuid.UUID(item.source_id), audio_bytes,

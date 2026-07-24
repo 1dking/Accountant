@@ -552,6 +552,9 @@ async def create_contact_memory(
     if contact_row.scalar_one_or_none() is None:
         raise HTTPException(status_code=404, detail="Contact not found")
 
+    from app.billing.ai_meter import consume
+
+    await consume(db, current_user, "memory_extract")
     try:
         extracted = await extract_memory(
             raw_text=raw_input,

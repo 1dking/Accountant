@@ -49,6 +49,10 @@ async def write_memory_from_voicemail_task(
             caller_context = (
                 f"Voicemail left by {call_log.from_number} on {call_log.created_at}"
             )
+            from app.billing.ai_meter import safe_consume_by_user_id
+
+            if not await safe_consume_by_user_id(db, call_log.user_id, "memory_extract"):
+                return
             extracted = await extract_memory(
                 raw_text=call_log.voicemail_transcript,
                 source_type="voicemail",
@@ -119,6 +123,10 @@ async def write_memory_from_sms_thread_task(
                 f"[{m.direction}] {m.body}" for m in messages if m.body
             )
 
+            from app.billing.ai_meter import safe_consume_by_user_id
+
+            if not await safe_consume_by_user_id(db, user_id, "memory_extract"):
+                return
             extracted = await extract_memory(
                 raw_text=thread,
                 source_type="sms_thread",

@@ -281,6 +281,14 @@ async def classify_and_respond(
             logger.warning("conversation_engine.skipped_no_anthropic_key")
             return
 
+        # Meter the AI draft (background) on a fresh session — skip if no credit.
+        from app.billing.ai_meter import safe_consume_by_user_id
+
+        async with session_factory() as _mdb:
+            if not await safe_consume_by_user_id(_mdb, user_id, "chat"):
+                logger.info("conversation_engine.skipped_no_ai_credits user_id=%s", user_id)
+                return
+
         try:
             client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
             response = await client.messages.create(

@@ -198,6 +198,18 @@ async def submit_quote_draft(
     await db.commit()
     await db.refresh(row)
 
+    # Meter the quote-draft model call against the meeting owner's AI credits.
+    from app.billing.ai_meter import safe_consume_by_user_id
+
+    if meeting is not None and not await safe_consume_by_user_id(
+        db, meeting.created_by, "quote_draft"
+    ):
+        row.status = QuoteDraftStatus.SKIPPED
+        row.notes = "Skipped — tenant out of AI credits."
+        await db.commit()
+        await db.refresh(row)
+        return row
+
     try:
         result = await _call_claude(summary, transcript, settings)
     except Exception as exc:
