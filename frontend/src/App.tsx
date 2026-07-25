@@ -49,6 +49,7 @@ import ChartOfAccountsPage from '@/pages/ChartOfAccountsPage'
 import JournalPage from '@/pages/JournalPage'
 import LedgerReportsPage from '@/pages/LedgerReportsPage'
 import BillsPage from '@/pages/BillsPage'
+import Tax1099Page from '@/pages/Tax1099Page'
 import NewCashbookEntryPage from '@/pages/NewCashbookEntryPage'
 import CashbookEntryDetailPage from '@/pages/CashbookEntryDetailPage'
 import DrivePage from '@/pages/DrivePage'
@@ -241,6 +242,7 @@ function AuthenticatedApp() {
         <Route path="/accounting/journal" element={<JournalPage />} />
         <Route path="/accounting/ledger-reports" element={<LedgerReportsPage />} />
         <Route path="/accounting/bills" element={<BillsPage />} />
+        <Route path="/accounting/1099" element={<Tax1099Page />} />
         <Route path="/expenses" element={<ExpensesPage />} />
         <Route path="/expenses/new" element={<NewExpensePage />} />
         <Route path="/expenses/dashboard" element={<ExpenseDashboardPage />} />

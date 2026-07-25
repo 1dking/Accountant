@@ -41,6 +41,7 @@ import {
   ListTree,
   BookText,
   ReceiptText,
+  FileBadge,
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { getTrashCount } from '@/api/cashbook'
@@ -95,6 +96,7 @@ const NAV_SECTIONS: NavSection[] = [
       { path: '/accounting/chart-of-accounts', label: 'Chart of Accounts', icon: ListTree, featureKey: 'expenses' },
       { path: '/accounting/journal', label: 'Journal', icon: BookText, featureKey: 'expenses' },
       { path: '/accounting/bills', label: 'Bills (A/P)', icon: ReceiptText, featureKey: 'expenses' },
+      { path: '/accounting/1099', label: '1099 Contractors', icon: FileBadge, featureKey: 'expenses' },
       { path: '/accounting/ledger-reports', label: 'Ledger Reports', icon: Scale, featureKey: 'expenses' },
       { path: '/cashbook/reconcile', label: 'Reconcile', icon: Scale, featureKey: 'cashbook' },
       { path: '/smart-import', label: 'Smart Import', icon: Zap, featureKey: 'smart_import' },

@@ -361,6 +361,40 @@ export async function voidBill(id: string) {
   return api.post<ApiResponse<VendorBill>>(`/accounting/bills/${id}/void`)
 }
 
+// ---------------------------------------------------------------------------
+// 1099 / contractor tracking (Phase 1.5)
+// ---------------------------------------------------------------------------
+
+export interface Vendor1099Row {
+  contact_id: string
+  name: string
+  contact_name: string | null
+  tax_id: string | null
+  is_1099_vendor: boolean
+  bills_total: string
+  cashbook_total: string
+  total_paid: string
+  meets_threshold: boolean
+}
+
+export interface Report1099 {
+  year: number
+  threshold: string
+  vendors: Vendor1099Row[]
+  candidates: Vendor1099Row[]
+}
+
+export async function get1099Report(year: number) {
+  return api.get<ApiResponse<Report1099>>(`/accounting/1099/report?year=${year}`)
+}
+
+export async function set1099Flag(contactId: string, is_1099_vendor: boolean) {
+  return api.post<ApiResponse<{ contact_id: string; is_1099_vendor: boolean }>>(
+    `/accounting/1099/vendors/${contactId}`,
+    { is_1099_vendor },
+  )
+}
+
 // Accounting Periods
 export async function listPeriods() {
   return api.get<ApiResponse<AccountingPeriod[]>>('/accounting/periods')
