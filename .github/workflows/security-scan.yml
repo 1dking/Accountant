@@ -1,0 +1,88 @@
+name: Security Scan
+
+# Dependency / filesystem vulnerability scanning. Runs on every push + PR, and
+# weekly (Mondays 06:00 UTC) to catch newly-disclosed CVEs in unchanged deps.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write # required to upload SARIF to GitHub code scanning
+
+jobs:
+  # ---- Trivy: filesystem/dependency vuln scan → SARIF + fail on HIGH/CRITICAL -
+  trivy:
+    name: Trivy vulnerability scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # One scan: writes SARIF AND exits non-zero on HIGH/CRITICAL (respecting
+      # the .trivyignore allowlist). The SARIF is written before the non-zero
+      # exit, so the upload step below still runs via `if: always()`.
+      - name: Trivy scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln
+          format: sarif
+          output: trivy-results.sarif
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          trivyignores: .trivyignore
+
+      # Surfaces findings in the Security tab. Soft-fail: uploading SARIF to code
+      # scanning needs a public repo OR GitHub Advanced Security — if that isn't
+      # available the Trivy gate above still fails the build on findings.
+      - name: Upload SARIF to code scanning
+        if: always()
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy-fs
+
+  # ---- pip-audit: known CVEs in the pinned backend lockfile ------------------
+  pip-audit:
+    name: pip-audit (backend)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          # 3.10 matches the production venv the pinned lockfile was frozen from,
+          # so pip-audit can resolve every pin (some are 3.10-only, e.g.
+          # backports.asyncio.runner). Trivy also scans requirements.txt statically.
+          python-version: "3.10"
+      - run: pip install pip-audit
+      - name: Audit pinned backend dependencies
+        # Accepted advisories: append `--ignore-vuln <GHSA/CVE id>` here, with a
+        # justification line in SECURITY_MAINTENANCE.md. Exits non-zero on any
+        # known vulnerability, failing the build.
+        run: pip-audit --requirement backend/requirements.txt --desc
+
+  # ---- Frontend dependency audit --------------------------------------------
+  npm-audit:
+    name: Frontend audit (pnpm)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      # Frontend uses pnpm (see deploy.sh), so `pnpm audit` reads pnpm-lock.yaml.
+      # --audit-level high fails the build on HIGH/CRITICAL advisories only.
+      - name: pnpm audit (frontend)
+        working-directory: frontend
+        run: pnpm audit --audit-level high

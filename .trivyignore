@@ -1,0 +1,15 @@
+# Trivy allowlist — accepted vulnerability findings.
+#
+# The Security Scan workflow (.github/workflows/security-scan.yml) FAILS the
+# build on HIGH/CRITICAL findings. To accept a finding (e.g. a transitive dep
+# with no fix yet, or one not reachable in our usage), add its ID below with a
+# justification and a review date. Keep this list SHORT and reviewed — see
+# SECURITY_MAINTENANCE.md.
+#
+# Format: one vulnerability ID per line (CVE-xxxx-xxxx or GHSA-xxxx). Example:
+#
+#   # CVE-2024-99999 — <package>: not reachable, no fix upstream.
+#   #   Accepted 2026-07-25 by <name>; re-review 2026-10-25.
+#   CVE-2024-99999
+#
+# (No findings accepted yet.)

@@ -1,0 +1,76 @@
+# Dependabot — automated dependency update PRs across every ecosystem in the repo.
+#
+# Routine version updates run WEEKLY, with minor+patch grouped into a single PR
+# per ecosystem to cut noise. Security updates are opened PROMPTLY and separately
+# by Dependabot whenever a vulnerability alert fires (independent of this
+# schedule) — ensure "Dependabot security updates" is enabled in repo settings.
+#
+# No `docker` ecosystem: the repo has no Dockerfile (frontend is served by the
+# backend; deploy is a plain VPS). Add one here if a Dockerfile is introduced.
+version: 2
+updates:
+  # --- Backend Python (pyproject.toml + pinned requirements.txt lockfile) ---
+  - package-ecosystem: "pip"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+    open-pull-requests-limit: 10
+    labels: ["dependencies", "backend", "security"]
+    groups:
+      backend-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # --- Frontend (package.json; pnpm-lock.yaml is the source lockfile) ---
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+    open-pull-requests-limit: 10
+    labels: ["dependencies", "frontend", "security"]
+    groups:
+      frontend-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # --- Hocuspocus real-time collaboration server (deployed with the backend) ---
+  - package-ecosystem: "npm"
+    directory: "/backend/hocuspocus"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels: ["dependencies", "hocuspocus"]
+    groups:
+      hocuspocus-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # --- Pricing lab (internal tool) ---
+  - package-ecosystem: "npm"
+    directory: "/pricing-lab"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels: ["dependencies", "pricing-lab"]
+    groups:
+      pricing-lab-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # --- GitHub Actions used by CI + the security workflow ---
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels: ["dependencies", "ci"]
+    groups:
+      actions-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
