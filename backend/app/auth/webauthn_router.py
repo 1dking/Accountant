@@ -5,6 +5,7 @@ Login (pending-token): begin + verify an assertion as the second factor, an
 interchangeable alternative to TOTP. Mounted at /api/auth/webauthn.
 """
 
+import logging
 import uuid
 from typing import Annotated
 
@@ -17,7 +18,24 @@ from app.auth import mfa_service, webauthn_service
 from app.auth.models import User
 from app.dependencies import get_current_user, get_db
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
+
+
+def _log_origin(request: Request, stage: str) -> None:
+    """Record the browser's Origin vs the configured RP origin. The #1 cause of
+    a passkey ceremony failing is these two not matching."""
+    s = request.app.state.settings
+    logger.info(
+        "webauthn.%s origin=%r configured_origin=%r rp_id=%r host=%r ua=%r",
+        stage,
+        request.headers.get("origin"),
+        s.webauthn_origin,
+        s.webauthn_rp_id,
+        request.headers.get("host"),
+        (request.headers.get("user-agent") or "")[:90],
+    )
 
 
 class RegisterFinishRequest(BaseModel):
@@ -57,6 +75,7 @@ async def register_begin(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
+    _log_origin(request, "register_begin")
     options = await webauthn_service.begin_registration(db, current_user, request.app.state.settings)
     return {"data": options}
 
@@ -68,6 +87,7 @@ async def register_finish(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
+    _log_origin(request, "register_finish")
     row = await webauthn_service.finish_registration(
         db, current_user, body.credential, body.device_name, request.app.state.settings
     )

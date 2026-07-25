@@ -105,6 +105,10 @@ async def finish_registration(
             require_user_verification=False,
         )
     except Exception as exc:  # library raises InvalidRegistrationResponse
+        logger.warning(
+            "webauthn.registration_verify_failed rp_id=%s expected_origin=%s err=%r",
+            settings.webauthn_rp_id, settings.webauthn_origin, exc,
+        )
         raise ValidationError(f"Passkey registration could not be verified: {str(exc)[:160]}")
 
     credential_id_b64 = bytes_to_base64url(verification.credential_id)
