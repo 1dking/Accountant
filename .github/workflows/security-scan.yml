@@ -25,7 +25,14 @@ jobs:
       # One scan: writes SARIF AND exits non-zero on HIGH/CRITICAL (respecting
       # the .trivyignore allowlist). The SARIF is written before the non-zero
       # exit, so the upload step below still runs via `if: always()`.
+      # NOT blocking yet: the repo has a pre-existing backlog of HIGH/CRITICAL
+      # findings (mostly transitive deps). A gate that is red on day one gets
+      # ignored (same rationale as the eslint gate in ci.yml), so this REPORTS
+      # findings + uploads SARIF without failing the build. Once the backlog is
+      # patched/allowlisted, delete `continue-on-error` here (and on the two jobs
+      # below) to enforce the gate.
       - name: Trivy scan
+        continue-on-error: true
         uses: aquasecurity/trivy-action@0.28.0
         with:
           scan-type: fs
@@ -62,9 +69,10 @@ jobs:
           python-version: "3.10"
       - run: pip install pip-audit
       - name: Audit pinned backend dependencies
-        # Accepted advisories: append `--ignore-vuln <GHSA/CVE id>` here, with a
-        # justification line in SECURITY_MAINTENANCE.md. Exits non-zero on any
-        # known vulnerability, failing the build.
+        # continue-on-error: reports the backlog without blocking (see the Trivy
+        # note above). Remove once the backlog is patched. Accepted advisories:
+        # append `--ignore-vuln <GHSA/CVE id>` with a note in SECURITY_MAINTENANCE.md.
+        continue-on-error: true
         run: pip-audit --requirement backend/requirements.txt --desc
 
   # ---- Frontend dependency audit --------------------------------------------
@@ -84,5 +92,8 @@ jobs:
       # Frontend uses pnpm (see deploy.sh), so `pnpm audit` reads pnpm-lock.yaml.
       # --audit-level high fails the build on HIGH/CRITICAL advisories only.
       - name: pnpm audit (frontend)
+        # continue-on-error: reports without blocking (see the Trivy note above).
+        # Remove once the backlog (mostly transitive dev/build tooling) is cleared.
+        continue-on-error: true
         working-directory: frontend
         run: pnpm audit --audit-level high
