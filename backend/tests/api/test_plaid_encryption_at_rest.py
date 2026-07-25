@@ -75,7 +75,12 @@ def test_encrypted_type_fails_closed_without_service(monkeypatch):
 # ---------------------------------------------------------------------------
 
 def test_load_fernet_fails_closed_when_key_unset(monkeypatch):
+    import types
     monkeypatch.delenv("FERNET_KEY", raising=False)
+    # Also neutralize the .env-backed Settings: load_fernet_or_fail reads
+    # Settings().fernet_key, and on a box whose backend/.env HAS the key (prod),
+    # clearing os.environ alone isn't enough to simulate "no key".
+    monkeypatch.setattr("app.config.Settings", lambda: types.SimpleNamespace(fernet_key=""))
     with pytest.raises(RuntimeError):
         load_fernet_or_fail()
 
@@ -169,9 +174,10 @@ async def test_plaid_connection_encrypted_at_rest(db, admin_user):
     await db.commit()
 
     # Raw read (bypasses the EncryptedString type) shows ciphertext, not plaintext.
+    # No WHERE by id: SQLite stores the Uuid pk as dashless hex, so `WHERE id =
+    # str(uuid)` (dashed) matches nothing. This test creates exactly one row.
     raw = (await db.execute(
-        text("SELECT institution_name, accounts_json FROM plaid_connections WHERE id = :id"),
-        {"id": str(conn.id)},
+        text("SELECT institution_name, accounts_json FROM plaid_connections")
     )).mappings().one()
     assert raw["institution_name"] != "Wells Fargo"
     assert "9876" not in raw["accounts_json"]
