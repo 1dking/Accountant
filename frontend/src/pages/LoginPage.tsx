@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
+import { Fingerprint } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { usePublicBranding } from '@/hooks/useBranding'
+import { isPasskeySupported } from '@/api/webauthn'
 
 function GoogleIcon() {
   return (
@@ -19,20 +21,32 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  // Second-factor challenge state (set when the server requires MFA).
+  const [mfaToken, setMfaToken] = useState<string | null>(null)
+  const [mfaMethods, setMfaMethods] = useState<string[]>([])
+  const [code, setCode] = useState('')
   const navigate = useNavigate()
-  const { login } = useAuthStore()
+  const { login, completePasskeyLogin, completeTotpLogin } = useAuthStore()
   const { logoUrl, orgName } = usePublicBranding()
+
+  const goHome = () => {
+    const isMobile = window.innerWidth < 768
+    navigate(isMobile ? '/brain' : '/')
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setIsLoading(true)
-
     try {
-      await login(email, password)
-      // Mobile: go straight to O-Brain as home screen
-      const isMobile = window.innerWidth < 768
-      navigate(isMobile ? '/brain' : '/')
+      const result = await login(email, password)
+      if (result.mfaRequired) {
+        // Move to the second-factor step instead of navigating.
+        setMfaToken(result.mfaToken || null)
+        setMfaMethods(result.methods || [])
+      } else {
+        goHome()
+      }
     } catch (err: any) {
       setError(err.message || 'Something went wrong')
     } finally {
@@ -40,9 +54,47 @@ export default function LoginPage() {
     }
   }
 
+  const handlePasskey = async () => {
+    if (!mfaToken) return
+    setError('')
+    setIsLoading(true)
+    try {
+      await completePasskeyLogin(mfaToken)
+      goHome()
+    } catch (err: any) {
+      setError(err?.message || 'Passkey sign-in failed. Try your authenticator code, or use another passkey.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleTotp = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!mfaToken) return
+    setError('')
+    setIsLoading(true)
+    try {
+      await completeTotpLogin(mfaToken, code.trim())
+      goHome()
+    } catch (err: any) {
+      setError(err?.message || 'Invalid code. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const resetToPassword = () => {
+    setMfaToken(null)
+    setMfaMethods([])
+    setCode('')
+    setError('')
+  }
+
   const handleGoogleLogin = () => {
     window.location.href = '/api/auth/google/login'
   }
+
+  const inMfaStep = mfaToken !== null
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
@@ -52,92 +104,148 @@ export default function LoginPage() {
           {logoUrl ? (
             <img src={logoUrl} alt={orgName} className="h-10 max-w-[200px] object-contain mb-3" />
           ) : (
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">
-              {orgName}
-            </h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">{orgName}</h1>
           )}
-          <p className="text-sm text-gray-500 dark:text-gray-400">Sign in to your account</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {inMfaStep ? 'Two-factor authentication' : 'Sign in to your account'}
+          </p>
         </div>
 
-        <button
-          type="button"
-          onClick={handleGoogleLogin}
-          className="w-full flex items-center justify-center gap-3 py-2.5 px-4 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium transition-colors"
-        >
-          <GoogleIcon />
-          Sign in with Google
-        </button>
-
-        <div className="relative my-6">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-300 dark:border-gray-600" />
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-md text-sm" role="alert">
+            {error}
           </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-white dark:bg-gray-900 text-gray-500">or</span>
-          </div>
-        </div>
+        )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100 dark:bg-gray-800"
-              placeholder="you@example.com"
-            />
-          </div>
+        {inMfaStep ? (
+          /* ---------- Second factor: passkey and/or authenticator code ---------- */
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              Confirm it&apos;s you to finish signing in.
+            </p>
 
-          <div>
-            <div className="flex items-baseline justify-between mb-1">
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Password
-              </label>
-              <Link
-                to="/auth/password-reset/request"
-                className="text-xs text-blue-600 hover:text-blue-700"
+            {mfaMethods.includes('webauthn') && isPasskeySupported() && (
+              <button
+                type="button"
+                onClick={handlePasskey}
+                disabled={isLoading}
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 font-medium"
               >
-                Forgot password?
-              </Link>
-            </div>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={8}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100 dark:bg-gray-800"
-              placeholder="••••••••"
-            />
+                <Fingerprint className="w-5 h-5" />
+                {isLoading ? 'Waiting for passkey…' : 'Sign in with a passkey'}
+              </button>
+            )}
+
+            {mfaMethods.includes('totp') && (
+              <form onSubmit={handleTotp} className="space-y-3">
+                {mfaMethods.includes('webauthn') && (
+                  <div className="relative my-2">
+                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-300 dark:border-gray-600" /></div>
+                    <div className="relative flex justify-center text-xs"><span className="px-2 bg-white dark:bg-gray-900 text-gray-500">or use a code</span></div>
+                  </div>
+                )}
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  placeholder="6-digit code or recovery code"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100 dark:bg-gray-800"
+                />
+                <button
+                  type="submit"
+                  disabled={isLoading || !code.trim()}
+                  className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 font-medium"
+                >
+                  {isLoading ? 'Verifying…' : 'Verify'}
+                </button>
+              </form>
+            )}
+
+            <button
+              type="button"
+              onClick={resetToPassword}
+              className="w-full text-sm text-gray-500 dark:text-gray-400 hover:underline"
+            >
+              ← Back to sign in
+            </button>
           </div>
+        ) : (
+          /* ---------- Password / Google ---------- */
+          <>
+            <button
+              type="button"
+              onClick={handleGoogleLogin}
+              className="w-full flex items-center justify-center gap-3 py-2.5 px-4 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium transition-colors"
+            >
+              <GoogleIcon />
+              Sign in with Google
+            </button>
 
-          {error && (
-            <div className="p-3 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-md text-sm" role="alert">
-              {error}
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300 dark:border-gray-600" />
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white dark:bg-gray-900 text-gray-500">or</span>
+              </div>
             </div>
-          )}
 
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-          >
-            {isLoading ? 'Signing in...' : 'Sign In'}
-          </button>
-        </form>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Email
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100 dark:bg-gray-800"
+                  placeholder="you@example.com"
+                />
+              </div>
 
-        <p className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
-          Don&apos;t have an account?{' '}
-          <Link to="/register" className="text-blue-600 hover:text-blue-700 font-medium">
-            Sign up free
-          </Link>
-        </p>
+              <div>
+                <div className="flex items-baseline justify-between mb-1">
+                  <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Password
+                  </label>
+                  <Link to="/auth/password-reset/request" className="text-xs text-blue-600 hover:text-blue-700">
+                    Forgot password?
+                  </Link>
+                </div>
+                <input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={8}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100 dark:bg-gray-800"
+                  placeholder="••••••••"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+              >
+                {isLoading ? 'Signing in...' : 'Sign In'}
+              </button>
+            </form>
+
+            <p className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
+              Don&apos;t have an account?{' '}
+              <Link to="/register" className="text-blue-600 hover:text-blue-700 font-medium">
+                Sign up free
+              </Link>
+            </p>
+          </>
+        )}
       </div>
     </div>
   )
