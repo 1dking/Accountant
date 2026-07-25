@@ -19,6 +19,12 @@ cd backend
 .venv/bin/pip install -e . --quiet
 cd ..
 
+echo ">>> Backing up database before migrations"
+# Migrations can rewrite data in place (e.g. the Plaid at-rest encryption
+# migration). Snapshot first so a bad migration is recoverable. Non-fatal: a
+# backup hiccup shouldn't block an otherwise-fine deploy, but it's loud.
+bash scripts/backup.sh || echo "WARNING: pre-migration backup failed — continuing"
+
 echo ">>> Running database migrations"
 cd backend
 .venv/bin/alembic upgrade head

@@ -4,10 +4,17 @@ from datetime import date, datetime
 
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Numeric, String, Text
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.core.encrypted_types import EncryptedNumeric, EncryptedString
 from app.database import Base, TimestampMixin
+
+# NOTE: consumer-financial fields below use EncryptedString/EncryptedNumeric —
+# encrypted at rest with the app's Fernet key. Fields kept plaintext (date,
+# plaid_transaction_id, item_id, institution_id, sync_cursor, booleans) are
+# either non-sensitive/opaque or required in SQL WHERE/ORDER BY; see
+# ENCRYPTION_AT_REST.md for the rationale and the at-rest migration.
 
 
 class PlaidConnection(TimestampMixin, Base):
@@ -17,16 +24,17 @@ class PlaidConnection(TimestampMixin, Base):
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
-    institution_name: Mapped[str] = mapped_column(String(255))
-    institution_id: Mapped[str] = mapped_column(String(100))
-    encrypted_access_token: Mapped[str] = mapped_column(Text)
-    item_id: Mapped[str] = mapped_column(String(255), unique=True)
-    sync_cursor: Mapped[str | None] = mapped_column(Text, nullable=True)
+    institution_name: Mapped[str] = mapped_column(EncryptedString)  # bank name — encrypted
+    institution_id: Mapped[str] = mapped_column(String(100))  # opaque Plaid id — plaintext
+    encrypted_access_token: Mapped[str] = mapped_column(Text)  # already Fernet-encrypted
+    item_id: Mapped[str] = mapped_column(String(255), unique=True)  # opaque, unique — plaintext
+    sync_cursor: Mapped[str | None] = mapped_column(Text, nullable=True)  # opaque cursor
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     last_sync_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
-    accounts_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Account metadata incl. names + mask (last 4) — encrypted.
+    accounts_json: Mapped[str | None] = mapped_column(EncryptedString, nullable=True)
 
 
 class PlaidConsent(TimestampMixin, Base):
@@ -71,13 +79,14 @@ class PlaidTransaction(TimestampMixin, Base):
     plaid_connection_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("plaid_connections.id", ondelete="CASCADE"), index=True
     )
+    # Opaque Plaid id — plaintext (unique + used for dedup lookups).
     plaid_transaction_id: Mapped[str] = mapped_column(String(255), unique=True)
-    account_id: Mapped[str] = mapped_column(String(255))
-    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
-    date: Mapped[date] = mapped_column(Date, index=True)
-    name: Mapped[str] = mapped_column(String(500))
-    merchant_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    category: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    account_id: Mapped[str] = mapped_column(EncryptedString)  # account identifier — encrypted
+    amount: Mapped[Decimal] = mapped_column(EncryptedNumeric)  # dollar amount — encrypted
+    date: Mapped[date] = mapped_column(Date, index=True)  # plaintext — range-filtered + ordered
+    name: Mapped[str] = mapped_column(EncryptedString)  # payee/description — encrypted
+    merchant_name: Mapped[str | None] = mapped_column(EncryptedString, nullable=True)  # encrypted
+    category: Mapped[str | None] = mapped_column(EncryptedString, nullable=True)  # encrypted
     pending: Mapped[bool] = mapped_column(Boolean, default=False)
     is_income: Mapped[bool] = mapped_column(Boolean, default=False)
     matched_expense_id: Mapped[uuid.UUID | None] = mapped_column(
