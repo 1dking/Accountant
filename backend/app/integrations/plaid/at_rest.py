@@ -27,9 +27,17 @@ ENCRYPTED_FIELDS: dict[str, list[str]] = {
 
 
 def load_fernet_or_fail() -> Fernet:
-    """Build a Fernet from FERNET_KEY, or raise. Fail CLOSED — never migrate
-    financial data while the key is missing."""
-    key = os.getenv("FERNET_KEY", "")
+    """Build a Fernet from the app's FERNET_KEY, or raise. Fail CLOSED — never
+    migrate financial data while the key is missing.
+
+    Reads the key via ``Settings`` (which loads backend/.env, exactly like the
+    app) with an os.environ fallback — because ``alembic upgrade head`` in
+    deploy.sh does NOT export .env into the environment (only the systemd unit
+    does), so a raw ``os.getenv`` would spuriously fail closed on deploy.
+    """
+    from app.config import Settings
+
+    key = Settings().fernet_key or os.getenv("FERNET_KEY", "")
     if not key:
         raise RuntimeError(
             "FERNET_KEY is not set — refusing to run the Plaid at-rest encryption "
