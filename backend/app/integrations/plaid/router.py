@@ -1,11 +1,14 @@
 
 import uuid
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.mfa_common import has_mfa
 from app.auth.models import Role, User
 from app.config import Settings
+from app.core import legal
 from app.dependencies import get_current_user, get_db, require_role
 
 from . import service
@@ -14,15 +17,93 @@ from .schemas import (
     CreateLinkTokenResponse,
     ExchangeTokenRequest,
     PlaidConnectionResponse,
+    PlaidConsentResponse,
+    PlaidLinkConfigResponse,
     PlaidTransactionFilters,
     PlaidTransactionResponse,
 )
 
 router = APIRouter()
 
+_LINK_ROLES = (Role.ACCOUNTANT, Role.ADMIN)
+
 
 def _get_settings(request: Request) -> Settings:
     return request.app.state.settings
+
+
+def _client_ip(request: Request) -> str | None:
+    return request.client.host if request.client else None
+
+
+async def require_plaid_link_access(
+    request: Request,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> User:
+    """Hard gate in front of the Plaid Link flow.
+
+    Three conditions, all required: the ``plaid_link_enabled`` flag is on (kept
+    OFF until consent + MFA + privacy policy are verified), the caller holds an
+    accountant/admin role, and the caller has MFA — EITHER TOTP or a passkey
+    (they are interchangeable, so a TOTP-only user keeps access). Consent itself
+    is enforced at exchange time in the service.
+    """
+    settings = _get_settings(request)
+    if not getattr(settings, "plaid_link_enabled", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "PLAID_LINK_DISABLED",
+                "message": "Bank connections are not enabled yet.",
+            },
+        )
+    if user.role not in _LINK_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
+        )
+    if not await has_mfa(db, user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "MFA_REQUIRED",
+                "message": "Enable two-factor authentication (an authenticator app or a passkey) before connecting a bank account.",
+            },
+        )
+    return user
+
+
+# ---------------------------------------------------------------------------
+# Link configuration — drives whether the frontend surfaces the Connect button
+# ---------------------------------------------------------------------------
+
+
+@router.get("/link-config", response_model=dict)
+async def get_link_config(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    settings = _get_settings(request)
+    base = settings.public_base_url.rstrip("/")
+    mfa_ok = await has_mfa(db, user)
+    enabled = (
+        bool(getattr(settings, "plaid_link_enabled", False))
+        and mfa_ok
+        and user.role in _LINK_ROLES
+    )
+    cfg = PlaidLinkConfigResponse(
+        enabled=enabled,
+        mfa_required=True,
+        mfa_satisfied=mfa_ok,
+        consent_required=True,
+        consent_text=legal.PLAID_CONSENT_TEXT,
+        consent_version=legal.PLAID_CONSENT_VERSION,
+        privacy_policy_version=legal.PRIVACY_POLICY_VERSION,
+        privacy_policy_url=f"{base}/privacy",
+        terms_url=f"{base}/terms",
+    )
+    return {"data": cfg}
 
 
 # ---------------------------------------------------------------------------
@@ -33,7 +114,7 @@ def _get_settings(request: Request) -> Settings:
 @router.post("/link-token", response_model=dict)
 async def create_link_token(
     request: Request,
-    user: User = Depends(require_role([Role.ACCOUNTANT, Role.ADMIN])),
+    user: User = Depends(require_plaid_link_access),
 ):
     settings = _get_settings(request)
     link_token = await service.create_link_token(user, settings)
@@ -45,10 +126,12 @@ async def exchange_public_token(
     data: ExchangeTokenRequest,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role([Role.ACCOUNTANT, Role.ADMIN])),
+    user: User = Depends(require_plaid_link_access),
 ):
     settings = _get_settings(request)
-    connection = await service.exchange_public_token(db, data, user, settings)
+    connection = await service.exchange_public_token(
+        db, data, user, settings, ip=_client_ip(request)
+    )
     return {"data": _connection_response(connection)}
 
 
@@ -86,6 +169,26 @@ async def sync_transactions(
     settings = _get_settings(request)
     count = await service.sync_transactions(db, connection_id, user.id, settings)
     return {"data": {"detail": f"Synced {count} new transactions"}}
+
+
+# ---------------------------------------------------------------------------
+# Consent records — platform-admin surface for "provide records on request"
+# ---------------------------------------------------------------------------
+
+
+@router.get("/admin/consents", response_model=dict)
+async def list_consents_admin(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    user_id: uuid.UUID | None = None,
+    current_user: User = Depends(get_current_user),
+):
+    # Platform-admin gate (admin role or SUPER_ADMIN_EMAILS).
+    from app.platform_admin.router import require_platform_admin
+
+    await require_platform_admin(request, current_user)
+    consents = await service.list_consents(db, user_id=user_id)
+    return {"data": [PlaidConsentResponse.model_validate(c) for c in consents]}
 
 
 # ---------------------------------------------------------------------------

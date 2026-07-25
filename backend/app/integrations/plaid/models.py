@@ -29,6 +29,41 @@ class PlaidConnection(TimestampMixin, Base):
     accounts_json: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
+class PlaidConsent(TimestampMixin, Base):
+    """Recorded, persisted end-user consent captured BEFORE a bank is connected.
+
+    Schedule 1 requires demonstrable consent. One row per acknowledgement,
+    written transactionally with the PlaidConnection it authorizes (see
+    service.exchange_public_token). ``created_at`` is the consent timestamp.
+    """
+
+    __tablename__ = "plaid_consents"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    #: Tenant/cohort stand-in (org id when present). Plain string so it survives
+    #: org deletion — mirrors the audit/event tables.
+    tenant_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    #: Plaid product scope the user authorized, e.g. "transactions".
+    product_scope: Mapped[str] = mapped_column(String(100))
+    #: Versions referenced at capture time (from app/core/legal.py).
+    consent_version: Mapped[str] = mapped_column(String(40))
+    privacy_policy_version: Mapped[str] = mapped_column(String(40))
+    #: The exact consent copy shown to the user — persisted so we can prove it.
+    consent_text: Mapped[str] = mapped_column(Text)
+    ip_address: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    #: Linked to the connection created in the same transaction. SET NULL so
+    #: disconnecting a bank doesn't erase the consent record.
+    connection_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("plaid_connections.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    revoked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+
 class PlaidTransaction(TimestampMixin, Base):
     __tablename__ = "plaid_transactions"
 

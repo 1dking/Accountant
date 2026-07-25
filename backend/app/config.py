@@ -17,6 +17,15 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 7
 
+    # WebAuthn / passkeys (second factor alongside TOTP).
+    #: RP ID = the registrable domain, NO scheme/port (e.g. "accountant.ocidm.io").
+    #: RP origin = the full origin the browser sees (e.g. "https://accountant.ocidm.io").
+    #: These MUST match the deployed domain or every ceremony fails — override in
+    #: production via env (WEBAUTHN_RP_ID / WEBAUTHN_ORIGIN). Defaults are dev-only.
+    webauthn_rp_id: str = "localhost"
+    webauthn_rp_name: str = "O-Brain"
+    webauthn_origin: str = "http://localhost:5173"
+
     # Storage
     storage_type: str = "local"
     storage_path: str = "./data/documents"
@@ -52,6 +61,14 @@ class Settings(BaseSettings):
     plaid_client_id: str = ""
     plaid_secret: str = ""
     plaid_env: str = "sandbox"
+    #: Master switch for surfacing the Plaid Link "Connect account" flow. Stays
+    #: OFF until consent + MFA + privacy policy are verified in production. The
+    #: link-token/exchange endpoints hard-refuse while this is False, and the
+    #: frontend hides the Connect button (see plaid /link-config).
+    plaid_link_enabled: bool = False
+    #: Retention window (days) for Plaid-derived transaction data. 0 disables
+    #: enforcement. Enforced by the scheduler (see app/core/scheduler.py).
+    plaid_data_retention_days: int = 0
 
     # Stripe
     stripe_secret_key: str = ""

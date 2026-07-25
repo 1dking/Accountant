@@ -37,6 +37,8 @@ from app.database import Base, build_engine, build_session_factory
 
 # Import all models so Base.metadata knows about them
 import app.auth.models  # noqa: F401
+import app.auth.webauthn_models  # noqa: F401
+import app.audit.models  # noqa: F401
 import app.documents.models  # noqa: F401
 import app.collaboration.models  # noqa: F401
 import app.notifications.models  # noqa: F401
@@ -64,6 +66,7 @@ import app.accounting.period_models  # noqa: F401
 import app.invoicing.credit_models  # noqa: F401
 import app.accounting.tax_models  # noqa: F401
 import app.accounting.ledger_models  # noqa: F401
+import app.operators.models  # noqa: F401
 import app.cashbook.models  # noqa: F401
 import app.meetings.models  # noqa: F401
 import app.office.models  # noqa: F401
@@ -113,6 +116,11 @@ async def lifespan(application: FastAPI):
     if settings.is_sqlite:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+        # create_all makes missing TABLES but never alters existing ones — add
+        # any new COLUMNS to long-lived tables (e.g. users MFA/anonymization).
+        from app.core.schema_patch import apply_sqlite_column_patches
+
+        await apply_sqlite_column_patches(engine)
 
     application.state.engine = engine
     application.state.session_factory = build_session_factory(engine)
@@ -240,6 +248,10 @@ def create_app() -> FastAPI:
 
     # Register routers
     from app.auth.router import router as auth_router
+    from app.auth.mfa_router import router as mfa_router
+    from app.auth.webauthn_router import router as webauthn_router
+    from app.audit.router import router as audit_router
+    from app.privacy.router import router as privacy_router
     from app.documents.router import router as documents_router
     from app.collaboration.router import router as collaboration_router
     from app.notifications.router import router as notifications_router
@@ -302,6 +314,15 @@ def create_app() -> FastAPI:
     from app.wtp.router import router as wtp_router
 
     fastapi_app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
+    fastapi_app.include_router(mfa_router, prefix="/api/auth/mfa", tags=["mfa"])
+    fastapi_app.include_router(webauthn_router, prefix="/api/auth/webauthn", tags=["webauthn"])
+    fastapi_app.include_router(privacy_router, prefix="/api/privacy", tags=["privacy"])
+    fastapi_app.include_router(
+        audit_router,
+        prefix="/api/platform-admin/audit",
+        tags=["audit"],
+        dependencies=[Depends(require_feature("platform_admin"))],
+    )
     fastapi_app.include_router(documents_router, prefix="/api/documents", tags=["documents"], dependencies=[Depends(require_feature("drive"))])
     fastapi_app.include_router(collaboration_router, prefix="/api", tags=["collaboration"])
     fastapi_app.include_router(notifications_router, prefix="/api/notifications", tags=["notifications"])
@@ -471,6 +492,21 @@ def create_app() -> FastAPI:
     @fastapi_app.get("/api/system/health")
     async def health():
         return {"data": {"status": "healthy"}}
+
+    @fastapi_app.get("/api/legal/versions")
+    async def legal_versions():
+        """Public: current legal document versions, so the frontend privacy /
+        terms pages and consent copy can display and reference a stable version.
+        """
+        from app.core import legal
+
+        return {
+            "data": {
+                "privacy_policy_version": legal.PRIVACY_POLICY_VERSION,
+                "terms_version": legal.TERMS_VERSION,
+                "plaid_consent_version": legal.PLAID_CONSENT_VERSION,
+            }
+        }
 
     @fastapi_app.get("/api/system/stats")
     async def stats(request: Request, _: Annotated["User", Depends(get_current_user)]):

@@ -705,6 +705,8 @@ export default function SalesPage() {
           <Link to="/login">Log in</Link>
           <Link to="/portal">Client portal</Link>
           <a href="#sp-pricing">Pricing</a>
+          <Link to="/privacy">Privacy</Link>
+          <Link to="/terms">Terms</Link>
         </div>
         <p style={{ marginTop: '0.9rem' }}>O-Brain — Your business, remembered. · An OCIDM product</p>
       </footer>

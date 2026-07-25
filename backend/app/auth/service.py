@@ -18,6 +18,7 @@ from app.auth.utils import (
     hash_token,
     verify_password,
 )
+from app.audit.service import AuditAction, AuditResult, safe_record_audit
 from app.collaboration.service import log_activity
 from app.config import Settings
 from app.core.exceptions import ConflictError, ForbiddenError, NotFoundError, ValidationError
@@ -142,15 +143,55 @@ async def authenticate_user(
     email: str,
     password: str,
     settings: Settings,
-) -> TokenResponse:
+    ip: str | None = None,
+) -> "TokenResponse | dict":
+    """Verify credentials and issue tokens.
+
+    If the user has MFA enabled, tokens are NOT issued here — a short-lived
+    challenge is returned (``{"mfa_required": True, "mfa_token": ...}``) and the
+    caller must finish via ``complete_mfa_login``. Every attempt is audited.
+    """
     result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
 
     if user is None or not user.hashed_password or not verify_password(password, user.hashed_password):
+        await safe_record_audit(
+            db,
+            action=AuditAction.LOGIN_FAILURE,
+            result=AuditResult.FAILURE,
+            actor_id=user.id if user else None,
+            actor_email=email,
+            ip_address=ip,
+            metadata={"reason": "bad_credentials"},
+        )
         raise ValidationError("Invalid email or password.")
 
     if not user.is_active:
+        await safe_record_audit(
+            db,
+            action=AuditAction.LOGIN_FAILURE,
+            result=AuditResult.FAILURE,
+            actor_id=user.id,
+            actor_email=user.email,
+            ip_address=ip,
+            metadata={"reason": "inactive"},
+        )
         raise ValidationError("Account is deactivated.")
+
+    # MFA gate: password proven, but tokens are withheld pending a second factor.
+    # A user is MFA-protected if they have TOTP OR at least one passkey; either
+    # one can satisfy the challenge (methods tells the client which are offered).
+    from app.auth.mfa_common import mfa_methods
+
+    methods = await mfa_methods(db, user)
+    if methods:
+        from app.auth.mfa_service import create_mfa_pending_token
+
+        return {
+            "mfa_required": True,
+            "mfa_token": create_mfa_pending_token(user.id, settings),
+            "methods": methods,
+        }
 
     access_token = create_access_token(user.id, user.role.value, settings)
     refresh_token = create_refresh_token(user.id, settings)
@@ -170,6 +211,15 @@ async def authenticate_user(
         action="user_login",
         resource_type="user",
         resource_id=str(user.id),
+    )
+    await safe_record_audit(
+        db,
+        action=AuditAction.LOGIN_SUCCESS,
+        result=AuditResult.SUCCESS,
+        actor_id=user.id,
+        actor_email=user.email,
+        tenant_id=str(user.org_id) if user.org_id else None,
+        ip_address=ip,
     )
 
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)

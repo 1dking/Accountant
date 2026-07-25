@@ -1,0 +1,46 @@
+"""Idempotent additive schema patches for the SQLite production DB.
+
+``Base.metadata.create_all`` creates MISSING tables but never alters EXISTING
+ones — so new columns added to a long-lived table (``users``) never appear on the
+production SQLite DB, and every query for them would error. This runs on startup
+(SQLite only) and ``ALTER TABLE ... ADD COLUMN`` for any missing column.
+
+Additive and idempotent by construction: it only ever adds columns that aren't
+already present, so it's safe to run on every boot. New TABLES continue to come
+from create_all; this covers only new COLUMNS on pre-existing tables. For a
+Postgres deployment, use a real Alembic migration instead (see PREREQUISITES_REPORT.md).
+"""
+
+import logging
+
+logger = logging.getLogger(__name__)
+
+#: table -> {column_name: column DDL}. All additive; NOT NULL columns must carry
+#: a DEFAULT so the ALTER succeeds against existing rows.
+_ADDITIVE_COLUMNS: dict[str, dict[str, str]] = {
+    "users": {
+        "mfa_enabled": "BOOLEAN NOT NULL DEFAULT 0",
+        "mfa_secret": "VARCHAR(512)",
+        "mfa_recovery_codes": "TEXT",
+        "mfa_enrolled_at": "DATETIME",
+        "anonymized_at": "DATETIME",
+    },
+}
+
+
+async def apply_sqlite_column_patches(engine) -> None:
+    async with engine.begin() as conn:
+        for table, columns in _ADDITIVE_COLUMNS.items():
+            existing = await _existing_columns(conn, table)
+            if not existing:
+                # Table absent (fresh DB) — create_all will build it in full.
+                continue
+            for col, ddl in columns.items():
+                if col not in existing:
+                    await conn.exec_driver_sql(f"ALTER TABLE {table} ADD COLUMN {col} {ddl}")
+                    logger.info("schema_patch: added column %s.%s", table, col)
+
+
+async def _existing_columns(conn, table: str) -> set[str]:
+    result = await conn.exec_driver_sql(f"PRAGMA table_info({table})")
+    return {row[1] for row in result}  # row[1] = column name

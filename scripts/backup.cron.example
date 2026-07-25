@@ -1,0 +1,4 @@
+# Accountant DB + uploaded-files backup.
+# Install: `crontab -e` on the VPS and paste the line below (edit <vps-user>).
+# Daily at 02:15 UTC, keep the newest 14 archives, append output to a log.
+15 2 * * * cd /home/<vps-user>/Accountant && KEEP=14 bash scripts/backup.sh >> /home/<vps-user>/Accountant/logs/backup.log 2>&1

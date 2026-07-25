@@ -15,6 +15,44 @@ class ExchangeTokenRequest(BaseModel):
     public_token: str
     institution_name: str
     institution_id: str
+    #: The user must explicitly acknowledge the consent copy before a bank is
+    #: connected. Without this, exchange_public_token refuses to create the
+    #: connection (Schedule 1 consent requirement).
+    consent_acknowledged: bool = False
+
+
+class PlaidLinkConfigResponse(BaseModel):
+    """Everything the frontend needs to decide whether/how to surface Plaid Link.
+
+    ``enabled`` stays False until consent + MFA + privacy policy are verified, so
+    the live "Connect account" button stays hidden behind the flag.
+    """
+
+    enabled: bool
+    mfa_required: bool
+    mfa_satisfied: bool
+    consent_required: bool
+    consent_text: str
+    consent_version: str
+    privacy_policy_version: str
+    privacy_policy_url: str
+    terms_url: str
+
+
+class PlaidConsentResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    user_id: uuid.UUID
+    tenant_id: str | None = None
+    product_scope: str
+    consent_version: str
+    privacy_policy_version: str
+    consent_text: str
+    ip_address: str | None = None
+    connection_id: uuid.UUID | None = None
+    revoked_at: Optional[datetime] = None
+    created_at: datetime
 
 
 class PlaidConnectionResponse(BaseModel):

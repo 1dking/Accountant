@@ -26,6 +26,54 @@ def is_admin(user: User) -> bool:
     return user.role == Role.ADMIN
 
 
+def is_platform_admin(user: User) -> bool:
+    """The platform vendor (OCIDM), who sees ACROSS every operator's tenant.
+
+    Distinct from an operator, who is an ADMIN of their OWN agency only. Only a
+    platform admin gets the global, unfiltered bypass; an operator-admin is
+    scoped to their own tenant (see _tenant_owner_ids)."""
+    return bool(getattr(user, "is_platform_admin", False))
+
+
+def _tenant_owner_ids(user: User) -> Select:
+    """Subquery of the user ids whose records belong to the acting user's tenant.
+
+    The Phase-2 isolation boundary. A user's tenant is:
+      * their sub-account, if they belong to one (``sub_account_id``); else
+      * their operator group (``operator_id``) at the agency level, excluding any
+        sub-account members; and NULL/NULL is the legacy root tenant, which keeps
+        pre-Phase-2 installs behaving exactly as before (all NULL users = one
+        tenant, so an admin still sees everyone).
+
+    Used to scope an operator-admin's "sees everything" to "sees everything in
+    THEIR tenant" — never across operators.
+    """
+    if user.sub_account_id is not None:
+        return select(User.id).where(User.sub_account_id == user.sub_account_id)
+    if user.operator_id is not None:
+        return select(User.id).where(
+            User.sub_account_id.is_(None), User.operator_id == user.operator_id
+        )
+    return select(User.id).where(
+        User.sub_account_id.is_(None), User.operator_id.is_(None)
+    )
+
+
+async def _same_tenant(db: AsyncSession, user: User, owner_id: uuid.UUID) -> bool:
+    """Whether ``owner_id``'s user shares the acting user's tenant partition."""
+    row = await db.execute(
+        select(User.sub_account_id, User.operator_id).where(User.id == owner_id)
+    )
+    found = row.first()
+    if found is None:
+        return False
+    owner_sub, owner_op = found
+    if user.sub_account_id is not None:
+        return owner_sub == user.sub_account_id
+    # acting user is at the operator/legacy level
+    return owner_sub is None and owner_op == user.operator_id
+
+
 def authorize_owner(resource_owner_id: uuid.UUID, user: User, resource_name: str = "Resource") -> None:
     """Only the creator — or an admin — may touch this record.
 
@@ -52,8 +100,12 @@ def apply_ownership_filter(
         stmt = select(Document)
         stmt = apply_ownership_filter(stmt, Document.uploaded_by, user)
     """
-    if is_admin(user):
+    if is_platform_admin(user):
         return stmt
+    if is_admin(user):
+        # An operator-admin sees everything in THEIR tenant — never across
+        # operators. Legacy admins (NULL tenant) still see the whole install.
+        return stmt.where(column.in_(_tenant_owner_ids(user)))
     return stmt.where(column == user.id)
 
 
@@ -67,17 +119,20 @@ def apply_ownership_filter(
 #   3. it is a contact shared with you — or it HANGS OFF a contact shared with
 #      you (the cascade: a contact you can't see the file of is just a name)
 #
-# ADMIN short-circuits all of it.
+# A PLATFORM admin short-circuits all of it; an operator-admin is scoped to their
+# own tenant (Phase 2).
 
 
 def _visible_owner_ids(user: User) -> Select | None:
     """Subquery: whose records may this user see, by ownership alone?
 
-    Returns None for an admin, meaning "no restriction" — the caller adds no
-    WHERE clause at all rather than building a list of every user id.
+    Returns None for a PLATFORM admin, meaning "no restriction". An operator-admin
+    gets their whole tenant's owner set (not None — never cross-operator).
     """
-    if is_admin(user):
+    if is_platform_admin(user):
         return None
+    if is_admin(user):
+        return _tenant_owner_ids(user)
     if user.role == Role.MANAGER:
         # Own records + direct reports'. One level deep: a manager of managers
         # does not inherit the whole subtree. Deliberate — see Role docstring.
@@ -118,7 +173,7 @@ def apply_visibility_filter(
     """
     from app.contacts.models import ContactAccess, SharePermission
 
-    if is_admin(user):
+    if is_platform_admin(user):
         return stmt
 
     cond = owner_col.in_(_visible_owner_ids(user))
@@ -176,7 +231,12 @@ async def authorize_record(
     """
     from app.contacts.models import SharePermission
 
-    if is_admin(user) or owner_id == user.id:
+    if is_platform_admin(user) or owner_id == user.id:
+        return
+
+    # An operator-admin reaches any record in THEIR tenant, but never another
+    # operator's — the tenant check is what makes the admin bypass safe now.
+    if is_admin(user) and await _same_tenant(db, user, owner_id):
         return
 
     if user.role == Role.MANAGER and await _is_direct_report(db, owner_id, user.id):
@@ -202,17 +262,22 @@ def apply_cashbook_filter(
     org_id_col,
     user: User,
 ) -> Select:
-    """Filter cashbook resources by org_id (if user has org access) or user_id.
+    """Filter cashbook resources by tenant / org_id / user_id.
 
-    - Admin with org access: filter by org_id (sees all org data)
-    - Admin without org access: no filter (sees everything — legacy behavior)
-    - Non-admin with org access + org_id: filter by org_id (shared org cashbook)
-    - Non-admin without org access: filter by user_id (personal cashbook)
+    - Platform admin: no filter (sees everything).
+    - Org access (cashbook_access="org" + org_id): filter by org_id — the legacy
+      shared-org-cashbook path, unchanged.
+    - Operator-admin (no org access): tenant-scoped — sees all cashbook rows owned
+      by users in THEIR tenant, never across operators. Legacy admins (NULL
+      tenant) still see the whole install.
+    - Everyone else: personal cashbook (own user_id).
     """
+    if is_platform_admin(user):
+        return stmt
     if user.cashbook_access == "org" and user.org_id is not None:
         return stmt.where(org_id_col == user.org_id)
     if is_admin(user):
-        return stmt
+        return stmt.where(user_id_col.in_(_tenant_owner_ids(user)))
     return stmt.where(user_id_col == user.id)
 
 

@@ -62,6 +62,26 @@ class User(TimestampMixin, Base):
     cashbook_access: Mapped[str] = mapped_column(
         String(20), default="personal", server_default="personal", nullable=False
     )
+    # --- Operator / sub-account tenancy (Phase 2) --------------------------
+    #: The sub-account (isolated client tenant) this user belongs to, if any.
+    #: NULL = the user lives at the operator/agency level, not inside a client
+    #: sub-account. See app/operators/models.py.
+    sub_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("sub_accounts.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    #: Which operator's world this user lives in. The operator's own User row has
+    #: operator_id == its own id; their staff and sub-account members carry the
+    #: operator's id. NULL = the legacy root tenant (pre-Phase-2 installs), which
+    #: keeps existing behaviour: all NULL/NULL users share one tenant.
+    operator_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    #: The platform vendor (OCIDM), who sees ACROSS all operators. Distinct from
+    #: an operator, who is merely an ADMIN of their own agency. Defaults False so
+    #: an operator-admin never gains cross-operator visibility by role alone.
+    is_platform_admin: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="0", nullable=False
+    )
     fallback_phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
     voicemail_greeting_type: Mapped[str | None] = mapped_column(String(10), nullable=True)
     voicemail_greeting_storage_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
@@ -87,6 +107,27 @@ class User(TimestampMixin, Base):
     # Per-item onboarding metadata: { item_key: { dismissed_at: ISO } }
     onboarding_state: Mapped[dict | None] = mapped_column(
         JSON, nullable=False, server_default="{}", default=dict
+    )
+
+    # --- MFA (TOTP) ---------------------------------------------------------
+    # mfa_secret holds the Fernet-ENCRYPTED base32 TOTP secret; it is only set
+    # once enrollment is confirmed. mfa_recovery_codes is a JSON array of
+    # SHA-256 hashes (plaintext shown once, never stored). The hard gate before
+    # Plaid Link is `mfa_enabled` — see app/auth/mfa_dependencies.py.
+    mfa_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="0", nullable=False
+    )
+    mfa_secret: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    mfa_recovery_codes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    mfa_enrolled_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    #: Set when the user's personal data has been irreversibly anonymized under a
+    #: verified deletion request (see app/privacy/service.py). The row is kept for
+    #: referential integrity + audit legibility; all PII on it is scrubbed.
+    anonymized_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
     )
 
 

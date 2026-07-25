@@ -13,6 +13,8 @@ import { useBranding } from '@/hooks/useBranding'
 import AppShell from '@/components/layout/AppShell'
 import InstallBanner from '@/components/layout/InstallBanner'
 import LoginPage from '@/pages/LoginPage'
+import PrivacyPolicyPage from '@/pages/PrivacyPolicyPage'
+import TermsPage from '@/pages/TermsPage'
 import RegisterPage from '@/pages/RegisterPage'
 import SalesPage from '@/pages/SalesPage'
 import DashboardPage from '@/pages/DashboardPage'
@@ -335,6 +337,10 @@ export default function App() {
             <Route path="/auth/password-reset/request" element={<PasswordResetRequestPage />} />
             <Route path="/auth/password-reset/confirm/:token" element={<PasswordResetConfirmPage />} />
             <Route path="/auth/google/callback" element={<GoogleCallbackPage />} />
+            {/* Public legal pages — reachable without auth, linked from the app
+                footer and the Plaid connection UI, and versioned. */}
+            <Route path="/privacy" element={<PrivacyPolicyPage />} />
+            <Route path="/terms" element={<TermsPage />} />
             <Route path="/p/:token" element={<PublicDocumentPage />} />
             <Route path="/f/:formId" element={<PublicFormPage />} />
             <Route path="/proposals/sign/:token" element={<ProposalSigningPage />} />

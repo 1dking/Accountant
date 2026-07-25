@@ -137,8 +137,11 @@ async def login(
     db: Annotated[AsyncSession, Depends(get_db)],
     request: Request,
 ) -> dict:
-    _check_login_rate_limit(request.client.host if request.client else "unknown")
-    tokens = await authenticate_user(db, credentials.email, credentials.password, request.app.state.settings)
+    client_ip = request.client.host if request.client else "unknown"
+    _check_login_rate_limit(client_ip)
+    tokens = await authenticate_user(
+        db, credentials.email, credentials.password, request.app.state.settings, ip=client_ip
+    )
     return {"data": tokens}
 
 

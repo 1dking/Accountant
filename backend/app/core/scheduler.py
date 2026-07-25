@@ -382,6 +382,39 @@ async def _refresh_a2p_registrations() -> None:
         logger.exception("Error refreshing A2P registrations")
 
 
+async def _prune_audit_logs() -> None:
+    """Job: prune audit rows past the retention window. Daily at 3:30am UTC."""
+    try:
+        async with _session_factory() as db:
+            from app.audit.service import prune_audit_logs
+
+            count = await prune_audit_logs(db)
+            if count > 0:
+                logger.info("audit_logs pruned=%d", count)
+    except Exception:
+        logger.exception("Error pruning audit logs")
+
+
+async def _enforce_plaid_retention() -> None:
+    """Job: age out Plaid-derived transactions per plaid_data_retention_days.
+
+    No-op when retention is disabled (the default), so this is safe to always
+    register. Daily at 4:15am UTC.
+    """
+    if _settings is None:
+        return
+    try:
+        async with _session_factory() as db:
+            from app.privacy.service import enforce_plaid_retention
+
+            days = int(getattr(_settings, "plaid_data_retention_days", 0) or 0)
+            count = await enforce_plaid_retention(db, days)
+            if count > 0:
+                logger.info("plaid_retention deleted_transactions=%d cutoff_days=%d", count, days)
+    except Exception:
+        logger.exception("Error enforcing Plaid retention")
+
+
 def setup_scheduler(session_factory: Any, settings: Any = None) -> None:
     """Register all periodic jobs and start the scheduler."""
     global _session_factory, _settings
@@ -551,6 +584,20 @@ def setup_scheduler(session_factory: Any, settings: Any = None) -> None:
         _process_proposal_follow_ups,
         IntervalTrigger(minutes=30),
         id="process_proposal_follow_ups",
+        replace_existing=True,
+    )
+
+    scheduler.add_job(
+        _prune_audit_logs,
+        CronTrigger(hour=3, minute=30),
+        id="prune_audit_logs",
+        replace_existing=True,
+    )
+
+    scheduler.add_job(
+        _enforce_plaid_retention,
+        CronTrigger(hour=4, minute=15),
+        id="enforce_plaid_retention",
         replace_existing=True,
     )
 

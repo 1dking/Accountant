@@ -6,12 +6,14 @@ from datetime import date, datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.audit.service import AuditAction, AuditResult, safe_record_audit
 from app.auth.models import User
 from app.config import Settings
+from app.core import legal
 from app.core.encryption import get_encryption_service
 from app.core.exceptions import NotFoundError, ValidationError
 
-from .models import PlaidConnection, PlaidTransaction
+from .models import PlaidConnection, PlaidConsent, PlaidTransaction
 from .schemas import CategorizeTransactionRequest, ExchangeTokenRequest, PlaidTransactionFilters
 
 
@@ -71,8 +73,20 @@ async def exchange_public_token(
     data: ExchangeTokenRequest,
     user: User,
     settings: Settings,
+    ip: str | None = None,
 ) -> PlaidConnection:
-    """Exchange a public token for an access token, encrypt, and store."""
+    """Exchange a public token for an access token, encrypt, and store.
+
+    A recorded consent is a HARD precondition: if the user did not acknowledge
+    the consent copy, we refuse before contacting Plaid, so no connection is
+    created. The consent row and the connection are persisted in the SAME
+    transaction — either both land or neither does.
+    """
+    if not data.consent_acknowledged:
+        raise ValidationError(
+            "Bank connection requires explicit consent. No connection was created."
+        )
+
     from plaid.model.item_public_token_exchange_request import ItemPublicTokenExchangeRequest
 
     client = _get_plaid_client(settings)
@@ -98,9 +112,62 @@ async def exchange_public_token(
         accounts_json=json.dumps(accounts_json),
     )
     db.add(connection)
+    await db.flush()  # assign connection.id without committing yet
+
+    consent = PlaidConsent(
+        user_id=user.id,
+        tenant_id=str(user.org_id) if user.org_id else None,
+        product_scope=legal.PLAID_PRODUCT_SCOPE,
+        consent_version=legal.PLAID_CONSENT_VERSION,
+        privacy_policy_version=legal.PRIVACY_POLICY_VERSION,
+        consent_text=legal.PLAID_CONSENT_TEXT,
+        ip_address=ip,
+        connection_id=connection.id,
+    )
+    db.add(consent)
+
+    # Single commit: consent + connection are atomic.
     await db.commit()
     await db.refresh(connection)
+
+    await safe_record_audit(
+        db,
+        action=AuditAction.PLAID_CONSENT_CAPTURED,
+        result=AuditResult.SUCCESS,
+        actor_id=user.id,
+        actor_email=user.email,
+        tenant_id=str(user.org_id) if user.org_id else None,
+        resource_type="plaid_connection",
+        resource_id=str(connection.id),
+        ip_address=ip,
+        metadata={
+            "consent_version": legal.PLAID_CONSENT_VERSION,
+            "privacy_policy_version": legal.PRIVACY_POLICY_VERSION,
+            "institution": data.institution_name,
+        },
+    )
+    await safe_record_audit(
+        db,
+        action=AuditAction.PLAID_CONNECTION_CREATED,
+        result=AuditResult.SUCCESS,
+        actor_id=user.id,
+        actor_email=user.email,
+        resource_type="plaid_connection",
+        resource_id=str(connection.id),
+        ip_address=ip,
+    )
     return connection
+
+
+async def list_consents(
+    db: AsyncSession, user_id: uuid.UUID | None = None
+) -> list[PlaidConsent]:
+    """Consent records, newest first. Platform-admin surface for the
+    "provide records on request" obligation. ``user_id`` filters to one user."""
+    stmt = select(PlaidConsent).order_by(PlaidConsent.created_at.desc())
+    if user_id is not None:
+        stmt = stmt.where(PlaidConsent.user_id == user_id)
+    return list((await db.execute(stmt)).scalars().all())
 
 
 async def _fetch_accounts(client, access_token: str) -> list[dict]:

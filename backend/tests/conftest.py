@@ -63,6 +63,8 @@ TEST_SETTINGS = Settings(
 
 def _import_all_models():
     import app.auth.models  # noqa
+    import app.auth.webauthn_models  # noqa
+    import app.audit.models  # noqa
     import app.documents.models  # noqa
     import app.collaboration.models  # noqa
     import app.notifications.models  # noqa
@@ -90,6 +92,7 @@ def _import_all_models():
     import app.accounting.period_models  # noqa
     import app.accounting.tax_models  # noqa
     import app.accounting.ledger_models  # noqa
+    import app.operators.models  # noqa
     import app.cashbook.models  # noqa
     import app.meetings.models  # noqa
     import app.office.models  # noqa

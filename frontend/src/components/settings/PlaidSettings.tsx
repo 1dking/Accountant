@@ -200,6 +200,19 @@ export default function PlaidSettings() {
           <li>Categorize transactions as expenses or income</li>
           <li>Match transactions to existing invoices</li>
         </ul>
+        <p className="mt-3 text-xs text-gray-400 dark:text-gray-500">
+          Two-factor authentication and your explicit consent are required before you can connect a
+          bank account. Read our{' '}
+          <a
+            href="/privacy"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 dark:text-blue-400 hover:underline"
+          >
+            Privacy Policy
+          </a>{' '}
+          to see how bank data is used.
+        </p>
       </div>
     </div>
   )
