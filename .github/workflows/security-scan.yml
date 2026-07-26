@@ -32,7 +32,7 @@ jobs:
     name: Trivy (backend) [blocking]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # scan-ref: backend/ — path-scoped so frontend findings can never fail
       # this job. Writes SARIF and exits non-zero on HIGH/CRITICAL (respecting
@@ -67,7 +67,7 @@ jobs:
     name: pip-audit (backend) [blocking]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           # 3.10 matches the production venv the pinned lockfile was frozen from,
@@ -94,7 +94,7 @@ jobs:
     name: Trivy (frontend) [report-only]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Trivy scan (frontend)
         continue-on-error: true # report-only: pre-existing dev/build-tool backlog
         run: |
@@ -118,7 +118,7 @@ jobs:
     name: Frontend audit (pnpm) [report-only]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v4
         with:
           version: 9
