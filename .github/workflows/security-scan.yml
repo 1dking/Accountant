@@ -5,8 +5,8 @@ name: Security Scan
 #
 # GATING POLICY — backend and frontend are deliberately DECOUPLED by path:
 #   * BACKEND (backend/**, incl. the pinned requirements.txt) is clean as of the
-#     starlette/fastapi patch, so its scans BLOCK. This is the guard against a
-#     regression sneaking back in.
+#     starlette/fastapi + 12-package patch (one documented allowlist entry), so
+#     its scans BLOCK. This is the guard against a regression sneaking back in.
 #   * FRONTEND (frontend/**) still has a backlog of ~81 transitive dev/build
 #     tooling findings, so its scans REPORT ONLY (continue-on-error). A gate
 #     that's red on day one gets ignored — same rationale as the eslint gate in
@@ -48,6 +48,10 @@ jobs:
           severity: HIGH,CRITICAL
           exit-code: "1"
           trivyignores: .trivyignore
+        env:
+          # The action's install.sh downloads the trivy binary from GitHub and
+          # fails on the unauthenticated rate limit. Authenticate the download.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Runs even when the scan above fails the job, so findings still reach the
       # Security tab. Soft-fail: SARIF upload needs a public repo or GHAS.
@@ -104,6 +108,8 @@ jobs:
           severity: HIGH,CRITICAL
           exit-code: "1"
           trivyignores: .trivyignore
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Upload SARIF (frontend)
         if: always()
         continue-on-error: true
