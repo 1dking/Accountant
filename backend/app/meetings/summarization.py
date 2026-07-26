@@ -202,8 +202,12 @@ async def submit_summary(
     try:
         # Meter the summary model call against the meeting owner's AI credits.
         from app.billing.ai_meter import safe_consume_by_user_id
-        from app.meetings.models import Meeting
 
+        # NB: do NOT re-import Meeting here. It is already imported at module
+        # level (see the top of this file). A function-local `import Meeting`
+        # makes the name local to this WHOLE function, so the earlier
+        # `select(Meeting)` above raised UnboundLocalError before ever reaching
+        # this line — breaking every summary run.
         _mtg = await db.get(Meeting, transcript.meeting_id)
         if _mtg is not None and not await safe_consume_by_user_id(
             db, _mtg.created_by, "meeting_summary"

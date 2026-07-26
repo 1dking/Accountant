@@ -1,6 +1,16 @@
 #!/bin/bash
 # deploy.sh — Reproducible deployment script for DreamHost VPS
-# Usage: ssh dh_pjj4dt@vps18033.dreamhostps.com 'cd ~/Accountant && bash deploy.sh'
+#
+# Usage (pull FIRST, then run — see why below):
+#   ssh dh_pjj4dt@vps18033.dreamhostps.com \
+#     'cd ~/Accountant && git pull origin main && bash deploy.sh'
+#
+# Why pull outside the script: bash reads a script incrementally by byte offset,
+# so the `git pull` below can rewrite THIS FILE mid-execution. If the pull
+# changes deploy.sh's length, bash resumes at a now-wrong offset and can execute
+# garbage or skip steps. Pulling first means bash is already running the final
+# version and the pull below is a no-op. (Left in place so the script is still
+# correct when run standalone.)
 set -e  # fail on any error
 
 echo "=== $(date) === Starting deployment ==="
@@ -10,13 +20,17 @@ git pull origin main
 
 echo ">>> Installing backend dependencies"
 cd backend
-# Was: `pip install -r requirements.txt --break-system-packages --quiet 2>/dev/null`
-# There is no requirements.txt — not in the repo, not on the VPS. pip exited 2,
-# and with `set -e` that aborted the whole deploy before migrations, build or
-# restart; the `2>/dev/null` hid the reason. Dependencies are declared in
-# pyproject.toml and the app runs from .venv (which the alembic step below
-# already assumes), so install from there. Idempotent when deps are satisfied.
+# pyproject.toml declares the dependency RANGES and installs the app package.
 .venv/bin/pip install -e . --quiet
+# Then enforce the PINNED lockfile. This second step is load-bearing for
+# security, not redundant: pyproject uses `>=` ranges, so `pip install -e .`
+# leaves an already-installed (possibly vulnerable) version in place because it
+# still satisfies the range. Without this, the versions CI scans in
+# requirements.txt are NOT the versions running in production — which is exactly
+# what happened on 2026-07-26: a deploy of the 12-CVE patch left prod on all 12
+# vulnerable versions until they were installed by hand.
+# Keep requirements.txt in step with reality (see its header for how to regenerate).
+.venv/bin/pip install -r requirements.txt --quiet
 cd ..
 
 echo ">>> Backing up database before migrations"
