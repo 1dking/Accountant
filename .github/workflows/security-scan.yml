@@ -46,6 +46,7 @@ jobs:
         run: |
           docker run --rm -v "$PWD:/repo" -w /repo \
             --user "$(id -u):$(id -g)" \
+            -e HOME=/tmp -e TRIVY_CACHE_DIR=/tmp/trivy-cache \
             aquasec/trivy:0.65.0 fs backend \
             --scanners vuln --severity HIGH,CRITICAL --exit-code 1 \
             --ignorefile .trivyignore \
@@ -99,6 +100,7 @@ jobs:
         run: |
           docker run --rm -v "$PWD:/repo" -w /repo \
             --user "$(id -u):$(id -g)" \
+            -e HOME=/tmp -e TRIVY_CACHE_DIR=/tmp/trivy-cache \
             aquasec/trivy:0.65.0 fs frontend \
             --scanners vuln --severity HIGH,CRITICAL --exit-code 1 \
             --ignorefile .trivyignore \
