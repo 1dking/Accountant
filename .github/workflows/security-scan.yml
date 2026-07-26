@@ -2,6 +2,18 @@ name: Security Scan
 
 # Dependency / filesystem vulnerability scanning. Runs on every push + PR, and
 # weekly (Mondays 06:00 UTC) to catch newly-disclosed CVEs in unchanged deps.
+#
+# GATING POLICY — backend and frontend are deliberately DECOUPLED by path:
+#   * BACKEND (backend/**, incl. the pinned requirements.txt) is clean as of the
+#     starlette/fastapi patch, so its scans BLOCK. This is the guard against a
+#     regression sneaking back in.
+#   * FRONTEND (frontend/**) still has a backlog of ~81 transitive dev/build
+#     tooling findings, so its scans REPORT ONLY (continue-on-error). A gate
+#     that's red on day one gets ignored — same rationale as the eslint gate in
+#     ci.yml. Remove continue-on-error from the frontend jobs once that backlog
+#     is cleared.
+# The two used to share a single repo-wide Trivy scan, which is the only reason
+# a frontend finding could block a backend-clean build.
 on:
   push:
     branches: [main]
@@ -15,49 +27,41 @@ permissions:
   security-events: write # required to upload SARIF to GitHub code scanning
 
 jobs:
-  # ---- Trivy: filesystem/dependency vuln scan → SARIF + fail on HIGH/CRITICAL -
-  trivy:
-    name: Trivy vulnerability scan
+  # ---- BACKEND: Trivy scoped to backend/ — BLOCKING -------------------------
+  trivy-backend:
+    name: Trivy (backend) [blocking]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      # One scan: writes SARIF AND exits non-zero on HIGH/CRITICAL (respecting
-      # the .trivyignore allowlist). The SARIF is written before the non-zero
-      # exit, so the upload step below still runs via `if: always()`.
-      # NOT blocking yet: the repo has a pre-existing backlog of HIGH/CRITICAL
-      # findings (mostly transitive deps). A gate that is red on day one gets
-      # ignored (same rationale as the eslint gate in ci.yml), so this REPORTS
-      # findings + uploads SARIF without failing the build. Once the backlog is
-      # patched/allowlisted, delete `continue-on-error` here (and on the two jobs
-      # below) to enforce the gate.
-      - name: Trivy scan
-        continue-on-error: true
+      # scan-ref: backend/ — path-scoped so frontend findings can never fail
+      # this job. Writes SARIF and exits non-zero on HIGH/CRITICAL (respecting
+      # the .trivyignore allowlist). NO continue-on-error: this gate blocks.
+      - name: Trivy scan (backend)
         uses: aquasecurity/trivy-action@v0.33.1
         with:
           scan-type: fs
-          scan-ref: .
+          scan-ref: backend
           scanners: vuln
           format: sarif
-          output: trivy-results.sarif
+          output: trivy-backend.sarif
           severity: HIGH,CRITICAL
           exit-code: "1"
           trivyignores: .trivyignore
 
-      # Surfaces findings in the Security tab. Soft-fail: uploading SARIF to code
-      # scanning needs a public repo OR GitHub Advanced Security — if that isn't
-      # available the Trivy gate above still fails the build on findings.
-      - name: Upload SARIF to code scanning
+      # Runs even when the scan above fails the job, so findings still reach the
+      # Security tab. Soft-fail: SARIF upload needs a public repo or GHAS.
+      - name: Upload SARIF (backend)
         if: always()
         continue-on-error: true
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: trivy-results.sarif
-          category: trivy-fs
+          sarif_file: trivy-backend.sarif
+          category: trivy-backend
 
-  # ---- pip-audit: known CVEs in the pinned backend lockfile ------------------
+  # ---- BACKEND: pip-audit on the pinned lockfile — BLOCKING -----------------
   pip-audit:
-    name: pip-audit (backend)
+    name: pip-audit (backend) [blocking]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -69,15 +73,39 @@ jobs:
           python-version: "3.10"
       - run: pip install pip-audit
       - name: Audit pinned backend dependencies
-        # continue-on-error: reports the backlog without blocking (see the Trivy
-        # note above). Remove once the backlog is patched. Accepted advisories:
-        # append `--ignore-vuln <GHSA/CVE id>` with a note in SECURITY_MAINTENANCE.md.
-        continue-on-error: true
+        # BLOCKING. To accept an advisory, append `--ignore-vuln <GHSA/CVE id>`
+        # here with a justification in SECURITY_MAINTENANCE.md.
         run: pip-audit --requirement backend/requirements.txt --desc
 
-  # ---- Frontend dependency audit --------------------------------------------
+  # ---- FRONTEND: Trivy scoped to frontend/ — REPORT ONLY --------------------
+  trivy-frontend:
+    name: Trivy (frontend) [report-only]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trivy scan (frontend)
+        continue-on-error: true # report-only: pre-existing dev/build-tool backlog
+        uses: aquasecurity/trivy-action@v0.33.1
+        with:
+          scan-type: fs
+          scan-ref: frontend
+          scanners: vuln
+          format: sarif
+          output: trivy-frontend.sarif
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          trivyignores: .trivyignore
+      - name: Upload SARIF (frontend)
+        if: always()
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-frontend.sarif
+          category: trivy-frontend
+
+  # ---- FRONTEND: pnpm audit — REPORT ONLY -----------------------------------
   npm-audit:
-    name: Frontend audit (pnpm)
+    name: Frontend audit (pnpm) [report-only]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -90,10 +118,9 @@ jobs:
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
       # Frontend uses pnpm (see deploy.sh), so `pnpm audit` reads pnpm-lock.yaml.
-      # --audit-level high fails the build on HIGH/CRITICAL advisories only.
       - name: pnpm audit (frontend)
-        # continue-on-error: reports without blocking (see the Trivy note above).
-        # Remove once the backlog (mostly transitive dev/build tooling) is cleared.
+        # report-only: remove continue-on-error once the transitive dev/build
+        # tooling backlog is cleared.
         continue-on-error: true
         working-directory: frontend
         run: pnpm audit --audit-level high

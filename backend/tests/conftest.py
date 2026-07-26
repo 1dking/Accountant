@@ -8,6 +8,21 @@ PostgreSQL gives true concurrent-write testing.  SQLite is the zero-config
 default for local development.
 """
 
+# python-magic-bin intermittently deadlocks loading libmagic via ctypes on
+# Python 3.14 Windows, freezing every app-fixture test at import time. `magic`
+# is only used for MIME sniffing on uploads (app/documents/service.py). Stub it
+# on Windows so the async suite can run off the deployment box; Linux/CI keeps
+# the real library for full coverage. See TESTING.md.
+import sys as _sys
+
+if _sys.platform == "win32" and "magic" not in _sys.modules:
+    import types as _types
+
+    _magic = _types.ModuleType("magic")
+    _magic.from_buffer = lambda *a, **k: "application/octet-stream"
+    _magic.from_file = lambda *a, **k: "application/octet-stream"
+    _sys.modules["magic"] = _magic
+
 import asyncio
 import os
 import uuid
