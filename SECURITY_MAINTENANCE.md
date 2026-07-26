@@ -39,6 +39,12 @@ pinned by their lockfiles (`pnpm-lock.yaml` / `package-lock.json`).
   the pip-audit step, **with a justification and a re-review date**. Keep the
   allowlist short.
 
+### Currently accepted advisories
+
+| ID | Package | Justification | Accepted | Re-review |
+|---|---|---|---|---|
+| `PYSEC-2026-1325` | `ecdsa` | **No fix exists** — upstream considers side-channel (Minerva timing) attacks out of scope. **Not reachable**: `ecdsa` is transitive via `python-jose` only; we sign JWTs with **HS256** (symmetric HMAC, `app/config.py`), so the affected `ecdsa.SigningKey.sign_digest()` / P-256 path is never called. | 2026-07-26 | 2026-10-26 |
+
 ## Quarterly EOL / end-of-life review
 
 Every quarter, confirm none of the runtime platforms is near or past

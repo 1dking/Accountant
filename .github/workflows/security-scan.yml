@@ -75,7 +75,16 @@ jobs:
       - name: Audit pinned backend dependencies
         # BLOCKING. To accept an advisory, append `--ignore-vuln <GHSA/CVE id>`
         # here with a justification in SECURITY_MAINTENANCE.md.
-        run: pip-audit --requirement backend/requirements.txt --desc
+        #
+        # PYSEC-2026-1325 (ecdsa, Minerva timing attack on P-256): NO FIX EXISTS
+        # — upstream considers side-channel attacks out of scope. Not reachable
+        # for us: `ecdsa` is a transitive dep of python-jose only, and we sign
+        # JWTs with HS256 (symmetric HMAC, app/config.py) — the affected
+        # ecdsa.SigningKey.sign_digest()/P-256 path is never called.
+        # Accepted 2026-07-26; re-review 2026-10-26. See SECURITY_MAINTENANCE.md.
+        run: |
+          pip-audit --requirement backend/requirements.txt --desc \
+            --ignore-vuln PYSEC-2026-1325
 
   # ---- FRONTEND: Trivy scoped to frontend/ — REPORT ONLY --------------------
   trivy-frontend:
