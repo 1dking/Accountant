@@ -44,6 +44,17 @@ jobs:
       # Docker is preinstalled on ubuntu-latest, so this has no install step.
       - name: Trivy scan (backend)
         run: |
+          # First pass: human-readable table to the job log so findings are
+          # visible in CI (SARIF goes to a file and would otherwise be silent).
+          # Does not gate — the second pass does.
+          docker run --rm -v "$PWD:/repo" -w /repo \
+            --user "$(id -u):$(id -g)" \
+            -e HOME=/tmp -e TRIVY_CACHE_DIR=/tmp/trivy-cache \
+            aquasec/trivy:0.65.0 fs backend \
+            --scanners vuln --severity HIGH,CRITICAL \
+            --ignorefile .trivyignore --format table
+          # Second pass: SARIF for code scanning + the blocking exit code.
+          # DB is cached from the first pass, so this is fast.
           docker run --rm -v "$PWD:/repo" -w /repo \
             --user "$(id -u):$(id -g)" \
             -e HOME=/tmp -e TRIVY_CACHE_DIR=/tmp/trivy-cache \
