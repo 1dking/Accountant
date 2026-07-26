@@ -43,7 +43,11 @@ pinned by their lockfiles (`pnpm-lock.yaml` / `package-lock.json`).
 
 | ID | Package | Justification | Accepted | Re-review |
 |---|---|---|---|---|
-| `PYSEC-2026-1325` | `ecdsa` | **No fix exists** — upstream considers side-channel (Minerva timing) attacks out of scope. **Not reachable**: `ecdsa` is transitive via `python-jose` only; we sign JWTs with **HS256** (symmetric HMAC, `app/config.py`), so the affected `ecdsa.SigningKey.sign_digest()` / P-256 path is never called. | 2026-07-26 | 2026-10-26 |
+| `PYSEC-2026-1325` (pip-audit)<br>`CVE-2024-23342` (Trivy) | `ecdsa` | **No fix exists** — upstream considers side-channel (Minerva timing) attacks out of scope. **Not reachable**: `ecdsa` is transitive via `python-jose` only; we sign JWTs with **HS256** (symmetric HMAC, `app/config.py`), so the affected `ecdsa.SigningKey.sign_digest()` / P-256 path is never called. | 2026-07-26 | 2026-10-26 |
+
+> Note: the two scanners use different ID schemes for the same advisory, so an
+> accepted finding must be listed in **both** `.trivyignore` (CVE id) and the
+> pip-audit `--ignore-vuln` flag (PYSEC id).
 
 ## Quarterly EOL / end-of-life review
 

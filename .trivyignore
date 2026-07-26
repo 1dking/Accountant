@@ -12,4 +12,12 @@
 #   #   Accepted 2026-07-25 by <name>; re-review 2026-10-25.
 #   CVE-2024-99999
 #
-# (No findings accepted yet.)
+# CVE-2024-23342 — ecdsa: vulnerable to the Minerva timing attack on P-256.
+#   Same advisory pip-audit reports as PYSEC-2026-1325 (different ID scheme), so
+#   it must be listed in BOTH allowlists.
+#   NO FIX EXISTS — upstream considers side-channel attacks out of scope.
+#   NOT REACHABLE HERE: `ecdsa` is a transitive dependency of python-jose only,
+#   and we sign JWTs with HS256 (symmetric HMAC — see app/config.py), so the
+#   affected ecdsa.SigningKey.sign_digest() / P-256 code path is never called.
+#   Accepted 2026-07-26; re-review 2026-10-26. See SECURITY_MAINTENANCE.md.
+CVE-2024-23342
