@@ -65,7 +65,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           # 3.10 matches the production venv the pinned lockfile was frozen from,
           # so pip-audit can resolve every pin (some are 3.10-only, e.g.
