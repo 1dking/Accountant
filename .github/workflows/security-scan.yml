@@ -37,21 +37,19 @@ jobs:
       # scan-ref: backend/ — path-scoped so frontend findings can never fail
       # this job. Writes SARIF and exits non-zero on HIGH/CRITICAL (respecting
       # the .trivyignore allowlist). NO continue-on-error: this gate blocks.
+      # Run Trivy from its official pinned image rather than the marketplace
+      # action: aquasecurity/trivy-action's bundled install.sh fails on the
+      # runner (exit 1 immediately after resolving the release), which showed up
+      # as a red BLOCKING gate that was a tooling failure, not a finding.
+      # Docker is preinstalled on ubuntu-latest, so this has no install step.
       - name: Trivy scan (backend)
-        uses: aquasecurity/trivy-action@v0.33.1
-        with:
-          scan-type: fs
-          scan-ref: backend
-          scanners: vuln
-          format: sarif
-          output: trivy-backend.sarif
-          severity: HIGH,CRITICAL
-          exit-code: "1"
-          trivyignores: .trivyignore
-        env:
-          # The action's install.sh downloads the trivy binary from GitHub and
-          # fails on the unauthenticated rate limit. Authenticate the download.
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          docker run --rm -v "$PWD:/repo" -w /repo \
+            --user "$(id -u):$(id -g)" \
+            aquasec/trivy:0.65.0 fs backend \
+            --scanners vuln --severity HIGH,CRITICAL --exit-code 1 \
+            --ignorefile .trivyignore \
+            --format sarif --output trivy-backend.sarif
 
       # Runs even when the scan above fails the job, so findings still reach the
       # Security tab. Soft-fail: SARIF upload needs a public repo or GHAS.
@@ -98,18 +96,13 @@ jobs:
       - uses: actions/checkout@v4
       - name: Trivy scan (frontend)
         continue-on-error: true # report-only: pre-existing dev/build-tool backlog
-        uses: aquasecurity/trivy-action@v0.33.1
-        with:
-          scan-type: fs
-          scan-ref: frontend
-          scanners: vuln
-          format: sarif
-          output: trivy-frontend.sarif
-          severity: HIGH,CRITICAL
-          exit-code: "1"
-          trivyignores: .trivyignore
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          docker run --rm -v "$PWD:/repo" -w /repo \
+            --user "$(id -u):$(id -g)" \
+            aquasec/trivy:0.65.0 fs frontend \
+            --scanners vuln --severity HIGH,CRITICAL --exit-code 1 \
+            --ignorefile .trivyignore \
+            --format sarif --output trivy-frontend.sarif
       - name: Upload SARIF (frontend)
         if: always()
         continue-on-error: true
