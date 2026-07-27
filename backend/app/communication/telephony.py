@@ -68,6 +68,64 @@ class TelephonyCapReached(AppError):
         self.resource = resource
 
 
+class CapabilityNotGranted(AppError):
+    """403 — the operator has not granted this tenant this capability."""
+
+    def __init__(self, capability: str):
+        super().__init__(
+            code="TELEPHONY_CAPABILITY_NOT_GRANTED",
+            message=(
+                f"This account is not permitted to use {capability}. "
+                "An operator must enable it."
+            ),
+            status_code=403,
+        )
+        self.capability = capability
+
+
+class PlatformCircuitOpen(AppError):
+    """503 — aggregate telephony spend tripped the platform-wide ceiling."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            code="TELEPHONY_CIRCUIT_OPEN",
+            message=(
+                "Telephony is temporarily paused platform-wide while spend is "
+                "reviewed. Inbound service is unaffected."
+            ),
+            status_code=503,
+        )
+
+
+#: Capability column on TelephonyAccount for each guarded action. Adding an
+#: action here is the ONLY way to guard it — keep it exhaustive.
+CAPABILITIES: dict[str, str] = {
+    "sms": "allow_sms",
+    "mms": "allow_mms",
+    "voice_outbound": "allow_voice_outbound",
+    "voice_inbound": "allow_voice_inbound",
+    "number_purchase": "allow_number_purchase",
+}
+
+
+def has_capability(account: TelephonyAccount, capability: str) -> bool:
+    """Least privilege: unknown capability => denied, never defaulted on."""
+    field = CAPABILITIES.get(capability)
+    if field is None:
+        return False
+    return bool(getattr(account, field, False))
+
+
+def require_capability(account: TelephonyAccount, capability: str) -> None:
+    """Raise unless the operator granted this tenant this capability.
+
+    Fail-closed by construction: an unrecognised capability name denies rather
+    than passing through, so a typo can never silently open a billable path.
+    """
+    if not has_capability(account, capability):
+        raise CapabilityNotGranted(capability)
+
+
 def tenant_key_for(user: User) -> str:
     """Same tenant identity the AI meter and event log use."""
     from app.billing.ai_meter import tenant_key_for as _k
@@ -158,6 +216,57 @@ async def ensure_account(db: AsyncSession, user: User, settings) -> TelephonyAcc
             sub.sid,
         )
 
+    # SMS Pumping Protection — Twilio's own risk check on outbound SMS. Only ever
+    # turns a protection ON, so unlike the geo change it cannot break a
+    # destination that currently works.
+    try:
+        enable_pumping_protection(account, settings)
+    except Exception:  # noqa: BLE001
+        logger.exception(
+            "telephony: FAILED to enable SMS pumping protection on %s", sub.sid
+        )
+
+    return account
+
+
+async def enforce_billable_action(
+    db: AsyncSession, user: User, settings, capability: str
+) -> TelephonyAccount:
+    """THE choke point in front of every billable telephony action.
+
+    One guard so a new endpoint inherits all of it by calling a single function,
+    rather than each route remembering four separate checks. Order matters —
+    cheapest and most-certain refusals first:
+
+      1. resolve the tenant's own subaccount (raises TelephonySuspended if the
+         kill switch has fired — so suspension is inherited automatically);
+      2. platform-wide circuit breaker: aggregate spend across ALL tenants.
+         Previously only checked when creating a subaccount, which meant an
+         existing tenant could keep spending straight past the ceiling;
+      3. least-privilege capability grant for this specific action.
+
+    Inbound is deliberately NOT gated here: a suspended or over-cap tenant keeps
+    receiving calls and texts. Only outbound and provisioning cost money.
+    """
+    account = await ensure_account(db, user, settings)
+
+    if not await platform_circuit_ok(db, settings):
+        raise PlatformCircuitOpen()
+
+    # Capability enforcement is STAGED behind a flag (see config). Grants
+    # themselves already default to denied; this only controls whether the gate
+    # bites yet, so shipping the code cannot cut off the legacy numbers that are
+    # still on the parent account. Flip telephony_enforce_capabilities ON as the
+    # go-live step, after subaccounts exist and grants are set.
+    if getattr(settings, "telephony_enforce_capabilities", False):
+        require_capability(account, capability)
+    else:
+        if not has_capability(account, capability):
+            logger.warning(
+                "telephony: %s NOT granted for tenant %s — allowed only because "
+                "telephony_enforce_capabilities is off (staging)",
+                capability, account.tenant_key,
+            )
     return account
 
 
@@ -185,11 +294,70 @@ async def client_for(db: AsyncSession, user: User, settings):
 # ---------------------------------------------------------------------------
 
 
-def apply_geo_permissions(account: TelephonyAccount, settings) -> None:
-    """Restrict SMS and voice to US + CA on the subaccount.
+def apply_sms_pumping_protection(client, label: str) -> dict:
+    """Enable Twilio SMS Pumping Protection on one account's messaging services.
 
-    Uses the parent client with the subaccount SID, which is how Twilio scopes
-    account-config resources.
+    STEP 0 control, deliberately INDEPENDENT of the geo-permissions work: it only
+    turns a risk check ON and cannot block a destination that currently works, so
+    it is safe to ship ahead of the geo change (which is applied as its own
+    verified step).
+    """
+    result: dict[str, object] = {"account": label}
+    try:
+        applied, failed = 0, 0
+        services = list(client.messaging.v1.services.list(limit=100))
+        for svc in services:
+            try:
+                svc.update(sms_pumping_risk_check_enabled=True)
+                applied += 1
+            except Exception:  # noqa: BLE001 — per-service, keep going
+                failed += 1
+        if not services:
+            result["pumping_protection"] = (
+                "no messaging services on this account yet — enable at creation time"
+            )
+        else:
+            result["pumping_protection"] = f"enabled on {applied}/{len(services)} service(s)"
+            if failed:
+                result["failed"] = failed
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("telephony: pumping protection failed on %s: %r", label, exc)
+        result["pumping_protection"] = f"FAILED: {str(exc)[:140]}"
+    return result
+
+
+def enable_pumping_protection(account: TelephonyAccount, settings) -> dict:
+    """Turn on SMS Pumping Protection for ONE tenant's subaccount."""
+    from twilio.rest import Client
+
+    from app.core.encryption import get_encryption_service
+
+    token = get_encryption_service().decrypt(account.encrypted_auth_token)
+    client = Client(account.subaccount_sid, token)
+    out = apply_sms_pumping_protection(client, account.subaccount_sid)
+    logger.info("telephony: pumping protection %s -> %s", account.subaccount_sid, out)
+    return out
+
+
+def enable_pumping_protection_parent(settings) -> dict:
+    """Turn on SMS Pumping Protection on the PARENT account."""
+    out = apply_sms_pumping_protection(
+        _parent_client(settings), f"parent:{settings.twilio_account_sid}"
+    )
+    logger.info("telephony: parent pumping protection -> %s", out)
+    return out
+
+
+def apply_geo_permissions(account: TelephonyAccount, settings) -> None:
+    """Restrict voice to US + CA on the subaccount.
+
+    KNOWN GAP, tracked as its own isolated workstream (see RESELLER_SETUP.md):
+    this only *re-enables* US/CA and never disables the rest, and it does not
+    touch SMS country permissions or the parent account. Deliberately left
+    unchanged here so the geo fix ships as a separate, individually verified
+    step with a captured rollback snapshot — bundling it with the other Step 0
+    controls would make a live account-config change hard to attribute if
+    numbers stopped working.
     """
     from twilio.rest import Client
 
@@ -198,7 +366,6 @@ def apply_geo_permissions(account: TelephonyAccount, settings) -> None:
     token = get_encryption_service().decrypt(account.encrypted_auth_token)
     client = Client(account.subaccount_sid, token)
 
-    # Voice: disable every country, then re-enable the allowed ones.
     for iso in ALLOWED_GEO_ISO:
         try:
             client.voice.dialing_permissions.countries(iso).update(low_risk_numbers_enabled=True)

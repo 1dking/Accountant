@@ -448,6 +448,26 @@ async def _voice_gate(db, user_uuid, to_number: str, settings):
                 "You can only call saved contacts. Add this number as a contact first. Goodbye."
             )
 
+        # Least-privilege + platform circuit breaker, BEFORE the hold is taken:
+        # the operator must have granted this tenant outbound voice, and
+        # aggregate platform spend must be under the ceiling.
+        from app.communication import telephony as _telephony
+
+        try:
+            await _telephony.enforce_billable_action(
+                db, user, settings, "voice_outbound"
+            )
+        except AppError:
+            return _reject(
+                "Outbound calling is not enabled for this account. Goodbye."
+            )
+        except Exception:  # noqa: BLE001 — FAIL CLOSED on an unexpected error
+            # This runs inside a live Twilio voice webhook. Letting an unexpected
+            # exception escape would 500 mid-call; and for a money gate, refusing
+            # is the safe direction.
+            logger.exception("voice_gate: capability/circuit check errored — refusing")
+            return _reject("Outbound calling is unavailable right now. Goodbye.")
+
         # Prepaid: 1-minute hold up front; the remainder is reconciled when the
         # call completes (/voice/call-status). No credit -> no call.
         try:
@@ -1330,7 +1350,13 @@ async def purchase_number(
     from app.billing import telephony_credits
     from app.communication import telephony
 
-    tenant_client, tenant_account = await telephony.client_for(db, current_user, settings)
+    # enforce_billable_action = subaccount resolution (inherits the suspension
+    # kill switch) + platform circuit breaker + the operator's explicit
+    # number_purchase grant. Replaces a bare client_for, which did only the first.
+    tenant_account = await telephony.enforce_billable_action(
+        db, current_user, settings, "number_purchase"
+    )
+    tenant_client = telephony.subaccount_client(tenant_account)
     await telephony.enforce_number_cap(db, tenant_account)
     # A number is a recurring monthly charge, so it needs a month of credit
     # up front — and this is also where "Pro has no telephony" is enforced,

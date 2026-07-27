@@ -368,6 +368,12 @@ async def get_capability_token(db: AsyncSession, user: User, settings: Settings)
     # initializing for accounts that can't legally place a call. Honours the
     # staging flag + operator exemption inside require_credit.
     from app.billing import telephony_credits
+    from app.communication import telephony as _telephony
+
+    # Least-privilege + circuit breaker: don't mint a dialer token for a tenant
+    # the operator never granted outbound voice, or while the platform breaker is
+    # open. The authoritative per-call gate in /voice/twiml repeats this.
+    await _telephony.enforce_billable_action(db, user, settings, "voice_outbound")
 
     await telephony_credits.require_credit(
         db, user, unit="voice_outbound_min", action="use the dialer"
@@ -415,6 +421,12 @@ async def send_sms(
 
     await guards.enforce_sms_rate_limit(db, user)
     await guards.enforce_recipient_allowed(db, user, to_number)
+
+    # Least-privilege + platform circuit breaker, BEFORE any charge: an operator
+    # must have granted this tenant SMS, and aggregate platform spend must be
+    # under the ceiling. Deliberately ahead of debit_now so a refusal never
+    # leaves the tenant charged for a message we then decline to send.
+    await telephony.enforce_billable_action(db, user, settings, "sms")
 
     # Determine FROM: prefer the user's assigned Twilio number; fall back to the global.
     user_phone_result = await db.execute(

@@ -89,6 +89,42 @@ class TelephonyAccount(TimestampMixin, Base):
     monthly_spend_cap_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
     geo_permissions_set_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    # --- Least-privilege capability grants (Step 2) -------------------------
+    # DEFAULT OFF, every one of them. Creating a subaccount grants NOTHING; an
+    # operator turns on exactly the capabilities that tenant should have (voice
+    # yes / SMS no, or the reverse). Enforced server-side on every telephony
+    # endpoint via telephony.require_capability() — a tenant cannot self-escalate
+    # because nothing in the tenant-facing API writes these columns.
+    allow_voice_outbound: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="0", nullable=False
+    )
+    allow_voice_inbound: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="0", nullable=False
+    )
+    allow_sms: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="0", nullable=False
+    )
+    allow_mms: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="0", nullable=False
+    )
+    #: Buying numbers is itself a privilege, separate from using them.
+    allow_number_purchase: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="0", nullable=False
+    )
+    #: Who last changed the grants, for the audit trail.
+    capabilities_updated_by: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    capabilities_updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    #: Markup rights are a paid-tier privilege (Step 5). OFF = at-cost
+    #: pass-through; ON = this operator may set retail above our cost and keep
+    #: the spread.
+    allow_markup: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="0", nullable=False
+    )
+
 
 # ---------------------------------------------------------------------------
 # Telephony rebilling

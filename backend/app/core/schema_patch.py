@@ -25,6 +25,18 @@ _ADDITIVE_COLUMNS: dict[str, dict[str, str]] = {
         "mfa_enrolled_at": "DATETIME",
         "anonymized_at": "DATETIME",
     },
+    # Least-privilege telephony capability grants. Every one defaults to 0 —
+    # an existing subaccount is DENIED until an operator grants a capability.
+    "telephony_accounts": {
+        "allow_voice_outbound": "BOOLEAN NOT NULL DEFAULT 0",
+        "allow_voice_inbound": "BOOLEAN NOT NULL DEFAULT 0",
+        "allow_sms": "BOOLEAN NOT NULL DEFAULT 0",
+        "allow_mms": "BOOLEAN NOT NULL DEFAULT 0",
+        "allow_number_purchase": "BOOLEAN NOT NULL DEFAULT 0",
+        "allow_markup": "BOOLEAN NOT NULL DEFAULT 0",
+        "capabilities_updated_by": "CHAR(32)",
+        "capabilities_updated_at": "DATETIME",
+    },
 }
 
 

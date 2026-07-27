@@ -121,6 +121,13 @@ class Settings(BaseSettings):
     # recorded and billed from day one; only the BLOCKING is staged.
     telephony_enforce_a2p: bool = False
     telephony_enforce_credit: bool = False
+    #: Least-privilege telephony capabilities (Step 2). OFF by default and
+    #: staged exactly like the two flags above: prod currently has 2 legacy
+    #: numbers on the PARENT account and zero subaccounts, so enforcing
+    #: capabilities before those tenants have subaccounts + grants would refuse
+    #: their SMS/voice. Go-live order: migrate legacy numbers -> create
+    #: subaccounts -> grant capabilities -> flip this ON.
+    telephony_enforce_capabilities: bool = False
     #: Comma-separated emails whose accounts bypass telephony enforcement
     #: (A2P + prepaid credit). For operator-owned accounts — same shape as
     #: super_admin_emails. Everyone else is enforced normally.

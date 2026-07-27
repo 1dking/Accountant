@@ -39,6 +39,35 @@ async def _fund(db: AsyncSession, user: User, dollars: float) -> TelephonyCredit
     return row
 
 
+async def _grant_voice(db: AsyncSession, user: User) -> TelephonyAccount:
+    """Give this tenant a subaccount WITH outbound voice granted.
+
+    Required since the voice gate now enforces least-privilege capabilities:
+    a tenant gets only what an operator explicitly turned on, so the happy-path
+    tests must grant voice rather than assuming it.
+    """
+    from app.communication import telephony as _t
+    from app.core.encryption import get_encryption_service, init_encryption_service
+
+    try:
+        get_encryption_service()
+    except RuntimeError:
+        init_encryption_service("")
+
+    acct = TelephonyAccount(
+        tenant_key=_t.tenant_key_for(user),
+        owner_user_id=user.id,
+        subaccount_sid=f"AC{uuid.uuid4().hex}",
+        encrypted_auth_token=get_encryption_service().encrypt("tok"),
+        status="active",
+        allow_voice_outbound=True,
+    )
+    db.add(acct)
+    await db.commit()
+    await db.refresh(acct)
+    return acct
+
+
 async def _add_contact(db: AsyncSession, owner: User, phone: str) -> Contact:
     from app.contacts.models import ContactType
 
@@ -128,6 +157,7 @@ async def test_automated_sender_skips_without_credit(db: AsyncSession, admin_use
     """safe_debit_by_user_id returns False (don't send) at zero balance."""
     await _set_plan(db, admin_user, "business")
     await _fund(db, admin_user, 0)
+    await _grant_voice(db, admin_user)
     ok = await telephony_credits.safe_debit_by_user_id(db, admin_user.id, unit="sms_outbound")
     assert ok is False
 
@@ -284,6 +314,7 @@ async def test_voice_gate_allows_funded_call_to_own_contact(
 
     await _set_plan(db, admin_user, "business")
     row = await _fund(db, admin_user, 10)
+    await _grant_voice(db, admin_user)
     await _add_contact(db, admin_user, "+14155551234")
     before = await telephony_credits.get_balance_micros(db, row.tenant_key)
 
@@ -301,9 +332,15 @@ async def test_voice_gate_uncredited_blocks(db: AsyncSession, admin_user: User, 
     class _S:
         telephony_exempt_emails = ""
         telephony_enforce_credit = True
+        twilio_account_sid = "ACtest"
+        twilio_auth_token = "test-token"
+        public_base_url = "https://example.test"
 
     await _set_plan(db, admin_user, "business")
     await _fund(db, admin_user, 0)
+    # Voice granted, so this test still exercises the CREDIT refusal rather
+    # than being stopped earlier by the capability gate.
+    await _grant_voice(db, admin_user)
     await _add_contact(db, admin_user, "+14155551234")
 
     vr = await _voice_gate(db, admin_user.id, "+14155551234", _S())

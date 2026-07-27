@@ -3,6 +3,7 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import Role, User
@@ -184,3 +185,113 @@ async def migrate_numbers(
 
     settings = request.app.state.settings
     return {"data": await telephony.migrate_legacy_numbers(db, current_user, settings)}
+
+
+# ---------------------------------------------------------------------------
+# Operator-only capability grants (Step 2 — least privilege)
+# ---------------------------------------------------------------------------
+
+
+class CapabilityGrantRequest(BaseModel):
+    """Explicit per-capability grants. Omitted fields are left unchanged.
+
+    There is deliberately no tenant-facing equivalent of this endpoint: the only
+    writer of these columns is an operator, so a tenant cannot self-escalate.
+    """
+
+    allow_voice_outbound: bool | None = None
+    allow_voice_inbound: bool | None = None
+    allow_sms: bool | None = None
+    allow_mms: bool | None = None
+    allow_number_purchase: bool | None = None
+    allow_markup: bool | None = None
+
+
+@router.get("/telephony/capabilities/{tenant_key}")
+async def get_capabilities(
+    tenant_key: str,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    """Operator view of one tenant's granted capabilities."""
+    from app.platform_admin.router import require_platform_admin
+
+    await require_platform_admin(request, current_user)
+
+    account = await _load_account(db, tenant_key)
+    return {"data": _capability_dto(account)}
+
+
+@router.put("/telephony/capabilities/{tenant_key}")
+async def set_capabilities(
+    tenant_key: str,
+    body: CapabilityGrantRequest,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    """Operator grants/revokes capabilities for one tenant. Audited."""
+    from datetime import datetime, timezone
+
+    from app.audit.service import AuditAction, AuditResult, safe_record_audit
+    from app.platform_admin.router import require_platform_admin
+
+    await require_platform_admin(request, current_user)
+    account = await _load_account(db, tenant_key)
+
+    changes: dict[str, bool] = {}
+    for field, value in body.model_dump(exclude_unset=True).items():
+        if value is None:
+            continue
+        if getattr(account, field) != value:
+            changes[field] = value
+            setattr(account, field, value)
+
+    if changes:
+        account.capabilities_updated_by = current_user.id
+        account.capabilities_updated_at = datetime.now(timezone.utc)
+        await db.commit()
+        await db.refresh(account)
+        await safe_record_audit(
+            db,
+            action=AuditAction.FEATURE_FLAG_CHANGED,
+            result=AuditResult.SUCCESS,
+            actor_id=current_user.id,
+            actor_email=current_user.email,
+            tenant_id=tenant_key,
+            resource_type="telephony_account",
+            resource_id=str(account.id),
+            metadata={"telephony_capabilities": changes},
+        )
+
+    return {"data": _capability_dto(account), "meta": {"changed": changes}}
+
+
+async def _load_account(db: AsyncSession, tenant_key: str):
+    from sqlalchemy import select as _select
+
+    from app.billing.models import TelephonyAccount
+    from app.core.exceptions import NotFoundError
+
+    row = await db.execute(
+        _select(TelephonyAccount).where(TelephonyAccount.tenant_key == tenant_key)
+    )
+    account = row.scalar_one_or_none()
+    if account is None:
+        raise NotFoundError("Telephony account", tenant_key)
+    return account
+
+
+def _capability_dto(account) -> dict:
+    from app.communication.telephony import CAPABILITIES
+
+    return {
+        "tenant_key": account.tenant_key,
+        "subaccount_sid": account.subaccount_sid,
+        "status": account.status,
+        "suspended_reason": account.suspended_reason,
+        "capabilities": {name: bool(getattr(account, field)) for name, field in CAPABILITIES.items()},
+        "allow_markup": bool(account.allow_markup),
+        "updated_at": account.capabilities_updated_at,
+    }
