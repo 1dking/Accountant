@@ -131,4 +131,13 @@ export const platformAdminApi = {
   // Grant/revoke a single capability on a tenant's subaccount.
   setTelephonyCapability: (tenantKey: string, capabilityField: string, value: boolean) =>
     api.put(`/integrations/sms/telephony/capabilities/${tenantKey}`, { [capabilityField]: value }),
+
+  // Rate card — OUR cost vs the SELL price (the operator's markup / revenue).
+  getRateCard: (scope = 'global', scopeKey?: string) =>
+    api.get(`/platform-admin/telephony/rate-card?scope=${scope}${scopeKey ? `&scope_key=${encodeURIComponent(scopeKey)}` : ''}`),
+  updateRate: (body: {
+    unit: string; scope?: string; scope_key?: string
+    our_cost_usd?: number; sell_price_usd?: number | null
+    markup_multiplier?: number | null; is_enabled?: boolean; notes?: string
+  }) => api.put('/platform-admin/telephony/rate-card', body),
 }

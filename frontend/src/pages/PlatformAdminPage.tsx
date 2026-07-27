@@ -155,6 +155,7 @@ function CapToggle({
 function TelephonyTab() {
   const qc = useQueryClient()
   const [provisionId, setProvisionId] = useState('')
+  const [view, setView] = useState<'capabilities' | 'pricing'>('capabilities')
 
   const { data, isLoading } = useQuery({
     queryKey: ['platform-admin', 'telephony-accounts'],
@@ -190,6 +191,25 @@ function TelephonyTab() {
 
   return (
     <div className="space-y-4">
+      <div className="flex gap-2 border-b border-gray-200 pb-2 dark:border-gray-700">
+        {(['capabilities', 'pricing'] as const).map((v) => (
+          <button
+            key={v}
+            onClick={() => setView(v)}
+            className={`rounded-md px-3 py-1.5 text-sm font-medium ${
+              view === v
+                ? 'bg-blue-600 text-white'
+                : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'
+            }`}
+          >
+            {v === 'capabilities' ? 'Capabilities' : 'Pricing & margin'}
+          </button>
+        ))}
+      </div>
+
+      {view === 'pricing' && <TelephonyPricingPanel />}
+      {view === 'capabilities' && (
+      <>
       <div>
         <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
           Telephony capabilities
@@ -298,6 +318,111 @@ function TelephonyTab() {
           </table>
         </div>
       )}
+      </>
+      )}
+    </div>
+  )
+}
+
+// ── Telephony pricing (rate card) — our cost vs your sell price ────────────
+
+const RATE_ORDER = [
+  'number_monthly', 'sms_outbound', 'sms_inbound', 'mms_outbound',
+  'voice_outbound_min', 'voice_inbound_min', 'a2p_brand', 'a2p_campaign',
+  'a2p_campaign_monthly', 'recording_storage_min', 'transcription_min',
+]
+
+function TelephonyPricingPanel() {
+  const qc = useQueryClient()
+  const [draft, setDraft] = useState<Record<string, string>>({})
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['platform-admin', 'telephony-rate-card'],
+    queryFn: () => platformAdminApi.getRateCard('global'),
+  })
+  const rows = (((data as any)?.data ?? []) as any[]).slice().sort(
+    (a, b) => RATE_ORDER.indexOf(a.unit) - RATE_ORDER.indexOf(b.unit),
+  )
+
+  const save = useMutation({
+    mutationFn: ({ unit, sell }: { unit: string; sell: number }) =>
+      platformAdminApi.updateRate({ unit, scope: 'global', sell_price_usd: sell }),
+    onSuccess: () => {
+      toast.success('Sell price updated')
+      qc.invalidateQueries({ queryKey: ['platform-admin', 'telephony-rate-card'] })
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.detail || 'Failed to update price'),
+  })
+
+  const commit = (unit: string) => {
+    const raw = draft[unit]
+    if (raw === undefined) return
+    const val = Number(raw)
+    if (Number.isNaN(val) || val < 0) { toast.error('Enter a valid price'); return }
+    save.mutate({ unit, sell: val })
+    setDraft((d) => { const n = { ...d }; delete n[unit]; return n })
+  }
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Pricing &amp; margin</h2>
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          <strong>Our cost</strong> is what Twilio bills us. <strong>Your sell price</strong> is what
+          the tenant pays — the spread is your revenue. Edit a sell price and press Enter. Blank =
+          derive from the global markup.
+        </p>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center gap-2 p-6 text-gray-500"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>
+      ) : (
+        <div className="overflow-x-auto rounded-md border border-gray-200 dark:border-gray-700">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 dark:bg-gray-800/50">
+              <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
+                <th className="px-3 py-2">Unit</th>
+                <th className="px-3 py-2 text-right">Our cost</th>
+                <th className="px-3 py-2 text-right">Your sell price</th>
+                <th className="px-3 py-2 text-right">Margin</th>
+                <th className="px-3 py-2 text-right">Margin %</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+              {rows.map((r) => {
+                const highlight = r.unit === 'number_monthly'
+                return (
+                  <tr key={r.unit} className={highlight ? 'bg-blue-50/60 dark:bg-blue-900/20' : ''}>
+                    <td className="px-3 py-2">
+                      <div className="font-medium text-gray-800 dark:text-gray-200">{r.label}</div>
+                      <div className="font-mono text-[11px] text-gray-400">{r.unit} · via {r.source}</div>
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums text-gray-600 dark:text-gray-400">${r.our_cost_usd.toFixed(4)}</td>
+                    <td className="px-3 py-2 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <span className="text-gray-400">$</span>
+                        <input
+                          value={draft[r.unit] ?? r.sell_price_usd.toFixed(4)}
+                          onChange={(e) => setDraft((d) => ({ ...d, [r.unit]: e.target.value }))}
+                          onKeyDown={(e) => { if (e.key === 'Enter') commit(r.unit) }}
+                          onBlur={() => draft[r.unit] !== undefined && commit(r.unit)}
+                          className="w-24 rounded-md border border-gray-300 px-2 py-1 text-right text-sm tabular-nums dark:border-gray-600 dark:bg-gray-900"
+                        />
+                      </div>
+                    </td>
+                    <td className={`px-3 py-2 text-right tabular-nums font-medium ${r.margin_usd >= 0 ? 'text-green-600' : 'text-red-600'}`}>${r.margin_usd.toFixed(4)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-gray-600 dark:text-gray-400">{r.margin_pct}%</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <p className="text-xs text-gray-400">
+        Global prices shown. Per-plan and per-tenant overrides are supported by the same endpoint
+        (scope=plan / scope=tenant) for finer control.
+      </p>
     </div>
   )
 }
