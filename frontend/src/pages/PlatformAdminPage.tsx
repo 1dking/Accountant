@@ -340,9 +340,11 @@ function TelephonyPricingPanel() {
     queryKey: ['platform-admin', 'telephony-rate-card'],
     queryFn: () => platformAdminApi.getRateCard('global'),
   })
-  const rows = (((data as any)?.data ?? []) as any[]).slice().sort(
+  const payload = (data as any)?.data ?? {}
+  const rows = (((payload.units ?? []) as any[]).slice()).sort(
     (a, b) => RATE_ORDER.indexOf(a.unit) - RATE_ORDER.indexOf(b.unit),
   )
+  const globalMarkup = payload.global_markup as number | undefined
 
   const save = useMutation({
     mutationFn: ({ unit, sell }: { unit: string; sell: number }) =>
@@ -369,8 +371,10 @@ function TelephonyPricingPanel() {
         <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Pricing &amp; margin</h2>
         <p className="text-sm text-gray-500 dark:text-gray-400">
           <strong>Our cost</strong> is what Twilio bills us. <strong>Your sell price</strong> is what
-          the tenant pays — the spread is your revenue. Edit a sell price and press Enter. Blank =
-          derive from the global markup.
+          the tenant pays — the spread is your revenue. Edit a sell price and press Enter.
+          {globalMarkup !== undefined && (
+            <> Units without a pinned price default to a <strong>{globalMarkup}×</strong> markup.</>
+          )}
         </p>
       </div>
 
