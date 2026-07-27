@@ -13,9 +13,17 @@ versions) before launch; bump the version when you do.
 """
 
 # Bump these whenever the referenced text changes. The privacy/terms bodies are
-# the OCIDM v0.2 documents (frontend/src/pages/{PrivacyPolicy,Terms}Page).
-PRIVACY_POLICY_VERSION = "0.2"
-TERMS_VERSION = "0.2"
+# the OCIDM v1.0 documents (frontend/src/pages/{PrivacyPolicy,Terms}Page) —
+# lawyer-reviewed final, no longer drafts.
+#
+# Never edit a version in place once consent rows reference it: each PlaidConsent
+# stores the privacy_policy_version in effect at capture time, which is what
+# proves what a user actually agreed to.
+PRIVACY_POLICY_VERSION = "1.0"
+TERMS_VERSION = "1.0"
+#: Tracks the CONSENT COPY below, which is unchanged — so it stays put. The
+#: policy version a consent references is recorded separately, and new consents
+#: will now stamp privacy_policy_version="1.0".
 PLAID_CONSENT_VERSION = "2026-07-24"
 
 #: Shown, verbatim and conspicuously, in the Plaid Link consent step. Must state

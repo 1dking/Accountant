@@ -4,6 +4,7 @@ import { Fingerprint } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { usePublicBranding } from '@/hooks/useBranding'
 import { isPasskeySupported } from '@/api/webauthn'
+import LegalFooter from '@/components/LegalFooter'
 
 function GoogleIcon() {
   return (
@@ -97,7 +98,7 @@ export default function LoginPage() {
   const inMfaStep = mfaToken !== null
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-950">
       <div className="w-full max-w-md p-8 bg-white dark:bg-gray-900 rounded-lg shadow-md">
         {/* Branding */}
         <div className="flex flex-col items-center mb-6">
@@ -247,6 +248,7 @@ export default function LoginPage() {
           </>
         )}
       </div>
+      <LegalFooter className="justify-center mt-6" />
     </div>
   )
 }

@@ -141,6 +141,20 @@ export default function RegisterPage() {
           >
             {isLoading ? 'Creating your account…' : 'Create free account'}
           </button>
+
+          {/* Terms §1 forms the agreement on account creation, so the terms must
+              be presented at the point of signup — not only in a footer. */}
+          <p className="text-xs text-center text-gray-500 dark:text-gray-400">
+            By creating an account you agree to our{' '}
+            <Link to="/terms" className="text-blue-600 hover:text-blue-700 underline">
+              Terms of Service
+            </Link>{' '}
+            and{' '}
+            <Link to="/privacy" className="text-blue-600 hover:text-blue-700 underline">
+              Privacy Policy
+            </Link>
+            .
+          </p>
         </form>
 
         <p className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">

@@ -1,10 +1,10 @@
 import { useEffect } from 'react'
-import { Link } from 'react-router'
 import Header from './Header'
 import Sidebar from './Sidebar'
 import MobileNav from './MobileNav'
 import OBrainPanel from './OBrainPanel'
 import { useUiStore } from '@/stores/uiStore'
+import LegalFooter from '@/components/LegalFooter'
 
 interface AppShellProps {
   children: React.ReactNode
@@ -33,10 +33,7 @@ export default function AppShell({ children }: AppShellProps) {
         <Header />
         <main className={`flex-1 overflow-auto ${isMobile ? 'pb-16' : ''}`}>
           {children}
-          <footer className="mt-8 border-t border-gray-200 dark:border-gray-800 px-6 py-3 flex gap-4 text-xs text-gray-400 dark:text-gray-500">
-            <Link to="/privacy" className="hover:underline">Privacy Policy</Link>
-            <Link to="/terms" className="hover:underline">Terms</Link>
-          </footer>
+          <LegalFooter className="mt-8 border-t border-gray-200 dark:border-gray-800 px-6 py-3" />
         </main>
       </div>
 

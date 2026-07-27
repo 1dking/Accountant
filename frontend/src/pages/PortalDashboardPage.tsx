@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { getPortalDashboard } from '../api/portal'
 import { usePublicBranding } from '@/hooks/useBranding'
+import LegalFooter from '@/components/LegalFooter'
 
 export default function PortalDashboardPage() {
   const { data, isLoading } = useQuery({
@@ -89,6 +90,7 @@ export default function PortalDashboardPage() {
           </div>
         </div>
       </main>
+      <LegalFooter className="justify-center px-6 pb-6" />
     </div>
   )
 }
