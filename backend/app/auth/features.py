@@ -75,15 +75,38 @@ def resolve_feature_access(
     role: str,
     feature_access_json: Optional[str] = None,
 ) -> dict[str, bool]:
-    """Resolve effective features: explicit JSON overrides role defaults."""
+    """Resolve effective features.
+
+    No explicit selection  -> the role's default preset.
+    An explicit selection  -> AUTHORITATIVE and FAIL-CLOSED: a feature the
+                              selection does not mention is NOT granted.
+
+    The fail-closed half matters. This previously merged the selection *over* the
+    role defaults, so any key the selection omitted kept its default — and
+    team_member/manager default to every feature true. Consequences seen in
+    practice:
+      * selecting a single module for a team_member granted 29 features, and the
+        account could open modules the admin never picked;
+      * a stale cached frontend bundle submitting a grid from before a feature key
+        existed silently granted that new feature to everyone it created.
+    An admin who wants a role's full preset simply leaves the selection unset.
+    """
     defaults = ROLE_DEFAULTS.get(role, _ALL_FALSE).copy()
-    if feature_access_json:
-        try:
-            overrides = json.loads(feature_access_json)
-            if isinstance(overrides, dict):
-                for key, val in overrides.items():
-                    if key in defaults and isinstance(val, bool):
-                        defaults[key] = val
-        except (json.JSONDecodeError, TypeError):
-            pass
-    return defaults
+    if not feature_access_json:
+        return defaults
+    try:
+        overrides = json.loads(feature_access_json)
+    except (json.JSONDecodeError, TypeError):
+        return defaults
+    if not isinstance(overrides, dict) or not overrides:
+        # An EMPTY map is not a selection — it means "no per-user overrides", so
+        # fall back to the role preset. (Unchecking every box in the admin UI
+        # sends a full grid of false values, not {}, and that correctly grants
+        # nothing via the fail-closed path below.)
+        return defaults
+
+    resolved = _ALL_FALSE.copy()
+    for key, val in overrides.items():
+        if key in resolved and isinstance(val, bool):
+            resolved[key] = val
+    return resolved
