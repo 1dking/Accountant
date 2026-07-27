@@ -82,20 +82,37 @@ def main() -> int:
         print("  * disable NOTHING")
         return 0
 
-    # --- 1. Pumping protection (additive) --------------------------------
-    from app.communication.telephony import apply_sms_pumping_protection
+    failures: list[str] = []
 
-    pumping = apply_sms_pumping_protection(client, f"parent:{settings.twilio_account_sid}")
-    print(f"\npumping protection: {pumping.get('pumping_protection')}")
+    # --- 1. SMS Pumping Protection ---------------------------------------
+    # NOT settable through twilio-python 9.10.2: ServiceContext.update() exposes
+    # no sms_pumping_risk_check_enabled parameter (verified by introspecting the
+    # SDK signature). It is a Console-side Messaging setting, so this reports it
+    # as a required manual step instead of pretending to configure it.
+    print("\npumping protection: MANUAL — not settable via this SDK "
+          "(Twilio Console > Messaging > Settings). All services currently OFF.")
+    failures.append("sms_pumping_protection — must be enabled in the Twilio Console")
 
     # --- 2. Enable US + CA voice (additive) ------------------------------
-    perms = _dialing(client)
-    for iso in ALLOW:
+    # Individual country resources are READ-ONLY here; enabling/disabling goes
+    # through bulk_country_updates.
+    import json as _json
+
+    to_enable = [iso for iso in ALLOW if iso not in before]
+    if not to_enable:
+        print("voice: US and CA already enabled — nothing to do")
+    else:
         try:
-            perms.countries(iso).update(low_risk_numbers_enabled=True)
-            print(f"voice: enabled {iso}")
+            _dialing(client).bulk_country_updates.create(
+                update_request=_json.dumps(
+                    {"add_countries": to_enable, "add_low_risk_numbers": True}
+                )
+            )
+            print(f"voice: submitted bulk enable for {', '.join(to_enable)}")
         except Exception as exc:  # noqa: BLE001
-            print(f"voice: FAILED to enable {iso}: {type(exc).__name__}: {str(exc)[:140]}")
+            msg = f"{type(exc).__name__}: {str(exc)[:200]}"
+            print(f"voice: FAILED bulk enable for {', '.join(to_enable)}: {msg}")
+            failures.append(f"voice_enable({','.join(to_enable)}): {msg}")
 
     # --- Verify nothing was removed --------------------------------------
     after = _enabled_set(client)
@@ -110,10 +127,20 @@ def main() -> int:
               "script — restore from the snapshot and investigate. ***")
         return 2
 
-    svcs_after = _messaging_services(client)
-    print("pumping protection now: "
-          f"{[s.get('sms_pumping_risk_check_enabled') for s in svcs_after]}")
-    print("\nOK — additive changes only, nothing removed.")
+    if "CA" not in after:
+        failures.append("voice_enable(CA) — still not enabled after apply")
+
+    if failures:
+        # Exit NON-ZERO. The first version of this script printed
+        # "OK — nothing removed" and returned 0 even though BOTH intended changes
+        # had silently failed, which reads as success. Failing to apply a safety
+        # control is a failure, not a no-op.
+        print("\nINCOMPLETE — the following did NOT take effect:")
+        for f in failures:
+            print(f"  - {f}")
+        return 3
+
+    print("\nOK — additive changes applied, nothing removed.")
     return 0
 
 
