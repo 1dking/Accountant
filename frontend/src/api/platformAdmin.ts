@@ -119,4 +119,16 @@ export const platformAdminApi = {
     api.post(`/platform-admin/organizations/${orgId}/members`, { user_id: userId }),
   removeOrgMember: (orgId: string, userId: string) =>
     api.delete(`/platform-admin/organizations/${orgId}/members/${userId}`),
+
+  // Telephony — subaccount capability grants (least-privilege, operator-only)
+  listTelephonyAccounts: () => api.get('/platform-admin/telephony/accounts'),
+  provisionTelephony: (userId: string) =>
+    api.post('/platform-admin/telephony/accounts/provision', { user_id: userId }),
+  suspendTelephony: (accountId: string) =>
+    api.post(`/platform-admin/telephony/accounts/${accountId}/suspend`, {}),
+  reactivateTelephony: (accountId: string) =>
+    api.post(`/platform-admin/telephony/accounts/${accountId}/reactivate`, {}),
+  // Grant/revoke a single capability on a tenant's subaccount.
+  setTelephonyCapability: (tenantKey: string, capabilityField: string, value: boolean) =>
+    api.put(`/integrations/sms/telephony/capabilities/${tenantKey}`, { [capabilityField]: value }),
 }

@@ -38,6 +38,7 @@ import {
   Copy,
   Mail,
   X,
+  Phone,
 } from 'lucide-react'
 import { FEATURE_CATEGORIES, ROLE_DEFAULTS, FEATURE_LABELS } from '@/lib/features'
 
@@ -50,6 +51,7 @@ const TABS = [
   { key: 'features', label: 'Feature Toggles', icon: ToggleLeft },
   { key: 'pricing', label: 'Pricing & Limits', icon: DollarSign },
   { key: 'apikeys', label: 'API Keys', icon: Key },
+  { key: 'telephony', label: 'Telephony', icon: Phone },
   { key: 'health', label: 'Health', icon: HeartPulse },
   { key: 'security', label: 'Security', icon: Shield },
   { key: 'errors', label: 'Errors', icon: AlertTriangle },
@@ -108,10 +110,194 @@ export default function PlatformAdminPage() {
         {activeTab === 'features' && <FeatureTogglesTab />}
         {activeTab === 'pricing' && <PricingTab />}
         {activeTab === 'apikeys' && <ApiKeysTab />}
+        {activeTab === 'telephony' && <TelephonyTab />}
         {activeTab === 'health' && <HealthTab />}
         {activeTab === 'security' && <SecurityTab />}
         {activeTab === 'errors' && <ErrorsTab />}
       </div>
+    </div>
+  )
+}
+
+// ── Telephony tab — least-privilege capability grants ─────────────────────
+
+const TELEPHONY_CAPS = [
+  { apiKey: 'number_purchase', field: 'allow_number_purchase', label: 'Buy numbers' },
+  { apiKey: 'sms', field: 'allow_sms', label: 'Send SMS' },
+  { apiKey: 'mms', field: 'allow_mms', label: 'Send MMS' },
+  { apiKey: 'voice_outbound', field: 'allow_voice_outbound', label: 'Outbound calls' },
+  { apiKey: 'voice_inbound', field: 'allow_voice_inbound', label: 'Inbound calls' },
+] as const
+
+function CapToggle({
+  on, disabled, onClick,
+}: { on: boolean; disabled?: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      role="switch"
+      aria-checked={on}
+      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors disabled:opacity-40 ${
+        on ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
+      }`}
+    >
+      <span
+        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+          on ? 'translate-x-4' : 'translate-x-0.5'
+        }`}
+      />
+    </button>
+  )
+}
+
+function TelephonyTab() {
+  const qc = useQueryClient()
+  const [provisionId, setProvisionId] = useState('')
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['platform-admin', 'telephony-accounts'],
+    queryFn: () => platformAdminApi.listTelephonyAccounts(),
+  })
+  const accounts = ((data as any)?.data ?? []) as any[]
+  const enforcing = Boolean((data as any)?.meta?.enforcing)
+
+  const invalidate = () =>
+    qc.invalidateQueries({ queryKey: ['platform-admin', 'telephony-accounts'] })
+
+  const setCap = useMutation({
+    mutationFn: ({ tenantKey, field, value }: { tenantKey: string; field: string; value: boolean }) =>
+      platformAdminApi.setTelephonyCapability(tenantKey, field, value),
+    onSuccess: () => { toast.success('Capability updated'); invalidate() },
+    onError: (e: any) => toast.error(e?.response?.data?.detail || 'Failed to update capability'),
+  })
+  const provision = useMutation({
+    mutationFn: (userId: string) => platformAdminApi.provisionTelephony(userId),
+    onSuccess: () => { toast.success('Subaccount provisioned'); setProvisionId(''); invalidate() },
+    onError: (e: any) => toast.error(e?.response?.data?.detail || 'Provision failed'),
+  })
+  const suspend = useMutation({
+    mutationFn: (id: string) => platformAdminApi.suspendTelephony(id),
+    onSuccess: () => { toast.success('Suspended'); invalidate() },
+    onError: (e: any) => toast.error(e?.response?.data?.detail || 'Failed'),
+  })
+  const reactivate = useMutation({
+    mutationFn: (id: string) => platformAdminApi.reactivateTelephony(id),
+    onSuccess: () => { toast.success('Reactivated'); invalidate() },
+    onError: (e: any) => toast.error(e?.response?.data?.detail || 'Failed'),
+  })
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+          Telephony capabilities
+        </h2>
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          Least-privilege: every subaccount starts with nothing. Grant only what a
+          tenant should have. Tenants cannot grant themselves anything.
+        </p>
+      </div>
+
+      {/* Enforcement banner */}
+      <div
+        className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm ${
+          enforcing
+            ? 'border-green-300 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-900/30 dark:text-green-300'
+            : 'border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
+        }`}
+      >
+        <Shield className="h-4 w-4 shrink-0" />
+        {enforcing ? (
+          <span><strong>Enforcing.</strong> Ungranted actions are blocked (403), and an ungranted tenant cannot auto-provision.</span>
+        ) : (
+          <span><strong>Staging (not enforced).</strong> Grants are recorded but do not block yet. Flip <code>telephony_enforce_capabilities</code> on to enforce.</span>
+        )}
+      </div>
+
+      {/* Provision */}
+      <div className="flex flex-wrap items-center gap-2 rounded-md border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800">
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Provision a subaccount</span>
+        <input
+          value={provisionId}
+          onChange={(e) => setProvisionId(e.target.value)}
+          placeholder="tenant owner user id (UUID)"
+          className="flex-1 min-w-[220px] rounded-md border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900"
+        />
+        <button
+          onClick={() => provisionId && provision.mutate(provisionId)}
+          disabled={!provisionId || provision.isPending}
+          className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+        >
+          <Plus className="h-4 w-4" /> Provision
+        </button>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center gap-2 p-6 text-gray-500"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>
+      ) : accounts.length === 0 ? (
+        <div className="rounded-md border border-dashed border-gray-300 p-8 text-center text-sm text-gray-500 dark:border-gray-700">
+          No telephony subaccounts yet. Provision one above (go-live step 1), then grant capabilities.
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-md border border-gray-200 dark:border-gray-700">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 dark:bg-gray-800/50">
+              <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
+                <th className="px-3 py-2">Tenant</th>
+                <th className="px-3 py-2">Status</th>
+                {TELEPHONY_CAPS.map((c) => (
+                  <th key={c.apiKey} className="px-3 py-2 text-center">{c.label}</th>
+                ))}
+                <th className="px-3 py-2">Numbers</th>
+                <th className="px-3 py-2"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+              {accounts.map((a) => {
+                const suspended = a.status === 'suspended'
+                return (
+                  <tr key={a.id} className="text-gray-800 dark:text-gray-200">
+                    <td className="px-3 py-2">
+                      <div className="font-medium">{a.tenant_key}</div>
+                      <div className="font-mono text-[11px] text-gray-400">{a.subaccount_sid}</div>
+                    </td>
+                    <td className="px-3 py-2">
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                        suspended
+                          ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                          : 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+                      }`}>{a.status}</span>
+                    </td>
+                    {TELEPHONY_CAPS.map((c) => (
+                      <td key={c.apiKey} className="px-3 py-2 text-center">
+                        <CapToggle
+                          on={Boolean(a.capabilities?.[c.apiKey])}
+                          disabled={setCap.isPending || suspended}
+                          onClick={() => setCap.mutate({
+                            tenantKey: a.tenant_key,
+                            field: c.field,
+                            value: !a.capabilities?.[c.apiKey],
+                          })}
+                        />
+                      </td>
+                    ))}
+                    <td className="px-3 py-2 tabular-nums">{a.numbers_held}/{a.max_numbers}</td>
+                    <td className="px-3 py-2 text-right">
+                      {suspended ? (
+                        <button onClick={() => reactivate.mutate(a.id)} className="text-xs font-medium text-green-600 hover:underline">Reactivate</button>
+                      ) : (
+                        <button onClick={() => suspend.mutate(a.id)} className="text-xs font-medium text-red-600 hover:underline">Suspend</button>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }

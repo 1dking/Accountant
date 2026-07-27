@@ -896,15 +896,19 @@ async def recover_orphan_voicemails_endpoint(
 
 @router.get("/telephony/accounts")
 async def list_telephony_accounts(
+    request: Request,
     admin: Annotated[User, Depends(require_platform_admin)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
-    """Every tenant's telephony posture, for the operator console."""
+    """Every tenant's telephony posture + capability grants, for the operator
+    console. The `meta.enforcing` flag says whether grants actually bite yet."""
     from sqlalchemy import select as _select
 
     from app.billing.models import TelephonyAccount
     from app.communication import telephony
+    from app.communication.telephony import CAPABILITIES
 
+    settings = request.app.state.settings
     rows = (await db.execute(_select(TelephonyAccount))).scalars().all()
     return {
         "data": [
@@ -919,9 +923,16 @@ async def list_telephony_accounts(
                 "numbers_held": await telephony.count_numbers(db, a.tenant_key),
                 "max_numbers": telephony.max_numbers_for(a),
                 "daily_spend_cap_usd": telephony.daily_cap_for(a),
+                "capabilities": {
+                    name: bool(getattr(a, field)) for name, field in CAPABILITIES.items()
+                },
+                "allow_markup": bool(a.allow_markup),
             }
             for a in rows
-        ]
+        ],
+        "meta": {
+            "enforcing": bool(getattr(settings, "telephony_enforce_capabilities", False)),
+        },
     }
 
 
