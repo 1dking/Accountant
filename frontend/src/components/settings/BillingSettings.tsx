@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import { platformAdminApi } from '@/api/platformAdmin'
 import { billingApi } from '@/api/billing'
 import { ApiClientError } from '@/api/client'
+import TelephonyCreditSettings from '@/components/settings/TelephonyCreditSettings'
 
 const PLAN_LABELS: Record<string, string> = {
   starter: 'Starter',
@@ -431,6 +432,9 @@ export default function BillingSettings() {
           })}
         </div>
       </div>
+
+      {/* Prepaid telephony credit — balance, top-up, auto top-up, activity */}
+      <TelephonyCreditSettings />
     </div>
   )
 }
