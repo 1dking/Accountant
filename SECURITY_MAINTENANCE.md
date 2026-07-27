@@ -69,6 +69,39 @@ Tests: `backend/tests/api/test_retention_policy.py`.
 period. Nothing in the system is near that age yet; when it matters this needs a
 deliberate ledger-archival design rather than a nightly delete.
 
+## Privacy & retention policy review (periodic)
+
+The deletion/retention policy is reviewed on a defined cadence, not ad hoc.
+
+- **Owner:** Nate (nathano@ocidm.com), OCIDM.
+- **Cadence:** **annually**, and additionally whenever any of these change —
+  a new subprocessor, a new category of data collected, a new jurisdiction served,
+  or a change to a retention period.
+- **Publication:** any revision ships as a new version number + effective date in
+  `PRIVACY_POLICY_VERSION` / `TERMS_VERSION` (Privacy Policy §13). Existing consent
+  rows keep the version they were captured under, so historical consent stays
+  provable — never edit a published version in place.
+
+Each review walks this checklist and confirms the policy still matches the code:
+
+1. Retention periods in Privacy Policy §9 still match `PLAID_DATA_RETENTION_DAYS`,
+   `AUDIT_RETENTION_DAYS`, and the deletion targets in `app/privacy/service.py`.
+2. The subprocessor list in §7 is complete and current (Plaid, Stripe, Twilio,
+   LiveKit, Google, AI providers, hosting/storage).
+3. The security claims in §8 are all still true and shipped.
+4. Deletion and export still work end to end (`/api/privacy/me/delete`,
+   `/api/privacy/me/export`), and the legal-retention exceptions are still correct.
+5. Applicable law still covered: PIPEDA (Canada), CCPA/CPRA (California), plus any
+   new state privacy laws that now apply.
+6. Accepted security advisories (`.trivyignore` / pip-audit ignores) are re-justified
+   or removed.
+
+### Review log
+
+| Date | Reviewer | Version reviewed | Outcome |
+|---|---|---|---|
+| 2026-07-26 | Nate (OCIDM) | Privacy v1.0 / Terms v1.0 | Retention mechanically enforced (7-year window active, disconnect purge, audit-log pruning); deletion + export verified; §8 security claims verified shipped except infrastructure MFA, tracked as an open item. **Next review due 2027-07-26.** |
+
 ## Quarterly EOL / end-of-life review
 
 Every quarter, confirm none of the runtime platforms is near or past
