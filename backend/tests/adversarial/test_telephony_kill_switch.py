@@ -28,6 +28,11 @@ from app.communication.telephony import (
 )
 from app.contacts.models import Contact, ContactType
 from app.core.encryption import get_encryption_service, init_encryption_service
+# Registers kyc_verifications so create_all builds it when this file runs in
+# isolation — the purchase endpoint SELECTs it (router.py:1329) before the
+# circuit breaker, so without this the proof 500s on a missing table instead of
+# exercising the gate. Not a code change; just makes the proof reliable alone.
+from app.kyc.models import KycVerification  # noqa: F401
 from tests.conftest import auth_header
 
 init_encryption_service("")
