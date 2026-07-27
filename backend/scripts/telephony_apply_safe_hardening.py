@@ -103,10 +103,21 @@ def main() -> int:
         print("voice: US and CA already enabled — nothing to do")
     else:
         try:
+            # updateRequest is a JSON ARRAY of per-country objects (confirmed
+            # against the BulkCountryUpdate docs — an object payload 400s with
+            # "unable to parse the updateRequest"). Only low-risk is enabled;
+            # the high-risk flags stay false deliberately, since high-risk
+            # special / toll-fraud ranges are the premium-rate fraud surface.
             _dialing(client).bulk_country_updates.create(
-                update_request=_json.dumps(
-                    {"add_countries": to_enable, "add_low_risk_numbers": True}
-                )
+                update_request=_json.dumps([
+                    {
+                        "iso_code": iso,
+                        "low_risk_numbers_enabled": True,
+                        "high_risk_special_numbers_enabled": False,
+                        "high_risk_tollfraud_numbers_enabled": False,
+                    }
+                    for iso in to_enable
+                ])
             )
             print(f"voice: submitted bulk enable for {', '.join(to_enable)}")
         except Exception as exc:  # noqa: BLE001
