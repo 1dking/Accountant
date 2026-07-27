@@ -414,6 +414,70 @@ async def reactivate_user(
     return {"data": {"message": f"User {user.email} reactivated"}}
 
 
+# ── De-provisioning (departure) + transfer (role change) ─────────────────────
+
+
+class DeprovisionRequest(BaseModel):
+    #: GitHub handle to remove as a repo collaborator (token/repos from config).
+    github_username: Optional[str] = None
+    reason: Optional[str] = None
+
+
+class TransferRequest(BaseModel):
+    new_role: Role
+    feature_access: Optional[dict[str, bool]] = None
+    reason: Optional[str] = None
+
+
+@router.post("/users/{user_id}/deprovision")
+async def deprovision_user_endpoint(
+    user_id: uuid.UUID,
+    body: DeprovisionRequest,
+    request: Request,
+    admin: Annotated[User, Depends(require_platform_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """One audited action: revoke a departing user's access across all systems.
+
+    Returns what was revoked per system plus the dated manual checklist for the
+    steps we can't automate (SSH keys, console seats, .env allow-lists).
+    """
+    from app.platform_admin.deprovision import deprovision_user
+
+    result = await deprovision_user(
+        db,
+        identifier=str(user_id),
+        actor=admin,
+        settings=request.app.state.settings,
+        github_username=body.github_username,
+        reason=body.reason,
+    )
+    return {"data": result}
+
+
+@router.post("/users/{user_id}/transfer")
+async def transfer_user_endpoint(
+    user_id: uuid.UUID,
+    body: TransferRequest,
+    request: Request,
+    admin: Annotated[User, Depends(require_platform_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Role change through the same audited path: revoke old access, grant new."""
+    from app.platform_admin.deprovision import transfer_user
+
+    result = await transfer_user(
+        db,
+        identifier=str(user_id),
+        actor=admin,
+        settings=request.app.state.settings,
+        new_role=body.new_role,
+        new_feature_access=body.feature_access,
+        reason=body.reason,
+    )
+    return {"data": result}
+
+
 @router.get("/features/defaults")
 async def get_feature_defaults(
     admin: Annotated[User, Depends(require_platform_admin)],

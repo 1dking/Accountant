@@ -58,6 +58,11 @@ class AuditAction:
     TELEPHONY_SUSPENDED = "telephony_suspended"
     TELEPHONY_REACTIVATED = "telephony_reactivated"
 
+    # De-provisioning — a departure or role change revokes access across systems
+    # in one audited action. See app/platform_admin/deprovision.py.
+    USER_DEPROVISIONED = "user_deprovisioned"
+    USER_ACCESS_TRANSFERRED = "user_access_transferred"
+
 
 class AuditResult:
     SUCCESS = "success"

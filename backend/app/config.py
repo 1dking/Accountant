@@ -191,6 +191,15 @@ class Settings(BaseSettings):
     # Platform admin
     super_admin_emails: str = ""  # comma-separated list of super admin emails
 
+    # GitHub — used by the de-provisioning flow to remove a departing user as a
+    # repo collaborator. Token needs the "repo" scope (admin on the repo) to
+    # DELETE collaborators. github_repos is comma-separated "owner/repo" entries
+    # (a team may have several). All blank -> GitHub removal is skipped and moved
+    # to the manual checklist instead. See DEPROVISIONING.md.
+    github_token: str = ""
+    github_repos: str = ""
+    github_api_base: str = "https://api.github.com"
+
     @property
     def is_sqlite(self) -> bool:
         return "sqlite" in self.database_url
