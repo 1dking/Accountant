@@ -156,6 +156,45 @@ def _summarize(snap: dict) -> None:
             print(f"    - {n.get('phone_number')} ({n.get('friendly_name')})")
 
 
+def _hydrate_twilio_from_db(settings, db_path: str) -> None:
+    """Load Twilio credentials the way the app does at startup.
+
+    They are NOT in .env — an admin saved them through Settings -> Integrations,
+    so they live Fernet-encrypted in integration_configs. Mirrors
+    app.integrations.settings_router.load_integration_configs for a sync script.
+    """
+    if settings.twilio_account_sid and settings.twilio_auth_token:
+        return
+    try:
+        conn = sqlite3.connect(db_path)
+        row = conn.execute(
+            "SELECT encrypted_config FROM integration_configs WHERE integration_type = 'twilio'"
+        ).fetchone()
+        conn.close()
+    except Exception as exc:  # noqa: BLE001
+        print(f"(could not read integration_configs: {exc})")
+        return
+    if not row:
+        return
+
+    from app.core.encryption import get_encryption_service, init_encryption_service
+
+    try:
+        get_encryption_service()
+    except RuntimeError:
+        init_encryption_service(settings.fernet_key)
+
+    cfg = json.loads(get_encryption_service().decrypt(row[0]))
+    for field, attr in (
+        ("account_sid", "twilio_account_sid"),
+        ("auth_token", "twilio_auth_token"),
+        ("from_number", "twilio_from_number"),
+    ):
+        if cfg.get(field):
+            setattr(settings, attr, cfg[field])
+    print("(twilio credentials loaded from the encrypted integration config)")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--out", default=None, help="Snapshot path (default: ./telephony_geo_snapshot_<ts>.json)")
@@ -163,8 +202,9 @@ def main() -> int:
     args = ap.parse_args()
 
     settings = Settings()
+    _hydrate_twilio_from_db(settings, args.db)
     if not settings.twilio_account_sid or not settings.twilio_auth_token:
-        print("Twilio is not configured (twilio_account_sid / twilio_auth_token).")
+        print("Twilio is not configured (checked .env and integration_configs).")
         return 1
 
     from twilio.rest import Client
