@@ -41,6 +41,7 @@ import {
   ListTree,
   BookText,
   ReceiptText,
+  Receipt,
   FileBadge,
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
@@ -93,6 +94,7 @@ const NAV_SECTIONS: NavSection[] = [
     title: 'ACCOUNTING',
     items: [
       { path: '/cashbook', label: 'Cashbook', icon: BookOpen, featureKey: 'cashbook' },
+      { path: '/expenses', label: 'Expenses', icon: Receipt, featureKey: 'expenses' },
       { path: '/accounting/chart-of-accounts', label: 'Chart of Accounts', icon: ListTree, featureKey: 'expenses' },
       { path: '/accounting/journal', label: 'Journal', icon: BookText, featureKey: 'expenses' },
       { path: '/accounting/bills', label: 'Bills (A/P)', icon: ReceiptText, featureKey: 'expenses' },
