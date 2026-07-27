@@ -36,6 +36,42 @@ def _client_ip(request: Request) -> str | None:
     return request.client.host if request.client else None
 
 
+async def require_financial_data_access(
+    request: Request,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> User:
+    """A second factor is required to READ consumer financial data.
+
+    Previously MFA only gated *creating* a bank connection, so an account with a
+    password-only login could still read the transactions it produced. This closes
+    that gap — either factor (passkey or authenticator app) satisfies it.
+
+    LOCKOUT SAFETY, by design:
+      * This gates ONLY the Plaid data endpoints. The login flow is untouched, so
+        you can always sign in and use the rest of the application.
+      * The 403 carries code=MFA_REQUIRED so the UI can route to enrollment rather
+        than dead-ending.
+      * Set PLAID_REQUIRE_MFA_FOR_DATA=false and restart to lift the gate entirely
+        without a code change.
+    """
+    settings = _get_settings(request)
+    if not getattr(settings, "plaid_require_mfa_for_data", True):
+        return user
+    if not await has_mfa(db, user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "MFA_REQUIRED",
+                "message": (
+                    "Set up two-factor authentication (a passkey or an authenticator "
+                    "app) to view bank data. Your other sections are unaffected."
+                ),
+            },
+        )
+    return user
+
+
 async def require_plaid_link_access(
     request: Request,
     user: Annotated[User, Depends(get_current_user)],
@@ -143,7 +179,7 @@ async def exchange_public_token(
 @router.get("/connections", response_model=dict)
 async def list_connections(
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_financial_data_access),
 ):
     connections = await service.list_connections(db, user.id)
     return {"data": [_connection_response(c) for c in connections]}
@@ -154,6 +190,7 @@ async def delete_connection(
     connection_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role([Role.ACCOUNTANT, Role.ADMIN])),
+    _mfa: User = Depends(require_financial_data_access),
 ):
     await service.delete_connection(db, connection_id, user.id)
     return {"data": {"detail": "Plaid connection removed"}}
@@ -165,6 +202,7 @@ async def sync_transactions(
     request: Request,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role([Role.ACCOUNTANT, Role.ADMIN])),
+    _mfa: User = Depends(require_financial_data_access),
 ):
     settings = _get_settings(request)
     count = await service.sync_transactions(db, connection_id, user.id, settings)
@@ -207,7 +245,7 @@ async def list_transactions(
     page: int = 1,
     page_size: int = 50,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_financial_data_access),
 ):
     from datetime import date as date_type
 
@@ -234,6 +272,7 @@ async def categorize_transaction(
     request: Request,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role([Role.ACCOUNTANT, Role.ADMIN])),
+    _mfa: User = Depends(require_financial_data_access),
 ):
     settings = _get_settings(request)
     txn = await service.categorize_transaction(db, txn_id, data, user, settings)

@@ -69,6 +69,16 @@ class Settings(BaseSettings):
     #: Retention window (days) for Plaid-derived transaction data. 0 disables
     #: enforcement. Enforced by the scheduler (see app/core/scheduler.py).
     plaid_data_retention_days: int = 0
+    #: Require a second factor (passkey OR authenticator app) to READ consumer
+    #: financial data, not just to connect a bank. Answers the Plaid
+    #: questionnaire's "is MFA in place for access to systems that store or
+    #: process consumer financial data".
+    #:
+    #: KILL SWITCH — this gates ONLY the Plaid data endpoints; the login flow is
+    #: deliberately untouched, so it can never lock anyone out of the app. If MFA
+    #: ever misbehaves, set PLAID_REQUIRE_MFA_FOR_DATA=false and restart to lift
+    #: the gate without a code change or redeploy.
+    plaid_require_mfa_for_data: bool = True
 
     # Stripe
     stripe_secret_key: str = ""
