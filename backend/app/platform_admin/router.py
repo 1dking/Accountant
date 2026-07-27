@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import Role, User
+from app.core.exceptions import NotFoundError, ValidationError
 from app.dependencies import get_current_user, get_db
 from app.platform_admin import schemas, service
 
@@ -970,22 +971,45 @@ async def reactivate_telephony(
     return {"data": {"reactivated": True, "tenant_key": account.tenant_key}}
 
 
-@router.post("/telephony/accounts/{account_id}/reactivate")
-async def reactivate_telephony(
-    account_id: uuid.UUID,
+@router.post("/telephony/accounts/provision")
+async def provision_telephony(
+    body: dict,
     request: Request,
     admin: Annotated[User, Depends(require_platform_admin)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
-    """Reverse a suspension — the required counterpart to the kill switch."""
-    from app.billing.models import TelephonyAccount
+    """Operator-only: provision a tenant's Twilio subaccount (go-live step 1).
+
+    Once ``telephony_enforce_capabilities`` is ON, ``enforce_billable_action`` no
+    longer auto-creates a subaccount for an ungranted tenant — so this is the
+    ONLY sanctioned way a subaccount comes into existence, and it requires an
+    operator (require_platform_admin). Tenants cannot self-provision. Idempotent:
+    returns the existing subaccount if there already is one. After this, the
+    operator grants capabilities (PUT .../capabilities/{tenant_key}) before the
+    tenant can do anything billable.
+    """
+    from app.auth.models import User as _User
     from app.communication import telephony
 
-    account = await db.get(TelephonyAccount, account_id)
-    if account is None:
-        raise NotFoundError("TelephonyAccount", str(account_id))
-    await telephony.reactivate(db, account, request.app.state.settings)
-    return {"data": {"reactivated": True, "tenant_key": account.tenant_key}}
+    raw = body.get("user_id")
+    if not raw:
+        raise ValidationError("user_id is required.")
+    try:
+        target_id = uuid.UUID(str(raw))
+    except (ValueError, TypeError):
+        raise ValidationError("user_id must be a valid UUID.")
+    target = await db.get(_User, target_id)
+    if target is None:
+        raise NotFoundError("User", str(raw))
+
+    account = await telephony.ensure_account(db, target, request.app.state.settings)
+    return {
+        "data": {
+            "tenant_key": account.tenant_key,
+            "subaccount_sid": account.subaccount_sid,
+            "status": account.status,
+        }
+    }
 
 
 @router.get("/ai-usage")

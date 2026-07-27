@@ -93,14 +93,68 @@ cap. Raise a specific tenant's cap by setting the column on its
 
 ---
 
-## Go-live checklist (safety controls only)
+## Least-privilege capabilities (Step 0 final gate)
+
+Every billable telephony action requires an **operator-granted** capability on
+the tenant's subaccount, all **default OFF**:
+
+| Capability column | Gates |
+|---|---|
+| `allow_number_purchase` | buying a phone number (`number_purchase`) |
+| `allow_sms` / `allow_mms` | outbound SMS / MMS |
+| `allow_voice_outbound` / `allow_voice_inbound` | outbound / inbound voice |
+| `allow_markup` | operator may set retail above cost (Step 5) |
+
+Columns live on `telephony_accounts` (migration `f2a3b4c5d6e7`, plus the additive
+SQLite patch in `app/core/schema_patch.py`) — no new migration is needed.
+
+**Only an operator grants them** (`require_platform_admin`):
+`PUT /api/integrations/sms/telephony/capabilities/{tenant_key}`. A tenant admin
+calling it gets 403 — **no self-escalation**. Enforcement is server-side in
+`telephony.enforce_billable_action` on outbound SMS, outbound voice, and number
+purchase; a missing grant → **403 `TELEPHONY_CAPABILITY_NOT_GRANTED`** before the
+billable action.
+
+**No self-provisioning.** When enforcement is ON, `enforce_billable_action`
+checks the capability with `get_account` (which never creates) *before* anything
+is provisioned — so an ungranted tenant hitting a billable endpoint is refused
+and **no subaccount is auto-created**. A subaccount comes into existence ONLY via
+the operator-only provision endpoint below.
+
+### The `telephony_enforce_capabilities` flag
+
+- **OFF (current, and the prod default): PERMISSIONLESS.** Grants are recorded
+  but not enforced — a provisioned tenant can act without a grant (only a
+  warning is logged). **Do not run production with real tenants while OFF.**
+- **ON:** enforced as above.
+
+## Go-live order — walk it IN THIS ORDER; keep provisioning closed until then
+
+1. **Operator provisions** the tenant's subaccount (operator-only; tenants
+   cannot self-provision):
+   `POST /api/platform-admin/telephony/accounts/provision {"user_id": "<tenant owner>"}`.
+   This creates the subaccount, applies geo, arms the usage triggers, and enables
+   pumping protection. Idempotent.
+2. **Operator grants** the exact capabilities that tenant should have:
+   `PUT /api/integrations/sms/telephony/capabilities/{tenant_key}`.
+3. **Flip `telephony_enforce_capabilities` ON.**
+4. **Only now** do purchase / SMS / voice work for that tenant — and still only
+   within the per-tenant caps, prepaid credit, and platform circuit breaker.
+
+Until this order is walked for a tenant, that tenant has nothing granted, so with
+the flag ON it can do nothing billable and cannot provision itself.
+
+---
+
+## Kill-switch / circuit-breaker go-live (safety controls)
 
 1. Confirm `public_base_url` is the real HTTPS origin — the usage-trigger
    callback URL is built from it, and a wrong value silently disarms the kill
    switch.
-2. Provision each tenant's subaccount so `create_usage_triggers` runs (arms both
-   triggers).
+2. Provision each tenant's subaccount (step 1 above) so `create_usage_triggers`
+   runs (arms both triggers).
 3. Verify a signed test callback suspends and an unsigned/invalid one is
    refused (covered by `tests/adversarial/test_telephony_kill_switch.py`).
 4. Set `PLATFORM_DAILY_SPEND_CEILING_USD` to your real aggregate ceiling.
-5. Leave `telephony_enforce_capabilities` OFF until subaccounts + grants exist.
+5. Leave `telephony_enforce_capabilities` OFF until subaccounts + grants exist,
+   then flip it per the go-live order above.

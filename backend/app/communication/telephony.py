@@ -234,39 +234,57 @@ async def enforce_billable_action(
 ) -> TelephonyAccount:
     """THE choke point in front of every billable telephony action.
 
-    One guard so a new endpoint inherits all of it by calling a single function,
-    rather than each route remembering four separate checks. Order matters —
-    cheapest and most-certain refusals first:
+    One guard so a new endpoint inherits all checks by calling a single function.
+    Behaviour depends on ``telephony_enforce_capabilities``:
 
-      1. resolve the tenant's own subaccount (raises TelephonySuspended if the
-         kill switch has fired — so suspension is inherited automatically);
-      2. platform-wide circuit breaker: aggregate spend across ALL tenants.
-         Previously only checked when creating a subaccount, which meant an
-         existing tenant could keep spending straight past the ceiling;
-      3. least-privilege capability grant for this specific action.
+    ENFORCED (flag ON) — capability is checked FIRST, using ``get_account``,
+    which NEVER creates a subaccount:
 
-    Inbound is deliberately NOT gated here: a suspended or over-cap tenant keeps
-    receiving calls and texts. Only outbound and provisioning cost money.
+      1. no subaccount yet -> the tenant has no grants -> DENY, and crucially do
+         NOT auto-provision. This closes the self-provisioning hole: hitting a
+         billable endpoint can no longer create a subaccount for an ungranted
+         tenant (only an operator provisions — platform_admin).
+      2. suspended -> TelephonySuspended (kill switch inherited).
+      3. capability not granted -> CapabilityNotGranted (403) BEFORE any billable
+         action and before anything is created.
+      4. platform circuit breaker.
+
+    STAGING (flag OFF) — prior behaviour preserved: resolve/lazily-create the
+    subaccount, run the circuit breaker, and only WARN on a missing grant. OFF is
+    permissionless (a provisioned tenant can act without a grant) and is NOT for
+    production with real tenants — see RESELLER_SETUP.md.
+
+    Inbound is never gated here: a suspended / ungranted / over-cap tenant keeps
+    receiving. Only outbound and provisioning cost money.
     """
-    account = await ensure_account(db, user, settings)
+    enforce = getattr(settings, "telephony_enforce_capabilities", False)
 
-    if not await platform_circuit_ok(db, settings):
-        raise PlatformCircuitOpen()
-
-    # Capability enforcement is STAGED behind a flag (see config). Grants
-    # themselves already default to denied; this only controls whether the gate
-    # bites yet, so shipping the code cannot cut off the legacy numbers that are
-    # still on the parent account. Flip telephony_enforce_capabilities ON as the
-    # go-live step, after subaccounts exist and grants are set.
-    if getattr(settings, "telephony_enforce_capabilities", False):
-        require_capability(account, capability)
-    else:
+    if not enforce:
+        account = await ensure_account(db, user, settings)
+        if not await platform_circuit_ok(db, settings):
+            raise PlatformCircuitOpen()
         if not has_capability(account, capability):
             logger.warning(
                 "telephony: %s NOT granted for tenant %s — allowed only because "
-                "telephony_enforce_capabilities is off (staging)",
+                "telephony_enforce_capabilities is off (staging, permissionless)",
                 capability, account.tenant_key,
             )
+        return account
+
+    # Enforced: capability BEFORE provisioning. get_account does not create.
+    account = await get_account(db, user)
+    if account is None:
+        logger.warning(
+            "telephony: %s denied for tenant %s — no provisioned subaccount, "
+            "refusing to auto-create (operator must provision + grant first)",
+            capability, tenant_key_for(user),
+        )
+        raise CapabilityNotGranted(capability)
+    if account.status == "suspended":
+        raise TelephonySuspended(account.suspended_reason)
+    require_capability(account, capability)
+    if not await platform_circuit_ok(db, settings):
+        raise PlatformCircuitOpen()
     return account
 
 
