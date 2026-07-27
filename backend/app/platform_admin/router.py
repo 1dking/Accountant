@@ -939,9 +939,35 @@ async def suspend_telephony(
     if account is None:
         raise NotFoundError("TelephonyAccount", str(account_id))
     await telephony.suspend(
-        db, account, f"suspended by operator {admin.email}", request.app.state.settings
+        db, account, f"suspended by operator {admin.email}",
+        request.app.state.settings, actor_email=admin.email,
     )
     return {"data": {"suspended": True, "tenant_key": account.tenant_key}}
+
+
+@router.post("/telephony/accounts/{account_id}/reactivate")
+async def reactivate_telephony(
+    account_id: uuid.UUID,
+    request: Request,
+    admin: Annotated[User, Depends(require_platform_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    """Reverse the kill switch — restore a suspended tenant's telephony.
+
+    Operator-only. This is the documented recovery path after a usage-trigger
+    auto-suspend or a manual suspend; it re-enables the Twilio subaccount and
+    writes a TELEPHONY_REACTIVATED audit row with the operator's identity.
+    """
+    from app.billing.models import TelephonyAccount
+    from app.communication import telephony
+
+    account = await db.get(TelephonyAccount, account_id)
+    if account is None:
+        raise NotFoundError("TelephonyAccount", str(account_id))
+    await telephony.reactivate(
+        db, account, request.app.state.settings, actor_email=admin.email
+    )
+    return {"data": {"reactivated": True, "tenant_key": account.tenant_key}}
 
 
 @router.post("/telephony/accounts/{account_id}/reactivate")

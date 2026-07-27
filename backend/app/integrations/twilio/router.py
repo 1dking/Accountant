@@ -2,7 +2,7 @@
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -76,16 +76,41 @@ async def list_sms_logs(
 # ---------------------------------------------------------------------------
 
 
+def _twilio_signed_url(request: Request) -> str:
+    """Reconstruct the exact public URL Twilio signed.
+
+    Twilio signs the public HTTPS URL it POSTs to, not the internal URL uvicorn
+    sees behind Cloudflare/Apache. Consult the forwarding headers first; the
+    HMAC fails if scheme or host differs by one character.
+    """
+    proto = request.headers.get("x-forwarded-proto", request.url.scheme)
+    host = (
+        request.headers.get("x-forwarded-host")
+        or request.headers.get("host")
+        or request.url.hostname
+        or ""
+    )
+    url = f"{proto}://{host}{request.url.path}"
+    if request.url.query:
+        url += f"?{request.url.query}"
+    return url
+
+
 @router.post("/usage-trigger")
 async def usage_trigger_webhook(
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
-    """Twilio Usage Trigger callback — the kill switch.
+    """Twilio Usage Trigger callback — the fraud kill switch.
 
-    Twilio POSTs here when a subaccount crosses a spend threshold. No auth:
-    the payload is validated by matching AccountSid to a subaccount we own,
-    and the only side effect is suspension (fail-safe, never fail-open).
+    Twilio POSTs here when a subaccount crosses a spend threshold.
+
+    SPOOFING DEFENCE: the suspend side effect is a weapon — an attacker who
+    could POST here with a victim's AccountSid could nuke that tenant's
+    telephony. So a KNOWN account is acted on ONLY if the X-Twilio-Signature
+    verifies against THAT SUBACCOUNT's own auth token (the triggers are created
+    on the subaccount, so Twilio signs with the subaccount token). Forging that
+    requires the subaccount's token, which an attacker does not have.
 
     Daily threshold  -> alert the operator.
     Monthly threshold -> alert AND suspend, because a monthly breach means the
@@ -93,9 +118,10 @@ async def usage_trigger_webhook(
     """
     settings = request.app.state.settings
     form = await request.form()
-    account_sid = str(form.get("AccountSid", ""))
-    trigger_name = str(form.get("FriendlyName", ""))
-    current_value = str(form.get("CurrentValue", "0"))
+    params = {k: str(v) for k, v in form.items()}
+    account_sid = params.get("AccountSid", "")
+    trigger_name = params.get("FriendlyName", "")
+    current_value = params.get("CurrentValue", "0")
 
     from sqlalchemy import select as _select
 
@@ -107,9 +133,32 @@ async def usage_trigger_webhook(
     )
     account = result.scalar_one_or_none()
     if account is None:
-        # Not one of ours — acknowledge without acting.
+        # Not one of ours — acknowledge without acting. We can't verify a
+        # signature for an account we don't hold a token for, and there is
+        # nothing to suspend, so this is safe.
         logger.warning("usage-trigger: unknown subaccount %s", account_sid)
         return {"data": {"received": True, "matched": False}}
+
+    # --- Verify the request truly came from Twilio for THIS subaccount -------
+    from twilio.request_validator import RequestValidator
+
+    from app.core.encryption import get_encryption_service
+
+    try:
+        token = get_encryption_service().decrypt(account.encrypted_auth_token)
+    except Exception:  # noqa: BLE001 — cannot verify -> refuse to act (fail closed)
+        logger.exception("usage-trigger: could not load token for %s", account_sid)
+        raise HTTPException(status_code=403, detail="Cannot verify request")
+
+    signature = request.headers.get("X-Twilio-Signature", "")
+    signed_url = _twilio_signed_url(request)
+    if not RequestValidator(token).validate(signed_url, params, signature):
+        # Do NOT suspend. A bad signature on a known SID is a spoof attempt.
+        logger.error(
+            "usage-trigger: INVALID SIGNATURE for %s — refusing to suspend (possible spoof)",
+            account_sid,
+        )
+        raise HTTPException(status_code=403, detail="Invalid Twilio signature")
 
     hard = "monthly" in trigger_name.lower()
     reason = f"{trigger_name} threshold breached at ${current_value}"
@@ -139,7 +188,9 @@ async def usage_trigger_webhook(
 
     suspended = False
     if hard and account.status != "suspended":
-        await telephony.suspend(db, account, reason, settings)
+        await telephony.suspend(
+            db, account, reason, settings, actor_email="system:usage-trigger"
+        )
         suspended = True
 
     return {"data": {"received": True, "matched": True, "suspended": suspended}}

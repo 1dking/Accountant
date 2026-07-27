@@ -482,13 +482,16 @@ async def platform_circuit_ok(db: AsyncSession, settings) -> bool:
 
 
 async def suspend(
-    db: AsyncSession, account: TelephonyAccount, reason: str, settings
+    db: AsyncSession, account: TelephonyAccount, reason: str, settings,
+    *, actor_email: str = "system",
 ) -> TelephonyAccount:
     """Suspend a tenant's telephony.
 
     Closes the subaccount at Twilio so enforcement is server-side, then records
     it locally. Twilio's 'suspended' status is reversible; 'closed' is not, so
-    we use suspended.
+    we use suspended. Writes a security-audit-log row here (not at the call
+    site) so EVERY path — the usage-trigger kill switch and a manual operator
+    suspend — leaves a trail, with who/why.
     """
     try:
         client = _parent_client(settings)
@@ -505,10 +508,25 @@ async def suspend(
     await db.commit()
     await db.refresh(account)
     logger.error("telephony: SUSPENDED tenant %s — %s", account.tenant_key, reason)
+
+    from app.audit.service import AuditAction, AuditResult, safe_record_audit
+
+    await safe_record_audit(
+        db,
+        action=AuditAction.TELEPHONY_SUSPENDED,
+        result=AuditResult.SUCCESS,
+        actor_email=actor_email,
+        tenant_id=account.tenant_key,
+        resource_type="telephony_account",
+        resource_id=str(account.id),
+        metadata={"reason": reason[:255], "subaccount_sid": account.subaccount_sid},
+    )
     return account
 
 
-async def reactivate(db: AsyncSession, account: TelephonyAccount, settings) -> TelephonyAccount:
+async def reactivate(
+    db: AsyncSession, account: TelephonyAccount, settings, *, actor_email: str = "system",
+) -> TelephonyAccount:
     """Reverse a suspension. Operator-only — called from platform admin."""
     try:
         client = _parent_client(settings)
@@ -525,6 +543,19 @@ async def reactivate(db: AsyncSession, account: TelephonyAccount, settings) -> T
     await db.commit()
     await db.refresh(account)
     logger.info("telephony: reactivated tenant %s", account.tenant_key)
+
+    from app.audit.service import AuditAction, AuditResult, safe_record_audit
+
+    await safe_record_audit(
+        db,
+        action=AuditAction.TELEPHONY_REACTIVATED,
+        result=AuditResult.SUCCESS,
+        actor_email=actor_email,
+        tenant_id=account.tenant_key,
+        resource_type="telephony_account",
+        resource_id=str(account.id),
+        metadata={"subaccount_sid": account.subaccount_sid},
+    )
     return account
 
 

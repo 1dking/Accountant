@@ -53,6 +53,11 @@ class AuditAction:
     DATA_EXPORTED = "data_exported"
     DATA_DELETED = "data_deleted"
 
+    # Telephony fraud kill switch — a suspension is a security-relevant event
+    # (money + fraud exposure), so both directions are audited with the actor.
+    TELEPHONY_SUSPENDED = "telephony_suspended"
+    TELEPHONY_REACTIVATED = "telephony_reactivated"
+
 
 class AuditResult:
     SUCCESS = "success"

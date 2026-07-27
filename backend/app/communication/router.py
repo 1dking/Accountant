@@ -1354,7 +1354,7 @@ async def purchase_number(
     # kill switch) + platform circuit breaker + the operator's explicit
     # number_purchase grant. Replaces a bare client_for, which did only the first.
     tenant_account = await telephony.enforce_billable_action(
-        db, current_user, settings, "number_purchase"
+        db, user, settings, "number_purchase"
     )
     tenant_client = telephony.subaccount_client(tenant_account)
     await telephony.enforce_number_cap(db, tenant_account)
@@ -1362,7 +1362,7 @@ async def purchase_number(
     # up front — and this is also where "Pro has no telephony" is enforced,
     # because require_credit resolves the rate card first.
     await telephony_credits.require_credit(
-        db, current_user, unit="number_monthly", action="buy a phone number"
+        db, user, unit="number_monthly", action="buy a phone number"
     )
 
     try:
@@ -1403,7 +1403,7 @@ async def purchase_number(
         # and so it can never be used from another tenant's context.
         tenant_key=tenant_account.tenant_key,
         subaccount_sid=tenant_account.subaccount_sid,
-        assigned_user_id=current_user.id,
+        assigned_user_id=user.id,
         # Origin decides whether 10DLC applies later — US and CA are both +1,
         # so this can only be captured here, from Twilio.
         iso_country=getattr(purchased, "iso_country", None),

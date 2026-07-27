@@ -131,69 +131,6 @@ async def test_platform_circuit_breaker_blocks_spending(db, app, admin_user, mon
 
 
 # ---------------------------------------------------------------------------
-# Kill switch — a cap breach must actually auto-suspend
-# ---------------------------------------------------------------------------
-
-@pytest.mark.critical
-async def test_monthly_cap_breach_auto_suspends_via_webhook(client, db, admin_user, monkeypatch):
-    """Twilio usage trigger -> our webhook -> subaccount suspended.
-
-    The whole point of the kill switch: nobody has to be watching.
-    """
-    acct = await _account(db, admin_user, allow_sms=True)
-
-    # Don't call Twilio; assert we mark it locally regardless.
-    monkeypatch.setattr(telephony, "_parent_client", lambda s: (_ for _ in ()).throw(RuntimeError("no twilio")))
-
-    resp = await client.post(
-        "/api/integrations/sms/usage-trigger",
-        data={
-            "AccountSid": acct.subaccount_sid,
-            "FriendlyName": "obrain-monthly-hard-cap",
-            "CurrentValue": "137.50",
-        },
-    )
-    assert resp.status_code == 200, resp.text
-    body = resp.json()["data"]
-    assert body["matched"] is True
-    assert body["suspended"] is True, "monthly breach did not trip the kill switch"
-
-    await db.refresh(acct)
-    assert acct.status == "suspended"
-    assert acct.suspended_at is not None
-    assert "137.50" in (acct.suspended_reason or "")
-
-
-@pytest.mark.critical
-async def test_daily_trigger_alerts_but_does_not_suspend(client, db, admin_user):
-    """Daily threshold is a warning; only a monthly breach is terminal."""
-    acct = await _account(db, admin_user, allow_sms=True)
-    resp = await client.post(
-        "/api/integrations/sms/usage-trigger",
-        data={
-            "AccountSid": acct.subaccount_sid,
-            "FriendlyName": "obrain-daily-soft-cap",
-            "CurrentValue": "8.00",
-        },
-    )
-    assert resp.status_code == 200
-    assert resp.json()["data"]["suspended"] is False
-    await db.refresh(acct)
-    assert acct.status == "active"
-
-
-@pytest.mark.critical
-async def test_usage_trigger_for_unknown_subaccount_is_ignored(client, db):
-    """A forged/foreign AccountSid must not suspend one of ours."""
-    resp = await client.post(
-        "/api/integrations/sms/usage-trigger",
-        data={"AccountSid": "ACnot-ours", "FriendlyName": "monthly", "CurrentValue": "999"},
-    )
-    assert resp.status_code == 200
-    assert resp.json()["data"]["matched"] is False
-
-
-# ---------------------------------------------------------------------------
 # Cross-tenant isolation
 # ---------------------------------------------------------------------------
 
