@@ -1,12 +1,13 @@
 import LegalDocument from '@/components/LegalDocument'
 
-// OCIDM O-Brain Privacy Policy — v1.0 (final). The version string is mirrored in
+// OCIDM O-Brain Privacy Policy — v1.1 (final; v1.0 + the periodic-review
+// commitment in §9/§13). The version string is mirrored in
 // backend/app/core/legal.py (PRIVACY_POLICY_VERSION); every Plaid consent record
 // stamps the version that was in effect when the user connected, so bump BOTH
 // together and never edit a version in place once consents reference it.
 const CONTENT = `# O-Brain Privacy Policy
 
-**Version 1.0** · Effective date: July 1, 2026
+**Version 1.1** · Effective date: July 26, 2026
 OC Interactive Digital Agency Corp. ("OCIDM," "we," "us")
 203-762 Upper James St, Hamilton, ON L9C 3A2, Canada · support@ocidm.io
 
@@ -122,6 +123,10 @@ connection data is deleted when you disconnect an account or close your account,
 retention requirements. You may request deletion of your data at any time, and we will honor it except
 where retention is legally required.
 
+We review these retention periods, and the deletion practices described in this section, at least
+annually and whenever our practices change, to confirm they remain accurate and compliant with
+applicable data privacy laws (see Section 13).
+
 ## 10. Your privacy rights and choices
 
 Subject to applicable law, you may access the information we hold about you, request correction of
@@ -153,11 +158,17 @@ acknowledge this cross-border transfer.
 O-Brain is a business product and is not intended for individuals under 18. We do not knowingly collect
 personal information from children.
 
-## 13. Changes to this policy
+## 13. Review of, and changes to, this policy
+
+We review this policy at least **annually**, and additionally whenever there is a material change to how
+we handle information, for example: a new service provider, a new category of information collected, a
+new jurisdiction we serve, or a change to a retention period. Each review confirms that this policy still
+reflects our actual practices, including the retention periods in Section 9, the safeguards in Section 8,
+and the service providers listed in Section 7. Reviews are recorded with the date and reviewer.
 
 We may update this policy from time to time. We will post the new version with an updated version number
 and effective date, and, where required, notify you. Your consent records reference the policy version in
-effect when you connected a service.
+effect when you connected a service, so a later revision does not change what you previously agreed to.
 
 ## 14. Contact us
 

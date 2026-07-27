@@ -6,24 +6,25 @@ whenever the corresponding text changes — existing consent rows keep the versi
 they were captured under, which is exactly what the "provide records on request"
 obligation needs.
 
-NOTE: the privacy-policy / terms bodies are deliberate PLACEHOLDERS. They state
-the data practices that the code actually implements, but they are not a
-substitute for lawyer-reviewed copy. Replace the bodies (not necessarily the
-versions) before launch; bump the version when you do.
+The privacy-policy and terms bodies live in
+frontend/src/pages/{PrivacyPolicy,Terms}Page.tsx and are FINAL (no longer
+placeholder drafts). Per Privacy Policy §13 they are reviewed at least annually —
+see the review log in SECURITY_MAINTENANCE.md.
 """
 
 # Bump these whenever the referenced text changes. The privacy/terms bodies are
-# the OCIDM v1.0 documents (frontend/src/pages/{PrivacyPolicy,Terms}Page) —
-# lawyer-reviewed final, no longer drafts.
+# the OCIDM final documents (frontend/src/pages/{PrivacyPolicy,Terms}Page).
+# Privacy is at v1.1: v1.0 was published, then §9/§13 gained the periodic-review
+# commitment, so the version was bumped rather than edited in place.
 #
 # Never edit a version in place once consent rows reference it: each PlaidConsent
 # stores the privacy_policy_version in effect at capture time, which is what
 # proves what a user actually agreed to.
-PRIVACY_POLICY_VERSION = "1.0"
+PRIVACY_POLICY_VERSION = "1.1"
 TERMS_VERSION = "1.0"
 #: Tracks the CONSENT COPY below, which is unchanged — so it stays put. The
 #: policy version a consent references is recorded separately, and new consents
-#: will now stamp privacy_policy_version="1.0".
+#: stamp whatever PRIVACY_POLICY_VERSION is above (currently 1.1).
 PLAID_CONSENT_VERSION = "2026-07-24"
 
 #: Shown, verbatim and conspicuously, in the Plaid Link consent step. Must state

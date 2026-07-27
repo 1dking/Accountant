@@ -100,7 +100,7 @@ Each review walks this checklist and confirms the policy still matches the code:
 
 | Date | Reviewer | Version reviewed | Outcome |
 |---|---|---|---|
-| 2026-07-26 | Nate (OCIDM) | Privacy v1.0 / Terms v1.0 | Retention mechanically enforced (7-year window active, disconnect purge, audit-log pruning); deletion + export verified; §8 security claims verified shipped except infrastructure MFA, tracked as an open item. **Next review due 2027-07-26.** |
+| 2026-07-26 | Nate (OCIDM) | Privacy v1.1 / Terms v1.0 | Retention mechanically enforced (7-year window active, disconnect purge, audit-log pruning); deletion + export verified; §8 security claims verified shipped except infrastructure MFA, tracked as an open item. **Next review due 2027-07-26.** |
 
 ## Quarterly EOL / end-of-life review
 
