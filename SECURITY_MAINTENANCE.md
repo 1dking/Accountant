@@ -49,6 +49,26 @@ pinned by their lockfiles (`pnpm-lock.yaml` / `package-lock.json`).
 > accepted finding must be listed in **both** `.trivyignore` (CVE id) and the
 > pip-audit `--ignore-vuln` flag (PYSEC id).
 
+## Data retention — enforced, not just documented
+
+Privacy Policy §9 is mechanically enforced, so the commitments are demonstrable:
+
+| Data | Promise (§9) | Enforcement |
+|---|---|---|
+| Raw Plaid bank rows | Deleted when no longer needed | Nightly job, `PLAID_DATA_RETENTION_DAYS` (default **2555 = 7 years**, the §9 outer bound). `app/core/scheduler.py` → `privacy.service.enforce_plaid_retention`; each purge writes a `data_deleted` audit row |
+| Bank connection data | Deleted **on disconnect** / account closure | Immediate, via `ondelete="CASCADE"` on `PlaidTransaction.plaid_connection_id`; also covered by the deletion path in `app/privacy/service.py` |
+| Bookkeeping records (expenses/income/invoices) | Retained for the statutory 6–7 years | **Deliberately untouched** by the retention job — verified by test |
+| Consent records | Retained as proof | Excluded from deletion; connection link nulled |
+| Security audit log | 730 days | `prune_audit_logs` nightly |
+
+Guard: a window under **30 days** is refused as a likely typo (it would wipe live
+bank data on the next nightly run) — set it deliberately, or `0` to disable.
+Tests: `backend/tests/api/test_retention_policy.py`.
+
+**Not automated:** purging bookkeeping records *after* the 6–7 year statutory
+period. Nothing in the system is near that age yet; when it matters this needs a
+deliberate ledger-archival design rather than a nightly delete.
+
 ## Quarterly EOL / end-of-life review
 
 Every quarter, confirm none of the runtime platforms is near or past

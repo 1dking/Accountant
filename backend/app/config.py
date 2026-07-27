@@ -66,9 +66,19 @@ class Settings(BaseSettings):
     #: link-token/exchange endpoints hard-refuse while this is False, and the
     #: frontend hides the Connect button (see plaid /link-config).
     plaid_link_enabled: bool = False
-    #: Retention window (days) for Plaid-derived transaction data. 0 disables
-    #: enforcement. Enforced by the scheduler (see app/core/scheduler.py).
-    plaid_data_retention_days: int = 0
+    #: Retention window (days) for RAW Plaid transaction rows, enforced nightly by
+    #: the scheduler (app/core/scheduler.py -> privacy.service.enforce_plaid_retention).
+    #:
+    #: Default 2555 days = 7 years, the outer bound in Privacy Policy §9. Chosen
+    #: deliberately conservative: it never removes anything a user could still
+    #: reasonably expect to see, while making retention mechanically enforced
+    #: rather than documented-only. It purges only the raw bank rows — the derived
+    #: bookkeeping records (expenses/income/invoices) that §9 keeps for the
+    #: statutory 6–7 years are untouched, as is consent evidence.
+    #:
+    #: A shorter window is legitimate if you want tighter data minimization; the
+    #: job refuses anything under 30 days as a typo guard. 0 disables enforcement.
+    plaid_data_retention_days: int = 2555
     #: Require a second factor (passkey OR authenticator app) to READ consumer
     #: financial data, not just to connect a bank. Answers the Plaid
     #: questionnaire's "is MFA in place for access to systems that store or

@@ -198,14 +198,43 @@ async def delete_user_data(
 # ---------------------------------------------------------------------------
 
 
-async def enforce_plaid_retention(db: AsyncSession, retention_days: int) -> int:
-    """Delete Plaid-derived transactions older than the retention window.
+#: Refuse to purge on an implausibly short window. A typo like `3` in
+#: PLAID_DATA_RETENTION_DAYS would silently destroy live bank data on the next
+#: nightly run, so anything below this is treated as a MISCONFIGURATION and the
+#: job declines to delete rather than doing damage. This is a typo guard, not a
+#: policy floor — a deliberately short window (data minimization) is legitimate,
+#: because Privacy Policy §9 promises 6–7 years for BOOKKEEPING records
+#: (expenses/income/invoices, untouched here), while raw Plaid rows are "bank
+#: connection data" that §9 deletes on disconnect.
+MIN_PLAUSIBLE_RETENTION_DAYS = 30
 
-    ``retention_days <= 0`` disables enforcement (default). Connections and
-    consent records are untouched — only derived transaction data ages out.
+
+async def enforce_plaid_retention(db: AsyncSession, retention_days: int) -> int:
+    """Age out raw Plaid transaction rows beyond the retention window.
+
+    Scope, matching Privacy Policy §9:
+      * Deletes ONLY ``PlaidTransaction`` — the raw bank data retrieved from Plaid.
+      * Does NOT touch ``Expense`` / ``Income`` / invoices. Those are the
+        bookkeeping records §9 retains for the statutory 6–7 years, and they
+        survive independently once a transaction has been categorized.
+      * Does NOT touch connections or consent records. Disconnecting a bank
+        deletes its transactions immediately via ``ondelete="CASCADE"`` on
+        ``PlaidTransaction.plaid_connection_id``; consent rows are retained as
+        proof (see the module docstring).
+
+    ``retention_days <= 0`` disables enforcement.
     """
     if retention_days <= 0:
         return 0
+    if retention_days < MIN_PLAUSIBLE_RETENTION_DAYS:
+        logger.error(
+            "plaid_retention REFUSED: retention_days=%d is below the %d-day "
+            "plausibility floor and looks like a misconfiguration. No data was "
+            "deleted. Set PLAID_DATA_RETENTION_DAYS deliberately or to 0 to disable.",
+            retention_days, MIN_PLAUSIBLE_RETENTION_DAYS,
+        )
+        return 0
+
     from app.integrations.plaid.models import PlaidTransaction
 
     cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
@@ -213,4 +242,21 @@ async def enforce_plaid_retention(db: AsyncSession, retention_days: int) -> int:
         sa_delete(PlaidTransaction).where(PlaidTransaction.created_at < cutoff)
     )
     await db.commit()
-    return res.rowcount or 0
+    count = res.rowcount or 0
+
+    if count:
+        # Demonstrable: the audit trail shows retention actually ran.
+        await safe_record_audit(
+            db,
+            action=AuditAction.DATA_DELETED,
+            result=AuditResult.SUCCESS,
+            actor_email="system:retention",
+            resource_type="plaid_transactions",
+            metadata={
+                "reason": "retention_policy",
+                "retention_days": retention_days,
+                "cutoff": cutoff.isoformat(),
+                "rows_deleted": count,
+            },
+        )
+    return count
