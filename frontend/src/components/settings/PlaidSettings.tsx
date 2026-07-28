@@ -1,8 +1,101 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { usePlaidLink, type PlaidLinkOnSuccess } from 'react-plaid-link'
 import { Landmark, Trash2, RefreshCw, Save } from 'lucide-react'
-import { listPlaidConnections, deletePlaidConnection, syncPlaidTransactions, getIntegrationSettings, saveIntegrationSettings } from '@/api/integrations'
+import {
+  listPlaidConnections, deletePlaidConnection, syncPlaidTransactions,
+  getIntegrationSettings, saveIntegrationSettings,
+  getPlaidLinkConfig, createPlaidLinkToken, exchangePlaidToken, type PlaidLinkConfig,
+} from '@/api/integrations'
 import { formatDate } from '@/lib/utils'
+
+/** "Connect a bank" — rendered ONLY when the server says this user may (an
+ *  allow-listed operator, MFA satisfied, flag on). Gating on the server's
+ *  `enabled` (never on user role) is what keeps tenant admins out. */
+function ConnectBank({ config }: { config: PlaidLinkConfig }) {
+  const queryClient = useQueryClient()
+  const [consent, setConsent] = useState(false)
+  const [linkToken, setLinkToken] = useState<string | null>(null)
+  const [status, setStatus] = useState('')
+
+  const startMutation = useMutation({
+    mutationFn: createPlaidLinkToken,
+    onSuccess: (res) => setLinkToken(res.data.link_token),
+    onError: () => setStatus('Could not start the bank connection. Please try again.'),
+  })
+
+  const exchangeMutation = useMutation({
+    mutationFn: exchangePlaidToken,
+    onSuccess: () => {
+      setStatus('Bank connected.')
+      setLinkToken(null)
+      setConsent(false)
+      queryClient.invalidateQueries({ queryKey: ['plaid-connections'] })
+    },
+    onError: () => setStatus('We could not finish connecting the bank. Please try again.'),
+  })
+
+  const onSuccess = useCallback<PlaidLinkOnSuccess>(
+    (public_token, metadata) => {
+      if (!public_token) return
+      exchangeMutation.mutate({
+        public_token,
+        institution_name: metadata.institution?.name ?? 'Bank',
+        institution_id: metadata.institution?.institution_id ?? '',
+        consent_acknowledged: true,
+      })
+    },
+    [exchangeMutation],
+  )
+
+  const { open, ready } = usePlaidLink({
+    token: linkToken,
+    onSuccess,
+    onExit: () => setLinkToken(null),
+  })
+
+  // Open Plaid's UI once the freshly-fetched link token has initialised.
+  useEffect(() => {
+    if (linkToken && ready) open()
+  }, [linkToken, ready, open])
+
+  const busy = startMutation.isPending || exchangeMutation.isPending
+
+  return (
+    <div className="bg-white dark:bg-gray-900 border rounded-lg p-5 space-y-4">
+      <div className="flex items-center gap-2">
+        <Landmark className="w-4 h-4 text-blue-500" />
+        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Connect a bank</h3>
+      </div>
+      <div className="text-xs text-gray-500 dark:text-gray-400 max-h-32 overflow-y-auto border rounded-md p-3 whitespace-pre-line">
+        {config.consent_text}
+      </div>
+      <label className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
+        <input
+          type="checkbox"
+          checked={consent}
+          onChange={(e) => setConsent(e.target.checked)}
+          className="mt-0.5"
+        />
+        <span>
+          I have read and agree to the{' '}
+          <a href={config.privacy_policy_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">Privacy Policy</a>
+          {' '}and{' '}
+          <a href={config.terms_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">Terms</a>, and consent to connecting my bank via Plaid.
+        </span>
+      </label>
+      <button
+        onClick={() => { setStatus(''); startMutation.mutate() }}
+        disabled={!consent || busy}
+        className="flex items-center gap-1.5 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+      >
+        <Landmark className="w-4 h-4" />
+        {busy ? 'Connecting…' : 'Connect a bank'}
+      </button>
+      {status && <p className="text-xs text-gray-500 dark:text-gray-400">{status}</p>}
+    </div>
+  )
+}
 
 export default function PlaidSettings() {
   const queryClient = useQueryClient()
@@ -48,6 +141,13 @@ export default function PlaidSettings() {
     queryKey: ['plaid-connections'],
     queryFn: listPlaidConnections,
   })
+
+  // Server-authoritative gate for the "Connect a bank" button.
+  const { data: linkConfigData } = useQuery({
+    queryKey: ['plaid-link-config'],
+    queryFn: getPlaidLinkConfig,
+  })
+  const linkConfig = linkConfigData?.data
 
   const deleteMutation = useMutation({
     mutationFn: deletePlaidConnection,
@@ -134,6 +234,10 @@ export default function PlaidSettings() {
           {saveMutation.isPending ? 'Saving...' : 'Save Configuration'}
         </button>
       </form>
+
+      {/* Connect a bank — only when the server authorises THIS user (operator
+          allow-list + MFA + flag). Hidden for everyone else. */}
+      {linkConfig?.enabled && <ConnectBank config={linkConfig} />}
 
       {/* Connections */}
       <div className="space-y-3">

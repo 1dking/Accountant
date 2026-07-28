@@ -191,6 +191,24 @@ export async function sendEmailViaGmail(data: {
 // Plaid Banking
 // ---------------------------------------------------------------------------
 
+export interface PlaidLinkConfig {
+  /** Server-authoritative: true ONLY for allow-listed operators with MFA while
+   *  the flag is on. The Connect button must gate on this, never on user role. */
+  enabled: boolean
+  mfa_required: boolean
+  mfa_satisfied: boolean
+  consent_required: boolean
+  consent_text: string
+  consent_version: string
+  privacy_policy_version: string
+  privacy_policy_url: string
+  terms_url: string
+}
+
+export async function getPlaidLinkConfig() {
+  return api.get<ApiResponse<PlaidLinkConfig>>('/integrations/plaid/link-config')
+}
+
 export async function createPlaidLinkToken() {
   return api.post<ApiResponse<{ link_token: string }>>('/integrations/plaid/link-token')
 }
@@ -199,6 +217,7 @@ export async function exchangePlaidToken(data: {
   public_token: string
   institution_name: string
   institution_id: string
+  consent_acknowledged: boolean
 }) {
   return api.post<ApiResponse<PlaidConnection>>('/integrations/plaid/exchange-token', data)
 }
