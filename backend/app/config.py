@@ -61,6 +61,11 @@ class Settings(BaseSettings):
     plaid_client_id: str = ""
     plaid_secret: str = ""
     plaid_env: str = "sandbox"
+    #: Countries whose institutions appear in Plaid Link (comma-separated ISO
+    #: codes). Default "US,CA" so Canadian banks (RBC, TD, BMO, Scotiabank, …)
+    #: show up alongside US ones. NOTE: Canada must also be enabled on the Plaid
+    #: account, and production Canada may require separate Plaid approval.
+    plaid_country_codes: str = "US,CA"
     #: Master switch for surfacing the Plaid Link "Connect account" flow. Stays
     #: OFF until consent + MFA + privacy policy are verified in production. The
     #: link-token/exchange endpoints hard-refuse while this is False, and the

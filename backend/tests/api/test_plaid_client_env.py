@@ -25,3 +25,15 @@ def test_plaid_client_tolerates_deprecated_and_unknown_env():
     # Sandbox, not crash while building the map.
     for env in ("development", "bogus", ""):
         assert _get_plaid_client(_settings(env)) is not None
+
+
+def test_country_codes_include_canada_by_parsing():
+    from app.integrations.plaid.service import _plaid_country_codes
+
+    codes = _plaid_country_codes(SimpleNamespace(plaid_country_codes="US,CA"))
+    assert [c.value for c in codes] == ["US", "CA"]
+    # whitespace / case tolerant
+    codes = _plaid_country_codes(SimpleNamespace(plaid_country_codes=" us , ca "))
+    assert [c.value for c in codes] == ["US", "CA"]
+    # empty -> safe fallback so Link always has a country
+    assert [c.value for c in _plaid_country_codes(SimpleNamespace(plaid_country_codes=""))] == ["US"]

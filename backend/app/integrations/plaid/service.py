@@ -47,11 +47,22 @@ def _get_plaid_client(settings: Settings):
 # ---------------------------------------------------------------------------
 
 
+def _plaid_country_codes(settings: Settings):
+    """Parse `plaid_country_codes` (e.g. "US,CA") into Plaid CountryCode objects.
+
+    Falls back to US if unset/empty so Link always has at least one country.
+    """
+    from plaid.model.country_code import CountryCode
+
+    raw = getattr(settings, "plaid_country_codes", "") or ""
+    codes = [c.strip().upper() for c in raw.split(",") if c.strip()]
+    return [CountryCode(c) for c in codes] or [CountryCode("US")]
+
+
 async def create_link_token(user: User, settings: Settings) -> str:
     """Create a Plaid Link token so the frontend can open the Plaid Link UI."""
     from plaid.model.link_token_create_request import LinkTokenCreateRequest
     from plaid.model.link_token_create_request_user import LinkTokenCreateRequestUser
-    from plaid.model.country_code import CountryCode
     from plaid.model.products import Products
 
     client = _get_plaid_client(settings)
@@ -60,7 +71,7 @@ async def create_link_token(user: User, settings: Settings) -> str:
         user=LinkTokenCreateRequestUser(client_user_id=str(user.id)),
         client_name="Accountant",
         products=[Products("transactions")],
-        country_codes=[CountryCode("US")],
+        country_codes=_plaid_country_codes(settings),
         language="en",
     )
     response = client.link_token_create(request)
