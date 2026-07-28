@@ -24,9 +24,13 @@ def _get_plaid_client(settings: Settings):
 
     env_map = {
         "sandbox": plaid.Environment.Sandbox,
-        "development": plaid.Environment.Development,
         "production": plaid.Environment.Production,
     }
+    # Plaid removed the deprecated `Development` environment in newer SDK
+    # versions; referencing it unconditionally raises AttributeError and breaks
+    # the client for EVERY environment. Only include it if this SDK still has it.
+    if hasattr(plaid.Environment, "Development"):
+        env_map["development"] = plaid.Environment.Development
     configuration = plaid.Configuration(
         host=env_map.get(settings.plaid_env, plaid.Environment.Sandbox),
         api_key={
