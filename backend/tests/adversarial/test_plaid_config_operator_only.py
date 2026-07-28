@@ -67,6 +67,27 @@ async def test_empty_allowlist_preserves_admin_write(client, db, monkeypatch):
     assert r.status_code == 200  # unconfigured -> pre-go-live behaviour unchanged
 
 
+async def test_get_returns_environment_unmasked_but_secrets_masked(client, db, monkeypatch):
+    """The environment is not a secret — it must come back readable so the form's
+    dropdown can match it. The client_id/secret stay masked."""
+    from tests.conftest import TEST_SETTINGS, auth_header
+
+    op = await mk_admin(db, "operator@ocidm.io")
+    monkeypatch.setattr(TEST_SETTINGS, "plaid_link_allowed_emails", "operator@ocidm.io")
+    await client.put(
+        PLAID_URL,
+        json={"config": {"client_id": "cid1234567890", "secret": "sekabcdefghij", "environment": "production"}},
+        headers=auth_header(op),
+    )
+
+    r = await client.get(PLAID_URL, headers=auth_header(op))
+    data = r.json()["data"]
+    assert data["environment"] == "production"      # readable, not masked
+    assert data["client_id"].startswith("****")     # secret masked
+    assert data["secret"].startswith("****")         # secret masked
+    assert r.json()["meta"]["is_configured"] is True
+
+
 async def test_plaid_lock_does_not_affect_other_integrations(client, db, monkeypatch):
     from tests.conftest import TEST_SETTINGS, auth_header
 

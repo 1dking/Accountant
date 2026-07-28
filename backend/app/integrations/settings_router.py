@@ -141,15 +141,22 @@ async def get_integration_settings(
     enc = get_encryption_service()
     decrypted = json.loads(enc.decrypt(config.encrypted_config))
 
+    non_secret = NON_SECRET_FIELDS.get(integration_type, set())
     masked = {}
     has_values = False
     for field in fields:
         val = decrypted.get(field, "")
-        if val:
-            has_values = True
-            masked[field] = mask_value(val)
-        else:
+        if not val:
             masked[field] = ""
+            continue
+        if field in non_secret:
+            # e.g. Plaid `environment` — NOT a secret. Returning it masked
+            # ("****dbox") breaks the environment dropdown, which can't then match
+            # sandbox/production. Return it as-is.
+            masked[field] = val
+        else:
+            has_values = True  # a real secret is set -> configured
+            masked[field] = mask_value(val)
 
     return {"data": masked, "meta": {"is_configured": has_values}}
 
