@@ -573,6 +573,34 @@ export default function SmartImportPage() {
     }
   }
 
+  // Show a clear failure banner when extraction produced no rows — otherwise a
+  // failed import looks like "nothing happened".
+  if (activeImport && activeImport.status === 'failed' && (!activeImport.items || activeImport.items.length === 0)) {
+    return (
+      <div className="p-6">
+        <div className="rounded-lg border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-900/20 p-5">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+            <div className="min-w-0">
+              <h3 className="font-semibold text-red-800 dark:text-red-300 break-words">
+                Couldn't read "{activeImport.original_filename}"
+              </h3>
+              <p className="text-sm text-red-700 dark:text-red-400 mt-1">
+                {activeImport.error_message || 'No transactions could be extracted from this file.'}
+              </p>
+              <button
+                onClick={() => setActiveImport(null)}
+                className="mt-3 px-3 py-1.5 text-sm border border-red-300 dark:border-red-800 text-red-700 dark:text-red-300 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40"
+              >
+                Try another file
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   // Show review table when we have an active import with items
   if (activeImport && activeImport.items && activeImport.items.length > 0) {
     const importableItems = activeImport.items.filter((i) => i.status !== 'imported')
@@ -1033,7 +1061,7 @@ export default function SmartImportPage() {
                 Drop files here or click to browse
               </p>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                Supports images (PNG, JPEG, WebP) and PDF files up to 20MB. Select multiple files for batch upload.
+                Supports images (PNG, JPEG, WebP), PDF, and CSV exports up to 20MB. CSV statements (Meta/Facebook Ads, Stripe, bank exports) are read exactly and split into one row per payment. Select multiple files for batch upload.
               </p>
             </div>
             <label className="cursor-pointer">
@@ -1041,7 +1069,7 @@ export default function SmartImportPage() {
                 ref={fileInputRef}
                 type="file"
                 className="hidden"
-                accept="image/*,.pdf"
+                accept="image/*,.pdf,.csv,text/csv"
                 multiple
                 onChange={(e) => {
                   const files = e.target.files

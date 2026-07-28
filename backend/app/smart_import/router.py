@@ -38,14 +38,22 @@ async def upload_for_import(
     if len(contents) > 20 * 1024 * 1024:
         raise AppValidationError("File too large. Maximum size is 20MB.")
 
+    filename = file.filename or "file"
+    ext = os.path.splitext(filename)[1].lower()
+    content_type = file.content_type or "application/octet-stream"
+
+    # CSV is detected by extension OR content-type (browsers send text/csv,
+    # application/csv, or even application/vnd.ms-excel for the same .csv).
+    is_csv = ext == ".csv" or content_type in ("text/csv", "application/csv")
+
     allowed_types = {
         "image/png", "image/jpeg", "image/webp", "image/gif",
         "application/pdf",
     }
-    if file.content_type not in allowed_types:
+    if not is_csv and content_type not in allowed_types:
         raise AppValidationError(
-            f"Unsupported file type: {file.content_type}. "
-            "Supported: images (PNG, JPEG, WebP, GIF) and PDF."
+            f"Unsupported file type: {content_type}. "
+            "Supported: images (PNG, JPEG, WebP, GIF), PDF, and CSV."
         )
 
     # Save file
@@ -53,7 +61,6 @@ async def upload_for_import(
     upload_dir = os.path.join(settings.storage_path, "smart_imports")
     os.makedirs(upload_dir, exist_ok=True)
 
-    ext = os.path.splitext(file.filename or "file")[1]
     storage_path = f"smart_imports/{file_id}{ext}"
     full_path = os.path.join(settings.storage_path, storage_path)
 
@@ -63,16 +70,18 @@ async def upload_for_import(
     # Create import record
     imp = await service.create_import(
         db, user,
-        filename=file.filename or "file",
+        filename=filename,
         storage_path=storage_path,
-        mime_type=file.content_type or "application/octet-stream",
+        mime_type="text/csv" if is_csv else content_type,
         file_size=len(contents),
     )
 
-    # Process with AI (synchronous for now — could be background)
-    imp = await service.process_import(
-        db, imp.id, contents, file.content_type or "application/octet-stream"
-    )
+    if is_csv:
+        # Deterministic parse — no AI, no credits, exact.
+        imp = await service.process_csv_import(db, imp.id, contents)
+    else:
+        # Process with AI (synchronous for now — could be background)
+        imp = await service.process_import(db, imp.id, contents, content_type)
 
     return {
         "data": SmartImportDetailResponse(
