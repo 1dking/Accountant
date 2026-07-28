@@ -66,6 +66,14 @@ class Settings(BaseSettings):
     #: show up alongside US ones. NOTE: Canada must also be enabled on the Plaid
     #: account, and production Canada may require separate Plaid approval.
     plaid_country_codes: str = "US,CA"
+    #: Name of a Plaid Dashboard Link customization to use, instead of the
+    #: account default. Plaid's Data Transparency Messaging requires a use case
+    #: configured on the customization the link token uses; if the DEFAULT one
+    #: isn't picking it up (INVALID_LINK_CUSTOMIZATION), create a NAMED
+    #: customization in the Dashboard (Production), configure its use case, and
+    #: set this to that name so the token references it explicitly. Empty = use
+    #: the account default.
+    plaid_link_customization_name: str = ""
     #: Master switch for surfacing the Plaid Link "Connect account" flow. Stays
     #: OFF until consent + MFA + privacy policy are verified in production. The
     #: link-token/exchange endpoints hard-refuse while this is False, and the

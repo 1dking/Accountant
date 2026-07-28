@@ -67,13 +67,20 @@ async def create_link_token(user: User, settings: Settings) -> str:
 
     client = _get_plaid_client(settings)
 
-    request = LinkTokenCreateRequest(
+    kwargs = dict(
         user=LinkTokenCreateRequestUser(client_user_id=str(user.id)),
         client_name="Accountant",
         products=[Products("transactions")],
         country_codes=_plaid_country_codes(settings),
         language="en",
     )
+    # Optionally pin a named Dashboard Link customization (see config note) so
+    # Data Transparency Messaging use cases resolve unambiguously.
+    customization = (getattr(settings, "plaid_link_customization_name", "") or "").strip()
+    if customization:
+        kwargs["link_customization_name"] = customization
+
+    request = LinkTokenCreateRequest(**kwargs)
     response = client.link_token_create(request)
     return response["link_token"]
 

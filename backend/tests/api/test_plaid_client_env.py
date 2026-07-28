@@ -37,3 +37,41 @@ def test_country_codes_include_canada_by_parsing():
     assert [c.value for c in codes] == ["US", "CA"]
     # empty -> safe fallback so Link always has a country
     assert [c.value for c in _plaid_country_codes(SimpleNamespace(plaid_country_codes=""))] == ["US"]
+
+
+async def test_link_token_passes_customization_name_when_set(monkeypatch):
+    from app.integrations.plaid import service
+
+    captured = {}
+
+    class FakeClient:
+        def link_token_create(self, req):
+            captured["req"] = req
+            return {"link_token": "tok"}
+
+    monkeypatch.setattr(service, "_get_plaid_client", lambda s: FakeClient())
+    settings = SimpleNamespace(
+        plaid_country_codes="US,CA", plaid_link_customization_name="obrain"
+    )
+    user = SimpleNamespace(id="00000000-0000-0000-0000-000000000001")
+
+    await service.create_link_token(user, settings)
+    assert captured["req"].link_customization_name == "obrain"
+
+
+async def test_link_token_omits_customization_when_unset(monkeypatch):
+    from app.integrations.plaid import service
+
+    captured = {}
+
+    class FakeClient:
+        def link_token_create(self, req):
+            captured["req"] = req
+            return {"link_token": "tok"}
+
+    monkeypatch.setattr(service, "_get_plaid_client", lambda s: FakeClient())
+    settings = SimpleNamespace(plaid_country_codes="US,CA", plaid_link_customization_name="")
+    user = SimpleNamespace(id="00000000-0000-0000-0000-000000000001")
+
+    await service.create_link_token(user, settings)
+    assert not hasattr(captured["req"], "link_customization_name")
