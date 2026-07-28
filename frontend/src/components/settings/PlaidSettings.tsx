@@ -51,7 +51,15 @@ function ConnectBank({ config }: { config: PlaidLinkConfig }) {
   const { open, ready } = usePlaidLink({
     token: linkToken,
     onSuccess,
-    onExit: () => setLinkToken(null),
+    onExit: (err) => {
+      setLinkToken(null)
+      // Surface WHY Link closed (e.g. an OAuth/redirect or unsupported-institution
+      // error) instead of silently vanishing.
+      if (err) {
+        const detail = err.display_message || err.error_message || err.error_code || 'unknown error'
+        setStatus(`Plaid closed without connecting: ${detail}${err.error_code ? ` [${err.error_code}]` : ''}`)
+      }
+    },
   })
 
   // Open Plaid's UI once the freshly-fetched link token has initialised.
