@@ -54,6 +54,16 @@ PLAID_LINK_NOT_ALLOWLISTED`**.
 `PLAID_LINK_ALLOWED_EMAILS` (empty = "any accountant/admin with MFA"), leaving
 `PLAID_LINK_ENABLED=true` as the master switch. No code change.
 
+**Who can enter the platform keys.** The Plaid production `client_id`/`secret`
+are OCIDM's shared **platform** credentials, stored **once** at the platform
+level (encrypted, one row in `integration_configs`) — not per tenant. Writing
+them via Settings → Banking is **locked to the operator allow-list**
+([settings_router.py](backend/app/integrations/settings_router.py), refuses with
+`PLAID_CONFIG_OPERATOR_ONLY`): once `PLAID_LINK_ALLOWED_EMAILS` is set, a tenant
+admin cannot overwrite the keys. (Empty allow-list = unrestricted, so the very
+first keys can be entered before the list exists. Other integrations keep the
+role-only gate.)
+
 ---
 
 ## 3. Safety controls (verified already present, fire on real data)
@@ -74,20 +84,26 @@ PLAID_LINK_NOT_ALLOWLISTED`**.
 
 ## 4. Go-live checklist (the remaining steps need YOUR secrets)
 
-I cannot place production credentials or log into a bank. On the server
-(`~/Accountant/backend/.env`), add — **secrets from the Plaid dashboard, never
-committed, never client-side:**
+I cannot place production credentials or log into a bank. Plaid config is read
+from two places — the runtime prefers the DB (Settings screen) over `.env`:
+
+**A. Platform keys — enter in the app (this is where they take effect).**
+Settings → Banking → Plaid Configuration: **Environment = production**, **Client
+ID**, **Secret**. Stored encrypted, platform-wide, applied immediately + on
+restart; writing is operator-locked (§2). **Nathan enters these once; Siobhan
+does not.** *(Equivalently `PLAID_ENV` / `PLAID_CLIENT_ID` / `PLAID_SECRET` in
+`.env` — but the Settings-screen values win.)*
+
+**B. Flag + allow-list — set in `.env`** (not part of the Settings screen), then
+restart the backend:
 
 ```
-PLAID_ENV=production
-PLAID_CLIENT_ID=<your production client_id>
-PLAID_SECRET=<your production secret>
 PLAID_LINK_ALLOWED_EMAILS=nathano@ocidm.io,shivonneo@ocidm.io
 PLAID_LINK_ENABLED=true
 # FERNET_KEY already set; PLAID_REQUIRE_MFA_FOR_DATA defaults true (leave it)
 ```
 
-Then restart the backend. Verify:
+Then verify:
 1. Both operators have **MFA enrolled** (passkey or authenticator) — required to connect.
 2. Each operator opens Settings → Banking and connects their **own** bank (they
    enter their bank credentials in Plaid's own UI — never elsewhere).
@@ -97,6 +113,7 @@ Then restart the backend. Verify:
    to the books until explicitly categorized, and a categorize that collides with
    a manual entry is flagged, not double-posted.
 
-> **Frontend note:** the "Connect a bank" button is not yet built on the client
-> (`react-plaid-link` is not installed). The backend + gating + dedup are ready;
-> building the button is the remaining client task and needs that dependency.
+> **Client (built + deployed):** the "Connect a bank" button (Settings → Banking,
+> gated on `/link-config`) and the confirm-duplicate dialog (Bank Transactions)
+> are live via `react-plaid-link` — but stay hidden/inert until the flag +
+> allow-list are set and Link is enabled.

@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import Role, User
 from app.core.encryption import get_encryption_service
-from app.core.exceptions import ValidationError
+from app.core.exceptions import AppError, ValidationError
 from app.dependencies import get_db, require_role
 from app.integrations.settings_models import IntegrationConfig
 
@@ -169,6 +169,23 @@ async def save_integration_settings(
     for key in body.config:
         if key not in allowed:
             raise ValidationError(f"Unknown field: {key}")
+
+    # Platform Plaid credentials are OPERATOR-only. They are OCIDM's shared
+    # production keys, not per-tenant — and because self-serve signups each
+    # become ADMIN of their own tenant, the role gate above does NOT stop a
+    # tenant admin from overwriting them. Lock the Plaid config write to the
+    # Plaid Link allow-list. (Empty allow-list = unrestricted, which preserves
+    # the pre-go-live setup flow; once PLAID_LINK_ALLOWED_EMAILS is set the write
+    # is locked to those operators. Other integrations keep the role-only gate.)
+    if integration_type == "plaid":
+        from app.integrations.plaid.router import _passes_link_allowlist
+
+        if not _passes_link_allowlist(current_user, request.app.state.settings):
+            raise AppError(
+                code="PLAID_CONFIG_OPERATOR_ONLY",
+                message="Only operator accounts may change the platform Plaid credentials.",
+                status_code=403,
+            )
 
     enc = get_encryption_service()
 
