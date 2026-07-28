@@ -192,6 +192,18 @@ async def apply_rules_to_transaction(
             continue
         field_value = _get_field_value(txn, rule.match_field)
         if _matches(rule, field_value):
+            # Tax-integrity guard: never AUTO-post a duplicate of something the
+            # user already entered by hand. If a likely manual match exists, skip
+            # this transaction (leave it uncategorized) so a human reviews it
+            # rather than silently creating a second expense. See reconcile.py.
+            from app.integrations.plaid.reconcile import find_duplicate_records
+
+            dups = await find_duplicate_records(
+                db, user, amount=txn.amount, txn_date=txn.date, kind="expense"
+            )
+            if dups:
+                return False
+
             # Create an expense entry for this transaction
             expense = Expense(
                 user_id=user.id,

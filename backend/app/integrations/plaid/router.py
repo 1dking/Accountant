@@ -3,6 +3,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.mfa_common import has_mfa
@@ -30,6 +31,19 @@ _LINK_ROLES = (Role.ACCOUNTANT, Role.ADMIN)
 
 def _get_settings(request: Request) -> Settings:
     return request.app.state.settings
+
+
+def _link_allowlist(settings: Settings) -> set[str]:
+    raw = getattr(settings, "plaid_link_allowed_emails", "") or ""
+    return {e.strip().lower() for e in raw.split(",") if e.strip()}
+
+
+def _passes_link_allowlist(user: User, settings: Settings) -> bool:
+    """Operator-only pilot gate. An EMPTY allow-list means 'any accountant/admin'
+    (the documented go-public state); a non-empty one restricts Link to exactly
+    those emails — which is what keeps self-serve tenant admins out."""
+    allow = _link_allowlist(settings)
+    return (not allow) or (user.email or "").lower() in allow
 
 
 def _client_ip(request: Request) -> str | None:
@@ -98,6 +112,16 @@ async def require_plaid_link_access(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
         )
+    if not _passes_link_allowlist(user, settings):
+        # Non-allowlisted account (incl. self-serve tenant admins) — refused
+        # while the pilot allow-list is set.
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "PLAID_LINK_NOT_ALLOWLISTED",
+                "message": "Bank connections are limited to specific operator accounts.",
+            },
+        )
     if not await has_mfa(db, user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -127,6 +151,7 @@ async def get_link_config(
         bool(getattr(settings, "plaid_link_enabled", False))
         and mfa_ok
         and user.role in _LINK_ROLES
+        and _passes_link_allowlist(user, settings)
     )
     cfg = PlaidLinkConfigResponse(
         enabled=enabled,
@@ -277,6 +302,37 @@ async def categorize_transaction(
     settings = _get_settings(request)
     txn = await service.categorize_transaction(db, txn_id, data, user, settings)
     return {"data": PlaidTransactionResponse.model_validate(txn)}
+
+
+@router.get("/transactions/{txn_id}/possible-duplicates", response_model=dict)
+async def transaction_possible_duplicates(
+    txn_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_financial_data_access),
+):
+    """Manual Expense/Income rows that likely match this Plaid transaction, so the
+    review UI can warn before the user categorizes it into the books."""
+    from app.integrations.plaid.models import PlaidConnection, PlaidTransaction
+    from app.integrations.plaid.reconcile import find_duplicate_records
+
+    txn = (
+        await db.execute(
+            select(PlaidTransaction)
+            .join(PlaidConnection, PlaidTransaction.plaid_connection_id == PlaidConnection.id)
+            .where(PlaidTransaction.id == txn_id, PlaidConnection.user_id == user.id)
+        )
+    ).scalar_one_or_none()
+    if not txn:
+        from app.core.exceptions import NotFoundError
+
+        raise NotFoundError("Transaction", str(txn_id))
+
+    candidates = await find_duplicate_records(
+        db, user, amount=txn.amount, txn_date=txn.date, kind="expense"
+    ) + await find_duplicate_records(
+        db, user, amount=txn.amount, txn_date=txn.date, kind="income"
+    )
+    return {"data": {"possible_duplicates": candidates}}
 
 
 # ---------------------------------------------------------------------------

@@ -102,6 +102,10 @@ class CategorizeTransactionRequest(BaseModel):
     as_type: str  # "expense" | "income" | "ignore"
     expense_category_id: uuid.UUID | None = None
     description: str | None = None
+    #: When a likely-duplicate manual entry exists, the first attempt is refused
+    #: (409 PLAID_POSSIBLE_DUPLICATE with the candidates). Re-send with this True
+    #: to post it anyway — the user has confirmed it is not a double-entry.
+    confirm_duplicate: bool = False
 
 
 # ---------------------------------------------------------------------------

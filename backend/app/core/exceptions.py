@@ -95,7 +95,9 @@ def register_exception_handlers(app: FastAPI) -> None:
                 "error": {
                     "code": exc.code,
                     "message": exc.message,
-                    "details": None,
+                    # Most AppErrors carry no details; those that set `.details`
+                    # (e.g. PossibleDuplicateError) surface it to the client.
+                    "details": getattr(exc, "details", None),
                 }
             },
         )

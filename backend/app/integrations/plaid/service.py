@@ -378,6 +378,20 @@ async def categorize_transaction(
     if not txn:
         raise NotFoundError("Transaction not found")
 
+    # Tax-integrity guard: refuse to post a second copy of something the user
+    # already entered by hand, unless they explicitly confirm. See reconcile.py.
+    if data.as_type in ("expense", "income") and not data.confirm_duplicate:
+        from app.integrations.plaid.reconcile import (
+            PossibleDuplicateError,
+            find_duplicate_records,
+        )
+
+        dups = await find_duplicate_records(
+            db, user, amount=txn.amount, txn_date=txn.date, kind=data.as_type
+        )
+        if dups:
+            raise PossibleDuplicateError(dups)
+
     if data.as_type == "expense":
         from app.accounting.models import Expense
 

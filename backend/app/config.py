@@ -66,6 +66,16 @@ class Settings(BaseSettings):
     #: link-token/exchange endpoints hard-refuse while this is False, and the
     #: frontend hides the Connect button (see plaid /link-config).
     plaid_link_enabled: bool = False
+    #: Comma-separated allow-list of emails that may use Plaid Link, ON TOP of the
+    #: accountant/admin role + MFA + the flag above. This is what keeps the pilot
+    #: OPERATOR-ONLY: because self-serve signups each become ADMIN of their own
+    #: tenant, the role check alone does NOT distinguish operators from tenants.
+    #: Set to the two operator emails during the pilot, e.g.
+    #: PLAID_LINK_ALLOWED_EMAILS=nathano@ocidm.io,shivonneo@ocidm.io
+    #: TO GO FULLY PUBLIC LATER (once cyber insurance is in place): clear this
+    #: (empty) — an empty allow-list means "any accountant/admin with MFA", and
+    #: `plaid_link_enabled` stays the master on/off switch. No code change needed.
+    plaid_link_allowed_emails: str = ""
     #: Retention window (days) for RAW Plaid transaction rows, enforced nightly by
     #: the scheduler (app/core/scheduler.py -> privacy.service.enforce_plaid_retention).
     #:
