@@ -257,8 +257,26 @@ export async function categorizePlaidTransaction(txnId: string, data: {
   as_type: 'expense' | 'income' | 'ignore'
   expense_category_id?: string
   description?: string
+  /** Re-send true after the user confirms a flagged possible-duplicate is a
+   *  genuinely separate charge (posts it anyway). */
+  confirm_duplicate?: boolean
 }) {
   return api.post<ApiResponse<PlaidTransaction>>(`/integrations/plaid/transactions/${txnId}/categorize`, data)
+}
+
+/** A manual Expense/Income that likely matches a Plaid transaction. */
+export interface PlaidDuplicateCandidate {
+  kind: 'expense' | 'income'
+  id: string
+  amount: string
+  date: string
+  description: string | null
+}
+
+export async function getPlaidPossibleDuplicates(txnId: string) {
+  return api.get<ApiResponse<{ possible_duplicates: PlaidDuplicateCandidate[] }>>(
+    `/integrations/plaid/transactions/${txnId}/possible-duplicates`,
+  )
 }
 
 // ---------------------------------------------------------------------------

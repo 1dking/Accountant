@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Landmark, RefreshCw, ArrowUpRight, ArrowDownRight, Check, Filter, Sparkles, ListChecks } from 'lucide-react'
+import { Landmark, RefreshCw, ArrowUpRight, ArrowDownRight, Check, Filter, Sparkles, ListChecks, AlertTriangle } from 'lucide-react'
 import {
   listPlaidConnections,
   listPlaidTransactions,
@@ -8,12 +8,84 @@ import {
   syncPlaidTransactions,
   applyCategorizationRules,
   aiCategorizeTransactions,
+  getPlaidPossibleDuplicates,
 } from '@/api/integrations'
+import { ApiClientError } from '@/api/client'
 import { formatDate } from '@/lib/utils'
 import type { PlaidTransaction } from '@/types/models'
 
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
+
+/** Shown when categorizing a Plaid txn returns 409 PLAID_POSSIBLE_DUPLICATE.
+ *  Puts the bank transaction next to the matching manual entry so the user
+ *  decides: same transaction (skip, post nothing) or a separate charge (add). */
+export function DuplicateDialog({ txn, asType, onSkip, onConfirm, confirming }: {
+  txn: PlaidTransaction
+  asType: 'expense' | 'income'
+  onSkip: () => void
+  onConfirm: () => void
+  confirming: boolean
+}) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['plaid-possible-duplicates', txn.id],
+    queryFn: () => getPlaidPossibleDuplicates(txn.id),
+  })
+  const candidates = data?.data?.possible_duplicates ?? []
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onSkip}>
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl max-w-lg w-full p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-2">
+          <AlertTriangle className="w-5 h-5 text-amber-500" />
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Possible duplicate</h3>
+        </div>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          This bank transaction looks like one you already recorded by hand. Adding it as
+          a new {asType} would count it twice.
+        </p>
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="border rounded-lg p-3">
+            <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-1">From your bank</div>
+            <div className="font-medium text-gray-900 dark:text-gray-100">{txn.merchant_name || txn.name}</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">{formatDate(txn.date)}</div>
+            <div className="text-sm font-semibold mt-1">{formatCurrency(txn.amount)}</div>
+          </div>
+          <div className="border border-amber-200 dark:border-amber-800 rounded-lg p-3 bg-amber-50 dark:bg-amber-900/20">
+            <div className="text-[11px] uppercase tracking-wide text-amber-600 dark:text-amber-400 mb-1">Already in your books</div>
+            {isLoading ? (
+              <div className="text-sm text-gray-400">Loading…</div>
+            ) : candidates.length === 0 ? (
+              <div className="text-sm text-gray-400">No match found.</div>
+            ) : candidates.map((c) => (
+              <div key={c.id} className="mb-2 last:mb-0">
+                <div className="font-medium text-gray-900 dark:text-gray-100">{c.description || '(no description)'}</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">{formatDate(c.date)} · {c.kind}</div>
+                <div className="text-sm font-semibold">{formatCurrency(Number(c.amount))}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="mt-6 flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-end gap-2">
+          <button
+            onClick={onSkip}
+            disabled={confirming}
+            className="px-4 py-2 text-sm border rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
+          >
+            Skip — same transaction
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={confirming}
+            className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          >
+            {confirming ? 'Adding…' : 'Add anyway — separate charge'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function BankTransactionsPage() {
   const queryClient = useQueryClient()
@@ -46,10 +118,27 @@ export default function BankTransactionsPage() {
     },
   })
 
+  const [dupDialog, setDupDialog] = useState<{ txn: PlaidTransaction; asType: 'expense' | 'income' } | null>(null)
+
   const categorizeMutation = useMutation({
-    mutationFn: ({ txnId, asType }: { txnId: string; asType: 'expense' | 'income' | 'ignore' }) =>
-      categorizePlaidTransaction(txnId, { as_type: asType }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['plaid-transactions'] }),
+    mutationFn: ({ txn, asType, confirm }: { txn: PlaidTransaction; asType: 'expense' | 'income' | 'ignore'; confirm?: boolean }) =>
+      categorizePlaidTransaction(txn.id, { as_type: asType, confirm_duplicate: confirm }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['plaid-transactions'] })
+      setDupDialog(null)
+    },
+    onError: (err, variables) => {
+      // Server flagged a likely duplicate — open the confirm dialog instead of
+      // failing. (Only expense/income can collide; ignore never posts.)
+      if (
+        err instanceof ApiClientError &&
+        err.status === 409 &&
+        err.error?.code === 'PLAID_POSSIBLE_DUPLICATE' &&
+        (variables.asType === 'expense' || variables.asType === 'income')
+      ) {
+        setDupDialog({ txn: variables.txn, asType: variables.asType })
+      }
+    },
   })
 
   const applyRulesMutation = useMutation({
@@ -194,21 +283,21 @@ export default function BankTransactionsPage() {
                       {!txn.is_categorized && (
                         <div className="flex items-center gap-1 justify-end">
                           <button
-                            onClick={() => categorizeMutation.mutate({ txnId: txn.id, asType: 'expense' })}
+                            onClick={() => categorizeMutation.mutate({ txn, asType: 'expense' })}
                             disabled={categorizeMutation.isPending}
                             className="px-2 py-1 text-xs border rounded hover:bg-red-50 text-red-600 border-red-200"
                           >
                             Expense
                           </button>
                           <button
-                            onClick={() => categorizeMutation.mutate({ txnId: txn.id, asType: 'income' })}
+                            onClick={() => categorizeMutation.mutate({ txn, asType: 'income' })}
                             disabled={categorizeMutation.isPending}
                             className="px-2 py-1 text-xs border rounded hover:bg-green-50 text-green-600 border-green-200"
                           >
                             Income
                           </button>
                           <button
-                            onClick={() => categorizeMutation.mutate({ txnId: txn.id, asType: 'ignore' })}
+                            onClick={() => categorizeMutation.mutate({ txn, asType: 'ignore' })}
                             disabled={categorizeMutation.isPending}
                             className="px-2 py-1 text-xs border rounded hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400"
                           >
@@ -262,6 +351,16 @@ export default function BankTransactionsPage() {
             Click "Sync" to import transactions from your bank.
           </p>
         </div>
+      )}
+
+      {dupDialog && (
+        <DuplicateDialog
+          txn={dupDialog.txn}
+          asType={dupDialog.asType}
+          confirming={categorizeMutation.isPending}
+          onSkip={() => setDupDialog(null)}
+          onConfirm={() => categorizeMutation.mutate({ txn: dupDialog.txn, asType: dupDialog.asType, confirm: true })}
+        />
       )}
     </div>
   )
