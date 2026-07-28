@@ -197,8 +197,9 @@ export default function PlaidSettings() {
             <input
               type="text"
               value={configForm.client_id}
+              onFocus={() => setConfigForm((f) => (f.client_id.startsWith('****') ? { ...f, client_id: '' } : f))}
               onChange={(e) => setConfigForm({ ...configForm, client_id: e.target.value })}
-              placeholder="Your Plaid client ID"
+              placeholder={isConfigured ? 'Leave blank to keep current' : 'Your Plaid client ID'}
               className="w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -207,8 +208,9 @@ export default function PlaidSettings() {
             <input
               type="password"
               value={configForm.secret}
+              onFocus={() => setConfigForm((f) => (f.secret.startsWith('****') ? { ...f, secret: '' } : f))}
               onChange={(e) => setConfigForm({ ...configForm, secret: e.target.value })}
-              placeholder="Your Plaid secret"
+              placeholder={isConfigured ? 'Leave blank to keep current' : 'Your Plaid secret'}
               className="w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -220,11 +222,17 @@ export default function PlaidSettings() {
               className="w-full px-3 py-2 border rounded-md text-sm bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="sandbox">Sandbox</option>
-              <option value="development">Development</option>
               <option value="production">Production</option>
             </select>
           </div>
         </div>
+        {isConfigured && (
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Saved keys are hidden. Click a field to replace it — leave a field blank to keep the
+            current key. Switching <span className="font-medium">Environment</span>? Re-enter{' '}
+            <span className="font-medium">both</span> keys for that environment.
+          </p>
+        )}
         <button
           type="submit"
           disabled={saveMutation.isPending}
