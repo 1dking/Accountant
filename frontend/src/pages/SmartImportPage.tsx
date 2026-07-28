@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -337,6 +337,14 @@ export default function SmartImportPage() {
     queryFn: () => listAccounts(),
   })
   const accounts: PaymentAccount[] = accountsData?.data ?? []
+
+  // Preselect a destination so "Import" is enabled immediately — the empty
+  // "Select account…" left the button disabled and looked like it did nothing.
+  useEffect(() => {
+    if (accounts.length > 0 && !selectedAccountId) {
+      setSelectedAccountId(accounts[0].id)
+    }
+  }, [accounts, selectedAccountId])
 
   const { data: categoriesData } = useQuery({
     queryKey: ['cashbook-categories'],
@@ -679,7 +687,7 @@ export default function SmartImportPage() {
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-4">
           <div className="flex-1 w-full">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Import to Account <span className="text-red-500">*</span>
+              Import to Cashbook account <span className="text-red-500">*</span>
             </label>
             {accounts.length === 0 ? (
               <div className="flex items-center gap-2">
@@ -703,6 +711,11 @@ export default function SmartImportPage() {
                 ))}
               </select>
             )}
+            {accounts.length > 0 && (
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                These entries post to your Cashbook under this account.
+              </p>
+            )}
           </div>
           <div className="text-right shrink-0">
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
@@ -720,6 +733,9 @@ export default function SmartImportPage() {
               )}
               Import {selectedItems.size} Item{selectedItems.size !== 1 ? 's' : ''}
             </button>
+            {selectedItems.size === 0 && accounts.length > 0 && (
+              <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">Select at least one row to import.</p>
+            )}
           </div>
         </div>
 
