@@ -43,6 +43,7 @@ import {
   ReceiptText,
   Receipt,
   FileBadge,
+  Landmark,
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { getTrashCount } from '@/api/cashbook'
@@ -103,6 +104,7 @@ const NAV_SECTIONS: NavSection[] = [
       { path: '/cashbook/reconcile', label: 'Reconcile', icon: Scale, featureKey: 'cashbook' },
       { path: '/smart-import', label: 'Smart Import', icon: Zap, featureKey: 'smart_import' },
       { path: '/email-scan', label: 'Email Scanner', icon: MailSearch, featureKey: 'email_scanner' },
+      { path: '/bank-transactions', label: 'Bank Scanner', icon: Landmark, featureKey: 'cashbook' },
       { path: '/recurring', label: 'Recurring', icon: RefreshCw, featureKey: 'recurring' },
       { path: '/reports', label: 'Reports', icon: BarChart3, featureKey: 'reports' },
       { path: '/cashbook/trash', label: 'Trash', icon: Trash2, featureKey: 'cashbook' },

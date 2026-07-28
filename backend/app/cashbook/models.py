@@ -103,6 +103,13 @@ class PaymentAccount(TimestampMixin, Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     # Phase 1: maps this payment account to a CoA asset account.
     coa_account_id: Mapped[uuid.UUID | None] = mapped_column(nullable=True)
+    # Bank Scanner: the Plaid account this payment account mirrors, so a synced
+    # bank transaction can be posted to the Cashbook against an auto-created
+    # account instead of one the user builds by hand. Opaque Plaid handle (not
+    # PII) — plaintext + indexed so get_or_create_bank_account can look it up.
+    plaid_account_id: Mapped[str | None] = mapped_column(
+        String(255), nullable=True, index=True
+    )
 
     # Relationships
     entries: Mapped[list["CashbookEntry"]] = relationship(

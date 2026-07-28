@@ -99,8 +99,14 @@ class PlaidTransactionFilters(BaseModel):
 
 
 class CategorizeTransactionRequest(BaseModel):
-    as_type: str  # "expense" | "income" | "ignore"
+    as_type: str  # "expense" | "income" | "cashbook" | "ignore"
     expense_category_id: uuid.UUID | None = None
+    #: Cashbook transaction category (a transaction_categories id) for the
+    #: "cashbook" destination — distinct from expense_category_id above.
+    category_id: uuid.UUID | None = None
+    #: Override the income/expense direction for the "cashbook" destination.
+    #: When omitted, defaults to the transaction's own is_income flag.
+    entry_type: str | None = None  # "income" | "expense"
     description: str | None = None
     #: When a likely-duplicate manual entry exists, the first attempt is refused
     #: (409 PLAID_POSSIBLE_DUPLICATE with the candidates). Re-send with this True

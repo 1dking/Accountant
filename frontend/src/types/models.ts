@@ -760,6 +760,7 @@ export interface PlaidTransaction {
   matched_expense_id: string | null
   matched_income_id: string | null
   matched_invoice_id: string | null
+  matched_cashbook_entry_id: string | null
   is_categorized: boolean
   created_at: string
 }

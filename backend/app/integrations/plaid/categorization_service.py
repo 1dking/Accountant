@@ -204,13 +204,20 @@ async def apply_rules_to_transaction(
             if dups:
                 return False
 
+            # Resolve the bank account's native currency so the expense isn't
+            # mislabelled USD (mirrors service.categorize_transaction).
+            from app.integrations.plaid.service import _connection_currency
+
+            conn = await db.get(PlaidConnection, txn.plaid_connection_id)
+            currency = _connection_currency(conn, txn.account_id) if conn else "CAD"
+
             # Create an expense entry for this transaction
             expense = Expense(
                 user_id=user.id,
                 vendor_name=txn.merchant_name or txn.name,
                 description=txn.name,
                 amount=txn.amount,
-                currency="USD",
+                currency=currency,
                 date=txn.date,
                 category_id=rule.assign_category_id,
             )

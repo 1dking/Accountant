@@ -254,8 +254,14 @@ export async function listPlaidTransactions(filters: {
 }
 
 export async function categorizePlaidTransaction(txnId: string, data: {
-  as_type: 'expense' | 'income' | 'ignore'
+  as_type: 'expense' | 'income' | 'cashbook' | 'ignore'
   expense_category_id?: string
+  /** Cashbook transaction category (a transaction_categories id) for the
+   *  'cashbook' destination — distinct from expense_category_id. */
+  category_id?: string
+  /** Override the income/expense direction for the 'cashbook' destination.
+   *  Defaults to the transaction's own is_income flag when omitted. */
+  entry_type?: 'income' | 'expense'
   description?: string
   /** Re-send true after the user confirms a flagged possible-duplicate is a
    *  genuinely separate charge (posts it anyway). */
@@ -264,9 +270,9 @@ export async function categorizePlaidTransaction(txnId: string, data: {
   return api.post<ApiResponse<PlaidTransaction>>(`/integrations/plaid/transactions/${txnId}/categorize`, data)
 }
 
-/** A manual Expense/Income that likely matches a Plaid transaction. */
+/** A manual Expense/Income/Cashbook entry that likely matches a Plaid transaction. */
 export interface PlaidDuplicateCandidate {
-  kind: 'expense' | 'income'
+  kind: 'expense' | 'income' | 'cashbook'
   id: string
   amount: string
   date: string

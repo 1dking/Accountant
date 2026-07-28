@@ -10,6 +10,7 @@ from app.audit.service import AuditAction, AuditResult, safe_record_audit
 from app.auth.models import User
 from app.config import Settings
 from app.core import legal
+from app.core.authorization import apply_cashbook_filter
 from app.core.encryption import get_encryption_service
 from app.core.exceptions import NotFoundError, ValidationError
 
@@ -63,6 +64,7 @@ async def create_link_token(user: User, settings: Settings) -> str:
     """Create a Plaid Link token so the frontend can open the Plaid Link UI."""
     from plaid.model.link_token_create_request import LinkTokenCreateRequest
     from plaid.model.link_token_create_request_user import LinkTokenCreateRequestUser
+    from plaid.model.link_token_transactions import LinkTokenTransactions
     from plaid.model.products import Products
 
     client = _get_plaid_client(settings)
@@ -73,6 +75,11 @@ async def create_link_token(user: User, settings: Settings) -> str:
         products=[Products("transactions")],
         country_codes=_plaid_country_codes(settings),
         language="en",
+        # Request up to 24 months of history (730 days is Plaid's hard cap) so
+        # the Bank Scanner can backfill toward account creation. This applies to
+        # NEW link tokens only — an already-linked item keeps its original
+        # window until it is reconnected once.
+        transactions=LinkTokenTransactions(days_requested=730),
     )
     # Optionally pin a named Dashboard Link customization (see config note) so
     # Data Transparency Messaging use cases resolve unambiguously.
@@ -205,9 +212,23 @@ async def _fetch_accounts(client, access_token: str) -> list[dict]:
             "type": str(a["type"]),
             "subtype": str(a.get("subtype", "")),
             "mask": a.get("mask"),
+            # Native currency of the account (e.g. "CAD" for a CIBC chequing
+            # account) so posted amounts aren't mislabelled USD. May be absent.
+            "iso_currency_code": _plaid_account_currency(a),
         }
         for a in response["accounts"]
     ]
+
+
+def _plaid_account_currency(account) -> str | None:
+    """Best-effort ISO currency from a Plaid account's balances (may be None)."""
+    try:
+        balances = account.get("balances") if hasattr(account, "get") else account["balances"]
+        if balances is None:
+            return None
+        return balances["iso_currency_code"]
+    except Exception:
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -377,6 +398,78 @@ async def list_transactions(
 
 
 # ---------------------------------------------------------------------------
+# Bank account provisioning (Plaid account -> Cashbook PaymentAccount)
+# ---------------------------------------------------------------------------
+
+
+def _connection_account_meta(conn: PlaidConnection, plaid_account_id: str) -> dict:
+    """The ``accounts_json`` entry for a Plaid account_id ({} if not found)."""
+    try:
+        accounts = json.loads(conn.accounts_json or "[]")
+    except (ValueError, TypeError):
+        accounts = []
+    for a in accounts:
+        if a.get("account_id") == plaid_account_id:
+            return a
+    return {}
+
+
+def _connection_currency(conn: PlaidConnection, plaid_account_id: str) -> str:
+    """ISO currency for a Plaid account within a connection; CAD if unknown."""
+    iso = (_connection_account_meta(conn, plaid_account_id).get("iso_currency_code") or "").strip().upper()
+    return iso or "CAD"
+
+
+async def get_or_create_bank_account(
+    db: AsyncSession,
+    user: User,
+    conn: PlaidConnection,
+    plaid_account_id: str,
+):
+    """Return the PaymentAccount mirroring a Plaid account, creating it once.
+
+    The Cashbook's ``PaymentAccount`` IS the bank-account concept, so posting a
+    synced transaction to the Cashbook needs one. We key off ``plaid_account_id``
+    so every transaction from the same bank account lands in the same account,
+    named e.g. "CIBC Chequing …1234".
+
+    Deliberately does NOT call ``cashbook.create_account``: that sweeps orphan
+    (account-less) entries onto the new account, which is wrong here — a bank
+    account should only own what we explicitly post to it.
+    """
+    from app.cashbook.models import AccountType, PaymentAccount
+
+    stmt = select(PaymentAccount).where(PaymentAccount.plaid_account_id == plaid_account_id)
+    stmt = apply_cashbook_filter(stmt, PaymentAccount.user_id, PaymentAccount.org_id, user)
+    existing = (await db.execute(stmt)).scalar_one_or_none()
+    if existing is not None:
+        return existing
+
+    meta = _connection_account_meta(conn, plaid_account_id)
+    acct_name = (meta.get("name") or "Account").strip()
+    mask = meta.get("mask")
+    label = f"{conn.institution_name} {acct_name}".strip()
+    if mask:
+        label = f"{label} …{mask}"
+    label = label[:100]
+
+    org_id = user.org_id if user.cashbook_access == "org" and user.org_id else None
+    account = PaymentAccount(
+        user_id=user.id,
+        org_id=org_id,
+        name=label,
+        account_type=AccountType.BANK,
+        currency=_connection_currency(conn, plaid_account_id),
+        opening_balance=0,
+        opening_balance_date=date.today(),
+        plaid_account_id=plaid_account_id,
+    )
+    db.add(account)
+    await db.flush()  # assign account.id; the caller's create_entry commits it
+    return account
+
+
+# ---------------------------------------------------------------------------
 # Transaction categorization
 # ---------------------------------------------------------------------------
 
@@ -400,9 +493,15 @@ async def categorize_transaction(
     if not txn:
         raise NotFoundError("Transaction not found")
 
+    # The bank account's native currency (a CIBC chequing account -> "CAD"), so
+    # posted amounts aren't mislabelled USD. Also used to name the Cashbook
+    # account in the "cashbook" branch below.
+    conn = await get_connection(db, txn.plaid_connection_id, user.id)
+    currency = _connection_currency(conn, txn.account_id)
+
     # Tax-integrity guard: refuse to post a second copy of something the user
     # already entered by hand, unless they explicitly confirm. See reconcile.py.
-    if data.as_type in ("expense", "income") and not data.confirm_duplicate:
+    if data.as_type in ("expense", "income", "cashbook") and not data.confirm_duplicate:
         from app.integrations.plaid.reconcile import (
             PossibleDuplicateError,
             find_duplicate_records,
@@ -422,7 +521,7 @@ async def categorize_transaction(
             vendor_name=txn.merchant_name or txn.name,
             description=txn.name,
             amount=txn.amount,
-            currency="USD",
+            currency=currency,
             date=txn.date,
             category_id=data.expense_category_id,
         )
@@ -436,7 +535,7 @@ async def categorize_transaction(
         income = Income(
             description=data.description or txn.name,
             amount=txn.amount,
-            currency="USD",
+            currency=currency,
             date=txn.date,
             payment_method="bank_transfer",
             created_by=user.id,
@@ -444,6 +543,41 @@ async def categorize_transaction(
         db.add(income)
         await db.flush()
         txn.matched_income_id = income.id
+
+    elif data.as_type == "cashbook":
+        # Primary destination: post the bank transaction to the Cashbook against
+        # an auto-provisioned account, mirroring the Email Scanner (which posts
+        # via the same create_entry). See get_or_create_bank_account.
+        from app.cashbook.models import EntryType as _CbEntryType
+        from app.cashbook.schemas import CashbookEntryCreate
+        from app.cashbook.service import create_entry, get_entry_by_source
+
+        # Idempotency: the same bank transaction must never post twice, even if
+        # the button is double-clicked or the row re-categorized.
+        existing = await get_entry_by_source(db, "plaid", txn.plaid_transaction_id)
+        if existing is not None:
+            txn.matched_cashbook_entry_id = existing.id
+        else:
+            requested = (data.entry_type or "").strip().lower()
+            if requested not in ("", "income", "expense"):
+                raise ValidationError("entry_type must be 'income' or 'expense'.")
+            entry_type = requested or ("income" if txn.is_income else "expense")
+            acct = await get_or_create_bank_account(db, user, conn, txn.account_id)
+            entry = await create_entry(
+                db,
+                CashbookEntryCreate(
+                    account_id=acct.id,
+                    entry_type=_CbEntryType(entry_type),
+                    date=txn.date,
+                    description=(txn.merchant_name or txn.name or "Bank transaction")[:500],
+                    total_amount=txn.amount,
+                    category_id=data.category_id,
+                    source="plaid",
+                    source_id=txn.plaid_transaction_id,
+                ),
+                user,
+            )
+            txn.matched_cashbook_entry_id = entry.id
 
     elif data.as_type == "ignore":
         pass

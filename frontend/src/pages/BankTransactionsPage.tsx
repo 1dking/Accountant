@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Landmark, RefreshCw, ArrowUpRight, ArrowDownRight, Check, Filter, Sparkles, ListChecks, AlertTriangle } from 'lucide-react'
+import { Landmark, RefreshCw, ArrowUpRight, ArrowDownRight, Check, Filter, Sparkles, ListChecks, AlertTriangle, BookOpen } from 'lucide-react'
 import {
   listPlaidConnections,
   listPlaidTransactions,
@@ -10,19 +10,23 @@ import {
   aiCategorizeTransactions,
   getPlaidPossibleDuplicates,
 } from '@/api/integrations'
+import { listCategories } from '@/api/cashbook'
 import { ApiClientError } from '@/api/client'
 import { formatDate } from '@/lib/utils'
-import type { PlaidTransaction } from '@/types/models'
+import type { PlaidTransaction, TransactionCategory } from '@/types/models'
 
-const formatCurrency = (amount: number) =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
+const formatCurrency = (amount: number, currency = 'CAD') =>
+  new Intl.NumberFormat('en-CA', { style: 'currency', currency }).format(amount)
+
+type CashbookEntryType = 'income' | 'expense'
 
 /** Shown when categorizing a Plaid txn returns 409 PLAID_POSSIBLE_DUPLICATE.
  *  Puts the bank transaction next to the matching manual entry so the user
  *  decides: same transaction (skip, post nothing) or a separate charge (add). */
-export function DuplicateDialog({ txn, asType, onSkip, onConfirm, confirming }: {
+export function DuplicateDialog({ txn, asType, currency = 'CAD', onSkip, onConfirm, confirming }: {
   txn: PlaidTransaction
-  asType: 'expense' | 'income'
+  asType: 'expense' | 'income' | 'cashbook'
+  currency?: string
   onSkip: () => void
   onConfirm: () => void
   confirming: boolean
@@ -32,6 +36,7 @@ export function DuplicateDialog({ txn, asType, onSkip, onConfirm, confirming }: 
     queryFn: () => getPlaidPossibleDuplicates(txn.id),
   })
   const candidates = data?.data?.possible_duplicates ?? []
+  const destinationLabel = asType === 'cashbook' ? 'cashbook entry' : asType
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onSkip}>
@@ -42,14 +47,14 @@ export function DuplicateDialog({ txn, asType, onSkip, onConfirm, confirming }: 
         </div>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
           This bank transaction looks like one you already recorded by hand. Adding it as
-          a new {asType} would count it twice.
+          a new {destinationLabel} would count it twice.
         </p>
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="border rounded-lg p-3">
             <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-1">From your bank</div>
             <div className="font-medium text-gray-900 dark:text-gray-100">{txn.merchant_name || txn.name}</div>
             <div className="text-sm text-gray-500 dark:text-gray-400">{formatDate(txn.date)}</div>
-            <div className="text-sm font-semibold mt-1">{formatCurrency(txn.amount)}</div>
+            <div className="text-sm font-semibold mt-1">{formatCurrency(txn.amount, currency)}</div>
           </div>
           <div className="border border-amber-200 dark:border-amber-800 rounded-lg p-3 bg-amber-50 dark:bg-amber-900/20">
             <div className="text-[11px] uppercase tracking-wide text-amber-600 dark:text-amber-400 mb-1">Already in your books</div>
@@ -61,7 +66,7 @@ export function DuplicateDialog({ txn, asType, onSkip, onConfirm, confirming }: 
               <div key={c.id} className="mb-2 last:mb-0">
                 <div className="font-medium text-gray-900 dark:text-gray-100">{c.description || '(no description)'}</div>
                 <div className="text-sm text-gray-500 dark:text-gray-400">{formatDate(c.date)} · {c.kind}</div>
-                <div className="text-sm font-semibold">{formatCurrency(Number(c.amount))}</div>
+                <div className="text-sm font-semibold">{formatCurrency(Number(c.amount), currency)}</div>
               </div>
             ))}
           </div>
@@ -87,6 +92,120 @@ export function DuplicateDialog({ txn, asType, onSkip, onConfirm, confirming }: 
   )
 }
 
+/** "Send to Cashbook" — the primary destination. Mirrors the Email Scanner's
+ *  import modal: account is shown read-only (auto-created from the bank), the
+ *  user confirms the direction and optionally a category, then it posts via the
+ *  same create_entry the rest of the Cashbook uses. */
+function CashbookDestinationModal({ txn, accountLabel, currency, categories, submitting, onClose, onConfirm }: {
+  txn: PlaidTransaction
+  accountLabel: string
+  currency: string
+  categories: TransactionCategory[]
+  submitting: boolean
+  onClose: () => void
+  onConfirm: (payload: { categoryId?: string; entryType: CashbookEntryType }) => void
+}) {
+  const [entryType, setEntryType] = useState<CashbookEntryType>(txn.is_income ? 'income' : 'expense')
+  const [categoryId, setCategoryId] = useState<string>('')
+
+  const visibleCategories = categories.filter(
+    (c) => c.category_type === entryType || c.category_type === 'both',
+  )
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-2">
+          <BookOpen className="w-5 h-5 text-blue-600" />
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Send to Cashbook</h3>
+        </div>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          Posts this bank transaction to your Cashbook. The account is created and
+          attached automatically — no manual setup.
+        </p>
+
+        <div className="mt-4 rounded-lg border border-gray-200 dark:border-gray-700 p-3 space-y-1">
+          <div className="flex justify-between gap-3 text-sm">
+            <span className="text-gray-500 dark:text-gray-400 shrink-0">Account</span>
+            <span className="font-medium text-gray-900 dark:text-gray-100 text-right truncate">{accountLabel}</span>
+          </div>
+          <div className="flex justify-between gap-3 text-sm">
+            <span className="text-gray-500 dark:text-gray-400 shrink-0">Date</span>
+            <span className="text-gray-900 dark:text-gray-100">{formatDate(txn.date)}</span>
+          </div>
+          <div className="flex justify-between gap-3 text-sm">
+            <span className="text-gray-500 dark:text-gray-400 shrink-0">Description</span>
+            <span className="text-gray-900 dark:text-gray-100 text-right truncate">{txn.merchant_name || txn.name}</span>
+          </div>
+          <div className="flex justify-between gap-3 text-sm">
+            <span className="text-gray-500 dark:text-gray-400 shrink-0">Amount</span>
+            <span className="font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(txn.amount, currency)}</span>
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <label className="text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">Type</label>
+          <div className="mt-1 flex gap-2">
+            <button
+              type="button"
+              onClick={() => { setEntryType('expense'); setCategoryId('') }}
+              className={`flex-1 px-3 py-2 text-sm rounded-lg border ${entryType === 'expense' ? 'border-red-300 bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'}`}
+            >
+              Expense
+            </button>
+            <button
+              type="button"
+              onClick={() => { setEntryType('income'); setCategoryId('') }}
+              className={`flex-1 px-3 py-2 text-sm rounded-lg border ${entryType === 'income' ? 'border-green-300 bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'}`}
+            >
+              Income
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <label className="text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">Category (optional)</label>
+          <select
+            value={categoryId}
+            onChange={(e) => setCategoryId(e.target.value)}
+            className="mt-1 w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Uncategorized</option>
+            {visibleCategories.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="mt-6 flex items-center justify-end gap-2">
+          <button
+            onClick={onClose}
+            disabled={submitting}
+            className="px-4 py-2 text-sm border rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => onConfirm({ categoryId: categoryId || undefined, entryType })}
+            disabled={submitting}
+            className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          >
+            {submitting ? 'Posting…' : 'Post to Cashbook'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+type CategorizeVars = {
+  txn: PlaidTransaction
+  asType: 'expense' | 'income' | 'cashbook' | 'ignore'
+  categoryId?: string
+  entryType?: CashbookEntryType
+  confirm?: boolean
+}
+
 export default function BankTransactionsPage() {
   const queryClient = useQueryClient()
   const [connectionId, setConnectionId] = useState<string>('')
@@ -98,6 +217,12 @@ export default function BankTransactionsPage() {
     queryKey: ['plaid-connections'],
     queryFn: listPlaidConnections,
   })
+
+  const { data: categoriesData } = useQuery({
+    queryKey: ['cashbook-categories'],
+    queryFn: () => listCategories(),
+  })
+  const categories: TransactionCategory[] = categoriesData?.data ?? []
 
   const { data: txnData, isLoading } = useQuery({
     queryKey: ['plaid-transactions', connectionId, filterCategorized, filterType, page],
@@ -118,25 +243,38 @@ export default function BankTransactionsPage() {
     },
   })
 
-  const [dupDialog, setDupDialog] = useState<{ txn: PlaidTransaction; asType: 'expense' | 'income' } | null>(null)
+  const [dupDialog, setDupDialog] = useState<{ txn: PlaidTransaction; asType: 'expense' | 'income' | 'cashbook'; categoryId?: string; entryType?: CashbookEntryType } | null>(null)
+  const [cashbookModal, setCashbookModal] = useState<PlaidTransaction | null>(null)
 
   const categorizeMutation = useMutation({
-    mutationFn: ({ txn, asType, confirm }: { txn: PlaidTransaction; asType: 'expense' | 'income' | 'ignore'; confirm?: boolean }) =>
-      categorizePlaidTransaction(txn.id, { as_type: asType, confirm_duplicate: confirm }),
+    mutationFn: ({ txn, asType, categoryId, entryType, confirm }: CategorizeVars) =>
+      categorizePlaidTransaction(txn.id, {
+        as_type: asType,
+        category_id: categoryId,
+        entry_type: entryType,
+        confirm_duplicate: confirm,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['plaid-transactions'] })
+      // A cashbook post creates/updates an account + entry — refresh the
+      // Cashbook views so the new CIBC tab and row appear immediately.
+      queryClient.invalidateQueries({ queryKey: ['cashbook-accounts'] })
+      queryClient.invalidateQueries({ queryKey: ['cashbook-entries'] })
+      queryClient.invalidateQueries({ queryKey: ['cashbook-summary'] })
       setDupDialog(null)
+      setCashbookModal(null)
     },
     onError: (err, variables) => {
       // Server flagged a likely duplicate — open the confirm dialog instead of
-      // failing. (Only expense/income can collide; ignore never posts.)
+      // failing. (ignore never posts, so it can't collide.)
       if (
         err instanceof ApiClientError &&
         err.status === 409 &&
         err.error?.code === 'PLAID_POSSIBLE_DUPLICATE' &&
-        (variables.asType === 'expense' || variables.asType === 'income')
+        (variables.asType === 'expense' || variables.asType === 'income' || variables.asType === 'cashbook')
       ) {
-        setDupDialog({ txn: variables.txn, asType: variables.asType })
+        setDupDialog({ txn: variables.txn, asType: variables.asType, categoryId: variables.categoryId, entryType: variables.entryType })
+        setCashbookModal(null)
       }
     },
   })
@@ -156,13 +294,32 @@ export default function BankTransactionsPage() {
   const meta = txnData?.meta ?? { total: 0, page: 1, page_size: 50 }
   const totalPages = Math.ceil(meta.total / meta.page_size)
 
+  // Client-side join: Plaid account_id -> a friendly "CIBC Chequing …1234"
+  // label + its native currency, flattened from every connection's accounts.
+  const accountMetaMap = useMemo(() => {
+    const m = new Map<string, { label: string; currency: string }>()
+    for (const conn of connections) {
+      for (const a of (conn.accounts ?? []) as Array<{ account_id: string; name: string; mask: string | null; iso_currency_code?: string | null }>) {
+        const mask = a.mask ? ` …${a.mask}` : ''
+        m.set(a.account_id, {
+          label: `${conn.institution_name} ${a.name}${mask}`.trim(),
+          currency: (a.iso_currency_code || 'CAD').toUpperCase(),
+        })
+      }
+    }
+    return m
+  }, [connections])
+
+  const accountLabelFor = (txn: PlaidTransaction) => accountMetaMap.get(txn.account_id)?.label ?? '—'
+  const currencyFor = (txn: PlaidTransaction) => accountMetaMap.get(txn.account_id)?.currency ?? 'CAD'
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Bank Transactions</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Bank Scanner</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">
-            View and categorize transactions from connected bank accounts
+            Review synced bank transactions and send each one to your Cashbook
           </p>
         </div>
         {connections.length > 0 && (
@@ -239,12 +396,13 @@ export default function BankTransactionsPage() {
         <p className="text-gray-400 dark:text-gray-500 py-8 text-center text-sm">Loading transactions...</p>
       ) : transactions.length > 0 ? (
         <>
-          <div className="bg-white dark:bg-gray-900 border rounded-lg overflow-hidden">
+          <div className="bg-white dark:bg-gray-900 border rounded-lg overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-gray-50 dark:bg-gray-950">
                   <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Date</th>
                   <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Description</th>
+                  <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Account</th>
                   <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Category</th>
                   <th className="text-right px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Amount</th>
                   <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Status</th>
@@ -261,11 +419,12 @@ export default function BankTransactionsPage() {
                         <div className="text-xs text-gray-400 dark:text-gray-500">{txn.name}</div>
                       )}
                     </td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">{accountLabelFor(txn)}</td>
                     <td className="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs">{txn.category || '—'}</td>
                     <td className="px-4 py-3 text-right">
                       <span className={`flex items-center justify-end gap-1 font-medium ${txn.is_income ? 'text-green-600' : 'text-gray-900 dark:text-gray-100'}`}>
                         {txn.is_income ? <ArrowDownRight className="w-3.5 h-3.5" /> : <ArrowUpRight className="w-3.5 h-3.5" />}
-                        {formatCurrency(txn.amount)}
+                        {formatCurrency(txn.amount, currencyFor(txn))}
                       </span>
                       {txn.pending && <span className="text-xs text-amber-500">Pending</span>}
                     </td>
@@ -273,7 +432,7 @@ export default function BankTransactionsPage() {
                       {txn.is_categorized ? (
                         <span className="flex items-center gap-1 text-xs text-green-600">
                           <Check className="w-3.5 h-3.5" />
-                          {txn.matched_expense_id ? 'Expense' : txn.matched_income_id ? 'Income' : 'Ignored'}
+                          {txn.matched_cashbook_entry_id ? 'Cashbook' : txn.matched_expense_id ? 'Expense' : txn.matched_income_id ? 'Income' : 'Ignored'}
                         </span>
                       ) : (
                         <span className="text-xs text-gray-400 dark:text-gray-500">Uncategorized</span>
@@ -282,6 +441,14 @@ export default function BankTransactionsPage() {
                     <td className="px-4 py-3 text-right">
                       {!txn.is_categorized && (
                         <div className="flex items-center gap-1 justify-end">
+                          <button
+                            onClick={() => setCashbookModal(txn)}
+                            disabled={categorizeMutation.isPending}
+                            className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                          >
+                            <BookOpen className="w-3.5 h-3.5" />
+                            Cashbook
+                          </button>
                           <button
                             onClick={() => categorizeMutation.mutate({ txn, asType: 'expense' })}
                             disabled={categorizeMutation.isPending}
@@ -353,13 +520,28 @@ export default function BankTransactionsPage() {
         </div>
       )}
 
+      {cashbookModal && (
+        <CashbookDestinationModal
+          txn={cashbookModal}
+          accountLabel={accountLabelFor(cashbookModal)}
+          currency={currencyFor(cashbookModal)}
+          categories={categories}
+          submitting={categorizeMutation.isPending}
+          onClose={() => setCashbookModal(null)}
+          onConfirm={({ categoryId, entryType }) =>
+            categorizeMutation.mutate({ txn: cashbookModal, asType: 'cashbook', categoryId, entryType })
+          }
+        />
+      )}
+
       {dupDialog && (
         <DuplicateDialog
           txn={dupDialog.txn}
           asType={dupDialog.asType}
+          currency={currencyFor(dupDialog.txn)}
           confirming={categorizeMutation.isPending}
           onSkip={() => setDupDialog(null)}
-          onConfirm={() => categorizeMutation.mutate({ txn: dupDialog.txn, asType: dupDialog.asType, confirm: true })}
+          onConfirm={() => categorizeMutation.mutate({ txn: dupDialog.txn, asType: dupDialog.asType, categoryId: dupDialog.categoryId, entryType: dupDialog.entryType, confirm: true })}
         />
       )}
     </div>

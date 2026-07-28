@@ -98,4 +98,10 @@ class PlaidTransaction(TimestampMixin, Base):
     matched_invoice_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("invoices.id", ondelete="SET NULL"), nullable=True
     )
+    # Bank Scanner: set when this transaction is posted to the Cashbook (the
+    # primary destination), mirroring matched_expense_id/matched_income_id so
+    # the UI can show "Posted to Cashbook".
+    matched_cashbook_entry_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("cashbook_entries.id", ondelete="SET NULL"), nullable=True
+    )
     is_categorized: Mapped[bool] = mapped_column(Boolean, default=False)

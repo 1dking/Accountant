@@ -25,6 +25,19 @@ _ADDITIVE_COLUMNS: dict[str, dict[str, str]] = {
         "mfa_enrolled_at": "DATETIME",
         "anonymized_at": "DATETIME",
     },
+    # Bank Scanner: link a payment account to its Plaid account, and a synced
+    # bank transaction to the Cashbook entry it was posted to. Both nullable and
+    # additive — existing rows are simply NULL. (UUID FKs are stored CHAR(32) in
+    # this SQLite build, matching the columns above; the index on
+    # plaid_account_id comes from create_all on a fresh DB / the alembic
+    # migration on Postgres — it isn't recreated here, which is fine at this
+    # data scale.)
+    "payment_accounts": {
+        "plaid_account_id": "VARCHAR(255)",
+    },
+    "plaid_transactions": {
+        "matched_cashbook_entry_id": "CHAR(32)",
+    },
     # Least-privilege telephony capability grants. Every one defaults to 0 —
     # an existing subaccount is DENIED until an operator grants a capability.
     "telephony_accounts": {

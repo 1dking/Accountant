@@ -123,4 +123,36 @@ async def find_duplicate_records(
             for i in rows
         ]
 
+    if kind == "cashbook":
+        from sqlalchemy import or_ as _or
+
+        from app.cashbook.models import CashbookEntry
+
+        rows = (
+            await db.execute(
+                select(CashbookEntry).where(
+                    CashbookEntry.user_id == user.id,
+                    CashbookEntry.total_amount == amount,
+                    CashbookEntry.date >= lo,
+                    CashbookEntry.date <= hi,
+                    CashbookEntry.is_deleted.is_(False),
+                    # Exclude our own Plaid-sourced posts: a second bank txn with
+                    # the same amount/date is a real separate charge, not a
+                    # hand-entered double. Re-posting the SAME txn is stopped by
+                    # the idempotency guard (get_entry_by_source), not here.
+                    _or(CashbookEntry.source != "plaid", CashbookEntry.source.is_(None)),
+                )
+            )
+        ).scalars().all()
+        return [
+            {
+                "kind": "cashbook",
+                "id": str(e.id),
+                "amount": str(e.total_amount),
+                "date": e.date.isoformat(),
+                "description": e.description,
+            }
+            for e in rows
+        ]
+
     return []
