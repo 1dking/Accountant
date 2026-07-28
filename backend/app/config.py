@@ -39,7 +39,7 @@ class Settings(BaseSettings):
 
     # AI
     anthropic_api_key: str = ""
-    anthropic_model: str = "claude-sonnet-4-20250514"
+    anthropic_model: str = "claude-sonnet-4-5-20250929"
     #: Cheaper model for STRUCTURED EXTRACTION (receipts, bank categorisation,
     #: identity capture). These return a fixed JSON shape from a short prompt
     #: and do not need a frontier model; routing them here is ~3x cheaper.

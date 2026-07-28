@@ -90,7 +90,7 @@ async def analyze_meeting_transcript(
     try:
         client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
         response = client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model=settings.anthropic_model,
             max_tokens=4096,
             messages=[{"role": "user", "content": MEETING_ANALYSIS_PROMPT + text}],
         )
@@ -460,7 +460,7 @@ Meeting summaries from this month:
     try:
         client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
         response = client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model=settings.anthropic_model,
             max_tokens=4096,
             messages=[{"role": "user", "content": prompt}],
         )

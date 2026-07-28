@@ -1436,7 +1436,7 @@ async def _chat_with_claude(api_key: str, system_prompt: str, chat_history: list
                 "content-type": "application/json",
             },
             json={
-                "model": "claude-sonnet-4-20250514",
+                "model": "claude-sonnet-4-5-20250929",
                 "max_tokens": 16384,
                 "system": system_prompt,
                 "messages": messages,
@@ -1587,7 +1587,7 @@ async def _generate_with_claude(
                 "content-type": "application/json",
             },
             json={
-                "model": "claude-sonnet-4-20250514",
+                "model": "claude-sonnet-4-5-20250929",
                 "max_tokens": 8192,
                 "messages": [{"role": "user", "content": f"{system_prompt}\n\n{prompt}"}],
             },
@@ -1680,7 +1680,7 @@ async def _refine_with_claude(
                 "content-type": "application/json",
             },
             json={
-                "model": "claude-sonnet-4-20250514",
+                "model": "claude-sonnet-4-5-20250929",
                 "max_tokens": 8192,
                 "messages": [{"role": "user", "content": f"{system_prompt}\n\n{content}"}],
             },
