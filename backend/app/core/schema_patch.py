@@ -38,6 +38,12 @@ _ADDITIVE_COLUMNS: dict[str, dict[str, str]] = {
     "plaid_transactions": {
         "matched_cashbook_entry_id": "CHAR(32)",
     },
+    # Org-wide bank visibility: a Plaid connection can belong to an org so peers
+    # with org cashbook access see it. Nullable/additive; backfilled per the
+    # shared-workspace setup. (Managing the connection stays owner-only in code.)
+    "plaid_connections": {
+        "org_id": "CHAR(32)",
+    },
     # Least-privilege telephony capability grants. Every one defaults to 0 —
     # an existing subaccount is DENIED until an operator grants a capability.
     "telephony_accounts": {

@@ -24,6 +24,14 @@ class PlaidConnection(TimestampMixin, Base):
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
+    # Owning organization, set when the connector has org cashbook access. This
+    # is what lets org peers SEE each other's bank feed — the read filters reuse
+    # apply_cashbook_filter on (user_id, org_id), exactly like PaymentAccount.
+    # NULL = personal (visible only to the owner). Managing a connection
+    # (disconnect / force-sync / token decrypt) stays owner-only regardless.
+    org_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     institution_name: Mapped[str] = mapped_column(EncryptedString)  # bank name — encrypted
     institution_id: Mapped[str] = mapped_column(String(100))  # opaque Plaid id — plaintext
     encrypted_access_token: Mapped[str] = mapped_column(Text)  # already Fernet-encrypted

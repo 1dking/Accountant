@@ -133,6 +133,9 @@ async def exchange_public_token(
 
     connection = PlaidConnection(
         user_id=user.id,
+        # Tag the connection with the org when the connector shares the org
+        # cashbook, so org peers can see its feed (mirrors get_or_create_bank_account).
+        org_id=user.org_id if user.cashbook_access == "org" and user.org_id else None,
         institution_name=data.institution_name,
         institution_id=data.institution_id,
         encrypted_access_token=encrypted_token,
@@ -237,19 +240,34 @@ def _plaid_account_currency(account) -> str | None:
 
 
 async def list_connections(
-    db: AsyncSession, user_id: uuid.UUID
+    db: AsyncSession, user: User
 ) -> list[PlaidConnection]:
-    result = await db.execute(
-        select(PlaidConnection)
-        .where(PlaidConnection.user_id == user_id)
-        .order_by(PlaidConnection.created_at.desc())
-    )
-    return list(result.scalars().all())
+    """Connections visible to this user — their own, plus org peers' when they
+    share an org cashbook (apply_cashbook_filter on user_id/org_id)."""
+    stmt = select(PlaidConnection).order_by(PlaidConnection.created_at.desc())
+    stmt = apply_cashbook_filter(stmt, PlaidConnection.user_id, PlaidConnection.org_id, user)
+    return list((await db.execute(stmt)).scalars().all())
+
+
+async def owner_names_for(
+    db: AsyncSession, connections: list[PlaidConnection]
+) -> dict[uuid.UUID, str]:
+    """{user_id: display name} for a set of connections, in one query — so the
+    Bank Scanner can label whose bank each row is."""
+    ids = {c.user_id for c in connections}
+    if not ids:
+        return {}
+    rows = (await db.execute(
+        select(User.id, User.full_name, User.email).where(User.id.in_(ids))
+    )).all()
+    return {r[0]: (r[1] or r[2] or "") for r in rows}
 
 
 async def get_connection(
     db: AsyncSession, connection_id: uuid.UUID, user_id: uuid.UUID
 ) -> PlaidConnection:
+    """OWNER-ONLY fetch. Used for managing a connection (delete / force-sync,
+    which decrypts the access token) — org peers must NOT be able to do those."""
     result = await db.execute(
         select(PlaidConnection).where(
             PlaidConnection.id == connection_id,
@@ -258,7 +276,21 @@ async def get_connection(
     )
     conn = result.scalar_one_or_none()
     if not conn:
-        raise NotFoundError("Plaid connection not found")
+        raise NotFoundError("Plaid connection", str(connection_id))
+    return conn
+
+
+async def get_connection_for_read(
+    db: AsyncSession, connection_id: uuid.UUID, user: User
+) -> PlaidConnection:
+    """Org-aware fetch for READ / categorize (reads institution name, accounts,
+    currency). Allows org peers; does NOT permit disconnect/sync (see
+    get_connection). Never decrypt the access token through this path."""
+    stmt = select(PlaidConnection).where(PlaidConnection.id == connection_id)
+    stmt = apply_cashbook_filter(stmt, PlaidConnection.user_id, PlaidConnection.org_id, user)
+    conn = (await db.execute(stmt)).scalar_one_or_none()
+    if not conn:
+        raise NotFoundError("Plaid connection", str(connection_id))
     return conn
 
 
@@ -357,22 +389,25 @@ async def sync_transactions(
 
 async def list_transactions(
     db: AsyncSession,
-    user_id: uuid.UUID,
+    user: User,
     filters: PlaidTransactionFilters,
 ) -> tuple[list[PlaidTransaction], int]:
-    """List Plaid transactions with filters. Returns (transactions, total_count)."""
+    """List Plaid transactions with filters. Returns (transactions, total_count).
+
+    Org-scoped: an org member sees every org connection's transactions (their own
+    and peers'), via apply_cashbook_filter on the joined PlaidConnection."""
     from sqlalchemy import func
 
     base = (
         select(PlaidTransaction)
         .join(PlaidConnection, PlaidTransaction.plaid_connection_id == PlaidConnection.id)
-        .where(PlaidConnection.user_id == user_id)
     )
+    base = apply_cashbook_filter(base, PlaidConnection.user_id, PlaidConnection.org_id, user)
     count_base = (
         select(func.count(PlaidTransaction.id))
         .join(PlaidConnection, PlaidTransaction.plaid_connection_id == PlaidConnection.id)
-        .where(PlaidConnection.user_id == user_id)
     )
+    count_base = apply_cashbook_filter(count_base, PlaidConnection.user_id, PlaidConnection.org_id, user)
 
     if filters.connection_id:
         base = base.where(PlaidTransaction.plaid_connection_id == filters.connection_id)
@@ -481,22 +516,28 @@ async def categorize_transaction(
     user: User,
     settings: Settings,
 ) -> PlaidTransaction:
-    """Categorize a Plaid transaction as expense, income, or ignore."""
-    # Find the transaction ensuring it belongs to this user
+    """Categorize a Plaid transaction as expense, income, or ignore.
+
+    Org-scoped: an org peer may categorize a transaction from a shared
+    connection (posting it into the shared books). It never disconnects or
+    re-syncs the connection, so this uses the read-only org-aware fetch."""
+    # Find the transaction — visible if it's the user's own or a shared org one.
     stmt = (
         select(PlaidTransaction)
         .join(PlaidConnection, PlaidTransaction.plaid_connection_id == PlaidConnection.id)
-        .where(PlaidTransaction.id == txn_id, PlaidConnection.user_id == user.id)
+        .where(PlaidTransaction.id == txn_id)
     )
+    stmt = apply_cashbook_filter(stmt, PlaidConnection.user_id, PlaidConnection.org_id, user)
     result = await db.execute(stmt)
     txn = result.scalar_one_or_none()
     if not txn:
-        raise NotFoundError("Transaction not found")
+        raise NotFoundError("Transaction", str(txn_id))
 
     # The bank account's native currency (a CIBC chequing account -> "CAD"), so
     # posted amounts aren't mislabelled USD. Also used to name the Cashbook
-    # account in the "cashbook" branch below.
-    conn = await get_connection(db, txn.plaid_connection_id, user.id)
+    # account in the "cashbook" branch below. Read-only org-aware fetch (no
+    # token decrypt, no management).
+    conn = await get_connection_for_read(db, txn.plaid_connection_id, user)
     currency = _connection_currency(conn, txn.account_id)
 
     # Tax-integrity guard: refuse to post a second copy of something the user

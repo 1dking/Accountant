@@ -742,6 +742,7 @@ export interface PlaidConnection {
   is_active: boolean
   last_sync_at: string | null
   accounts: { account_id: string; name: string; type: string; subtype: string; mask: string | null }[] | null
+  owner_name: string | null
   created_at: string
 }
 

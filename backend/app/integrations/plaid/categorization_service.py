@@ -252,18 +252,21 @@ async def apply_rules_to_all(
     if not rules:
         return 0
 
-    # Fetch uncategorized transactions for this user
-    txn_result = await db.execute(
+    # Fetch uncategorized transactions visible to this user (own + shared org).
+    from app.core.authorization import apply_cashbook_filter
+
+    txn_stmt = (
         select(PlaidTransaction)
         .join(
             PlaidConnection,
             PlaidTransaction.plaid_connection_id == PlaidConnection.id,
         )
-        .where(
-            PlaidConnection.user_id == user.id,
-            PlaidTransaction.is_categorized.is_(False),
-        )
+        .where(PlaidTransaction.is_categorized.is_(False))
     )
+    txn_stmt = apply_cashbook_filter(
+        txn_stmt, PlaidConnection.user_id, PlaidConnection.org_id, user
+    )
+    txn_result = await db.execute(txn_stmt)
     transactions = list(txn_result.scalars().all())
 
     categorized_count = 0

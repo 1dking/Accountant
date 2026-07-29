@@ -297,13 +297,14 @@ export default function BankTransactionsPage() {
   // Client-side join: Plaid account_id -> a friendly "CIBC Chequing …1234"
   // label + its native currency, flattened from every connection's accounts.
   const accountMetaMap = useMemo(() => {
-    const m = new Map<string, { label: string; currency: string }>()
+    const m = new Map<string, { label: string; currency: string; owner: string }>()
     for (const conn of connections) {
       for (const a of (conn.accounts ?? []) as Array<{ account_id: string; name: string; mask: string | null; iso_currency_code?: string | null }>) {
         const mask = a.mask ? ` …${a.mask}` : ''
         m.set(a.account_id, {
           label: `${conn.institution_name} ${a.name}${mask}`.trim(),
           currency: (a.iso_currency_code || 'CAD').toUpperCase(),
+          owner: conn.owner_name || '',
         })
       }
     }
@@ -312,6 +313,14 @@ export default function BankTransactionsPage() {
 
   const accountLabelFor = (txn: PlaidTransaction) => accountMetaMap.get(txn.account_id)?.label ?? '—'
   const currencyFor = (txn: PlaidTransaction) => accountMetaMap.get(txn.account_id)?.currency ?? 'CAD'
+  const accountOwnerFor = (txn: PlaidTransaction) => accountMetaMap.get(txn.account_id)?.owner ?? ''
+
+  // More than one distinct bank owner => this feed is shared across the org.
+  const distinctOwners = useMemo(
+    () => new Set(connections.map((c) => c.owner_name).filter(Boolean)),
+    [connections],
+  )
+  const isSharedWorkspace = distinctOwners.size > 1
 
   return (
     <div className="p-6 space-y-6">
@@ -354,6 +363,13 @@ export default function BankTransactionsPage() {
           </div>
         )}
       </div>
+
+      {isSharedWorkspace && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-900/20 px-4 py-2 text-sm text-blue-700 dark:text-blue-300">
+          <Landmark className="w-4 h-4 shrink-0" />
+          <span>Bank data is shared with your organization — you're seeing everyone's connected accounts. Only the owner of a bank can disconnect it.</span>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="bg-white dark:bg-gray-900 border rounded-lg p-4 flex flex-wrap gap-3 items-center">
@@ -419,7 +435,12 @@ export default function BankTransactionsPage() {
                         <div className="text-xs text-gray-400 dark:text-gray-500">{txn.name}</div>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">{accountLabelFor(txn)}</td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">
+                      {accountLabelFor(txn)}
+                      {isSharedWorkspace && accountOwnerFor(txn) && (
+                        <div className="text-[11px] text-gray-400 dark:text-gray-500">{accountOwnerFor(txn)}</div>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs">{txn.category || '—'}</td>
                     <td className="px-4 py-3 text-right">
                       <span className={`flex items-center justify-end gap-1 font-medium ${txn.is_income ? 'text-green-600' : 'text-gray-900 dark:text-gray-100'}`}>

@@ -10,6 +10,7 @@ from app.auth.mfa_common import has_mfa
 from app.auth.models import Role, User
 from app.config import Settings
 from app.core import legal
+from app.core.authorization import apply_cashbook_filter
 from app.dependencies import get_current_user, get_db, require_role
 
 from . import service
@@ -44,6 +45,18 @@ def _passes_link_allowlist(user: User, settings: Settings) -> bool:
     those emails — which is what keeps self-serve tenant admins out."""
     allow = _link_allowlist(settings)
     return (not allow) or (user.email or "").lower() in allow
+
+
+def _is_plaid_config_manager(user: User, settings: Settings) -> bool:
+    """Who may SEE and EDIT the platform Plaid keys — a single designated
+    manager (``plaid_config_manager_email``). Distinct from the Link allow-list,
+    which governs who can CONNECT a bank (kept open to all operators). If the
+    manager email is unset, fall back to the allow-list so nothing breaks before
+    it's configured."""
+    mgr = (getattr(settings, "plaid_config_manager_email", "") or "").strip().lower()
+    if not mgr:
+        return _passes_link_allowlist(user, settings)
+    return (user.email or "").lower() == mgr
 
 
 def _client_ip(request: Request) -> str | None:
@@ -206,8 +219,9 @@ async def list_connections(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_financial_data_access),
 ):
-    connections = await service.list_connections(db, user.id)
-    return {"data": [_connection_response(c) for c in connections]}
+    connections = await service.list_connections(db, user)
+    owner_names = await service.owner_names_for(db, connections)
+    return {"data": [_connection_response(c, owner_names.get(c.user_id)) for c in connections]}
 
 
 @router.delete("/connections/{connection_id}", response_model=dict)
@@ -283,7 +297,7 @@ async def list_transactions(
         page=page,
         page_size=page_size,
     )
-    transactions, total = await service.list_transactions(db, user.id, filters)
+    transactions, total = await service.list_transactions(db, user, filters)
     return {
         "data": [PlaidTransactionResponse.model_validate(t) for t in transactions],
         "meta": {"total": total, "page": page, "page_size": page_size},
@@ -315,13 +329,13 @@ async def transaction_possible_duplicates(
     from app.integrations.plaid.models import PlaidConnection, PlaidTransaction
     from app.integrations.plaid.reconcile import find_duplicate_records
 
-    txn = (
-        await db.execute(
-            select(PlaidTransaction)
-            .join(PlaidConnection, PlaidTransaction.plaid_connection_id == PlaidConnection.id)
-            .where(PlaidTransaction.id == txn_id, PlaidConnection.user_id == user.id)
-        )
-    ).scalar_one_or_none()
+    stmt = (
+        select(PlaidTransaction)
+        .join(PlaidConnection, PlaidTransaction.plaid_connection_id == PlaidConnection.id)
+        .where(PlaidTransaction.id == txn_id)
+    )
+    stmt = apply_cashbook_filter(stmt, PlaidConnection.user_id, PlaidConnection.org_id, user)
+    txn = (await db.execute(stmt)).scalar_one_or_none()
     if not txn:
         from app.core.exceptions import NotFoundError
 
@@ -340,10 +354,11 @@ async def transaction_possible_duplicates(
 # ---------------------------------------------------------------------------
 
 
-def _connection_response(conn: object) -> PlaidConnectionResponse:
+def _connection_response(conn: object, owner_name: str | None = None) -> PlaidConnectionResponse:
     import json as json_mod
 
     resp = PlaidConnectionResponse.model_validate(conn)
+    resp.owner_name = owner_name  # whose bank this is (for org-shared views)
     # Parse accounts_json if present
     raw = getattr(conn, "accounts_json", None)
     if raw:

@@ -172,6 +172,9 @@ export default function PlaidSettings() {
 
   const connections = data?.data ?? []
   const isConfigured = settingsData?.meta?.is_configured ?? false
+  // Only the designated key-manager operator may see/edit the platform Plaid
+  // keys. Other operators still get the "Connect a bank" flow below.
+  const canManageConfig = settingsData?.meta?.can_manage_config ?? false
 
   return (
     <div className="space-y-4">
@@ -188,7 +191,8 @@ export default function PlaidSettings() {
         <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">{msg}</div>
       )}
 
-      {/* Plaid Config Form */}
+      {/* Plaid Config Form — only the designated key manager sees the keys */}
+      {canManageConfig && (
       <form
         onSubmit={(e) => { e.preventDefault(); saveMutation.mutate() }}
         className="bg-white dark:bg-gray-900 border rounded-lg p-5 space-y-4"
@@ -250,6 +254,7 @@ export default function PlaidSettings() {
           {saveMutation.isPending ? 'Saving...' : 'Save Configuration'}
         </button>
       </form>
+      )}
 
       {/* Connect a bank — only when the server authorises THIS user (operator
           allow-list + MFA + flag). Hidden for everyone else. */}

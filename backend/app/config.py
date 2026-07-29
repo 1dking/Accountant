@@ -94,6 +94,11 @@ class Settings(BaseSettings):
     #: (empty) — an empty allow-list means "any accountant/admin with MFA", and
     #: `plaid_link_enabled` stays the master on/off switch. No code change needed.
     plaid_link_allowed_emails: str = ""
+    #: The single operator who may SEE and EDIT the platform Plaid keys config
+    #: (the shared OCIDM credentials). Other allow-listed operators can still
+    #: connect a bank, but never see the keys form. Empty = fall back to the Link
+    #: allow-list (pre-designation behavior, so nothing breaks before it's set).
+    plaid_config_manager_email: str = ""
     #: Retention window (days) for RAW Plaid transaction rows, enforced nightly by
     #: the scheduler (app/core/scheduler.py -> privacy.service.enforce_plaid_retention).
     #:

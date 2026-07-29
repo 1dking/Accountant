@@ -64,6 +64,9 @@ class PlaidConnectionResponse(BaseModel):
     is_active: bool
     last_sync_at: Optional[datetime] = None
     accounts: list[dict] | None = None
+    #: Display name of the operator who owns this connection — populated for
+    #: org-shared views so the UI can label whose bank a row is.
+    owner_name: str | None = None
     created_at: datetime
 
 

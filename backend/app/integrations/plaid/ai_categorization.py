@@ -56,18 +56,29 @@ async def ai_categorize_transactions(
     if not categories:
         raise ValidationError("No expense categories exist. Create categories first.")
 
-    # Fetch uncategorized transactions
-    txn_result = await db.execute(
+    # Fetch uncategorized expense transactions visible to this user (own + shared
+    # org). Org-scope via the same cashbook filter as the manual paths.
+    from app.auth.models import User as _User
+    from app.core.authorization import apply_cashbook_filter
+
+    txn_stmt = (
         select(PlaidTransaction)
         .join(PlaidConnection, PlaidTransaction.plaid_connection_id == PlaidConnection.id)
         .where(
-            PlaidConnection.user_id == user_id,
             PlaidTransaction.is_categorized.is_(False),
             PlaidTransaction.is_income.is_(False),
         )
         .order_by(PlaidTransaction.date.desc())
         .limit(limit)
     )
+    _user = await db.get(_User, user_id)
+    if _user is not None:
+        txn_stmt = apply_cashbook_filter(
+            txn_stmt, PlaidConnection.user_id, PlaidConnection.org_id, _user
+        )
+    else:
+        txn_stmt = txn_stmt.where(PlaidConnection.user_id == user_id)
+    txn_result = await db.execute(txn_stmt)
     transactions = list(txn_result.scalars().all())
 
     if not transactions:

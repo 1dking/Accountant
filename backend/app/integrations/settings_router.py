@@ -121,11 +121,26 @@ class IntegrationSettingsUpdate(BaseModel):
 @router.get("/settings/{integration_type}")
 async def get_integration_settings(
     integration_type: str,
-    _: Annotated[User, Depends(require_role([Role.ADMIN]))],
+    request: Request,
+    current_user: Annotated[User, Depends(require_role([Role.ADMIN]))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     if integration_type not in INTEGRATION_FIELDS:
         raise ValidationError(f"Unknown integration type: {integration_type}")
+
+    # Plaid keys are managed by a single designated operator. Other operators can
+    # still connect a bank, but must not see the platform keys form.
+    plaid_manage = True
+    if integration_type == "plaid":
+        from app.integrations.plaid.router import _is_plaid_config_manager
+
+        plaid_manage = _is_plaid_config_manager(current_user, request.app.state.settings)
+
+    def _meta(is_configured: bool) -> dict:
+        m = {"is_configured": is_configured}
+        if integration_type == "plaid":
+            m["can_manage_config"] = plaid_manage
+        return m
 
     result = await db.execute(
         select(IntegrationConfig).where(
@@ -136,7 +151,7 @@ async def get_integration_settings(
 
     fields = INTEGRATION_FIELDS[integration_type]
     if config is None:
-        return {"data": {field: "" for field in fields}, "meta": {"is_configured": False}}
+        return {"data": {field: "" for field in fields}, "meta": _meta(False)}
 
     enc = get_encryption_service()
     decrypted = json.loads(enc.decrypt(config.encrypted_config))
@@ -158,7 +173,11 @@ async def get_integration_settings(
             has_values = True  # a real secret is set -> configured
             masked[field] = mask_value(val)
 
-    return {"data": masked, "meta": {"is_configured": has_values}}
+    # A non-manager operator gets the "configured" bool but NOT the (masked) keys.
+    if integration_type == "plaid" and not plaid_manage:
+        return {"data": {field: "" for field in fields}, "meta": _meta(has_values)}
+
+    return {"data": masked, "meta": _meta(has_values)}
 
 
 @router.put("/settings/{integration_type}")
@@ -185,12 +204,12 @@ async def save_integration_settings(
     # the pre-go-live setup flow; once PLAID_LINK_ALLOWED_EMAILS is set the write
     # is locked to those operators. Other integrations keep the role-only gate.)
     if integration_type == "plaid":
-        from app.integrations.plaid.router import _passes_link_allowlist
+        from app.integrations.plaid.router import _is_plaid_config_manager
 
-        if not _passes_link_allowlist(current_user, request.app.state.settings):
+        if not _is_plaid_config_manager(current_user, request.app.state.settings):
             raise AppError(
                 code="PLAID_CONFIG_OPERATOR_ONLY",
-                message="Only operator accounts may change the platform Plaid credentials.",
+                message="Only the designated Plaid key manager may change the platform Plaid credentials.",
                 status_code=403,
             )
 

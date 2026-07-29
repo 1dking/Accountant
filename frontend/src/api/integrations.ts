@@ -388,7 +388,7 @@ export async function listSmsLogs() {
 // ---------------------------------------------------------------------------
 
 export async function getIntegrationSettings(type: string) {
-  return api.get<{ data: Record<string, string>; meta: { is_configured: boolean } }>(
+  return api.get<{ data: Record<string, string>; meta: { is_configured: boolean; can_manage_config?: boolean } }>(
     `/integrations/settings/${type}`
   )
 }
