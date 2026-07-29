@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Landmark, RefreshCw, ArrowUpRight, ArrowDownRight, Check, Filter, Sparkles, ListChecks, AlertTriangle, BookOpen } from 'lucide-react'
+import { toast } from 'sonner'
+import { Landmark, RefreshCw, ArrowUpRight, ArrowDownRight, Check, Filter, Sparkles, ListChecks, AlertTriangle, BookOpen, Search, X } from 'lucide-react'
 import {
   listPlaidConnections,
   listPlaidTransactions,
   categorizePlaidTransaction,
+  bulkCategorizePlaidTransactions,
   syncPlaidTransactions,
   applyCategorizationRules,
   aiCategorizeTransactions,
@@ -206,12 +208,84 @@ type CategorizeVars = {
   confirm?: boolean
 }
 
+/** Bulk "Send to Cashbook" — posts many selected transactions at once. Each
+ *  lands in its own auto-created bank account; the user picks a direction and an
+ *  optional category applied to all. */
+function BulkCashbookModal({ count, categories, submitting, onClose, onConfirm }: {
+  count: number
+  categories: TransactionCategory[]
+  submitting: boolean
+  onClose: () => void
+  onConfirm: (payload: { categoryId?: string; entryType?: CashbookEntryType }) => void
+}) {
+  const [entryMode, setEntryMode] = useState<'auto' | 'expense' | 'income'>('auto')
+  const [categoryId, setCategoryId] = useState<string>('')
+  const visibleCategories = categories.filter(
+    (c) => entryMode === 'auto' || c.category_type === entryMode || c.category_type === 'both',
+  )
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-2">
+          <BookOpen className="w-5 h-5 text-blue-600" />
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Send {count} to Cashbook</h3>
+        </div>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          Posts all {count} selected transactions to your Cashbook. Each lands under its own
+          bank account automatically.
+        </p>
+        <div className="mt-4">
+          <label className="text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">Type</label>
+          <div className="mt-1 grid grid-cols-3 gap-2">
+            {(['auto', 'expense', 'income'] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => { setEntryMode(m); setCategoryId('') }}
+                className={`px-3 py-2 text-sm rounded-lg border capitalize ${entryMode === m ? 'border-blue-400 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'}`}
+              >
+                {m === 'auto' ? 'Auto' : m}
+              </button>
+            ))}
+          </div>
+          <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1">Auto uses each transaction's own income/expense direction.</p>
+        </div>
+        <div className="mt-4">
+          <label className="text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">Category (optional, applied to all)</label>
+          <select
+            value={categoryId}
+            onChange={(e) => setCategoryId(e.target.value)}
+            className="mt-1 w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Uncategorized</option>
+            {visibleCategories.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+          </select>
+        </div>
+        <div className="mt-6 flex items-center justify-end gap-2">
+          <button onClick={onClose} disabled={submitting} className="px-4 py-2 text-sm border rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50">Cancel</button>
+          <button
+            onClick={() => onConfirm({ categoryId: categoryId || undefined, entryType: entryMode === 'auto' ? undefined : entryMode })}
+            disabled={submitting}
+            className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          >
+            {submitting ? `Posting ${count}…` : `Post ${count} to Cashbook`}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function BankTransactionsPage() {
   const queryClient = useQueryClient()
   const [connectionId, setConnectionId] = useState<string>('')
   const [filterCategorized, setFilterCategorized] = useState<string>('')
   const [filterType, setFilterType] = useState<string>('')
   const [page, setPage] = useState(1)
+  const [searchInput, setSearchInput] = useState('')
+  const [search, setSearch] = useState('')
+  const [selectedTxnIds, setSelectedTxnIds] = useState<Set<string>>(new Set())
+  const [bulkOpen, setBulkOpen] = useState(false)
 
   const { data: connectionsData } = useQuery({
     queryKey: ['plaid-connections'],
@@ -225,13 +299,15 @@ export default function BankTransactionsPage() {
   const categories: TransactionCategory[] = categoriesData?.data ?? []
 
   const { data: txnData, isLoading } = useQuery({
-    queryKey: ['plaid-transactions', connectionId, filterCategorized, filterType, page],
+    queryKey: ['plaid-transactions', connectionId, filterCategorized, filterType, search, page],
     queryFn: () => listPlaidTransactions({
       connection_id: connectionId || undefined,
       is_categorized: filterCategorized === '' ? undefined : filterCategorized === 'true',
       is_income: filterType === '' ? undefined : filterType === 'income',
+      search: search || undefined,
       page,
-      page_size: 50,
+      // While searching, load all matches on one page so "select all" covers them.
+      page_size: search ? 500 : 50,
     }),
   })
 
@@ -279,6 +355,28 @@ export default function BankTransactionsPage() {
     },
   })
 
+  const bulkMutation = useMutation({
+    mutationFn: (payload: { txnIds: string[]; categoryId?: string; entryType?: CashbookEntryType }) =>
+      bulkCategorizePlaidTransactions({
+        txn_ids: payload.txnIds,
+        as_type: 'cashbook',
+        category_id: payload.categoryId,
+        entry_type: payload.entryType,
+      }),
+    onSuccess: (resp) => {
+      const d = (resp as any)?.data
+      queryClient.invalidateQueries({ queryKey: ['plaid-transactions'] })
+      queryClient.invalidateQueries({ queryKey: ['cashbook-accounts'] })
+      queryClient.invalidateQueries({ queryKey: ['cashbook-entries'] })
+      queryClient.invalidateQueries({ queryKey: ['cashbook-summary'] })
+      setSelectedTxnIds(new Set())
+      setBulkOpen(false)
+      if (d?.errors?.length) toast.warning(`Posted ${d.posted} of ${d.total}. ${d.errors.length} skipped.`)
+      else toast.success(`Posted ${d?.posted ?? 0} transaction${d?.posted === 1 ? '' : 's'} to your Cashbook.`)
+    },
+    onError: (err: any) => toast.error(err?.message || 'Bulk post failed.'),
+  })
+
   const applyRulesMutation = useMutation({
     mutationFn: applyCategorizationRules,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['plaid-transactions'] }),
@@ -321,6 +419,18 @@ export default function BankTransactionsPage() {
     [connections],
   )
   const isSharedWorkspace = distinctOwners.size > 1
+
+  const uncategorized = transactions.filter((t) => !t.is_categorized)
+  const allUncatSelected = uncategorized.length > 0 && uncategorized.every((t) => selectedTxnIds.has(t.id))
+  const toggleTxn = (id: string) => setSelectedTxnIds((prev) => {
+    const next = new Set(prev)
+    if (next.has(id)) next.delete(id); else next.add(id)
+    return next
+  })
+  const toggleAllUncategorized = () =>
+    setSelectedTxnIds(allUncatSelected ? new Set() : new Set(uncategorized.map((t) => t.id)))
+  const runSearch = () => { setSearch(searchInput.trim()); setPage(1); setSelectedTxnIds(new Set()) }
+  const clearSearch = () => { setSearchInput(''); setSearch(''); setPage(1); setSelectedTxnIds(new Set()) }
 
   return (
     <div className="p-6 space-y-6">
@@ -402,10 +512,42 @@ export default function BankTransactionsPage() {
           <option value="expense">Expenses</option>
           <option value="income">Income</option>
         </select>
+        <form onSubmit={(e) => { e.preventDefault(); runSearch() }} className="flex items-center gap-1">
+          <div className="relative">
+            <Search className="w-4 h-4 text-gray-400 absolute left-2 top-1/2 -translate-y-1/2" />
+            <input
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Search a name (e.g. Tim Hortons)"
+              className="pl-8 pr-7 py-1.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-56"
+            />
+            {searchInput && (
+              <button type="button" onClick={clearSearch} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600" title="Clear">
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+          <button type="submit" className="px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-800 border rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700">
+            Search
+          </button>
+        </form>
         <span className="text-sm text-gray-400 dark:text-gray-500 ml-auto">
+          {search && <span className="text-blue-500">"{search}" · </span>}
           {meta.total} transaction{meta.total !== 1 ? 's' : ''}
         </span>
       </div>
+
+      {selectedTxnIds.size > 0 && (
+        <div className="flex items-center justify-between rounded-lg border border-blue-300 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 px-4 py-2.5">
+          <span className="text-sm text-blue-800 dark:text-blue-300 font-medium">{selectedTxnIds.size} selected</span>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setSelectedTxnIds(new Set())} className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:underline">Clear</button>
+            <button onClick={() => setBulkOpen(true)} className="flex items-center gap-1.5 px-4 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+              <BookOpen className="w-4 h-4" /> Send {selectedTxnIds.size} to Cashbook
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Transactions */}
       {isLoading ? (
@@ -416,6 +558,15 @@ export default function BankTransactionsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-gray-50 dark:bg-gray-950">
+                  <th className="w-10 px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={allUncatSelected}
+                      onChange={toggleAllUncategorized}
+                      className="h-4 w-4 rounded border-gray-300 dark:border-gray-600"
+                      title="Select all uncategorized"
+                    />
+                  </th>
                   <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Date</th>
                   <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Description</th>
                   <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Account</th>
@@ -427,7 +578,17 @@ export default function BankTransactionsPage() {
               </thead>
               <tbody>
                 {transactions.map((txn) => (
-                  <tr key={txn.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800">
+                  <tr key={txn.id} className={`border-b hover:bg-gray-50 dark:hover:bg-gray-800 ${selectedTxnIds.has(txn.id) ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}>
+                    <td className="px-4 py-3">
+                      {!txn.is_categorized && (
+                        <input
+                          type="checkbox"
+                          checked={selectedTxnIds.has(txn.id)}
+                          onChange={() => toggleTxn(txn.id)}
+                          className="h-4 w-4 rounded border-gray-300 dark:border-gray-600"
+                        />
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">{formatDate(txn.date)}</td>
                     <td className="px-4 py-3">
                       <div className="font-medium text-gray-900 dark:text-gray-100">{txn.merchant_name || txn.name}</div>
@@ -539,6 +700,18 @@ export default function BankTransactionsPage() {
             Click "Sync" to import transactions from your bank.
           </p>
         </div>
+      )}
+
+      {bulkOpen && (
+        <BulkCashbookModal
+          count={selectedTxnIds.size}
+          categories={categories}
+          submitting={bulkMutation.isPending}
+          onClose={() => setBulkOpen(false)}
+          onConfirm={({ categoryId, entryType }) =>
+            bulkMutation.mutate({ txnIds: Array.from(selectedTxnIds), categoryId, entryType })
+          }
+        />
       )}
 
       {cashbookModal && (

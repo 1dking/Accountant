@@ -15,6 +15,7 @@ from app.dependencies import get_current_user, get_db, require_role
 
 from . import service
 from .schemas import (
+    BulkCategorizeRequest,
     CategorizeTransactionRequest,
     CreateLinkTokenResponse,
     ExchangeTokenRequest,
@@ -281,6 +282,7 @@ async def list_transactions(
     is_income: bool | None = None,
     date_from: str | None = None,
     date_to: str | None = None,
+    search: str | None = None,
     page: int = 1,
     page_size: int = 50,
     db: AsyncSession = Depends(get_db),
@@ -294,6 +296,7 @@ async def list_transactions(
         is_income=is_income,
         date_from=date_type.fromisoformat(date_from) if date_from else None,
         date_to=date_type.fromisoformat(date_to) if date_to else None,
+        search=search,
         page=page,
         page_size=page_size,
     )
@@ -316,6 +319,21 @@ async def categorize_transaction(
     settings = _get_settings(request)
     txn = await service.categorize_transaction(db, txn_id, data, user, settings)
     return {"data": PlaidTransactionResponse.model_validate(txn)}
+
+
+@router.post("/transactions/bulk-categorize", response_model=dict)
+async def bulk_categorize_transactions(
+    data: BulkCategorizeRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role([Role.ACCOUNTANT, Role.ADMIN])),
+    _mfa: User = Depends(require_financial_data_access),
+):
+    """Post many reviewed transactions to the Cashbook at once — e.g. after
+    searching a payee name and selecting them all."""
+    settings = _get_settings(request)
+    result = await service.bulk_categorize_transactions(db, data.txn_ids, data, user, settings)
+    return {"data": result}
 
 
 @router.get("/transactions/{txn_id}/possible-duplicates", response_model=dict)

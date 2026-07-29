@@ -425,11 +425,61 @@ async def list_transactions(
         base = base.where(PlaidTransaction.date <= filters.date_to)
         count_base = count_base.where(PlaidTransaction.date <= filters.date_to)
 
+    q = (getattr(filters, "search", None) or "").strip().lower()
+    if q:
+        # name/merchant are encrypted at rest, so there is no SQL LIKE to run —
+        # decrypt-filter in Python. Load the SQL-filtered set (ordered), keep the
+        # substring matches, then paginate. Fine at the thousands-of-rows scale.
+        all_rows = (await db.execute(
+            base.order_by(PlaidTransaction.date.desc())
+        )).scalars().all()
+        matched = [
+            t for t in all_rows
+            if q in (t.name or "").lower() or q in (t.merchant_name or "").lower()
+        ]
+        total = len(matched)
+        offset = (filters.page - 1) * filters.page_size
+        return matched[offset:offset + filters.page_size], total
+
     total = (await db.execute(count_base)).scalar() or 0
     offset = (filters.page - 1) * filters.page_size
     stmt = base.order_by(PlaidTransaction.date.desc()).offset(offset).limit(filters.page_size)
     rows = (await db.execute(stmt)).scalars().all()
     return list(rows), total
+
+
+async def bulk_categorize_transactions(
+    db: AsyncSession,
+    txn_ids: list[uuid.UUID],
+    data,
+    user: User,
+    settings: Settings,
+) -> dict:
+    """Categorize many transactions at once (e.g. every 'Tim Hortons' →
+    Cashbook/Meals). Each posts independently — one failure doesn't abort the
+    batch — and re-running is safe (idempotent by plaid_transaction_id)."""
+    posted = 0
+    errors: list[str] = []
+    for tid in txn_ids:
+        try:
+            await categorize_transaction(
+                db, tid,
+                CategorizeTransactionRequest(
+                    as_type=data.as_type,
+                    category_id=data.category_id,
+                    entry_type=data.entry_type,
+                    confirm_duplicate=data.confirm_duplicate,
+                ),
+                user, settings,
+            )
+            posted += 1
+        except Exception as e:  # noqa: BLE001 — collect, keep going
+            errors.append(str(e)[:120])
+            try:
+                await db.rollback()
+            except Exception:
+                pass
+    return {"posted": posted, "total": len(txn_ids), "errors": errors}
 
 
 # ---------------------------------------------------------------------------

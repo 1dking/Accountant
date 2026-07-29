@@ -97,8 +97,25 @@ class PlaidTransactionFilters(BaseModel):
     is_income: bool | None = None
     date_from: Optional[date] = None
     date_to: Optional[date] = None
+    #: Case-insensitive substring match on the payee name / merchant. Because
+    #: those columns are encrypted at rest, this is applied in Python after
+    #: decryption (see service.list_transactions), not as a SQL LIKE.
+    search: str | None = None
     page: int = 1
     page_size: int = 50
+
+
+class BulkCategorizeRequest(BaseModel):
+    """Post many reviewed bank transactions to the Cashbook in one action —
+    e.g. after searching a payee name."""
+    txn_ids: list[uuid.UUID]
+    as_type: str = "cashbook"  # only "cashbook" | "ignore" make sense in bulk
+    category_id: uuid.UUID | None = None
+    #: None = use each transaction's own income/expense direction.
+    entry_type: str | None = None
+    #: Bulk implies the user already picked these rows, so post through likely
+    #: duplicates (idempotency by plaid_transaction_id still prevents doubles).
+    confirm_duplicate: bool = True
 
 
 class CategorizeTransactionRequest(BaseModel):

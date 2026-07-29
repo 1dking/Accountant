@@ -240,6 +240,7 @@ export async function listPlaidTransactions(filters: {
   is_income?: boolean
   date_from?: string
   date_to?: string
+  search?: string
   page?: number
   page_size?: number
 } = {}) {
@@ -268,6 +269,18 @@ export async function categorizePlaidTransaction(txnId: string, data: {
   confirm_duplicate?: boolean
 }) {
   return api.post<ApiResponse<PlaidTransaction>>(`/integrations/plaid/transactions/${txnId}/categorize`, data)
+}
+
+/** Post many reviewed bank transactions to the Cashbook (or ignore them) at once. */
+export async function bulkCategorizePlaidTransactions(data: {
+  txn_ids: string[]
+  as_type?: 'cashbook' | 'ignore'
+  category_id?: string
+  entry_type?: 'income' | 'expense'
+}) {
+  return api.post<ApiResponse<{ posted: number; total: number; errors: string[] }>>(
+    '/integrations/plaid/transactions/bulk-categorize', data,
+  )
 }
 
 /** A manual Expense/Income/Cashbook entry that likely matches a Plaid transaction. */

@@ -87,11 +87,11 @@ async def mk_connection(db, owner, *, org_id) -> PlaidConnection:
     return conn
 
 
-async def mk_txn(db, conn) -> PlaidTransaction:
+async def mk_txn(db, conn, *, name="Acme", amount="50.00") -> PlaidTransaction:
     txn = PlaidTransaction(
         plaid_connection_id=conn.id, plaid_transaction_id=f"txn-{uuid.uuid4().hex[:12]}",
-        account_id="acc-1", amount=Decimal("50.00"), date=D,
-        name="Acme", merchant_name="Acme", is_income=False, is_categorized=False,
+        account_id="acc-1", amount=Decimal(amount), date=D,
+        name=name, merchant_name=name, is_income=False, is_categorized=False,
     )
     db.add(txn)
     await db.commit()
@@ -152,6 +152,46 @@ async def test_peer_can_categorize_shared_transaction(db):
         db, txn.id, CategorizeTransactionRequest(as_type="ignore"), b, SimpleNamespace(),
     )
     assert result.is_categorized is True  # B categorized A's shared txn
+
+
+# ---------------------------------------------------------------------------
+# Search + bulk categorize
+# ---------------------------------------------------------------------------
+
+
+async def test_search_matches_name_case_insensitive(db):
+    u = await mk_user(db, "solo@x.com")  # personal
+    conn = await mk_connection(db, u, org_id=None)
+    await mk_txn(db, conn, name="Tim Hortons")
+    await mk_txn(db, conn, name="Starbucks")
+    await mk_txn(db, conn, name="TIM HORTONS #4021")
+
+    _, total = await service.list_transactions(db, u, PlaidTransactionFilters(search="tim"))
+    assert total == 2  # both Tim Hortons, not Starbucks
+    _, none = await service.list_transactions(db, u, PlaidTransactionFilters(search="nomatch"))
+    assert none == 0
+
+
+async def test_bulk_categorize_posts_all_to_cashbook(db):
+    from sqlalchemy import func, select
+    from app.cashbook.models import CashbookEntry
+    from app.integrations.plaid.schemas import BulkCategorizeRequest
+
+    a, org = await make_org_with_owner(db, "a@ocidm.io")
+    conn = await mk_connection(db, a, org_id=org)
+    t1 = await mk_txn(db, conn, name="Tim Hortons", amount="4.50")
+    t2 = await mk_txn(db, conn, name="Tim Hortons", amount="6.25")
+
+    req = BulkCategorizeRequest(txn_ids=[t1.id, t2.id], as_type="cashbook")
+    result = await service.bulk_categorize_transactions(db, [t1.id, t2.id], req, a, SimpleNamespace())
+
+    assert result == {"posted": 2, "total": 2, "errors": []}
+    n = await db.scalar(
+        select(func.count(CashbookEntry.id)).where(
+            CashbookEntry.user_id == a.id, CashbookEntry.source == "plaid"
+        )
+    )
+    assert n == 2
 
 
 # ---------------------------------------------------------------------------
