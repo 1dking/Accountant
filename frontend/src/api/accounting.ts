@@ -316,6 +316,29 @@ export async function getProfitLoss(params: { date_from?: string; date_to?: stri
   return api.get<ApiResponse<ProfitLoss>>(`/accounting/reports/profit-loss${reportQuery(params)}`)
 }
 
+export interface MarketingMonth {
+  month: string
+  revenue: string
+  ad_spend: string
+  net: string
+  roas: string | null
+}
+
+export interface MarketingPerformance {
+  months: MarketingMonth[]
+  ad_spend_by_account: StatementLine[]
+  total_revenue: string
+  total_ad_spend: string
+  blended_roas: string | null
+  net_after_ad_spend: string
+}
+
+export async function getMarketingPerformance(params: { date_from?: string; date_to?: string } = {}) {
+  return api.get<ApiResponse<MarketingPerformance>>(
+    `/accounting/reports/marketing-performance${reportQuery(params)}`,
+  )
+}
+
 export async function getBalanceSheet(as_of?: string) {
   const q = as_of ? `?as_of=${encodeURIComponent(as_of)}` : ''
   return api.get<ApiResponse<BalanceSheet>>(`/accounting/reports/balance-sheet${q}`)

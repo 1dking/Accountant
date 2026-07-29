@@ -1,21 +1,23 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Scale, Loader2, ChevronDown, ChevronRight, AlertTriangle, CheckCircle2, Download } from 'lucide-react'
+import { Scale, Loader2, ChevronDown, ChevronRight, AlertTriangle, CheckCircle2, Download, TrendingUp } from 'lucide-react'
 import {
   getTrialBalance,
   getGeneralLedger,
   getProfitLoss,
   getBalanceSheet,
+  getMarketingPerformance,
   downloadStatementPdf,
   type GeneralLedgerAccount,
   type StatementLine,
 } from '@/api/accounting'
 import { formatDate } from '@/lib/utils'
 
-type Tab = 'profit-loss' | 'balance-sheet' | 'trial-balance' | 'general-ledger'
+type Tab = 'profit-loss' | 'balance-sheet' | 'marketing' | 'trial-balance' | 'general-ledger'
 const TAB_LABELS: Record<Tab, string> = {
   'profit-loss': 'Profit & Loss',
   'balance-sheet': 'Balance Sheet',
+  'marketing': 'Marketing ROAS',
   'trial-balance': 'Trial Balance',
   'general-ledger': 'General Ledger',
 }
@@ -65,7 +67,7 @@ export default function LedgerReportsPage() {
 
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
-          {(['profit-loss', 'balance-sheet', 'trial-balance', 'general-ledger'] as Tab[]).map((t) => (
+          {(['profit-loss', 'balance-sheet', 'marketing', 'trial-balance', 'general-ledger'] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -111,6 +113,7 @@ export default function LedgerReportsPage() {
 
       {tab === 'profit-loss' && <ProfitLossView params={params} />}
       {tab === 'balance-sheet' && <BalanceSheetView asOf={dateTo || undefined} />}
+      {tab === 'marketing' && <MarketingView params={params} />}
       {tab === 'trial-balance' && <TrialBalanceView params={params} />}
       {tab === 'general-ledger' && <GeneralLedgerView params={params} />}
     </div>
@@ -183,6 +186,90 @@ function BalanceSheetView({ asOf }: { asOf?: string }) {
           <span className="tabular-nums">${money(bs.total_liabilities_equity)}</span>
         </div>
       </div>
+    </div>
+  )
+}
+
+function MarketingView({ params }: { params: { date_from?: string; date_to?: string } }) {
+  const { data, isLoading } = useQuery({ queryKey: ['marketing-performance', params], queryFn: () => getMarketingPerformance(params) })
+  const mp = data?.data
+  if (isLoading) return <Spinner />
+  if (!mp) return null
+  const hasSpend = mp.blended_roas !== null
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <Kpi label="Blended ROAS" value={hasSpend ? `${money(mp.blended_roas as string)}×` : '—'} accent />
+        <Kpi label="Revenue" value={`$${money(mp.total_revenue)}`} />
+        <Kpi label="Ad spend" value={`$${money(mp.total_ad_spend)}`} />
+        <Kpi label="Net of ad spend" value={`$${money(mp.net_after_ad_spend)}`} />
+      </div>
+
+      <div className="flex items-start gap-2 text-xs text-gray-500 dark:text-gray-400 px-1">
+        <TrendingUp className="w-4 h-4 mt-0.5 shrink-0" />
+        <span>
+          <strong>Blended</strong> — total revenue for every dollar of advertising, across the whole
+          business. It measures efficiency, not per-campaign attribution (the cashbook has no click or
+          conversion data). Ad spend is any expense categorized as Advertising or Marketing.
+        </span>
+      </div>
+
+      {!hasSpend ? (
+        <div className="px-4 py-8 text-center text-sm text-gray-400 border border-dashed border-gray-200 dark:border-gray-800 rounded-xl">
+          No advertising spend in this period. Categorize ad expenses as “Advertising” to see ROAS.
+        </div>
+      ) : (
+        <div className="border border-gray-200 dark:border-gray-800 rounded-xl overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50">
+                <th className="text-left px-4 py-2 font-semibold">Month</th>
+                <th className="text-right px-4 py-2 font-semibold">Revenue</th>
+                <th className="text-right px-4 py-2 font-semibold">Ad spend</th>
+                <th className="text-right px-4 py-2 font-semibold">ROAS</th>
+                <th className="text-right px-4 py-2 font-semibold">Net</th>
+              </tr>
+            </thead>
+            <tbody>
+              {mp.months.map((m) => (
+                <tr key={m.month} className="border-t border-gray-100 dark:border-gray-800">
+                  <td className="px-4 py-2 font-mono text-gray-700 dark:text-gray-300">{m.month}</td>
+                  <td className="px-4 py-2 text-right tabular-nums">${money(m.revenue)}</td>
+                  <td className="px-4 py-2 text-right tabular-nums">${money(m.ad_spend)}</td>
+                  <td className="px-4 py-2 text-right tabular-nums font-medium">
+                    {m.roas !== null ? `${money(m.roas)}×` : '—'}
+                  </td>
+                  <td className="px-4 py-2 text-right tabular-nums">${money(m.net)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {mp.ad_spend_by_account.length > 0 && (
+        <div className="border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden">
+          <div className="px-4 py-2 bg-gray-50 dark:bg-gray-800/50 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            Ad spend by category
+          </div>
+          {mp.ad_spend_by_account.map((l) => (
+            <div key={l.code} className="flex justify-between gap-3 px-4 py-2 border-t border-gray-100 dark:border-gray-800 text-sm">
+              <span className="text-gray-900 dark:text-gray-100 truncate"><span className="font-mono text-gray-400 mr-2">{l.code}</span>{l.name}</span>
+              <span className="tabular-nums">${money(l.amount)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function Kpi({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+  return (
+    <div className={`rounded-xl border p-3 ${accent ? 'border-gray-900 dark:border-gray-100' : 'border-gray-200 dark:border-gray-800'}`}>
+      <div className="text-xs text-gray-500 dark:text-gray-400">{label}</div>
+      <div className={`text-lg font-semibold tabular-nums ${accent ? 'text-gray-900 dark:text-gray-100' : 'text-gray-800 dark:text-gray-200'}`}>{value}</div>
     </div>
   )
 }
