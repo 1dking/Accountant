@@ -142,6 +142,7 @@ async def gather_postings(
     *,
     date_from: date | None = None,
     date_to: date | None = None,
+    include_opening: bool = False,
 ) -> list[Posting]:
     resolver = await _build_resolver(db, user)
     postings: list[Posting] = []
@@ -223,6 +224,37 @@ async def gather_postings(
                     source="cashbook", ref=ref, memo=part.description,
                 )
             )
+
+    # --- Opening balances (for as-of statements like the Balance Sheet) -----
+    # Each payment account's opening balance seeds its cash asset plus an
+    # offsetting Opening Balance Equity, so the Balance Sheet's cash ties to the
+    # cashbook and the books still balance. Off by default so period reports
+    # (Trial Balance, P&L) are unaffected.
+    if include_opening:
+        pstmt = select(PaymentAccount).where(PaymentAccount.is_active.is_(True))
+        pstmt = apply_cashbook_filter(pstmt, PaymentAccount.user_id, PaymentAccount.org_id, user)
+        for pa in (await db.execute(pstmt)).scalars().all():
+            ob = Decimal(str(pa.opening_balance or 0))
+            if ob == _ZERO:
+                continue
+            obd = pa.opening_balance_date or date.min
+            if date_to and obd > date_to:
+                continue  # opening dated after the as-of point
+            cash = resolver.payment_account(pa)
+            ck, ccode, cname, ctype, cnb = _acct_fields(cash)
+            amt = abs(ob)
+            postings.append(Posting(
+                account_key=ck, code=ccode, name=cname, account_type=ctype,
+                normal_balance=cnb, date=obd,
+                debit=(amt if ob > 0 else _ZERO), credit=(_ZERO if ob > 0 else amt),
+                source="opening", ref=f"OB-{str(pa.id)[:8]}", memo="Opening balance",
+            ))
+            postings.append(Posting(
+                account_key="equity:opening", code="3000", name="Opening Balance Equity",
+                account_type=AccountType.EQUITY, normal_balance="credit", date=obd,
+                debit=(_ZERO if ob > 0 else amt), credit=(amt if ob > 0 else _ZERO),
+                source="opening", ref=f"OB-{str(pa.id)[:8]}", memo="Opening balance",
+            ))
 
     return postings
 
@@ -326,3 +358,102 @@ def general_ledger(postings: list[Posting]) -> dict:
 
     accounts.sort(key=lambda a: a["code"])
     return {"accounts": accounts}
+
+
+def profit_loss(postings: list[Posting]) -> dict:
+    """Income & expense sections with net profit — reads the SAME postings as the
+    Trial Balance, so it ties to the cashbook the Bank Scanner posts to (unlike
+    the legacy /reports P&L built on the disconnected Income/Expense tables)."""
+    agg: dict[str, dict] = {}
+    for p in postings:
+        if p.account_type not in (AccountType.INCOME, AccountType.EXPENSE):
+            continue
+        row = agg.setdefault(p.account_key, {
+            "code": p.code, "name": p.name, "account_type": p.account_type,
+            "debit": _ZERO, "credit": _ZERO,
+        })
+        row["debit"] += p.debit
+        row["credit"] += p.credit
+
+    income, expenses = [], []
+    total_income = total_expenses = _ZERO
+    for row in agg.values():
+        if row["account_type"] == AccountType.INCOME:
+            amt = row["credit"] - row["debit"]  # credit-normal
+            if amt != _ZERO:
+                income.append({"code": row["code"], "name": row["name"], "amount": amt})
+                total_income += amt
+        else:
+            amt = row["debit"] - row["credit"]  # debit-normal
+            if amt != _ZERO:
+                expenses.append({"code": row["code"], "name": row["name"], "amount": amt})
+                total_expenses += amt
+
+    income.sort(key=lambda r: r["code"])
+    expenses.sort(key=lambda r: r["code"])
+    return {
+        "income": income,
+        "expenses": expenses,
+        "total_income": total_income,
+        "total_expenses": total_expenses,
+        "net_profit": total_income - total_expenses,
+    }
+
+
+def balance_sheet(postings: list[Posting]) -> dict:
+    """Assets / Liabilities / Equity as of the report's end date. The period's
+    income − expense is closed into equity as Retained Earnings so the sheet
+    balances (Assets = Liabilities + Equity). Feed it postings from
+    gather_postings(..., include_opening=True)."""
+    agg: dict[str, dict] = {}
+    for p in postings:
+        row = agg.setdefault(p.account_key, {
+            "code": p.code, "name": p.name, "account_type": p.account_type,
+            "debit": _ZERO, "credit": _ZERO,
+        })
+        row["debit"] += p.debit
+        row["credit"] += p.credit
+
+    assets, liabilities, equity = [], [], []
+    total_assets = total_liabilities = total_equity = _ZERO
+    net_income = _ZERO
+    for row in agg.values():
+        t = row["account_type"]
+        net = row["debit"] - row["credit"]
+        if t == AccountType.ASSET:
+            if net != _ZERO:
+                assets.append({"code": row["code"], "name": row["name"], "amount": net})
+                total_assets += net
+        elif t == AccountType.LIABILITY:
+            bal = -net
+            if bal != _ZERO:
+                liabilities.append({"code": row["code"], "name": row["name"], "amount": bal})
+                total_liabilities += bal
+        elif t == AccountType.EQUITY:
+            bal = -net
+            if bal != _ZERO:
+                equity.append({"code": row["code"], "name": row["name"], "amount": bal})
+                total_equity += bal
+        elif t == AccountType.INCOME:
+            net_income += -net   # credit-normal
+        elif t == AccountType.EXPENSE:
+            net_income -= net    # debit-normal
+
+    if net_income != _ZERO:
+        equity.append({"code": "3900", "name": "Retained Earnings (net income)", "amount": net_income})
+        total_equity += net_income
+
+    assets.sort(key=lambda r: r["code"])
+    liabilities.sort(key=lambda r: r["code"])
+    equity.sort(key=lambda r: r["code"])
+    total_liab_equity = total_liabilities + total_equity
+    return {
+        "assets": assets,
+        "liabilities": liabilities,
+        "equity": equity,
+        "total_assets": total_assets,
+        "total_liabilities": total_liabilities,
+        "total_equity": total_equity,
+        "total_liabilities_equity": total_liab_equity,
+        "balanced": total_assets == total_liab_equity,
+    }

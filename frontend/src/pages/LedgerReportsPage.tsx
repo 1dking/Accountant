@@ -4,11 +4,20 @@ import { Scale, Loader2, ChevronDown, ChevronRight, AlertTriangle, CheckCircle2 
 import {
   getTrialBalance,
   getGeneralLedger,
+  getProfitLoss,
+  getBalanceSheet,
   type GeneralLedgerAccount,
+  type StatementLine,
 } from '@/api/accounting'
 import { formatDate } from '@/lib/utils'
 
-type Tab = 'trial-balance' | 'general-ledger'
+type Tab = 'profit-loss' | 'balance-sheet' | 'trial-balance' | 'general-ledger'
+const TAB_LABELS: Record<Tab, string> = {
+  'profit-loss': 'Profit & Loss',
+  'balance-sheet': 'Balance Sheet',
+  'trial-balance': 'Trial Balance',
+  'general-ledger': 'General Ledger',
+}
 
 function money(n: string): string {
   const v = parseFloat(n)
@@ -16,7 +25,7 @@ function money(n: string): string {
 }
 
 export default function LedgerReportsPage() {
-  const [tab, setTab] = useState<Tab>('trial-balance')
+  const [tab, setTab] = useState<Tab>('profit-loss')
   const today = new Date().toISOString().slice(0, 10)
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState(today)
@@ -28,16 +37,17 @@ export default function LedgerReportsPage() {
       <div>
         <div className="flex items-center gap-2">
           <Scale className="w-6 h-6 text-gray-700 dark:text-gray-300" />
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Ledger Reports</h1>
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Financial Statements</h1>
         </div>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Double-entry reports computed live over both your journal entries and cashbook activity.
+          Profit &amp; Loss, Balance Sheet, Trial Balance and General Ledger — computed live from your
+          cashbook and journal, so they always tie out.
         </p>
       </div>
 
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
-          {(['trial-balance', 'general-ledger'] as Tab[]).map((t) => (
+          {(['profit-loss', 'balance-sheet', 'trial-balance', 'general-ledger'] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -47,7 +57,7 @@ export default function LedgerReportsPage() {
                   : 'text-gray-500 dark:text-gray-400'
               }`}
             >
-              {t === 'trial-balance' ? 'Trial Balance' : 'General Ledger'}
+              {TAB_LABELS[t]}
             </button>
           ))}
         </div>
@@ -70,7 +80,80 @@ export default function LedgerReportsPage() {
         </div>
       </div>
 
-      {tab === 'trial-balance' ? <TrialBalanceView params={params} /> : <GeneralLedgerView params={params} />}
+      {tab === 'profit-loss' && <ProfitLossView params={params} />}
+      {tab === 'balance-sheet' && <BalanceSheetView asOf={dateTo || undefined} />}
+      {tab === 'trial-balance' && <TrialBalanceView params={params} />}
+      {tab === 'general-ledger' && <GeneralLedgerView params={params} />}
+    </div>
+  )
+}
+
+function StatementSection({ title, lines, total }: { title: string; lines: StatementLine[]; total: string }) {
+  return (
+    <div>
+      <div className="px-4 py-2 bg-gray-50 dark:bg-gray-800/50 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{title}</div>
+      {lines.length === 0 ? (
+        <div className="px-4 py-3 text-sm text-gray-400">None</div>
+      ) : lines.map((l) => (
+        <div key={l.code} className="flex justify-between gap-3 px-4 py-2 border-t border-gray-100 dark:border-gray-800 text-sm">
+          <span className="text-gray-900 dark:text-gray-100 truncate"><span className="font-mono text-gray-400 mr-2">{l.code}</span>{l.name}</span>
+          <span className="tabular-nums">${money(l.amount)}</span>
+        </div>
+      ))}
+      <div className="flex justify-between px-4 py-2 border-t border-gray-200 dark:border-gray-700 text-sm font-medium">
+        <span className="text-gray-500 dark:text-gray-400">Total {title}</span>
+        <span className="tabular-nums">${money(total)}</span>
+      </div>
+    </div>
+  )
+}
+
+function ProfitLossView({ params }: { params: { date_from?: string; date_to?: string } }) {
+  const { data, isLoading } = useQuery({ queryKey: ['profit-loss', params], queryFn: () => getProfitLoss(params) })
+  const pl = data?.data
+  if (isLoading) return <Spinner />
+  if (!pl) return null
+  const net = parseFloat(pl.net_profit)
+  return (
+    <div className="border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden">
+      <StatementSection title="Revenue" lines={pl.income} total={pl.total_income} />
+      <StatementSection title="Expenses" lines={pl.expenses} total={pl.total_expenses} />
+      <div className="flex justify-between px-4 py-3 border-t-2 border-gray-200 dark:border-gray-700 font-semibold">
+        <span>Net {net >= 0 ? 'profit' : 'loss'}</span>
+        <span className={`tabular-nums ${net >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>${money(pl.net_profit)}</span>
+      </div>
+    </div>
+  )
+}
+
+function BalanceSheetView({ asOf }: { asOf?: string }) {
+  const { data, isLoading } = useQuery({ queryKey: ['balance-sheet', asOf], queryFn: () => getBalanceSheet(asOf) })
+  const bs = data?.data
+  if (isLoading) return <Spinner />
+  if (!bs) return null
+  return (
+    <div className="space-y-3">
+      <div
+        className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg ${
+          bs.balanced
+            ? 'bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300'
+            : 'bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300'
+        }`}
+      >
+        {bs.balanced ? <CheckCircle2 className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+        {bs.balanced
+          ? `Balanced — assets equal liabilities plus equity (as of ${formatDate(bs.as_of)}).`
+          : 'Out of balance — this should never happen; please report it.'}
+      </div>
+      <div className="border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden">
+        <StatementSection title="Assets" lines={bs.assets} total={bs.total_assets} />
+        <StatementSection title="Liabilities" lines={bs.liabilities} total={bs.total_liabilities} />
+        <StatementSection title="Equity" lines={bs.equity} total={bs.total_equity} />
+        <div className="flex justify-between px-4 py-3 border-t-2 border-gray-200 dark:border-gray-700 font-semibold">
+          <span>Liabilities + Equity</span>
+          <span className="tabular-nums">${money(bs.total_liabilities_equity)}</span>
+        </div>
+      </div>
     </div>
   )
 }

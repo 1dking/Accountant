@@ -100,7 +100,7 @@ const NAV_SECTIONS: NavSection[] = [
       { path: '/accounting/journal', label: 'Journal', icon: BookText, featureKey: 'expenses' },
       { path: '/accounting/bills', label: 'Bills (A/P)', icon: ReceiptText, featureKey: 'expenses' },
       { path: '/accounting/1099', label: '1099 Contractors', icon: FileBadge, featureKey: 'expenses' },
-      { path: '/accounting/ledger-reports', label: 'Ledger Reports', icon: Scale, featureKey: 'expenses' },
+      { path: '/accounting/ledger-reports', label: 'Financial Statements', icon: Scale, featureKey: 'expenses' },
       { path: '/cashbook/reconcile', label: 'Reconcile', icon: Scale, featureKey: 'cashbook' },
       { path: '/smart-import', label: 'Smart Import', icon: Zap, featureKey: 'smart_import' },
       { path: '/email-scan', label: 'Email Scanner', icon: MailSearch, featureKey: 'email_scanner' },

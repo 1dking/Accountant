@@ -286,6 +286,41 @@ export async function getGeneralLedger(params: { date_from?: string; date_to?: s
   )
 }
 
+export interface StatementLine {
+  code: string
+  name: string
+  amount: string
+}
+
+export interface ProfitLoss {
+  income: StatementLine[]
+  expenses: StatementLine[]
+  total_income: string
+  total_expenses: string
+  net_profit: string
+}
+
+export interface BalanceSheet {
+  assets: StatementLine[]
+  liabilities: StatementLine[]
+  equity: StatementLine[]
+  total_assets: string
+  total_liabilities: string
+  total_equity: string
+  total_liabilities_equity: string
+  balanced: boolean
+  as_of: string
+}
+
+export async function getProfitLoss(params: { date_from?: string; date_to?: string } = {}) {
+  return api.get<ApiResponse<ProfitLoss>>(`/accounting/reports/profit-loss${reportQuery(params)}`)
+}
+
+export async function getBalanceSheet(as_of?: string) {
+  const q = as_of ? `?as_of=${encodeURIComponent(as_of)}` : ''
+  return api.get<ApiResponse<BalanceSheet>>(`/accounting/reports/balance-sheet${q}`)
+}
+
 // ---------------------------------------------------------------------------
 // Accounts Payable / vendor bills (Phase 1.4)
 // ---------------------------------------------------------------------------
