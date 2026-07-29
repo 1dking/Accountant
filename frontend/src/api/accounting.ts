@@ -339,6 +339,22 @@ export async function getMarketingPerformance(params: { date_from?: string; date
   )
 }
 
+export interface GstHstReturn {
+  date_from: string | null
+  date_to: string
+  line_101_sales: string
+  line_105_collected: string
+  line_108_itc: string
+  line_109_net_tax: string
+  owes_cra: boolean
+  has_recorded_tax: boolean
+  taxed_entry_count: number
+}
+
+export async function getGstHstReturn(params: { date_from?: string; date_to?: string } = {}) {
+  return api.get<ApiResponse<GstHstReturn>>(`/accounting/reports/gst-hst-return${reportQuery(params)}`)
+}
+
 export async function getBalanceSheet(as_of?: string) {
   const q = as_of ? `?as_of=${encodeURIComponent(as_of)}` : ''
   return api.get<ApiResponse<BalanceSheet>>(`/accounting/reports/balance-sheet${q}`)

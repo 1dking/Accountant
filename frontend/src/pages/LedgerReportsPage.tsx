@@ -7,17 +7,19 @@ import {
   getProfitLoss,
   getBalanceSheet,
   getMarketingPerformance,
+  getGstHstReturn,
   downloadStatementPdf,
   type GeneralLedgerAccount,
   type StatementLine,
 } from '@/api/accounting'
 import { formatDate } from '@/lib/utils'
 
-type Tab = 'profit-loss' | 'balance-sheet' | 'marketing' | 'trial-balance' | 'general-ledger'
+type Tab = 'profit-loss' | 'balance-sheet' | 'marketing' | 'gst-hst' | 'trial-balance' | 'general-ledger'
 const TAB_LABELS: Record<Tab, string> = {
   'profit-loss': 'Profit & Loss',
   'balance-sheet': 'Balance Sheet',
   'marketing': 'Marketing ROAS',
+  'gst-hst': 'GST/HST',
   'trial-balance': 'Trial Balance',
   'general-ledger': 'General Ledger',
 }
@@ -67,7 +69,7 @@ export default function LedgerReportsPage() {
 
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
-          {(['profit-loss', 'balance-sheet', 'marketing', 'trial-balance', 'general-ledger'] as Tab[]).map((t) => (
+          {(['profit-loss', 'balance-sheet', 'marketing', 'gst-hst', 'trial-balance', 'general-ledger'] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -114,6 +116,7 @@ export default function LedgerReportsPage() {
       {tab === 'profit-loss' && <ProfitLossView params={params} />}
       {tab === 'balance-sheet' && <BalanceSheetView asOf={dateTo || undefined} />}
       {tab === 'marketing' && <MarketingView params={params} />}
+      {tab === 'gst-hst' && <GstHstView params={params} />}
       {tab === 'trial-balance' && <TrialBalanceView params={params} />}
       {tab === 'general-ledger' && <GeneralLedgerView params={params} />}
     </div>
@@ -270,6 +273,55 @@ function Kpi({ label, value, accent }: { label: string; value: string; accent?: 
     <div className={`rounded-xl border p-3 ${accent ? 'border-gray-900 dark:border-gray-100' : 'border-gray-200 dark:border-gray-800'}`}>
       <div className="text-xs text-gray-500 dark:text-gray-400">{label}</div>
       <div className={`text-lg font-semibold tabular-nums ${accent ? 'text-gray-900 dark:text-gray-100' : 'text-gray-800 dark:text-gray-200'}`}>{value}</div>
+    </div>
+  )
+}
+
+function GstHstView({ params }: { params: { date_from?: string; date_to?: string } }) {
+  const { data, isLoading } = useQuery({ queryKey: ['gst-hst', params], queryFn: () => getGstHstReturn(params) })
+  const r = data?.data
+  if (isLoading) return <Spinner />
+  if (!r) return null
+  const net = parseFloat(r.line_109_net_tax)
+
+  const LINE = (num: string, label: string, amount: string, opts?: { strong?: boolean }) => (
+    <div className={`flex justify-between gap-3 px-4 py-2.5 border-t border-gray-100 dark:border-gray-800 text-sm ${opts?.strong ? 'font-semibold' : ''}`}>
+      <span className="text-gray-900 dark:text-gray-100">
+        <span className="font-mono text-gray-400 mr-2">{num}</span>{label}
+      </span>
+      <span className="tabular-nums">${money(amount)}</span>
+    </div>
+  )
+
+  return (
+    <div className="space-y-3">
+      {!r.has_recorded_tax && (
+        <div className="flex items-start gap-2 text-sm px-3 py-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-200">
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+          <span>
+            No GST/HST has been recorded on your cashbook entries yet, so every line is zero. Record the
+            tax portion on income and expense entries (or set a default tax rate in Settings → Tax) and
+            this return fills in automatically.
+          </span>
+        </div>
+      )}
+
+      <div className="border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden">
+        {LINE('101', 'Sales & other revenue (net of tax)', r.line_101_sales)}
+        {LINE('105', 'GST/HST collected on sales', r.line_105_collected)}
+        {LINE('108', 'Input tax credits (GST/HST paid on purchases)', r.line_108_itc)}
+        <div className={`flex justify-between px-4 py-3 border-t-2 border-gray-200 dark:border-gray-700 font-semibold ${
+          net > 0 ? 'text-red-600 dark:text-red-400' : net < 0 ? 'text-green-600 dark:text-green-400' : ''
+        }`}>
+          <span><span className="font-mono text-gray-400 mr-2">109</span>Net tax {net > 0 ? '(owe CRA)' : net < 0 ? '(refund)' : ''}</span>
+          <span className="tabular-nums">${money(r.line_109_net_tax)}</span>
+        </div>
+      </div>
+
+      <p className="text-xs text-gray-500 dark:text-gray-400 px-1">
+        A summary of recorded GST/HST to hand your accountant — computed from the cashbook for the
+        selected period. It is not a filing, and reflects only tax you've recorded on entries.
+      </p>
     </div>
   )
 }

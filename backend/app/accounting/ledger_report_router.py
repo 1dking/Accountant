@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.accounting import ledger_reports, marketing_reports, statement_pdf
+from app.accounting import ledger_reports, marketing_reports, statement_pdf, tax_return
 from app.auth.models import User
 from app.dependencies import get_current_user, get_db
 
@@ -97,6 +97,18 @@ async def get_marketing_performance(
     """Blended ROAS: monthly revenue vs advertising spend, tied to the cashbook."""
     postings = await ledger_reports.gather_postings(db, user, date_from=date_from, date_to=date_to)
     return {"data": _money(marketing_reports.marketing_performance(postings))}
+
+
+@router.get("/reports/gst-hst-return")
+async def get_gst_hst_return(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+    date_from: date | None = None,
+    date_to: date | None = None,
+) -> dict:
+    """CRA GST34-style return summary, computed from recorded cashbook tax."""
+    result = await tax_return.gst_hst_return(db, user, date_from=date_from, date_to=date_to)
+    return {"data": _money(result)}
 
 
 @router.get("/reports/profit-loss.pdf")
