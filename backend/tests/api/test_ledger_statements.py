@@ -88,6 +88,31 @@ async def test_balance_sheet_balances_with_opening_and_retained(db):
     assert any("Retained Earnings" in n for n in equity_names)
 
 
+async def test_profit_loss_itemizes_by_category(db):
+    """Each cashbook category is its own P&L line — not collapsed into 'Other'."""
+    from app.cashbook.models import CategoryType, TransactionCategory
+
+    u = await _user(db)
+    a = await _account(db, u)
+    adv = TransactionCategory(name="Advertising", category_type=CategoryType.EXPENSE, display_order=7)
+    meals = TransactionCategory(name="Meals", category_type=CategoryType.EXPENSE, display_order=12)
+    db.add_all([adv, meals])
+    await db.commit()
+    await db.refresh(adv)
+    await db.refresh(meals)
+    db.add(CashbookEntry(account_id=a.id, entry_type=EntryType.EXPENSE, date=D,
+                         description="x", total_amount=Decimal("30.00"), category_id=adv.id, user_id=u.id))
+    db.add(CashbookEntry(account_id=a.id, entry_type=EntryType.EXPENSE, date=D,
+                         description="y", total_amount=Decimal("20.00"), category_id=meals.id, user_id=u.id))
+    await db.commit()
+
+    pl = ledger_reports.profit_loss(await ledger_reports.gather_postings(db, u))
+    names = {r["name"] for r in pl["expenses"]}
+    assert "Advertising" in names
+    assert "Meals" in names
+    assert pl["total_expenses"] == Decimal("50.00")
+
+
 async def test_opening_balance_off_by_default(db):
     """Trial Balance / P&L path must be unchanged — no opening postings unless asked."""
     u = await _user(db)

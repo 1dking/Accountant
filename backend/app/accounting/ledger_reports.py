@@ -100,10 +100,20 @@ class _Resolver:
             hit = self.by_name.get((cat.name.strip().lower(), want))
             if hit is not None:
                 return hit
+            name = (cat.name or "").strip()
+            if name:
+                # No matching CoA account — show the category as its OWN P&L line
+                # (a per-category bucket) rather than collapsing every category
+                # into a single "Other" row. A cashbook category IS effectively an
+                # income/expense account, so this is the natural statement line.
+                prefix = "4" if want == AccountType.INCOME else "6"
+                code = f"{prefix}{(cat.display_order or 0):03d}"
+                return self._bucket(f"cat:{want.value}:{name.lower()}", code, name, want)
+        # Truly uncategorized entries -> the seeded catch-all (or a bucket).
         fallback_code = _FALLBACK_INCOME if want == AccountType.INCOME else _FALLBACK_EXPENSE
         if fallback_code in self.by_code:
             return self.by_code[fallback_code]
-        label = "Unmapped Income" if want == AccountType.INCOME else "Unmapped Expense"
+        label = "Uncategorized Income" if want == AccountType.INCOME else "Uncategorized Expense"
         return self._bucket(f"unmapped:{want.value}", fallback_code, label, want)
 
     def payment_account(self, pa: PaymentAccount | None):
