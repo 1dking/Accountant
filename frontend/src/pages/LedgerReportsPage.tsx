@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Scale, Loader2, ChevronDown, ChevronRight, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { Scale, Loader2, ChevronDown, ChevronRight, AlertTriangle, CheckCircle2, Download } from 'lucide-react'
 import {
   getTrialBalance,
   getGeneralLedger,
   getProfitLoss,
   getBalanceSheet,
+  downloadStatementPdf,
   type GeneralLedgerAccount,
   type StatementLine,
 } from '@/api/accounting'
@@ -31,6 +32,23 @@ export default function LedgerReportsPage() {
   const [dateTo, setDateTo] = useState(today)
 
   const params = { date_from: dateFrom || undefined, date_to: dateTo || undefined }
+  const [downloading, setDownloading] = useState(false)
+  const exportable = tab === 'profit-loss' || tab === 'balance-sheet'
+
+  async function handleExport() {
+    setDownloading(true)
+    try {
+      if (tab === 'balance-sheet') {
+        await downloadStatementPdf('balance-sheet', { as_of: dateTo || undefined })
+      } else {
+        await downloadStatementPdf('profit-loss', params)
+      }
+    } catch {
+      alert('Could not generate the PDF. Please try again.')
+    } finally {
+      setDownloading(false)
+    }
+  }
 
   return (
     <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-6">
@@ -77,6 +95,17 @@ export default function LedgerReportsPage() {
             className="px-2 py-1.5 border rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
             title="As of"
           />
+          {exportable && (
+            <button
+              onClick={handleExport}
+              disabled={downloading}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900 text-sm font-medium disabled:opacity-60 hover:opacity-90"
+              title={`Download the ${tab === 'balance-sheet' ? 'Balance Sheet' : 'P&L'} as a PDF`}
+            >
+              {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+              PDF
+            </button>
+          )}
         </div>
       </div>
 

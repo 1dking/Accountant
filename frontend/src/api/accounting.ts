@@ -321,6 +321,33 @@ export async function getBalanceSheet(as_of?: string) {
   return api.get<ApiResponse<BalanceSheet>>(`/accounting/reports/balance-sheet${q}`)
 }
 
+/** Fetch a statement as a PDF (auth-scoped) and trigger a browser download.
+ *  The shared `api` client only parses JSON, so binary downloads go direct. */
+export async function downloadStatementPdf(
+  kind: 'profit-loss' | 'balance-sheet',
+  params: { date_from?: string; date_to?: string; as_of?: string } = {},
+) {
+  const qs = new URLSearchParams()
+  Object.entries(params).forEach(([k, v]) => { if (v) qs.set(k, v) })
+  const token = localStorage.getItem('access_token')
+  const res = await fetch(`/api/accounting/reports/${kind}.pdf${qs.toString() ? `?${qs}` : ''}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+  if (!res.ok) throw new Error(`Download failed (${res.status})`)
+  const blob = await res.blob()
+  const cd = res.headers.get('content-disposition') || ''
+  const match = cd.match(/filename="?([^"]+)"?/)
+  const filename = match ? match[1] : `${kind}.pdf`
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
+
 // ---------------------------------------------------------------------------
 // Accounts Payable / vendor bills (Phase 1.4)
 // ---------------------------------------------------------------------------
