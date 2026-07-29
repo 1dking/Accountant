@@ -91,6 +91,12 @@ function ProfitLossTab() {
 
   return (
     <div className="space-y-6">
+      <div className="rounded-lg border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-900/20 px-4 py-2.5 text-sm text-amber-800 dark:text-amber-300">
+        Legacy report (from expense/income entries). Your{' '}
+        <a href="/accounting/ledger-reports" className="font-semibold underline">Financial Statements → Profit &amp; Loss</a>{' '}
+        is the cashbook-accurate one that ties to your Balance Sheet.
+      </div>
+
       {/* Controls */}
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
         <div className="flex flex-wrap items-end gap-4">

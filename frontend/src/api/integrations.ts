@@ -230,6 +230,24 @@ export async function deletePlaidConnection(connectionId: string) {
   return api.delete<ApiResponse<{ detail: string }>>(`/integrations/plaid/connections/${connectionId}`)
 }
 
+/** Book balance vs bank balance per connected bank, with un-booked count. */
+export interface PlaidReconciliationRow {
+  connection_id: string
+  institution_name: string
+  owner_name: string | null
+  currency: string
+  book_balance: string | null
+  bank_balance: string | null
+  difference: string | null
+  unbooked_count: number
+  reconciled: boolean
+  balance_known: boolean
+}
+
+export async function getPlaidReconciliation() {
+  return api.get<{ data: PlaidReconciliationRow[] }>('/integrations/plaid/reconciliation')
+}
+
 export async function syncPlaidTransactions(connectionId: string) {
   return api.post<ApiResponse<{ detail: string }>>(`/integrations/plaid/connections/${connectionId}/sync`)
 }

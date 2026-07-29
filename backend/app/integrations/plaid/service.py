@@ -218,9 +218,24 @@ async def _fetch_accounts(client, access_token: str) -> list[dict]:
             # Native currency of the account (e.g. "CAD" for a CIBC chequing
             # account) so posted amounts aren't mislabelled USD. May be absent.
             "iso_currency_code": _plaid_account_currency(a),
+            # The bank's own current balance, captured for reconciliation
+            # (book balance vs bank balance). Refreshed on every sync.
+            "current_balance": _plaid_account_current(a),
         }
         for a in response["accounts"]
     ]
+
+
+def _plaid_account_current(account) -> float | None:
+    """Best-effort current balance from a Plaid account (may be None)."""
+    try:
+        balances = account.get("balances") if hasattr(account, "get") else account["balances"]
+        if balances is None:
+            return None
+        val = balances["current"]
+        return float(val) if val is not None else None
+    except Exception:
+        return None
 
 
 def _plaid_account_currency(account) -> str | None:
@@ -378,6 +393,12 @@ async def sync_transactions(
 
     conn.sync_cursor = cursor
     conn.last_sync_at = datetime.now(timezone.utc)
+    # Refresh stored account balances (bank truth for reconciliation) — best
+    # effort, never let it fail the sync.
+    try:
+        conn.accounts_json = json.dumps(await _fetch_accounts(client, access_token))
+    except Exception:
+        pass
     await db.commit()
     return added_count
 
@@ -480,6 +501,69 @@ async def bulk_categorize_transactions(
             except Exception:
                 pass
     return {"posted": posted, "total": len(txn_ids), "errors": errors}
+
+
+async def reconciliation_summary(db: AsyncSession, user: User) -> list[dict]:
+    """Book balance vs bank balance per connected bank, plus how many synced
+    transactions are still un-booked. The "does my book match my bank" view."""
+    from decimal import Decimal
+    from sqlalchemy import func
+
+    from app.cashbook.models import PaymentAccount
+    from app.cashbook.service import get_account_current_balance
+
+    # PaymentAccounts mirrored from Plaid, keyed by plaid_account_id (org-scoped).
+    pstmt = select(PaymentAccount).where(
+        PaymentAccount.plaid_account_id.isnot(None),
+        PaymentAccount.is_active.is_(True),
+    )
+    pstmt = apply_cashbook_filter(pstmt, PaymentAccount.user_id, PaymentAccount.org_id, user)
+    pa_by_pid = {pa.plaid_account_id: pa for pa in (await db.execute(pstmt)).scalars().all()}
+
+    conns = await list_connections(db, user)
+    owners = await owner_names_for(db, conns)
+
+    out: list[dict] = []
+    for conn in conns:
+        try:
+            accts_meta = json.loads(conn.accounts_json or "[]")
+        except (ValueError, TypeError):
+            accts_meta = []
+
+        bank_vals = [a.get("current_balance") for a in accts_meta if a.get("current_balance") is not None]
+        bank_balance = sum((Decimal(str(v)) for v in bank_vals), Decimal("0")) if bank_vals else None
+        currency = next((a.get("iso_currency_code") for a in accts_meta if a.get("iso_currency_code")), "CAD")
+
+        book_balance = Decimal("0.00")
+        matched = False
+        for a in accts_meta:
+            pa = pa_by_pid.get(a.get("account_id"))
+            if pa is not None:
+                matched = True
+                book_balance += await get_account_current_balance(db, pa.id)
+
+        unbooked = (await db.execute(
+            select(func.count(PlaidTransaction.id)).where(
+                PlaidTransaction.plaid_connection_id == conn.id,
+                PlaidTransaction.is_categorized.is_(False),
+            )
+        )).scalar() or 0
+
+        diff = (book_balance - bank_balance) if (matched and bank_balance is not None) else None
+        reconciled = matched and unbooked == 0 and (bank_balance is None or abs(diff) < Decimal("0.01"))
+        out.append({
+            "connection_id": str(conn.id),
+            "institution_name": conn.institution_name,
+            "owner_name": owners.get(conn.user_id),
+            "currency": currency,
+            "book_balance": str(book_balance) if matched else None,
+            "bank_balance": str(bank_balance) if bank_balance is not None else None,
+            "difference": str(diff) if diff is not None else None,
+            "unbooked_count": int(unbooked),
+            "reconciled": bool(reconciled),
+            "balance_known": bank_balance is not None,
+        })
+    return out
 
 
 # ---------------------------------------------------------------------------

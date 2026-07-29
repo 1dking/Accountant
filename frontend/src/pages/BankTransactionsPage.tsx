@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Landmark, RefreshCw, ArrowUpRight, ArrowDownRight, Check, Filter, Sparkles, ListChecks, AlertTriangle, BookOpen, Search, X } from 'lucide-react'
+import { Landmark, RefreshCw, ArrowUpRight, ArrowDownRight, Check, Filter, Sparkles, ListChecks, AlertTriangle, BookOpen, Search, X, Scale } from 'lucide-react'
 import {
   listPlaidConnections,
   listPlaidTransactions,
@@ -11,6 +11,7 @@ import {
   applyCategorizationRules,
   aiCategorizeTransactions,
   getPlaidPossibleDuplicates,
+  getPlaidReconciliation,
 } from '@/api/integrations'
 import { listCategories } from '@/api/cashbook'
 import { ApiClientError } from '@/api/client'
@@ -276,6 +277,54 @@ function BulkCashbookModal({ count, categories, submitting, onClose, onConfirm }
   )
 }
 
+/** "Does my book match my bank?" — per connected bank, book balance vs the
+ *  bank's own balance, plus how many synced transactions aren't booked yet. */
+function ReconciliationCard() {
+  const { data } = useQuery({ queryKey: ['plaid-reconciliation'], queryFn: getPlaidReconciliation })
+  const rows = data?.data ?? []
+  if (rows.length === 0) return null
+  return (
+    <div className="bg-white dark:bg-gray-900 border rounded-lg p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <Scale className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+        <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Reconciliation</h2>
+        <span className="text-xs text-gray-400 dark:text-gray-500">does your book match your bank?</span>
+      </div>
+      <div className="space-y-2">
+        {rows.map((r) => {
+          const book = r.book_balance != null ? Number(r.book_balance) : null
+          const bank = r.bank_balance != null ? Number(r.bank_balance) : null
+          const diff = r.difference != null ? Number(r.difference) : null
+          const off = diff != null && Math.abs(diff) >= 0.01
+          return (
+            <div key={r.connection_id} className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm border-t border-gray-100 dark:border-gray-800 pt-2 first:border-t-0 first:pt-0">
+              <div className="font-medium text-gray-900 dark:text-gray-100 min-w-[130px]">
+                {r.institution_name}
+                {r.owner_name && <span className="text-xs text-gray-400 ml-1">· {r.owner_name}</span>}
+              </div>
+              <div className="text-gray-500 dark:text-gray-400">Book <span className="font-mono text-gray-900 dark:text-gray-100">{book != null ? formatCurrency(book, r.currency) : '—'}</span></div>
+              <div className="text-gray-500 dark:text-gray-400">Bank <span className="font-mono text-gray-900 dark:text-gray-100">{bank != null ? formatCurrency(bank, r.currency) : '—'}</span></div>
+              <div className="ml-auto">
+                {r.reconciled ? (
+                  <span className="flex items-center gap-1 text-xs font-medium text-green-600 dark:text-green-400"><Check className="w-3.5 h-3.5" /> Reconciled</span>
+                ) : r.unbooked_count > 0 ? (
+                  <span className="text-xs font-medium text-amber-600 dark:text-amber-400">{r.unbooked_count} un-booked</span>
+                ) : !r.balance_known ? (
+                  <span className="text-xs text-gray-400">Sync to compare balance</span>
+                ) : off ? (
+                  <span className="text-xs font-medium text-amber-600 dark:text-amber-400">Off by {formatCurrency(Math.abs(diff!), r.currency)}</span>
+                ) : (
+                  <span className="text-xs text-gray-400">—</span>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 export default function BankTransactionsPage() {
   const queryClient = useQueryClient()
   const [connectionId, setConnectionId] = useState<string>('')
@@ -316,6 +365,7 @@ export default function BankTransactionsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['plaid-transactions'] })
       queryClient.invalidateQueries({ queryKey: ['plaid-connections'] })
+      queryClient.invalidateQueries({ queryKey: ['plaid-reconciliation'] })
     },
   })
 
@@ -369,6 +419,7 @@ export default function BankTransactionsPage() {
       queryClient.invalidateQueries({ queryKey: ['cashbook-accounts'] })
       queryClient.invalidateQueries({ queryKey: ['cashbook-entries'] })
       queryClient.invalidateQueries({ queryKey: ['cashbook-summary'] })
+      queryClient.invalidateQueries({ queryKey: ['plaid-reconciliation'] })
       setSelectedTxnIds(new Set())
       setBulkOpen(false)
       if (d?.errors?.length) toast.warning(`Posted ${d.posted} of ${d.total}. ${d.errors.length} skipped.`)
@@ -480,6 +531,8 @@ export default function BankTransactionsPage() {
           <span>Bank data is shared with your organization — you're seeing everyone's connected accounts. Only the owner of a bank can disconnect it.</span>
         </div>
       )}
+
+      {connections.length > 0 && <ReconciliationCard />}
 
       {/* Filters */}
       <div className="bg-white dark:bg-gray-900 border rounded-lg p-4 flex flex-wrap gap-3 items-center">

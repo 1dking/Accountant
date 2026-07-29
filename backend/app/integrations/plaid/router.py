@@ -367,6 +367,15 @@ async def transaction_possible_duplicates(
     return {"data": {"possible_duplicates": candidates}}
 
 
+@router.get("/reconciliation", response_model=dict)
+async def reconciliation(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_financial_data_access),
+):
+    """Per-bank book balance vs bank balance + un-booked count."""
+    return {"data": await service.reconciliation_summary(db, user)}
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
