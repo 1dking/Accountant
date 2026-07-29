@@ -25,9 +25,28 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import User
 from app.billing.models import AiUsage
+from app.config import Settings
 from app.core.exceptions import AppError
 
 logger = logging.getLogger(__name__)
+
+_settings = Settings()
+
+
+def _is_ai_exempt(user: User) -> bool:
+    """Operators / super-admins are NOT metered.
+
+    They pay the Anthropic bill directly on their own instance, so gating them
+    on a per-tenant AI budget just blocks the owner from using their own tool.
+    ``ai_meter_exempt_emails`` (and ``super_admin_emails``) list those accounts;
+    everyone else — real tenants — stays metered.
+    """
+    raw = ",".join([
+        getattr(_settings, "ai_meter_exempt_emails", "") or "",
+        getattr(_settings, "super_admin_emails", "") or "",
+    ])
+    exempt = {e.strip().lower() for e in raw.split(",") if e.strip()}
+    return bool(exempt) and (getattr(user, "email", "") or "").lower() in exempt
 
 #: Estimated spend per invocation, in credits (1 credit = $0.001).
 #: Keep in step with COST_LEDGER.md Part 3.
@@ -162,6 +181,11 @@ async def consume(
     Returns the credits charged.
     """
     cost = operation_cost(operation, units)
+
+    # Operators/super-admins pay the model bill directly — never metered.
+    if _is_ai_exempt(user):
+        return cost
+
     tenant = tenant_key_for(user)
     period = current_period()
 

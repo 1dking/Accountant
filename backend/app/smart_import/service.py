@@ -420,6 +420,56 @@ async def delete_import(
     await db.commit()
 
 
+async def bulk_delete_imports(
+    db: AsyncSession,
+    import_ids: list[uuid.UUID],
+    user_id: uuid.UUID,
+) -> int:
+    """Delete several import batches (and any linked cashbook entries)."""
+    deleted = 0
+    for iid in import_ids:
+        try:
+            await delete_import(db, iid, user_id)
+            deleted += 1
+        except NotFoundError:
+            continue
+    return deleted
+
+
+async def retry_import(
+    db: AsyncSession,
+    import_id: uuid.UUID,
+    user_id: uuid.UUID,
+) -> SmartImport:
+    """Re-run extraction on an import using its stored file — e.g. after AI
+    credits are topped up — so the user doesn't have to re-upload it."""
+    imp = await get_import(db, import_id, user_id)  # ownership check
+
+    full_path = os.path.join(settings.storage_path, imp.storage_path)
+    if not os.path.exists(full_path):
+        raise ValidationError(
+            "The uploaded file is no longer available — please re-upload it."
+        )
+    with open(full_path, "rb") as f:
+        data = f.read()
+
+    # Start clean: drop any prior items and clear the error/state.
+    from sqlalchemy import delete as sa_delete
+
+    await db.execute(sa_delete(SmartImportItem).where(SmartImportItem.import_id == imp.id))
+    imp.status = ImportStatus.PENDING.value
+    imp.error_message = None
+    await db.commit()
+
+    is_csv = (
+        imp.mime_type in ("text/csv", "application/csv")
+        or (imp.original_filename or "").lower().endswith(".csv")
+    )
+    if is_csv:
+        return await process_csv_import(db, imp.id, data)
+    return await process_import(db, imp.id, data, imp.mime_type)
+
+
 async def delete_item(
     db: AsyncSession,
     item_id: uuid.UUID,

@@ -53,3 +53,7 @@ class ImportItemUpdate(BaseModel):
 class ImportConfirmRequest(BaseModel):
     account_id: str
     item_ids: list[str] | None = None  # None = all approved items
+
+
+class BulkDeleteImportsRequest(BaseModel):
+    import_ids: list[str]

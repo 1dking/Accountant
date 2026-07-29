@@ -5,7 +5,7 @@ import {
   Upload, FileImage, CheckCircle2,
   Loader2, ArrowRight, FileText,
   Pencil, Trash2, X, Check, AlertTriangle,
-  Eye, Scissors,
+  Eye, Scissors, RotateCcw,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -17,6 +17,8 @@ import {
   updateImportItem,
   deleteImport,
   deleteImportItem,
+  bulkDeleteImports,
+  retryImport,
   getImportPreviewUrl,
   type SmartImport,
   type SmartImportItem,
@@ -325,6 +327,7 @@ export default function SmartImportPage() {
   const [editPreviewItem, setEditPreviewItem] = useState<SmartImportItem | null>(null)
   const [splitItem, setSplitItem] = useState<SmartImportItem | null>(null)
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null)
+  const [selectedImportIds, setSelectedImportIds] = useState<Set<string>>(new Set())
 
   const { data: importsData } = useQuery({
     queryKey: ['smart-imports'],
@@ -431,6 +434,36 @@ export default function SmartImportPage() {
       queryClient.invalidateQueries({ queryKey: ['cashbook-summary'] })
       toast.success('Import batch deleted.')
     },
+  })
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: (ids: string[]) => bulkDeleteImports(ids),
+    onSuccess: (resp) => {
+      const n = (resp as any)?.data?.deleted ?? 0
+      queryClient.invalidateQueries({ queryKey: ['smart-imports'] })
+      queryClient.invalidateQueries({ queryKey: ['cashbook-entries'] })
+      queryClient.invalidateQueries({ queryKey: ['cashbook-summary'] })
+      setSelectedImportIds(new Set())
+      toast.success(`Deleted ${n} import${n !== 1 ? 's' : ''}.`)
+    },
+    onError: (err: any) => toast.error(err?.message || 'Bulk delete failed.'),
+  })
+
+  const retryMutation = useMutation({
+    mutationFn: (importId: string) => retryImport(importId),
+    onSuccess: (resp) => {
+      const data = (resp as any)?.data
+      queryClient.invalidateQueries({ queryKey: ['smart-imports'] })
+      if (data?.status === 'ready' || (data?.items?.length ?? 0) > 0) {
+        setActiveImport(data)
+        setSelectedItems(new Set())
+        setItemOverrides({})
+        toast.success('Re-read successfully — review the items.')
+      } else {
+        toast.error(data?.error_message || 'Retry did not produce any rows.')
+      }
+    },
+    onError: (err: any) => toast.error(err?.message || 'Retry failed.'),
   })
 
   const handleFiles = useCallback((files: FileList | File[]) => {
@@ -1111,27 +1144,81 @@ export default function SmartImportPage() {
       {/* Recent imports */}
       {imports.length > 0 && (
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Recent Imports</h2>
+          <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Recent Imports</h2>
+            <div className="flex items-center gap-2">
+              {imports.some((i) => i.status === 'failed') && (
+                <button
+                  onClick={() => setSelectedImportIds(new Set(imports.filter((i) => i.status === 'failed').map((i) => i.id)))}
+                  className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                >
+                  Select failed
+                </button>
+              )}
+              {selectedImportIds.size > 0 && (
+                <button
+                  onClick={() => {
+                    if (confirm(`Delete ${selectedImportIds.size} selected import(s)? Any already-imported ones will also remove their cashbook entries.`)) {
+                      bulkDeleteMutation.mutate(Array.from(selectedImportIds))
+                    }
+                  }}
+                  disabled={bulkDeleteMutation.isPending}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete {selectedImportIds.size} selected
+                </button>
+              )}
+            </div>
+          </div>
           <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 divide-y dark:divide-gray-700">
-            {imports.map((imp) => (
+            <div className="flex items-center gap-3 px-4 py-2 text-xs text-gray-500 dark:text-gray-400">
+              <input
+                type="checkbox"
+                checked={imports.length > 0 && selectedImportIds.size === imports.length}
+                onChange={(e) => setSelectedImportIds(e.target.checked ? new Set(imports.map((i) => i.id)) : new Set())}
+                className="h-4 w-4 rounded border-gray-300 dark:border-gray-600"
+              />
+              <span>Select all ({imports.length})</span>
+            </div>
+            {imports.map((imp) => {
+              const isFailed = imp.status === 'failed'
+              return (
               <div
                 key={imp.id}
-                className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
               >
+                <input
+                  type="checkbox"
+                  checked={selectedImportIds.has(imp.id)}
+                  onChange={(e) => setSelectedImportIds((prev) => {
+                    const next = new Set(prev)
+                    if (e.target.checked) next.add(imp.id); else next.delete(imp.id)
+                    return next
+                  })}
+                  className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 shrink-0"
+                />
                 <button
                   onClick={() => handleLoadImport(imp)}
-                  className="flex-1 flex items-center gap-4 text-left min-w-0"
+                  disabled={isFailed}
+                  className="flex-1 flex items-center gap-4 text-left min-w-0 disabled:cursor-default"
                 >
                   <FileText className="h-5 w-5 text-gray-400 shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                       {imp.original_filename}
                     </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {imp.ai_summary || imp.document_type || 'Processing...'}
-                      {' · '}{imp.item_count} item{imp.item_count !== 1 ? 's' : ''}
-                      {' · '}{new Date(imp.created_at).toLocaleDateString()}
-                    </p>
+                    {isFailed ? (
+                      <p className="text-xs text-red-600 dark:text-red-400 truncate">
+                        {imp.error_message || 'Failed to read this file.'}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {imp.ai_summary || imp.document_type || (imp.status === 'processing' ? 'Processing…' : 'Ready')}
+                        {' · '}{imp.item_count} item{imp.item_count !== 1 ? 's' : ''}
+                        {' · '}{new Date(imp.created_at).toLocaleDateString()}
+                      </p>
+                    )}
                   </div>
                   <span className={cn(
                     'text-xs font-medium px-2 py-0.5 rounded-full shrink-0',
@@ -1144,6 +1231,16 @@ export default function SmartImportPage() {
                     {imp.status === 'partially_imported' ? 'partial' : imp.status}
                   </span>
                 </button>
+                {isFailed && (
+                  <button
+                    onClick={() => retryMutation.mutate(imp.id)}
+                    disabled={retryMutation.isPending}
+                    className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded shrink-0 disabled:opacity-50"
+                    title="Retry"
+                  >
+                    <RotateCcw className={cn('h-4 w-4', retryMutation.isPending && retryMutation.variables === imp.id && 'animate-spin')} />
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     if (confirm('Delete this import batch' + (imp.status === 'imported' || imp.status === 'partially_imported' ? ' and its cashbook entries' : '') + '?')) {
@@ -1156,7 +1253,8 @@ export default function SmartImportPage() {
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}

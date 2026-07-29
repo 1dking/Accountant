@@ -44,6 +44,11 @@ class Settings(BaseSettings):
     #: identity capture). These return a fixed JSON shape from a short prompt
     #: and do not need a frontier model; routing them here is ~3x cheaper.
     anthropic_model_fast: str = "claude-haiku-4-5-20251001"
+    #: Comma-separated emails exempt from the AI credit meter — operators/owners
+    #: who pay the Anthropic bill directly, so a per-tenant monthly AI budget
+    #: makes no sense for them. Same shape as telephony_exempt_emails;
+    #: super_admin_emails are treated as exempt too. Tenants stay metered.
+    ai_meter_exempt_emails: str = ""
     #: Master switch for automatic AI extraction on upload. Previously declared
     #: here and NEVER READ anywhere — now honoured by both upload paths.
     ai_auto_extract: bool = True

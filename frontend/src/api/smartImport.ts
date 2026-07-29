@@ -68,6 +68,14 @@ export function deleteImport(importId: string) {
   return api.delete(`/smart-import/${importId}`)
 }
 
+export function bulkDeleteImports(importIds: string[]) {
+  return api.post<ApiResponse<{ deleted: number }>>('/smart-import/bulk-delete', { import_ids: importIds })
+}
+
+export function retryImport(importId: string) {
+  return api.post<ApiResponse<SmartImport & { items: SmartImportItem[] }>>(`/smart-import/${importId}/retry`)
+}
+
 export function deleteImportItem(itemId: string) {
   return api.delete(`/smart-import/items/${itemId}`)
 }

@@ -12,6 +12,7 @@ from app.auth.models import User
 from app.dependencies import get_current_user, get_current_user_or_token, get_db
 from app.smart_import import service
 from app.smart_import.schemas import (
+    BulkDeleteImportsRequest,
     ImportConfirmRequest,
     ImportItemUpdate,
     SmartImportDetailResponse,
@@ -22,6 +23,40 @@ from app.config import Settings
 
 router = APIRouter()
 settings = Settings()
+
+
+def _detail(imp) -> SmartImportDetailResponse:
+    """Build the detail response (id + items) for an import."""
+    return SmartImportDetailResponse(
+        id=str(imp.id),
+        original_filename=imp.original_filename,
+        mime_type=imp.mime_type,
+        file_size=imp.file_size,
+        status=imp.status,
+        document_type=imp.document_type,
+        ai_summary=imp.ai_summary,
+        error_message=imp.error_message,
+        processing_time_ms=imp.processing_time_ms,
+        item_count=len(imp.items),
+        created_at=imp.created_at.isoformat(),
+        items=[
+            SmartImportItemResponse(
+                id=str(item.id),
+                status=item.status,
+                entry_type=item.entry_type,
+                date=item.date,
+                description=item.description,
+                amount=item.amount,
+                tax_amount=item.tax_amount,
+                category_suggestion=item.category_suggestion,
+                confidence=item.confidence,
+                is_duplicate=item.is_duplicate,
+                duplicate_entry_id=str(item.duplicate_entry_id) if item.duplicate_entry_id else None,
+                cashbook_entry_id=str(item.cashbook_entry_id) if item.cashbook_entry_id else None,
+            )
+            for item in imp.items
+        ],
+    )
 
 
 @router.post("/upload", status_code=201)
@@ -115,6 +150,18 @@ async def upload_for_import(
             ],
         )
     }
+
+
+@router.post("/bulk-delete")
+async def bulk_delete_imports(
+    data: BulkDeleteImportsRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+):
+    """Delete several import batches at once (and their cashbook entries)."""
+    ids = [uuid.UUID(i) for i in data.import_ids]
+    deleted = await service.bulk_delete_imports(db, ids, user.id)
+    return {"data": {"deleted": deleted}}
 
 
 @router.get("")
@@ -247,6 +294,18 @@ async def confirm_import(
         db, import_id, user.id, uuid.UUID(data.account_id), item_uuids
     )
     return {"data": result}
+
+
+@router.post("/{import_id}/retry")
+async def retry_import(
+    import_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+):
+    """Re-run extraction on a failed/finished import without re-uploading."""
+    await service.retry_import(db, import_id, user.id)
+    imp = await service.get_import(db, import_id, user.id)
+    return {"data": _detail(imp)}
 
 
 @router.delete("/{import_id}", status_code=204)
