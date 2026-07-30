@@ -8,7 +8,7 @@ from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.config import Settings
-from app.database import Base
+from app.database import Base, normalize_async_url
 
 # Import all models so Base.metadata knows about them
 import app.auth.models  # noqa: F401
@@ -59,14 +59,16 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 
-# Load settings (database_url comes from .env)
+# Load settings (database_url comes from .env). Normalize so a raw Postgres URL
+# (as Supabase presents it) works here exactly as it does for the app engine.
 settings = Settings()
+_DB_URL = normalize_async_url(settings.database_url)
 
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode (generates SQL without connecting)."""
     context.configure(
-        url=settings.database_url,
+        url=_DB_URL,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
@@ -88,7 +90,7 @@ def do_run_migrations(connection) -> None:
 
 async def run_async_migrations() -> None:
     """Run migrations in 'online' mode with an async engine."""
-    connectable = create_async_engine(settings.database_url, poolclass=pool.NullPool)
+    connectable = create_async_engine(_DB_URL, poolclass=pool.NullPool)
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
     await connectable.dispose()
