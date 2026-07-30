@@ -39,7 +39,28 @@ def _set_sqlite_pragma(dbapi_conn, connection_record):
     cursor.close()
 
 
+def normalize_async_url(url: str) -> str:
+    """Make a Postgres URL usable by our async driver, so DATABASE_URL can be
+    pasted in exactly as a host (e.g. Supabase) presents it:
+
+      - `postgres://` / `postgresql://`  ->  `postgresql+asyncpg://`
+      - ensure `prepared_statement_cache_size=0` (required for asyncpg through
+        a transaction pooler; harmless on a direct connection).
+
+    sqlite and already-async URLs pass through unchanged. Mirrors the migration
+    script's normalizer so the same string works in both places.
+    """
+    if url.startswith("postgres://"):
+        url = "postgresql+asyncpg://" + url[len("postgres://"):]
+    elif url.startswith("postgresql://") and not url.startswith("postgresql+"):
+        url = "postgresql+asyncpg://" + url[len("postgresql://"):]
+    if url.startswith("postgresql+asyncpg://") and "prepared_statement_cache_size" not in url:
+        url += ("&" if "?" in url else "?") + "prepared_statement_cache_size=0"
+    return url
+
+
 def build_engine(database_url: str):
+    database_url = normalize_async_url(database_url)
     connect_args = {}
     is_sqlite = "sqlite" in database_url
     if is_sqlite:
