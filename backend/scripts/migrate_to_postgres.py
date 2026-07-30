@@ -90,8 +90,30 @@ from app.config import Settings  # noqa: E402
 from app.core.encryption import init_encryption_service  # noqa: E402
 from app.database import Base  # noqa: E402
 
+def _normalize_dest(url: str) -> str:
+    """Accept a Postgres URL exactly as Supabase (or any host) hands it over and
+    make it work with our async driver — so the person running the migration
+    doesn't have to hand-edit the format (the easiest thing to get wrong):
+
+      - `postgres://...` / `postgresql://...`  ->  `postgresql+asyncpg://...`
+      - ensure `prepared_statement_cache_size=0` (required for asyncpg through
+        Supabase's connection pooler; harmless on a direct connection).
+
+    A sqlite URL passes through untouched.
+    """
+    if url.startswith("postgres://"):
+        url = "postgresql+asyncpg://" + url[len("postgres://"):]
+    elif url.startswith("postgresql://") and not url.startswith("postgresql+"):
+        url = "postgresql+asyncpg://" + url[len("postgresql://"):]
+    if url.startswith("postgresql+asyncpg://") and "prepared_statement_cache_size" not in url:
+        url += ("&" if "?" in url else "?") + "prepared_statement_cache_size=0"
+    return url
+
+
 SOURCE_URL = os.environ.get("SOURCE_URL", "sqlite+aiosqlite:///./data/accountant.db")
 DEST_URL = os.environ.get("DEST_URL") or os.environ.get("TARGET_URL")
+if DEST_URL:
+    DEST_URL = _normalize_dest(DEST_URL)
 BATCH = 500
 
 
