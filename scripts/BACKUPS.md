@@ -30,12 +30,16 @@ This also runs in CI (see `.github/workflows/ci.yml`).
 
 ### Option A — cron (simplest)
 
-`crontab -e` on the VPS and add (see `backup.cron.example`):
+`crontab -e` on the VPS and add (off-box upload is automatic via the R2 config in
+`backend/.env`):
 
 ```cron
-# Daily at 02:15, keep 14 days, log to a file
-15 2 * * * cd /home/<vps-user>/Accountant && KEEP=14 bash scripts/backup.sh >> /home/<vps-user>/Accountant/logs/backup.log 2>&1
+# Daily at 04:30 — snapshot + off-box to R2, keep newest 14, log to a file
+30 4 * * * cd /home/dh_pjj4dt/Accountant && KEEP=14 bash scripts/backup.sh >> /home/dh_pjj4dt/Accountant/logs/backup.log 2>&1
 ```
+
+This runs **independently of deploys** (deploys also snapshot, but only when you
+deploy). Check it ran: `tail ~/Accountant/logs/backup.log`.
 
 ### Option B — systemd timer
 
@@ -88,9 +92,35 @@ CONFIRM=yes bash scripts/restore.sh backups/accountant-YYYYmmdd-HHMMSS.tar.gz
 bash start.sh
 ```
 
-## Off-box copies (do this too)
+## Off-box copies (built in)
 
-These archives live on the same VPS as the data. Ship them off-box on a
-schedule — e.g. `rclone copy` / `aws s3 cp` the `backups/` dir to the Cloudflare
-R2 bucket already configured in `backend/.env`, or to any offsite target. That
-step is infrastructure and is **not** in this repo.
+`backup.sh` ships each archive **off the box** to S3-compatible object storage, so
+a VPS/disk loss doesn't take the backups with it. If unconfigured it logs a loud
+warning and stays local-only (so CI / the smoke test are unaffected).
+
+- **Default:** reuses the Cloudflare **R2** config already in `backend/.env`
+  (`R2_ACCESS_KEY_ID/SECRET/BUCKET/ENDPOINT`) and uploads under the `db-backups/`
+  prefix. Nothing else to set.
+- **Override:** point anywhere S3-compatible (AWS S3, Backblaze B2, Wasabi):
+  ```bash
+  BACKUP_S3_DEST=s3://my-bucket/accountant \
+  BACKUP_S3_ENDPOINT=https://s3.us-west-002.backblazeb2.com \
+  AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=... \
+  bash scripts/backup.sh
+  ```
+- Credentials are read from the environment or `backend/.env` and passed to `aws`
+  inline — **never hardcoded in the script and never logged**. Remote retention
+  keeps the newest `REMOTE_KEEP` (defaults to `KEEP`).
+- Verify a copy landed:
+  ```bash
+  AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=... AWS_DEFAULT_REGION=auto \
+    aws s3 ls s3://<bucket>/db-backups/ --endpoint-url <R2_ENDPOINT>
+  ```
+
+## The FERNET_KEY is NOT in the backup — back it up separately
+
+By design, the archive contains the **encrypted** DB but **not** `FERNET_KEY` (a
+stolen backup must not be decryptable). A restored DB is useless without the key,
+and the app **refuses to boot** without it (`app/core/encryption.py`). Store the
+key **separately and off-box** (password manager / sealed secret). Full disaster
+steps: **`scripts/RECOVERY.md`**.

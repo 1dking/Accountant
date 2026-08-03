@@ -15,6 +15,10 @@ export DB_PATH="$SANDBOX/src/accountant.db"
 export DOCS_DIR="$SANDBOX/src/documents"
 export BACKUP_DEST="$SANDBOX/backups"
 export KEEP=3
+# Keep the round-trip test hermetic: no off-box upload. /dev/null is not a
+# regular file, so backup.sh's R2 fallback reads nothing and stays local-only.
+export ENV_FILE=/dev/null
+unset BACKUP_S3_DEST
 
 mkdir -p "$SANDBOX/src/documents"
 

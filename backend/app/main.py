@@ -135,6 +135,27 @@ async def lifespan(application: FastAPI):
 
     await load_integration_configs(application.state.session_factory, settings)
 
+    # Make the resolved Plaid environment VISIBLE at boot. The keys/env come from
+    # the encrypted integration_configs row (not .env); if that were ever wiped,
+    # Plaid would silently fall back to sandbox + empty keys. Log the resolved
+    # state (never the keys — presence booleans only) so that is caught, not hidden.
+    _plaid_keyed = bool(settings.plaid_client_id and settings.plaid_secret)
+    logger.info(
+        "Plaid config resolved: environment=%s keys_present=%s link_enabled=%s",
+        settings.plaid_env, _plaid_keyed, settings.plaid_link_enabled,
+    )
+    if settings.plaid_link_enabled and not _plaid_keyed:
+        logger.warning(
+            "Plaid Link is ENABLED but no API keys resolved — bank connections will "
+            "fail. Check the Plaid keys manager / integration_configs."
+        )
+    if settings.plaid_link_enabled and settings.plaid_env != "production":
+        logger.warning(
+            "Plaid Link is ENABLED but environment=%s (not production). If real banks "
+            "were connected, this points to a lost/overwritten Plaid config.",
+            settings.plaid_env,
+        )
+
     # Seed starter page templates
     try:
         from app.pages.seed_templates import seed_starter_templates
