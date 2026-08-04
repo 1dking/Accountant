@@ -112,7 +112,7 @@ function CashbookDestinationModal({ txn, accountLabel, currency, categories, sub
   const [categoryId, setCategoryId] = useState<string>('')
 
   const visibleCategories = categories.filter(
-    (c) => c.category_type === entryType || c.category_type === 'both',
+    (c) => c.category_type === entryType || c.category_type === 'both' || c.category_type === 'equity',
   )
 
   return (
@@ -222,7 +222,7 @@ function BulkCashbookModal({ count, categories, submitting, onClose, onConfirm }
   const [entryMode, setEntryMode] = useState<'auto' | 'expense' | 'income'>('auto')
   const [categoryId, setCategoryId] = useState<string>('')
   const visibleCategories = categories.filter(
-    (c) => entryMode === 'auto' || c.category_type === entryMode || c.category_type === 'both',
+    (c) => entryMode === 'auto' || c.category_type === entryMode || c.category_type === 'both' || c.category_type === 'equity',
   )
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>

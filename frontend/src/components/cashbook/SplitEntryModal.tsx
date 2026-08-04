@@ -29,7 +29,7 @@ export default function SplitEntryModal({ entry, onClose }: SplitEntryModalProps
     queryFn: () => listCategories(),
   })
   const categories: TransactionCategory[] = (categoriesData?.data ?? []).filter(
-    (c: TransactionCategory) => c.category_type === entry.entry_type || c.category_type === 'both'
+    (c: TransactionCategory) => c.category_type === entry.entry_type || c.category_type === 'both' || c.category_type === 'equity'
   )
 
   const total = lines.reduce((sum, l) => sum + (parseFloat(l.amount) || 0), 0)

@@ -105,6 +105,10 @@ DEFAULT_CATEGORIES = [
     {"name": "Vehicle Fuel", "category_type": "expense", "color": "#e11d48", "icon": "fuel", "order": 29},
     {"name": "Vehicle Repairs", "category_type": "expense", "color": "#be123c", "icon": "car", "order": 30},
     {"name": "Other Expense", "category_type": "expense", "color": "#6b7280", "icon": "circle-dot", "order": 31},
+    # Equity — personal money through a business account (commingling). Excluded
+    # from the P&L + tax, but still counted in the account balance/reconciliation.
+    {"name": "Owner's Draw", "category_type": "equity", "color": "#7c3aed", "icon": "user-minus", "order": 40},
+    {"name": "Owner's Contribution", "category_type": "equity", "color": "#7c3aed", "icon": "user-plus", "order": 41},
 ]
 
 
@@ -177,6 +181,9 @@ async def list_categories(
             or_(
                 TransactionCategory.category_type == category_type,
                 TransactionCategory.category_type == CategoryType.BOTH,
+                # Owner's Draw / Contribution are valid on either side (money out
+                # = Draw, money in = Contribution), so surface them in every picker.
+                TransactionCategory.category_type == CategoryType.EQUITY,
             )
         )
     result = await db.execute(query)

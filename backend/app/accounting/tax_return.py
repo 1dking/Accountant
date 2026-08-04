@@ -18,11 +18,11 @@ factual, not an estimate. It is a summary to hand an accountant, not a filing.
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import User
-from app.cashbook.models import CashbookEntry, EntryType
+from app.cashbook.models import CashbookEntry, CategoryType, EntryType, TransactionCategory
 from app.core.authorization import apply_cashbook_filter
 
 _ZERO = Decimal("0.00")
@@ -44,8 +44,16 @@ async def gst_hst_return(
     gross = func.coalesce(func.sum(CashbookEntry.total_amount), 0)
     taxed = func.count(CashbookEntry.id).filter(CashbookEntry.tax_amount > 0)
 
+    # Owner's Draw / Contribution (equity) are personal money through a business
+    # account — never part of a GST/HST return. Exclude them (keep uncategorized).
+    equity_ids = select(TransactionCategory.id).where(
+        TransactionCategory.category_type == CategoryType.EQUITY
+    )
+
     stmt = select(
         CashbookEntry.entry_type, tax.label("tax"), gross.label("gross"), taxed.label("taxed"),
+    ).where(
+        or_(CashbookEntry.category_id.is_(None), CashbookEntry.category_id.notin_(equity_ids))
     ).group_by(CashbookEntry.entry_type)
     if date_from:
         stmt = stmt.where(CashbookEntry.date >= date_from)

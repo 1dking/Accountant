@@ -913,7 +913,7 @@ export interface ContactCreditBalance {
 // Cashbook
 export type AccountType = 'bank' | 'credit_card' | 'cash' | 'savings' | 'loan' | 'paypal' | 'other'
 export type EntryType = 'income' | 'expense'
-export type CategoryTypeEnum = 'income' | 'expense' | 'both'
+export type CategoryTypeEnum = 'income' | 'expense' | 'both' | 'equity'
 
 export interface TransactionCategory {
   id: string

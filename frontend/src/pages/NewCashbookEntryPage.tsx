@@ -57,7 +57,7 @@ export default function NewCashbookEntryPage() {
   // Filter categories by entry type
   const filteredCategories = useMemo(() => {
     return allCategories.filter(
-      (c) => c.category_type === entryType || c.category_type === 'both'
+      (c) => c.category_type === entryType || c.category_type === 'both' || c.category_type === 'equity'
     )
   }, [allCategories, entryType])
 

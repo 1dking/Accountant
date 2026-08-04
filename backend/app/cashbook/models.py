@@ -53,6 +53,12 @@ class CategoryType(str, enum.Enum):
     INCOME = "income"
     EXPENSE = "expense"
     BOTH = "both"
+    #: Owner's Draw / Contribution — personal money moving through a BUSINESS
+    #: account (commingling). Tagged here so it stays in the account balance /
+    #: bank reconciliation but is EXCLUDED from the business P&L and tax totals
+    #: (the ledger resolver maps these to an equity account). See
+    #: app/accounting/ledger_reports.py.
+    EQUITY = "equity"
 
 
 # ---------------------------------------------------------------------------

@@ -45,7 +45,7 @@ export default function EditEntryModal({ entry, onClose, onSaved }: EditEntryMod
   const accounts: PaymentAccount[] = accountsData?.data ?? []
 
   const filteredCategories = categories.filter(
-    c => c.category_type === entryType || c.category_type === 'both'
+    c => c.category_type === entryType || c.category_type === 'both' || c.category_type === 'equity'
   )
 
   const mutation = useMutation({

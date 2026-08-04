@@ -36,7 +36,7 @@ from app.accounting.ledger_models import (
     JournalLine,
 )
 from app.auth.models import User
-from app.cashbook.models import CashbookEntry, EntryType, PaymentAccount, TransactionCategory
+from app.cashbook.models import CashbookEntry, CategoryType, EntryType, PaymentAccount, TransactionCategory
 from app.core.authorization import apply_cashbook_filter
 
 _ZERO = Decimal("0.00")
@@ -45,6 +45,10 @@ _ZERO = Decimal("0.00")
 _FALLBACK_INCOME = "4900"
 _FALLBACK_EXPENSE = "6900"
 _FALLBACK_ASSET = "1500"
+
+# Equity accounts for the Owner's Draw / Contribution categories (commingled
+# personal money through a business account). 3xxx = equity range.
+_EQUITY_CODES = {"owner's draw": "3200", "owner's contribution": "3100"}
 
 
 @dataclass
@@ -91,6 +95,19 @@ class _Resolver:
         return b
 
     def category_account(self, cat: TransactionCategory | None, entry_type: EntryType):
+        # Owner's Draw / Contribution (equity): personal money moving through a
+        # BUSINESS account. The cash side still posts (so the account balance and
+        # bank reconciliation move); THIS non-cash side resolves to an EQUITY
+        # account, which profit_loss() skips by account type — so it never touches
+        # income, expenses, or net profit, while the Balance Sheet still reflects
+        # it and the Trial Balance stays balanced.
+        if cat is not None and cat.category_type == CategoryType.EQUITY:
+            name = (cat.name or "").strip()
+            hit = self.by_name.get((name.lower(), AccountType.EQUITY))
+            if hit is not None:
+                return hit
+            code = _EQUITY_CODES.get(name.lower(), "3200")
+            return self._bucket(f"equity:{name.lower()}", code, name or "Owner's Equity", AccountType.EQUITY)
         want = AccountType.INCOME if entry_type == EntryType.INCOME else AccountType.EXPENSE
         if cat is not None:
             if cat.coa_account_id and cat.coa_account_id in self.by_id:
