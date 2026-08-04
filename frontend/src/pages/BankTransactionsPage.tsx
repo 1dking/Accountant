@@ -14,6 +14,7 @@ import {
   getPlaidReconciliation,
 } from '@/api/integrations'
 import { listCategories } from '@/api/cashbook'
+import { listPersonalCategories, type PersonalCategory } from '@/api/personal'
 import { ApiClientError } from '@/api/client'
 import { formatDate } from '@/lib/utils'
 import type { PlaidTransaction, TransactionCategory } from '@/types/models'
@@ -99,17 +100,20 @@ export function DuplicateDialog({ txn, asType, currency = 'CAD', onSkip, onConfi
  *  import modal: account is shown read-only (auto-created from the bank), the
  *  user confirms the direction and optionally a category, then it posts via the
  *  same create_entry the rest of the Cashbook uses. */
-function CashbookDestinationModal({ txn, accountLabel, currency, categories, submitting, onClose, onConfirm }: {
+function CashbookDestinationModal({ txn, accountLabel, currency, categories, personalCategories, submitting, onClose, onConfirm }: {
   txn: PlaidTransaction
   accountLabel: string
   currency: string
   categories: TransactionCategory[]
+  personalCategories: PersonalCategory[]
   submitting: boolean
   onClose: () => void
-  onConfirm: (payload: { categoryId?: string; entryType: CashbookEntryType }) => void
+  onConfirm: (payload: { categoryId?: string; personalCategoryId?: string; entryType: CashbookEntryType; scope: 'business' | 'personal' }) => void
 }) {
   const [entryType, setEntryType] = useState<CashbookEntryType>(txn.is_income ? 'income' : 'expense')
+  const [scope, setScope] = useState<'business' | 'personal'>('business')
   const [categoryId, setCategoryId] = useState<string>('')
+  const [personalCategoryId, setPersonalCategoryId] = useState<string>('')
 
   const visibleCategories = categories.filter(
     (c) => c.category_type === entryType || c.category_type === 'both' || c.category_type === 'equity',
@@ -147,6 +151,31 @@ function CashbookDestinationModal({ txn, accountLabel, currency, categories, sub
         </div>
 
         <div className="mt-4">
+          <label className="text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">This is a…</label>
+          <div className="mt-1 flex gap-2">
+            <button
+              type="button"
+              onClick={() => setScope('business')}
+              className={`flex-1 px-3 py-2 text-sm rounded-lg border ${scope === 'business' ? 'border-blue-300 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'}`}
+            >
+              Business
+            </button>
+            <button
+              type="button"
+              onClick={() => setScope('personal')}
+              className={`flex-1 px-3 py-2 text-sm rounded-lg border ${scope === 'personal' ? 'border-purple-300 bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'}`}
+            >
+              Personal
+            </button>
+          </div>
+          {scope === 'personal' && (
+            <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+              Posts as Owner's Draw and copies to your Personal ledger — stays in reconciliation, out of P&amp;L/tax.
+            </p>
+          )}
+        </div>
+
+        <div className="mt-4">
           <label className="text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">Type</label>
           <div className="mt-1 flex gap-2">
             <button
@@ -168,16 +197,29 @@ function CashbookDestinationModal({ txn, accountLabel, currency, categories, sub
 
         <div className="mt-4">
           <label className="text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">Category (optional)</label>
-          <select
-            value={categoryId}
-            onChange={(e) => setCategoryId(e.target.value)}
-            className="mt-1 w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">Uncategorized</option>
-            {visibleCategories.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
+          {scope === 'business' ? (
+            <select
+              value={categoryId}
+              onChange={(e) => setCategoryId(e.target.value)}
+              className="mt-1 w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Uncategorized</option>
+              {visibleCategories.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          ) : (
+            <select
+              value={personalCategoryId}
+              onChange={(e) => setPersonalCategoryId(e.target.value)}
+              className="mt-1 w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            >
+              <option value="">Uncategorized</option>
+              {personalCategories.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          )}
         </div>
 
         <div className="mt-6 flex items-center justify-end gap-2">
@@ -189,11 +231,15 @@ function CashbookDestinationModal({ txn, accountLabel, currency, categories, sub
             Cancel
           </button>
           <button
-            onClick={() => onConfirm({ categoryId: categoryId || undefined, entryType })}
+            onClick={() => onConfirm({
+              categoryId: scope === 'business' ? (categoryId || undefined) : undefined,
+              personalCategoryId: scope === 'personal' ? (personalCategoryId || undefined) : undefined,
+              entryType, scope,
+            })}
             disabled={submitting}
             className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
           >
-            {submitting ? 'Posting…' : 'Post to Cashbook'}
+            {submitting ? 'Posting…' : scope === 'personal' ? 'Post as Personal' : 'Post to Cashbook'}
           </button>
         </div>
       </div>
@@ -206,21 +252,26 @@ type CategorizeVars = {
   asType: 'expense' | 'income' | 'cashbook' | 'ignore'
   categoryId?: string
   entryType?: CashbookEntryType
+  scope?: 'business' | 'personal'
+  personalCategoryId?: string
   confirm?: boolean
 }
 
 /** Bulk "Send to Cashbook" — posts many selected transactions at once. Each
  *  lands in its own auto-created bank account; the user picks a direction and an
  *  optional category applied to all. */
-function BulkCashbookModal({ count, categories, submitting, onClose, onConfirm }: {
+function BulkCashbookModal({ count, categories, personalCategories, submitting, onClose, onConfirm }: {
   count: number
   categories: TransactionCategory[]
+  personalCategories: PersonalCategory[]
   submitting: boolean
   onClose: () => void
-  onConfirm: (payload: { categoryId?: string; entryType?: CashbookEntryType }) => void
+  onConfirm: (payload: { categoryId?: string; personalCategoryId?: string; entryType?: CashbookEntryType; scope: 'business' | 'personal' }) => void
 }) {
   const [entryMode, setEntryMode] = useState<'auto' | 'expense' | 'income'>('auto')
+  const [scope, setScope] = useState<'business' | 'personal'>('business')
   const [categoryId, setCategoryId] = useState<string>('')
+  const [personalCategoryId, setPersonalCategoryId] = useState<string>('')
   const visibleCategories = categories.filter(
     (c) => entryMode === 'auto' || c.category_type === entryMode || c.category_type === 'both' || c.category_type === 'equity',
   )
@@ -235,6 +286,18 @@ function BulkCashbookModal({ count, categories, submitting, onClose, onConfirm }
           Posts all {count} selected transactions to your Cashbook. Each lands under its own
           bank account automatically.
         </p>
+        <div className="mt-4">
+          <label className="text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">These are…</label>
+          <div className="mt-1 flex gap-2">
+            <button type="button" onClick={() => setScope('business')}
+              className={`flex-1 px-3 py-2 text-sm rounded-lg border ${scope === 'business' ? 'border-blue-300 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'}`}>Business</button>
+            <button type="button" onClick={() => setScope('personal')}
+              className={`flex-1 px-3 py-2 text-sm rounded-lg border ${scope === 'personal' ? 'border-purple-300 bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'}`}>Personal</button>
+          </div>
+          {scope === 'personal' && (
+            <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">All {count} post as Owner's Draw/Contribution and copy to your Personal ledger — kept in reconciliation, out of P&amp;L/tax.</p>
+          )}
+        </div>
         <div className="mt-4">
           <label className="text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">Type</label>
           <div className="mt-1 grid grid-cols-3 gap-2">
@@ -253,23 +316,39 @@ function BulkCashbookModal({ count, categories, submitting, onClose, onConfirm }
         </div>
         <div className="mt-4">
           <label className="text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">Category (optional, applied to all)</label>
-          <select
-            value={categoryId}
-            onChange={(e) => setCategoryId(e.target.value)}
-            className="mt-1 w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">Uncategorized</option>
-            {visibleCategories.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
-          </select>
+          {scope === 'business' ? (
+            <select
+              value={categoryId}
+              onChange={(e) => setCategoryId(e.target.value)}
+              className="mt-1 w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Uncategorized</option>
+              {visibleCategories.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+            </select>
+          ) : (
+            <select
+              value={personalCategoryId}
+              onChange={(e) => setPersonalCategoryId(e.target.value)}
+              className="mt-1 w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            >
+              <option value="">Uncategorized</option>
+              {personalCategories.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+            </select>
+          )}
         </div>
         <div className="mt-6 flex items-center justify-end gap-2">
           <button onClick={onClose} disabled={submitting} className="px-4 py-2 text-sm border rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50">Cancel</button>
           <button
-            onClick={() => onConfirm({ categoryId: categoryId || undefined, entryType: entryMode === 'auto' ? undefined : entryMode })}
+            onClick={() => onConfirm({
+              categoryId: scope === 'business' ? (categoryId || undefined) : undefined,
+              personalCategoryId: scope === 'personal' ? (personalCategoryId || undefined) : undefined,
+              entryType: entryMode === 'auto' ? undefined : entryMode,
+              scope,
+            })}
             disabled={submitting}
             className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
           >
-            {submitting ? `Posting ${count}…` : `Post ${count} to Cashbook`}
+            {submitting ? `Posting ${count}…` : scope === 'personal' ? `Post ${count} as Personal` : `Post ${count} to Cashbook`}
           </button>
         </div>
       </div>
@@ -347,6 +426,12 @@ export default function BankTransactionsPage() {
   })
   const categories: TransactionCategory[] = categoriesData?.data ?? []
 
+  const { data: personalCategoriesData } = useQuery({
+    queryKey: ['personal-categories'],
+    queryFn: listPersonalCategories,
+  })
+  const personalCategories: PersonalCategory[] = personalCategoriesData?.data ?? []
+
   const { data: txnData, isLoading } = useQuery({
     queryKey: ['plaid-transactions', connectionId, filterCategorized, filterType, search, page],
     queryFn: () => listPlaidTransactions({
@@ -369,15 +454,17 @@ export default function BankTransactionsPage() {
     },
   })
 
-  const [dupDialog, setDupDialog] = useState<{ txn: PlaidTransaction; asType: 'expense' | 'income' | 'cashbook'; categoryId?: string; entryType?: CashbookEntryType } | null>(null)
+  const [dupDialog, setDupDialog] = useState<{ txn: PlaidTransaction; asType: 'expense' | 'income' | 'cashbook'; categoryId?: string; entryType?: CashbookEntryType; scope?: 'business' | 'personal'; personalCategoryId?: string } | null>(null)
   const [cashbookModal, setCashbookModal] = useState<PlaidTransaction | null>(null)
 
   const categorizeMutation = useMutation({
-    mutationFn: ({ txn, asType, categoryId, entryType, confirm }: CategorizeVars) =>
+    mutationFn: ({ txn, asType, categoryId, entryType, scope, personalCategoryId, confirm }: CategorizeVars) =>
       categorizePlaidTransaction(txn.id, {
         as_type: asType,
         category_id: categoryId,
         entry_type: entryType,
+        scope,
+        personal_category_id: personalCategoryId,
         confirm_duplicate: confirm,
       }),
     onSuccess: () => {
@@ -387,6 +474,11 @@ export default function BankTransactionsPage() {
       queryClient.invalidateQueries({ queryKey: ['cashbook-accounts'] })
       queryClient.invalidateQueries({ queryKey: ['cashbook-entries'] })
       queryClient.invalidateQueries({ queryKey: ['cashbook-summary'] })
+      queryClient.invalidateQueries({ queryKey: ['plaid-reconciliation'] })
+      // Personal copy may have been created — refresh Personal mode views.
+      queryClient.invalidateQueries({ queryKey: ['personal-cashflow'] })
+      queryClient.invalidateQueries({ queryKey: ['personal-transactions'] })
+      queryClient.invalidateQueries({ queryKey: ['personal-accounts'] })
       setDupDialog(null)
       setCashbookModal(null)
     },
@@ -399,19 +491,21 @@ export default function BankTransactionsPage() {
         err.error?.code === 'PLAID_POSSIBLE_DUPLICATE' &&
         (variables.asType === 'expense' || variables.asType === 'income' || variables.asType === 'cashbook')
       ) {
-        setDupDialog({ txn: variables.txn, asType: variables.asType, categoryId: variables.categoryId, entryType: variables.entryType })
+        setDupDialog({ txn: variables.txn, asType: variables.asType, categoryId: variables.categoryId, entryType: variables.entryType, scope: variables.scope, personalCategoryId: variables.personalCategoryId })
         setCashbookModal(null)
       }
     },
   })
 
   const bulkMutation = useMutation({
-    mutationFn: (payload: { txnIds: string[]; categoryId?: string; entryType?: CashbookEntryType }) =>
+    mutationFn: (payload: { txnIds: string[]; categoryId?: string; entryType?: CashbookEntryType; scope?: 'business' | 'personal'; personalCategoryId?: string }) =>
       bulkCategorizePlaidTransactions({
         txn_ids: payload.txnIds,
         as_type: 'cashbook',
         category_id: payload.categoryId,
         entry_type: payload.entryType,
+        scope: payload.scope,
+        personal_category_id: payload.personalCategoryId,
       }),
     onSuccess: (resp) => {
       const d = (resp as any)?.data
@@ -759,10 +853,11 @@ export default function BankTransactionsPage() {
         <BulkCashbookModal
           count={selectedTxnIds.size}
           categories={categories}
+          personalCategories={personalCategories}
           submitting={bulkMutation.isPending}
           onClose={() => setBulkOpen(false)}
-          onConfirm={({ categoryId, entryType }) =>
-            bulkMutation.mutate({ txnIds: Array.from(selectedTxnIds), categoryId, entryType })
+          onConfirm={({ categoryId, entryType, scope, personalCategoryId }) =>
+            bulkMutation.mutate({ txnIds: Array.from(selectedTxnIds), categoryId, entryType, scope, personalCategoryId })
           }
         />
       )}
@@ -773,10 +868,11 @@ export default function BankTransactionsPage() {
           accountLabel={accountLabelFor(cashbookModal)}
           currency={currencyFor(cashbookModal)}
           categories={categories}
+          personalCategories={personalCategories}
           submitting={categorizeMutation.isPending}
           onClose={() => setCashbookModal(null)}
-          onConfirm={({ categoryId, entryType }) =>
-            categorizeMutation.mutate({ txn: cashbookModal, asType: 'cashbook', categoryId, entryType })
+          onConfirm={({ categoryId, personalCategoryId, entryType, scope }) =>
+            categorizeMutation.mutate({ txn: cashbookModal, asType: 'cashbook', categoryId, personalCategoryId, entryType, scope })
           }
         />
       )}
@@ -788,7 +884,7 @@ export default function BankTransactionsPage() {
           currency={currencyFor(dupDialog.txn)}
           confirming={categorizeMutation.isPending}
           onSkip={() => setDupDialog(null)}
-          onConfirm={() => categorizeMutation.mutate({ txn: dupDialog.txn, asType: dupDialog.asType, categoryId: dupDialog.categoryId, entryType: dupDialog.entryType, confirm: true })}
+          onConfirm={() => categorizeMutation.mutate({ txn: dupDialog.txn, asType: dupDialog.asType, categoryId: dupDialog.categoryId, entryType: dupDialog.entryType, scope: dupDialog.scope, personalCategoryId: dupDialog.personalCategoryId, confirm: true })}
         />
       )}
     </div>

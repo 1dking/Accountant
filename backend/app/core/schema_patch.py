@@ -40,6 +40,12 @@ _ADDITIVE_COLUMNS: dict[str, dict[str, str]] = {
     },
     "plaid_transactions": {
         "matched_cashbook_entry_id": "CHAR(32)",
+        # Back-link when a personal-tagged bank txn is copied to the Personal ledger.
+        "matched_personal_transaction_id": "CHAR(32)",
+    },
+    # Ties an auto-provisioned personal mirror account to its source bank account.
+    "personal_accounts": {
+        "external_key": "VARCHAR(255)",
     },
     # Org-wide bank visibility: a Plaid connection can belong to an org so peers
     # with org cashbook access see it. Nullable/additive; backfilled per the

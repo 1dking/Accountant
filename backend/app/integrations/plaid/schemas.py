@@ -113,6 +113,12 @@ class BulkCategorizeRequest(BaseModel):
     category_id: uuid.UUID | None = None
     #: None = use each transaction's own income/expense direction.
     entry_type: str | None = None
+    #: "business" (default) or "personal". Personal posts an Owner's
+    #: Draw/Contribution equity entry on the business account (keeps
+    #: reconciliation, out of P&L/tax) AND copies it to the Personal ledger.
+    scope: str = "business"
+    #: A PersonalCategory id, used only when scope == "personal".
+    personal_category_id: uuid.UUID | None = None
     #: Bulk implies the user already picked these rows, so post through likely
     #: duplicates (idempotency by plaid_transaction_id still prevents doubles).
     confirm_duplicate: bool = True
@@ -128,6 +134,12 @@ class CategorizeTransactionRequest(BaseModel):
     #: When omitted, defaults to the transaction's own is_income flag.
     entry_type: str | None = None  # "income" | "expense"
     description: str | None = None
+    #: "business" (default) or "personal". Personal posts an Owner's
+    #: Draw/Contribution equity entry on the business account (keeps
+    #: reconciliation, out of P&L/tax) AND copies it to the Personal ledger.
+    scope: str = "business"
+    #: A PersonalCategory id, used only when scope == "personal".
+    personal_category_id: uuid.UUID | None = None
     #: When a likely-duplicate manual entry exists, the first attempt is refused
     #: (409 PLAID_POSSIBLE_DUPLICATE with the candidates). Re-send with this True
     #: to post it anyway — the user has confirmed it is not a double-entry.

@@ -282,6 +282,12 @@ export async function categorizePlaidTransaction(txnId: string, data: {
    *  Defaults to the transaction's own is_income flag when omitted. */
   entry_type?: 'income' | 'expense'
   description?: string
+  /** 'business' (default) or 'personal'. Personal posts an Owner's Draw/
+   *  Contribution equity entry (out of P&L/tax, kept in reconciliation) and
+   *  copies the item into the Personal ledger. */
+  scope?: 'business' | 'personal'
+  /** A personal-category id, used only when scope === 'personal'. */
+  personal_category_id?: string
   /** Re-send true after the user confirms a flagged possible-duplicate is a
    *  genuinely separate charge (posts it anyway). */
   confirm_duplicate?: boolean
@@ -295,6 +301,8 @@ export async function bulkCategorizePlaidTransactions(data: {
   as_type?: 'cashbook' | 'ignore'
   category_id?: string
   entry_type?: 'income' | 'expense'
+  scope?: 'business' | 'personal'
+  personal_category_id?: string
 }) {
   return api.post<ApiResponse<{ posted: number; total: number; errors: string[] }>>(
     '/integrations/plaid/transactions/bulk-categorize', data,

@@ -45,6 +45,10 @@ class PersonalAccount(TimestampMixin, Base):
     opening_balance_date: Mapped[date] = mapped_column(Date, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="0")
+    # Opaque key that ties an auto-provisioned mirror account back to its source
+    # (e.g. a Plaid account id) so a shared bank feed's personal copies all land
+    # in one personal account. Plaintext (not PII) + indexed for get-or-create.
+    external_key: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
 
     entries: Mapped[list["PersonalTransaction"]] = relationship(
         "PersonalTransaction", back_populates="account", lazy="selectin"

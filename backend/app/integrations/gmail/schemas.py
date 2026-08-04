@@ -79,6 +79,12 @@ class EmailImportRequest(BaseModel):
     income_category: Optional[str] = None
     notes: Optional[str] = None
     account_id: Optional[uuid.UUID] = None
+    #: "business" (default) or "personal". Personal skips the legacy expense
+    #: record, posts an Owner's Draw/Contribution equity entry on the chosen
+    #: business account (reconciliation), and copies it to the Personal ledger.
+    scope: str = Field("business", pattern=r"^(business|personal)$")
+    #: A PersonalCategory id, used only when scope == "personal".
+    personal_category_id: Optional[uuid.UUID] = None
     is_recurring: bool = False
     recurring_frequency: Optional[str] = None  # weekly/monthly/quarterly/yearly
     recurring_next_date: Optional[str] = None

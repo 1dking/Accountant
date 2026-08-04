@@ -112,4 +112,10 @@ class PlaidTransaction(TimestampMixin, Base):
     matched_cashbook_entry_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("cashbook_entries.id", ondelete="SET NULL"), nullable=True
     )
+    # Set when a "personal"-tagged bank transaction was also copied into the
+    # Personal ledger (in addition to its Owner's Draw entry on the business
+    # account). Lets the UI show "posted to Personal" and back-stops idempotency.
+    matched_personal_transaction_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("personal_transactions.id", ondelete="SET NULL"), nullable=True
+    )
     is_categorized: Mapped[bool] = mapped_column(Boolean, default=False)

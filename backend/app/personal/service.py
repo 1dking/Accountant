@@ -138,6 +138,70 @@ async def account_balance(db: AsyncSession, user: User, account: PersonalAccount
 
 
 # ---------------------------------------------------------------------------
+# External ingest (a scanner routes a "personal"-tagged transaction here, in
+# addition to its Owner's Draw entry on the business account)
+# ---------------------------------------------------------------------------
+
+
+async def get_or_create_personal_account(
+    db: AsyncSession, user: User, external_key: str, label: str
+) -> PersonalAccount:
+    """One mirror personal account per source (keyed by external_key), so a
+    shared bank feed's personal copies all land in the same place."""
+    acct = (await db.execute(
+        select(PersonalAccount).where(
+            PersonalAccount.user_id == user.id,
+            PersonalAccount.external_key == external_key,
+            PersonalAccount.is_deleted.is_(False),
+        )
+    )).scalar_one_or_none()
+    if acct is not None:
+        return acct
+    acct = PersonalAccount(
+        id=uuid.uuid4(), user_id=user.id, name=label, account_type="bank", currency="CAD",
+        opening_balance=Decimal("0.00"), opening_balance_date=date.today(), is_active=True,
+        external_key=external_key,
+    )
+    db.add(acct)
+    await db.flush()
+    return acct
+
+
+async def get_personal_by_source(
+    db: AsyncSession, user: User, source: str, source_id: str
+) -> PersonalTransaction | None:
+    return (await db.execute(
+        select(PersonalTransaction).where(
+            PersonalTransaction.user_id == user.id,
+            PersonalTransaction.source == source,
+            PersonalTransaction.source_id == source_id,
+            PersonalTransaction.is_deleted.is_(False),
+        )
+    )).scalar_one_or_none()
+
+
+async def record_personal_from_external(
+    db: AsyncSession, user: User, *,
+    source: str, source_id: str, txn_date: date, direction: str,
+    amount, description: str, personal_category_id, external_key: str, account_label: str,
+) -> PersonalTransaction:
+    """Idempotently copy a scanner transaction into the Personal ledger. Flushes
+    (no commit) so the caller keeps the whole categorize/import atomic."""
+    existing = await get_personal_by_source(db, user, source, source_id)
+    if existing is not None:
+        return existing
+    acct = await get_or_create_personal_account(db, user, external_key, account_label)
+    txn = PersonalTransaction(
+        id=uuid.uuid4(), user_id=user.id, account_id=acct.id, date=txn_date,
+        direction=direction, amount=Decimal(str(amount)), description=(description or "")[:500],
+        category_id=personal_category_id, source=source, source_id=source_id,
+    )
+    db.add(txn)
+    await db.flush()
+    return txn
+
+
+# ---------------------------------------------------------------------------
 # Transactions
 # ---------------------------------------------------------------------------
 

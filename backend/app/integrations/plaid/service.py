@@ -489,6 +489,8 @@ async def bulk_categorize_transactions(
                     as_type=data.as_type,
                     category_id=data.category_id,
                     entry_type=data.entry_type,
+                    scope=getattr(data, "scope", "business"),
+                    personal_category_id=getattr(data, "personal_category_id", None),
                     confirm_duplicate=data.confirm_duplicate,
                 ),
                 user, settings,
@@ -737,22 +739,49 @@ async def categorize_transaction(
             if requested not in ("", "income", "expense"):
                 raise ValidationError("entry_type must be 'income' or 'expense'.")
             entry_type = requested or ("income" if txn.is_income else "expense")
+            is_personal = (getattr(data, "scope", "business") or "business").strip().lower() == "personal"
+
+            cat_id = data.category_id
+            if is_personal:
+                # Same bank account, personal item: the BUSINESS side becomes an
+                # Owner's Draw/Contribution (equity) so it stays in the account
+                # balance/reconciliation but drops out of the P&L + tax.
+                from app.cashbook.models import TransactionCategory as _TC
+                equity_name = "Owner's Contribution" if entry_type == "income" else "Owner's Draw"
+                eq = (await db.execute(select(_TC).where(_TC.name == equity_name))).scalar_one_or_none()
+                cat_id = eq.id if eq else None
+
             acct = await get_or_create_bank_account(db, user, conn, txn.account_id)
+            desc = (txn.merchant_name or txn.name or "Bank transaction")[:500]
             entry = await create_entry(
                 db,
                 CashbookEntryCreate(
                     account_id=acct.id,
                     entry_type=_CbEntryType(entry_type),
                     date=txn.date,
-                    description=(txn.merchant_name or txn.name or "Bank transaction")[:500],
+                    description=desc,
                     total_amount=txn.amount,
-                    category_id=data.category_id,
+                    category_id=cat_id,
                     source="plaid",
                     source_id=txn.plaid_transaction_id,
                 ),
                 user,
             )
             txn.matched_cashbook_entry_id = entry.id
+
+            if is_personal:
+                # …and copy it into the Personal ledger so it shows in Personal mode.
+                from app.personal.service import record_personal_from_external
+                ptxn = await record_personal_from_external(
+                    db, user,
+                    source="plaid", source_id=txn.plaid_transaction_id, txn_date=txn.date,
+                    direction=("in" if entry_type == "income" else "out"),
+                    amount=txn.amount, description=desc,
+                    personal_category_id=data.personal_category_id,
+                    external_key=txn.account_id,
+                    account_label=f"{conn.institution_name or 'Bank'} (Personal)",
+                )
+                txn.matched_personal_transaction_id = ptxn.id
 
     elif data.as_type == "ignore":
         pass

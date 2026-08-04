@@ -19,6 +19,7 @@ import {
   fetchAttachmentToServer,
 } from '@/api/integrations'
 import { listCategories } from '@/api/accounting'
+import { listPersonalCategories } from '@/api/personal'
 import { listAccounts as listCashbookAccounts, createAccount } from '@/api/cashbook'
 import { ACCOUNT_TYPES } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
@@ -61,6 +62,8 @@ function ImportModal({
     income_category: string
     notes: string
     account_id: string | null
+    scope: 'business' | 'personal'
+    personal_category_id: string | null
     is_recurring: boolean
     recurring_frequency: string | null
     recurring_next_date: string | null
@@ -82,6 +85,10 @@ function ImportModal({
   )
   const [categoryId, setCategoryId] = useState('')
   const [incomeCategory, setIncomeCategory] = useState('other')
+  const [scope, setScope] = useState<'business' | 'personal'>('business')
+  const [personalCategoryId, setPersonalCategoryId] = useState('')
+  const { data: personalCatsData } = useQuery({ queryKey: ['personal-categories'], queryFn: listPersonalCategories })
+  const personalCategories = personalCatsData?.data ?? []
   const [notes, setNotes] = useState('')
   const [accountId, setAccountId] = useState(cashbookAccounts.length === 1 ? cashbookAccounts[0].id : '')
   const [isRecurring, setIsRecurring] = useState(false)
@@ -548,8 +555,32 @@ function ImportModal({
                 <input type="text" value={description} onChange={e => setDescription(e.target.value)} className={inputCls} />
               </div>
 
+              {/* Business / Personal */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">This is a…</label>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setScope('business')}
+                    className={`flex-1 px-3 py-2 text-sm rounded-lg border ${scope === 'business' ? 'border-blue-300 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'}`}>Business</button>
+                  <button type="button" onClick={() => setScope('personal')}
+                    className={`flex-1 px-3 py-2 text-sm rounded-lg border ${scope === 'personal' ? 'border-purple-300 bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'}`}>Personal</button>
+                </div>
+                {scope === 'personal' && (
+                  <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">Posts as Owner's Draw and copies to your Personal ledger — kept in reconciliation, out of P&amp;L/tax.</p>
+                )}
+              </div>
+
               {/* Category */}
-              {recordType === 'expense' ? (
+              {scope === 'personal' ? (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Personal category</label>
+                  <select value={personalCategoryId} onChange={e => setPersonalCategoryId(e.target.value)} className={inputCls}>
+                    <option value="">Uncategorized</option>
+                    {personalCategories.map((cat: { id: string; name: string }) => (
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
+                  </select>
+                </div>
+              ) : recordType === 'expense' ? (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Category</label>
                   <select value={categoryId} onChange={e => setCategoryId(e.target.value)} className={inputCls}>
@@ -637,6 +668,8 @@ function ImportModal({
                   income_category: incomeCategory,
                   notes,
                   account_id: accountId || null,
+                  scope,
+                  personal_category_id: scope === 'personal' ? (personalCategoryId || null) : null,
                   is_recurring: isRecurring,
                   recurring_frequency: isRecurring ? recurringFrequency : null,
                   recurring_next_date: isRecurring ? recurringNextDate : null,
@@ -822,6 +855,10 @@ export default function EmailScanPage() {
       queryClient.invalidateQueries({ queryKey: ['gmail-results'] })
       queryClient.invalidateQueries({ queryKey: ['cashbook-entries'] })
       queryClient.invalidateQueries({ queryKey: ['cashbook-summary'] })
+      queryClient.invalidateQueries({ queryKey: ['plaid-reconciliation'] })
+      queryClient.invalidateQueries({ queryKey: ['personal-cashflow'] })
+      queryClient.invalidateQueries({ queryKey: ['personal-transactions'] })
+      queryClient.invalidateQueries({ queryKey: ['personal-accounts'] })
 
       const result = data.data as Record<string, any>
       const hasRecurring = !!result.recurring_rule_id

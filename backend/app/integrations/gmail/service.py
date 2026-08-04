@@ -1115,13 +1115,18 @@ async def import_email_full(
     income_category: str | None = None,
     notes: str | None = None,
     account_id: uuid.UUID | None = None,
+    scope: str = "business",
+    personal_category_id: uuid.UUID | None = None,
     is_recurring: bool = False,
     recurring_frequency: str | None = None,
     recurring_next_date: str | None = None,
 ) -> dict:
     """Import email: download attachment, create expense or income record.
 
-    Returns dict with document_id, expense_id or income_id.
+    Returns dict with document_id, expense_id or income_id. When scope=="personal"
+    the legacy business expense/income is skipped; instead an Owner's Draw/
+    Contribution (equity) cashbook entry keeps the business account reconciled and
+    a copy lands in the Personal ledger.
     """
     from app.documents.models import Document
     from app.accounting.models import Expense, ExpenseStatus
@@ -1226,8 +1231,14 @@ async def import_email_full(
     use_amount = amount or Decimal("0.00")
 
     response_data: dict = {"document_id": str(document_id) if document_id else None}
+    is_personal = (scope or "business").strip().lower() == "personal"
 
-    if record_type == "income":
+    if is_personal:
+        # Personal item on a business account: no legacy business expense/income
+        # record. The Owner's Draw equity cashbook entry + Personal copy happen in
+        # Step 3 below.
+        pass
+    elif record_type == "income":
         cat = IncomeCategory.OTHER
         if income_category:
             try:
@@ -1284,15 +1295,24 @@ async def import_email_full(
                 CashbookEntryType.INCOME if record_type == "income"
                 else CashbookEntryType.EXPENSE
             )
+            cat_id = None
+            if is_personal:
+                # Owner's Draw/Contribution (equity) so the business account stays
+                # reconciled but the item is out of P&L + tax.
+                from app.cashbook.models import TransactionCategory as _TC
+                equity_name = "Owner's Contribution" if record_type == "income" else "Owner's Draw"
+                eq = (await db.execute(select(_TC).where(_TC.name == equity_name))).scalar_one_or_none()
+                cat_id = eq.id if eq else None
             entry_data = CashbookEntryCreate(
                 account_id=account_id,
                 entry_type=entry_type,
                 date=use_date,
                 description=use_description[:500],
                 total_amount=use_amount,
-                # NOTE: Don't pass category_id — cashbook uses transaction_categories
-                # while expenses use expense_categories (different FK tables)
-                category_id=None,
+                # Business scope stays uncategorized here (cashbook uses
+                # transaction_categories, not the legacy expense_categories);
+                # personal scope carries the Owner's Draw/Contribution equity tag.
+                category_id=cat_id,
                 notes=notes or f"Email import: {scan_result.sender}",
                 source="email_scanner",
                 source_id=str(result_id),
@@ -1300,6 +1320,16 @@ async def import_email_full(
             cashbook_entry = await create_entry(db, entry_data, user)
             cashbook_entry_id = str(cashbook_entry.id)
             response_data["cashbook_entry_id"] = cashbook_entry_id
+            if is_personal:
+                # …and copy into the Personal ledger.
+                from app.personal.service import record_personal_from_external
+                ptxn = await record_personal_from_external(
+                    db, user, source="email_scanner", source_id=str(result_id), txn_date=use_date,
+                    direction=("in" if record_type == "income" else "out"), amount=use_amount,
+                    description=use_description, personal_category_id=personal_category_id,
+                    external_key=f"acct:{account_id}", account_label="Personal (Email)",
+                )
+                response_data["personal_transaction_id"] = str(ptxn.id)
         except Exception as exc:
             await db.rollback()
             _log.warning(
