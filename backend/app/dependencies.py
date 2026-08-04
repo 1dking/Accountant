@@ -5,12 +5,31 @@ from fastapi import Depends, HTTPException, Query, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import set_committed_value
 
 from app.auth.models import Role, User
 from app.auth.utils import decode_token
 
 security = HTTPBearer()
 security_optional = HTTPBearer(auto_error=False)
+
+#: The two ledgers a user can be working in. See User.active_mode.
+_VALID_MODES = {"business", "personal"}
+
+
+def _apply_mode_header(request: Request, user: User) -> None:
+    """Override active_mode from the X-App-Mode header for THIS request only.
+
+    Uses set_committed_value so the attribute is NOT marked dirty — otherwise the
+    next db.commit() in the request would flush it and silently overwrite the
+    user's stored default. The persisted default changes only via PUT /auth/me.
+    """
+    mode = request.headers.get("X-App-Mode")
+    if not mode:
+        return
+    mode = mode.strip().lower()
+    if mode in _VALID_MODES and mode != getattr(user, "active_mode", "business"):
+        set_committed_value(user, "active_mode", mode)
 
 
 async def get_db(request: Request) -> AsyncSession:
@@ -19,6 +38,7 @@ async def get_db(request: Request) -> AsyncSession:
 
 
 async def get_current_user(
+    request: Request,
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> User:
@@ -37,10 +57,12 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found or inactive",
         )
+    _apply_mode_header(request, user)
     return user
 
 
 async def get_current_user_or_token(
+    request: Request,
     credentials: Annotated[Optional[HTTPAuthorizationCredentials], Depends(security_optional)],
     db: Annotated[AsyncSession, Depends(get_db)],
     token: Optional[str] = Query(None),
@@ -77,7 +99,41 @@ async def get_current_user_or_token(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found or inactive",
         )
+    _apply_mode_header(request, user)
     return user
+
+
+async def require_business_mode(
+    request: Request,
+    credentials: Annotated[Optional[HTTPAuthorizationCredentials], Depends(security_optional)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> None:
+    """Router-level gate: business-only surfaces (P&L, tax, journal, COA, A/P,
+    1099) must never render in Personal mode. Mirrors require_feature's tolerance
+    of public/no-token routes (those routers have none, but stay consistent).
+
+    The request's mode is the X-App-Mode header when present (the common path,
+    no DB hit), else the user's persisted active_mode.
+    """
+    if credentials is None:
+        return  # no token: the endpoint's own auth decides; not our 403 to raise
+    token_data = decode_token(credentials.credentials)
+    if token_data is None:
+        return
+    mode = (request.headers.get("X-App-Mode") or "").strip().lower()
+    if mode not in _VALID_MODES:
+        user = (
+            await db.execute(select(User).where(User.id == token_data.sub))
+        ).scalar_one_or_none()
+        mode = getattr(user, "active_mode", "business") if user else "business"
+    if mode == "personal":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "BUSINESS_MODE_REQUIRED",
+                "message": "Switch to Business mode to view business reports.",
+            },
+        )
 
 
 #: Roles that inherit another role's ACTION rights.

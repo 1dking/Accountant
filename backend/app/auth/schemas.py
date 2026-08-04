@@ -50,6 +50,7 @@ class UserResponse(BaseModel):
     feature_access: dict[str, bool] | None = None
     org_id: uuid.UUID | None = None
     cashbook_access: str = "personal"
+    active_mode: str = "business"
     fallback_phone: str | None = None
     voicemail_mode: str = "cell_then_voicemail"
     # API-facing name is 'status' (derived state) but underlying column is
@@ -70,6 +71,8 @@ class UserResponse(BaseModel):
 class UserUpdate(BaseModel):
     full_name: str | None = Field(None, min_length=1, max_length=255)
     password: str | None = Field(None, min_length=8, max_length=128)
+    #: The remembered default ledger. Self-service (a user sets their own mode).
+    active_mode: str | None = Field(None, pattern=r"^(business|personal)$")
     fallback_phone: str | None = Field(None, max_length=20)
     voicemail_mode: str | None = Field(
         None, pattern="^(cell_then_voicemail|voicemail_only|cell_only)$"

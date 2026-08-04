@@ -62,6 +62,16 @@ class User(TimestampMixin, Base):
     cashbook_access: Mapped[str] = mapped_column(
         String(20), default="personal", server_default="personal", nullable=False
     )
+    #: Which ledger the user is currently working in — "business" (the default,
+    #: the accounting engine) or "personal" (the separate encrypted personal
+    #: ledger, app/personal/). Distinct from cashbook_access (which is a business
+    #: SHARING scope: personal-vs-org). Persisted as the remembered default; the
+    #: active value for a request can be overridden by the X-App-Mode header (see
+    #: app/dependencies.py). Defaults "business" so every existing user is
+    #: unchanged until they opt into Personal mode.
+    active_mode: Mapped[str] = mapped_column(
+        String(20), default="business", server_default="business", nullable=False
+    )
     # --- Operator / sub-account tenancy (Phase 2) --------------------------
     #: The sub-account (isolated client tenant) this user belongs to, if any.
     #: NULL = the user lives at the operator/agency level, not inside a client

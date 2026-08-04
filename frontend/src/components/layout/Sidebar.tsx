@@ -44,11 +44,14 @@ import {
   Receipt,
   FileBadge,
   Landmark,
+  Wallet,
+  Briefcase,
 } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getTrashCount } from '@/api/cashbook'
+import { updateProfile } from '@/api/auth'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { useUiStore } from '@/stores/uiStore'
+import { useUiStore, type AppMode } from '@/stores/uiStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useBranding } from '@/hooks/useBranding'
 import { cn, getInitials } from '@/lib/utils'
@@ -65,6 +68,9 @@ interface NavItem {
 interface NavSection {
   title: string
   items: NavItem[]
+  //: Ledger scope. 'business' sections hide in Personal mode; 'personal'
+  //  sections hide in Business mode; undefined = shown in both.
+  mode?: AppMode
 }
 
 const NAV_SECTIONS: NavSection[] = [
@@ -92,7 +98,15 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
+    title: 'PERSONAL',
+    mode: 'personal',
+    items: [
+      { path: '/personal', label: 'Personal Finances', icon: Wallet },
+    ],
+  },
+  {
     title: 'ACCOUNTING',
+    mode: 'business',
     items: [
       { path: '/cashbook', label: 'Cashbook', icon: BookOpen, featureKey: 'cashbook' },
       { path: '/expenses', label: 'Expenses', icon: Receipt, featureKey: 'expenses' },
@@ -172,9 +186,18 @@ const NAV_SECTIONS: NavSection[] = [
 export default function Sidebar() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { sidebarOpen, isMobile, panelState, closePanel, theme, toggleTheme } = useUiStore()
+  const { sidebarOpen, isMobile, panelState, closePanel, theme, toggleTheme, mode, setMode } = useUiStore()
   const { user, logout } = useAuthStore()
   const { logoUrl, orgName } = useBranding()
+  const queryClient = useQueryClient()
+
+  const handleSwitchMode = useCallback(async (next: AppMode) => {
+    if (next === mode) return
+    setMode(next)                    // updates store + localStorage (drives X-App-Mode)
+    queryClient.clear()              // financial caches must not cross modes
+    try { await updateProfile({ active_mode: next } as any) } catch { /* remembered default is best-effort */ }
+    navigate(next === 'personal' ? '/personal' : '/')
+  }, [mode, setMode, queryClient, navigate])
 
   const isItemActive = useCallback((path: string) => {
     const [pathname, query] = path.split('?')
@@ -258,6 +281,10 @@ export default function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 px-2 py-2 overflow-y-auto scrollbar-thin">
         {NAV_SECTIONS.map((section, index) => {
+          // Ledger-scope gate: business sections hide in Personal mode and
+          // vice-versa. This is UI convenience; the server-side
+          // require_business_mode gate is the real boundary.
+          if (section.mode && section.mode !== mode) return null
           // Filter items by feature access
           const visibleItems = section.items.filter(
             item => !item.featureKey || hasFeature(user?.feature_access, item.featureKey)
@@ -318,6 +345,34 @@ export default function Sidebar() {
 
       {/* Bottom */}
       <div className="border-t border-gray-100 dark:border-gray-700 p-2 space-y-0.5">
+        {/* Business / Personal ledger switch */}
+        <div className="flex gap-1 mb-1.5 p-1 rounded-lg bg-gray-100 dark:bg-gray-800">
+          <button
+            onClick={() => handleSwitchMode('business')}
+            className={cn(
+              'flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-medium transition-colors',
+              mode === 'business'
+                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200',
+            )}
+            title="Business books"
+          >
+            <Briefcase className="h-3.5 w-3.5" /> Business
+          </button>
+          <button
+            onClick={() => handleSwitchMode('personal')}
+            className={cn(
+              'flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-medium transition-colors',
+              mode === 'personal'
+                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200',
+            )}
+            title="Personal finances (private to you)"
+          >
+            <Wallet className="h-3.5 w-3.5" /> Personal
+          </button>
+        </div>
+
         {/* User info */}
         <div className="flex items-center gap-2.5 px-3 py-2 mb-0.5">
           <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xs font-medium shrink-0">

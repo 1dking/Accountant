@@ -314,6 +314,11 @@ async def update_user_profile(
         user.conversation_ai_instructions = updates.conversation_ai_instructions or None
     if updates.identity_capture_enabled is not None:
         user.identity_capture_enabled = updates.identity_capture_enabled
+    if updates.active_mode is not None:
+        # Explicit self-service change of the remembered default ledger. This is
+        # the ONLY path that persists active_mode (the X-App-Mode header override
+        # in dependencies.py is per-request and never flushed).
+        user.active_mode = updates.active_mode
     await db.commit()
     await db.refresh(user)
 
@@ -559,6 +564,7 @@ def user_to_response_dict(user: User) -> dict:
         "org_id": user.org_id,
         "manager_id": user.manager_id,
         "cashbook_access": user.cashbook_access,
+        "active_mode": getattr(user, "active_mode", "business") or "business",
         "fallback_phone": user.fallback_phone,
         "voicemail_mode": user.voicemail_mode or "cell_then_voicemail",
         "voicemail_greeting_status": user.voicemail_greeting_type,

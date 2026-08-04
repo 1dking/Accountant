@@ -20,7 +20,11 @@ export class ApiClientError extends Error {
 async function getAuthHeaders(): Promise<Record<string, string>> {
   const token = localStorage.getItem('access_token')
   if (!token) return {}
-  return { Authorization: `Bearer ${token}` }
+  // X-App-Mode tells the backend which ledger (Business/Personal) this request
+  // is for. Single choke point → every verb (get/post/put/delete/upload/
+  // download) carries it. Backend applies it per-request only (never persisted).
+  const mode = localStorage.getItem('app_mode') === 'personal' ? 'personal' : 'business'
+  return { Authorization: `Bearer ${token}`, 'X-App-Mode': mode }
 }
 
 async function tryRefreshToken(): Promise<boolean> {

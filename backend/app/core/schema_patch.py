@@ -24,6 +24,9 @@ _ADDITIVE_COLUMNS: dict[str, dict[str, str]] = {
         "mfa_recovery_codes": "TEXT",
         "mfa_enrolled_at": "DATETIME",
         "anonymized_at": "DATETIME",
+        # Business/Personal ledger toggle. Defaults 'business' so every existing
+        # user keeps today's behaviour until they opt into Personal mode.
+        "active_mode": "VARCHAR(20) NOT NULL DEFAULT 'business'",
     },
     # Bank Scanner: link a payment account to its Plaid account, and a synced
     # bank transaction to the Cashbook entry it was posted to. Both nullable and

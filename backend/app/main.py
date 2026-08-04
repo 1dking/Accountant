@@ -31,7 +31,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.config import Settings
 from app.core.exceptions import register_exception_handlers
-from app.dependencies import require_feature, get_current_user
+from app.dependencies import require_feature, get_current_user, require_business_mode
 from app.core.websocket import websocket_manager
 from app.database import Base, build_engine, build_session_factory
 
@@ -68,6 +68,7 @@ import app.accounting.tax_models  # noqa: F401
 import app.accounting.ledger_models  # noqa: F401
 import app.operators.models  # noqa: F401
 import app.cashbook.models  # noqa: F401
+import app.personal.models  # noqa: F401
 import app.meetings.models  # noqa: F401
 import app.office.models  # noqa: F401
 import app.settings.models  # noqa: F401
@@ -177,6 +178,15 @@ async def lifespan(application: FastAPI):
                 logger.info("Seeded %d platform admin defaults", count)
     except Exception as e:
         logger.warning("Failed to seed platform admin defaults: %s", e)
+
+    # Seed default personal-ledger categories (Personal mode)
+    try:
+        from app.personal.service import seed_personal_categories
+
+        async with application.state.session_factory() as session:
+            await seed_personal_categories(session)
+    except Exception as e:
+        logger.warning("Failed to seed personal categories: %s", e)
 
     yield
 
@@ -308,6 +318,7 @@ def create_app() -> FastAPI:
     from app.invoicing.credit_router import router as credit_notes_router
     from app.accounting.tax_router import router as tax_router
     from app.cashbook.router import router as cashbook_router
+    from app.personal.router import router as personal_router
     from app.meetings.router import router as meetings_router
     from app.office.router import router as office_router
     from app.settings.router import router as settings_router
@@ -349,7 +360,7 @@ def create_app() -> FastAPI:
     fastapi_app.include_router(notifications_router, prefix="/api/notifications", tags=["notifications"])
     fastapi_app.include_router(calendar_router, prefix="/api/calendar", tags=["calendar"], dependencies=[Depends(require_feature("calendar"))])
     fastapi_app.include_router(ai_router, prefix="/api/ai", tags=["ai"], dependencies=[Depends(require_feature("obrain_chat"))])
-    fastapi_app.include_router(accounting_router, prefix="/api/accounting", tags=["accounting"], dependencies=[Depends(require_feature("expenses"))])
+    fastapi_app.include_router(accounting_router, prefix="/api/accounting", tags=["accounting"], dependencies=[Depends(require_feature("expenses")), Depends(require_business_mode)])
     fastapi_app.include_router(contacts_router, prefix="/api/contacts", tags=["contacts"], dependencies=[Depends(require_feature("contacts"))])
     fastapi_app.include_router(invoicing_router, prefix="/api/invoices", tags=["invoices"], dependencies=[Depends(require_feature("invoices"))])
     fastapi_app.include_router(reminder_router, prefix="/api/invoices", tags=["payment-reminders"], dependencies=[Depends(require_feature("invoices"))])
@@ -357,7 +368,7 @@ def create_app() -> FastAPI:
     fastapi_app.include_router(income_router, prefix="/api/income", tags=["income"])
     fastapi_app.include_router(recurring_router, prefix="/api/recurring", tags=["recurring"], dependencies=[Depends(require_feature("recurring"))])
     fastapi_app.include_router(budgets_router, prefix="/api/budgets", tags=["budgets"])
-    fastapi_app.include_router(reports_router, prefix="/api/reports", tags=["reports"], dependencies=[Depends(require_feature("reports"))])
+    fastapi_app.include_router(reports_router, prefix="/api/reports", tags=["reports"], dependencies=[Depends(require_feature("reports")), Depends(require_business_mode)])
     fastapi_app.include_router(email_router, prefix="/api/email", tags=["email"], dependencies=[Depends(require_feature("email_scanner"))])
     fastapi_app.include_router(gmail_router, prefix="/api/integrations/gmail", tags=["gmail"])
     fastapi_app.include_router(plaid_router, prefix="/api/integrations/plaid", tags=["plaid"])
@@ -369,22 +380,26 @@ def create_app() -> FastAPI:
     fastapi_app.include_router(billing_router, prefix="/api/billing", tags=["billing"])
     fastapi_app.include_router(twilio_router, prefix="/api/integrations/sms", tags=["sms"])
     fastapi_app.include_router(integration_settings_router, prefix="/api/integrations", tags=["integration-settings"])
-    fastapi_app.include_router(export_router, prefix="/api/export", tags=["export"], dependencies=[Depends(require_feature("reports"))])
-    fastapi_app.include_router(period_router, prefix="/api/accounting", tags=["accounting-periods"], dependencies=[Depends(require_feature("expenses"))])
-    fastapi_app.include_router(coa_router, prefix="/api/accounting", tags=["chart-of-accounts"], dependencies=[Depends(require_feature("expenses"))])
-    fastapi_app.include_router(journal_router, prefix="/api/accounting", tags=["journal"], dependencies=[Depends(require_feature("expenses"))])
-    fastapi_app.include_router(ledger_report_router, prefix="/api/accounting", tags=["ledger-reports"], dependencies=[Depends(require_feature("expenses"))])
-    fastapi_app.include_router(ap_router, prefix="/api/accounting", tags=["accounts-payable"], dependencies=[Depends(require_feature("expenses"))])
-    fastapi_app.include_router(tax1099_router, prefix="/api/accounting", tags=["tax-1099"], dependencies=[Depends(require_feature("expenses"))])
+    fastapi_app.include_router(export_router, prefix="/api/export", tags=["export"], dependencies=[Depends(require_feature("reports")), Depends(require_business_mode)])
+    fastapi_app.include_router(period_router, prefix="/api/accounting", tags=["accounting-periods"], dependencies=[Depends(require_feature("expenses")), Depends(require_business_mode)])
+    fastapi_app.include_router(coa_router, prefix="/api/accounting", tags=["chart-of-accounts"], dependencies=[Depends(require_feature("expenses")), Depends(require_business_mode)])
+    fastapi_app.include_router(journal_router, prefix="/api/accounting", tags=["journal"], dependencies=[Depends(require_feature("expenses")), Depends(require_business_mode)])
+    fastapi_app.include_router(ledger_report_router, prefix="/api/accounting", tags=["ledger-reports"], dependencies=[Depends(require_feature("expenses")), Depends(require_business_mode)])
+    fastapi_app.include_router(ap_router, prefix="/api/accounting", tags=["accounts-payable"], dependencies=[Depends(require_feature("expenses")), Depends(require_business_mode)])
+    fastapi_app.include_router(tax1099_router, prefix="/api/accounting", tags=["tax-1099"], dependencies=[Depends(require_feature("expenses")), Depends(require_business_mode)])
     fastapi_app.include_router(credit_notes_router, prefix="/api/invoices", tags=["credit-notes"], dependencies=[Depends(require_feature("invoices"))])
-    fastapi_app.include_router(tax_router, prefix="/api", tags=["sales-tax"], dependencies=[Depends(require_feature("tax"))])
-    fastapi_app.include_router(cashbook_router, prefix="/api/cashbook", tags=["cashbook"], dependencies=[Depends(require_feature("cashbook"))])
+    fastapi_app.include_router(tax_router, prefix="/api", tags=["sales-tax"], dependencies=[Depends(require_feature("tax")), Depends(require_business_mode)])
+    fastapi_app.include_router(cashbook_router, prefix="/api/cashbook", tags=["cashbook"], dependencies=[Depends(require_feature("cashbook")), Depends(require_business_mode)])
+    # Personal ledger — a separate, encrypted, user-private personal-finance book
+    # (Personal mode). No feature gate (available to any authenticated user) and
+    # NO require_business_mode (this IS the personal surface).
+    fastapi_app.include_router(personal_router, prefix="/api/personal", tags=["personal"])
     fastapi_app.include_router(meetings_router, prefix="/api/meetings", tags=["meetings"], dependencies=[Depends(require_feature("meeting_rooms"))])
     fastapi_app.include_router(office_router, prefix="/api/office", tags=["office"], dependencies=[Depends(require_feature("docs"))])
     fastapi_app.include_router(settings_router, prefix="/api/settings/company", tags=["settings"])
     fastapi_app.include_router(public_router, prefix="/api/public", tags=["public"])
     fastapi_app.include_router(proposals_router, prefix="/api/proposals", tags=["proposals"], dependencies=[Depends(require_feature("proposals"))])
-    fastapi_app.include_router(reconciliation_router, prefix="/api/reconciliation", tags=["reconciliation"], dependencies=[Depends(require_feature("cashbook"))])
+    fastapi_app.include_router(reconciliation_router, prefix="/api/reconciliation", tags=["reconciliation"], dependencies=[Depends(require_feature("cashbook")), Depends(require_business_mode)])
     fastapi_app.include_router(inbox_router, prefix="/api/inbox", tags=["inbox"], dependencies=[Depends(require_feature("inbox"))])
     fastapi_app.include_router(portal_router, prefix="/api/portal", tags=["portal"])
     fastapi_app.include_router(forms_router, prefix="/api/forms", tags=["forms"], dependencies=[Depends(require_feature("forms"))])

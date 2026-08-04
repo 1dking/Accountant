@@ -13,6 +13,7 @@ export interface User {
   org_id: string | null
   manager_id: string | null
   cashbook_access: 'personal' | 'org'
+  active_mode?: 'business' | 'personal'
   fallback_phone: string | null
   voicemail_mode?: 'cell_then_voicemail' | 'voicemail_only' | 'cell_only'
   voicemail_greeting_status?: 'audio' | 'text' | null
@@ -101,6 +102,14 @@ export const useAuthStore = create<AuthState>((set, get) => {
       try {
         const response: any = await api.get('/auth/me')
         set({ user: response.data, isAuthenticated: true, isLoading: false })
+        // On a fresh device (no local choice yet) adopt the server's remembered
+        // ledger so Personal/Business persists across devices. Imported lazily to
+        // avoid a store import cycle.
+        const mode = response.data?.active_mode
+        if ((mode === 'business' || mode === 'personal') && !localStorage.getItem('app_mode')) {
+          const { useUiStore } = await import('@/stores/uiStore')
+          useUiStore.getState().setMode(mode)
+        }
       } catch {
         set({ user: null, isAuthenticated: false, isLoading: false })
       }

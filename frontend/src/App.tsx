@@ -50,6 +50,7 @@ import CashbookPage from '@/pages/CashbookPage'
 import ChartOfAccountsPage from '@/pages/ChartOfAccountsPage'
 import JournalPage from '@/pages/JournalPage'
 import LedgerReportsPage from '@/pages/LedgerReportsPage'
+import PersonalLedgerPage from '@/pages/PersonalLedgerPage'
 import BillsPage from '@/pages/BillsPage'
 import Tax1099Page from '@/pages/Tax1099Page'
 import NewCashbookEntryPage from '@/pages/NewCashbookEntryPage'
@@ -243,6 +244,7 @@ function AuthenticatedApp() {
         <Route path="/accounting/chart-of-accounts" element={<ChartOfAccountsPage />} />
         <Route path="/accounting/journal" element={<JournalPage />} />
         <Route path="/accounting/ledger-reports" element={<LedgerReportsPage />} />
+        <Route path="/personal" element={<PersonalLedgerPage />} />
         <Route path="/accounting/bills" element={<BillsPage />} />
         <Route path="/accounting/1099" element={<Tax1099Page />} />
         <Route path="/expenses" element={<ExpensesPage />} />

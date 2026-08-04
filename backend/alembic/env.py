@@ -35,6 +35,7 @@ import app.integrations.settings_models  # noqa: F401
 import app.accounting.period_models  # noqa: F401
 import app.accounting.tax_models  # noqa: F401
 import app.cashbook.models  # noqa: F401
+import app.personal.models  # noqa: F401
 import app.meetings.models  # noqa: F401
 import app.office.models  # noqa: F401
 import app.settings.models  # noqa: F401
