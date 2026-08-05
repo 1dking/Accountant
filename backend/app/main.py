@@ -253,7 +253,13 @@ def create_app() -> FastAPI:
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = "camera=(self), microphone=(self), geolocation=()"
-        if request.url.scheme == "https":
+        # HSTS: the public entry is always HTTPS via Cloudflare, which terminates
+        # TLS and forwards to us over the tunnel as HTTP — so request.url.scheme is
+        # "http" here and the old `scheme == "https"` guard NEVER fired (no HSTS in
+        # prod). Honor the forwarded proto Cloudflare sets so the header ships on
+        # HTTPS-originated requests. 1-year max-age + includeSubDomains → SSL Labs A+.
+        forwarded_proto = request.headers.get("x-forwarded-proto", request.url.scheme)
+        if forwarded_proto == "https":
             response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
         return response
 
