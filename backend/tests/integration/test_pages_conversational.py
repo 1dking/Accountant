@@ -293,11 +293,15 @@ async def test_section_regenerate_isolated(
 
 @pytest.mark.normal
 async def test_template_library_endpoint_registered(app):
-    """POST /api/pages/templates/generate-library is wired to the router."""
-    paths = {
-        getattr(r, "path", None): getattr(r, "methods", set())
-        for r in app.routes
-    }
+    """POST /api/pages/templates/generate-library is wired to the router.
+
+    Enumerates via the OpenAPI spec, not a flat ``app.routes`` walk: Starlette's
+    lazy include (``_IncludedRouter``) no longer flattens ``include_router()``
+    sub-routers into ``app.routes``, so a top-level walk misses every included
+    path even though it is registered and served. See the full explanation in
+    ``tests/integration/test_api_route_registration.py::registered_routes``.
+    """
     target = "/api/pages/templates/generate-library"
-    assert target in paths, f"{target} not registered in app.routes"
-    assert "POST" in paths[target]
+    methods = {m.upper() for m in app.openapi().get("paths", {}).get(target, {})}
+    assert methods, f"{target} not registered in the OpenAPI spec"
+    assert "POST" in methods

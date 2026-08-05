@@ -101,16 +101,25 @@ class TestParseWtpCsv:
         assert len(rows) == 5
         assert {r["orgId"] for r in rows} == {f"org_{i}" for i in range(5)}
 
-    def test_real_shipped_csv_is_the_honest_empty_template(self):
-        """The actual local file (exported from the real OBrain_WTP_Capture.xlsx;
-        backend/data/ is gitignored like the rest of that directory, so this is a
-        manually-placed operator artifact, not something git ships) has zero real
-        respondents right now — the workbook's only populated row is its own
-        styled example, which the export step excludes. This is not a bug; it's
-        the true state until real interviews are conducted."""
-        assert WTP_CSV_PATH.exists(), "wtp_interviews.csv should exist locally at backend/data/"
-        rows = parse_wtp_csv(WTP_CSV_PATH)
-        assert rows == []
+    def test_no_real_wtp_respondents_are_shipped(self):
+        """The repo ships ZERO real WTP respondents, and that invariant holds in
+        every environment.
+
+        backend/data/ is gitignored, so a fresh checkout (CI, a new clone) has no
+        CSV at all — and parse_wtp_csv() returns [] for a missing file (see
+        test_missing_file_returns_empty). On an operator machine where the file
+        HAS been exported from the real OBrain_WTP_Capture.xlsx, it must still
+        parse to [] — the workbook's only populated row is its own styled example,
+        which the export step excludes.
+
+        Either way the result is []. This is deliberately NOT an ``.exists()``
+        assertion: requiring a gitignored, manually-placed artifact to be present
+        made the test impossible to pass in CI, and force-committing the file
+        would risk later tracking real respondent data (PII). The meaningful
+        invariant — no real respondents ship — is what we check, and a regression
+        that committed real interview data would make this fail loudly.
+        """
+        assert parse_wtp_csv(WTP_CSV_PATH) == []
 
 
 class TestWtpRouterGate:

@@ -92,21 +92,34 @@ FRONTEND_API_DEPENDENCIES = [
 
 @pytest.fixture(scope="module")
 def registered_routes() -> set[tuple[str, str]]:
-    """Return {(METHOD, path)} by walking app.routes directly.
+    """Return {(METHOD, path)} for every route the app registers.
 
-    Avoids app.openapi() because that triggers a full Pydantic schema
-    generation pass which trips on Request forward-refs in some
-    dependency annotations. We only need (method, path) — APIRoute
-    objects already expose both.
+    Source of truth is the OpenAPI spec (``app.openapi()``), NOT a manual walk
+    of ``app.routes``.
+
+    Why this changed: Starlette's lazy include (the ``_IncludedRouter`` node,
+    shipped in the 1.x line we now run in prod and CI) stopped *flattening*
+    ``include_router()`` sub-routers into ``app.routes``. A sub-router now shows
+    up as ONE opaque node with ``path=None``, so a flat top-level walk sees only
+    the app's directly-decorated routes (``/api/system/health``, ``/docs``,
+    ``/.well-known/...``) and misses every ``include_router()`` path — i.e. all
+    ~350 feature endpoints. The routes are still registered and served correctly
+    (prod works; the live HTTP api-tests pass); only the *walk* went blind, which
+    is why this test passed on an older local Starlette and failed in CI.
+
+    The OpenAPI generator traverses the nested router tree correctly, so it
+    enumerates the same routes on both the old (flat) and new (nested) Starlette.
+    An earlier note here claimed ``openapi()`` tripped on Request forward-refs;
+    that is no longer true on the current FastAPI/Pydantic (verified against both
+    the old and new dependency sets). The test stays meaningful: a genuinely
+    missing or renamed route is absent from the spec and still fails loudly.
     """
     app = create_app()
+    spec = app.openapi()
     routes: set[tuple[str, str]] = set()
-    for r in app.routes:
-        path = getattr(r, "path", None)
-        methods = getattr(r, "methods", None)
-        if not path or not methods:
-            continue
-        for m in methods:
+    for path, operations in spec.get("paths", {}).items():
+        for method in operations:
+            m = method.upper()
             if m in {"GET", "POST", "PUT", "DELETE", "PATCH"}:
                 routes.add((m, path))
     return routes
