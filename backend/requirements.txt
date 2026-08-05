@@ -90,7 +90,7 @@ plaid-python==38.3.0
 pluggy==1.6.0
 propcache==0.4.1
 proto-plus==1.27.1
-protobuf==6.33.5
+protobuf==7.35.1
 py-vapid==1.9.4
 pyOpenSSL==26.4.0
 pyasn1==0.6.4
