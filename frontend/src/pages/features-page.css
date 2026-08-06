@@ -1,25 +1,28 @@
 /* ==========================================================================
    Features page — editorial, long-form companion to the sales landing.
-   Light, calm reading surface; the dark product screenshots are the anchors.
-   Single violet accent shared with the sales page. Scoped under .fp-root so
-   the app's brand theme vars can't bleed in (and vice versa).
+   Dark to match the sales page: near-black ground, single violet accent,
+   glassmorphism. The dark product screenshots sit in glass frames with a
+   border + ambient glow so they read against the dark background.
+   Scoped under .fp-root so the app's brand theme vars can't bleed in.
    ========================================================================== */
 
 .fp-root {
-  --fp-accent: #7c3aed;
-  --fp-accent-2: #8b5cf6;
-  --fp-accent-soft: rgba(124, 58, 237, 0.1);
-  --fp-bg: #f6f5fb;
-  --fp-surface: #ffffff;
+  --fp-accent: #8b5cf6;
+  --fp-accent-strong: #7c3aed;
+  --fp-accent-soft: rgba(139, 92, 246, 0.16);
+  --fp-bg: #05060a;
+  --fp-bg-2: #0a0c14;
   --fp-shot-bg: #0a0c14;
-  --fp-text: #14161f;
-  --fp-dim: #565c70;
-  --fp-border: #e7e4f2;
+  --fp-text: #f4f4f8;
+  --fp-dim: #9aa0b4;
+  --fp-border: rgba(255, 255, 255, 0.1);
+  --fp-glass: rgba(255, 255, 255, 0.045);
 
   font-family: 'Segoe UI Variable Display', 'Segoe UI', ui-sans-serif, system-ui,
     -apple-system, 'Helvetica Neue', Arial, sans-serif;
   background:
-    radial-gradient(1100px 520px at 82% -8%, rgba(139, 92, 246, 0.08), transparent 60%),
+    radial-gradient(1200px 600px at 82% -6%, rgba(139, 92, 246, 0.13), transparent 60%),
+    radial-gradient(900px 500px at 8% 12%, rgba(124, 58, 237, 0.08), transparent 62%),
     var(--fp-bg);
   color: var(--fp-text);
   min-height: 100vh;
@@ -42,9 +45,9 @@
   align-items: center;
   justify-content: space-between;
   padding: 0.8rem clamp(1rem, 4vw, 3rem);
-  background: rgba(246, 245, 251, 0.82);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--fp-border);
+  background: rgba(5, 6, 10, 0.72);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
 }
 
 .fp-logo {
@@ -55,7 +58,7 @@
   text-decoration: none;
 }
 .fp-logo .dot {
-  color: var(--fp-accent-2);
+  color: var(--fp-accent);
 }
 
 .fp-nav-links {
@@ -91,19 +94,20 @@
 .fp-btn-primary {
   background: var(--fp-accent);
   color: #fff;
-  box-shadow: 0 8px 20px -6px rgba(124, 58, 237, 0.5);
+  box-shadow: 0 10px 26px -8px rgba(139, 92, 246, 0.6);
 }
 .fp-btn-primary:hover {
-  background: var(--fp-accent-2);
+  background: var(--fp-accent-strong);
   transform: translateY(-1px);
 }
 .fp-btn-ghost {
   color: var(--fp-text);
   border-color: var(--fp-border);
-  background: #fff;
+  background: var(--fp-glass);
 }
 .fp-btn-ghost:hover {
-  border-color: #cfc6ee;
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.07);
 }
 .fp-btn-lg {
   padding: 0.85rem 1.7rem;
@@ -157,12 +161,13 @@
   padding: 0.4rem 0.85rem;
   border-radius: 999px;
   border: 1px solid var(--fp-border);
-  background: #fff;
-  transition: color 0.15s ease, border-color 0.15s ease;
+  background: var(--fp-glass);
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
 .fp-jump-pill:hover {
-  color: var(--fp-accent);
-  border-color: #d6cdf3;
+  color: var(--fp-text);
+  border-color: rgba(139, 92, 246, 0.5);
+  background: var(--fp-accent-soft);
 }
 
 /* ---------- group section ---------- */
@@ -186,12 +191,13 @@
   font-weight: 800;
   letter-spacing: -0.025em;
   margin: 0;
+  color: var(--fp-text);
 }
 .fp-group-count {
   font-size: 0.74rem;
   font-weight: 700;
   letter-spacing: 0.03em;
-  color: var(--fp-accent);
+  color: #c4b5fd;
   background: var(--fp-accent-soft);
   padding: 0.25rem 0.6rem;
   border-radius: 999px;
@@ -224,16 +230,21 @@
 }
 
 .fp-shot-frame {
+  position: relative;
   border-radius: 16px;
   overflow: hidden;
-  border: 1px solid var(--fp-border);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   background: var(--fp-shot-bg);
-  box-shadow: 0 24px 60px -24px rgba(24, 18, 48, 0.4);
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  box-shadow: 0 30px 70px -30px rgba(0, 0, 0, 0.85),
+    0 0 0 1px rgba(255, 255, 255, 0.02) inset,
+    0 20px 60px -30px rgba(139, 92, 246, 0.35);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
 }
 .fp-row:hover .fp-shot-frame {
   transform: translateY(-3px);
-  box-shadow: 0 30px 70px -26px rgba(24, 18, 48, 0.5);
+  border-color: rgba(139, 92, 246, 0.4);
+  box-shadow: 0 36px 80px -30px rgba(0, 0, 0, 0.9),
+    0 24px 70px -28px rgba(139, 92, 246, 0.5);
 }
 .fp-shot-frame img {
   display: block;
@@ -256,6 +267,7 @@
   font-weight: 800;
   letter-spacing: -0.02em;
   margin: 0 0 0.35rem;
+  color: var(--fp-text);
 }
 .fp-tag {
   font-size: clamp(1.05rem, 2vw, 1.2rem);
@@ -285,7 +297,7 @@
   gap: 0.6rem;
   font-size: 0.94rem;
   line-height: 1.4;
-  color: var(--fp-text);
+  color: #d6d8e2;
 }
 .fp-points li svg {
   color: var(--fp-accent);
@@ -300,8 +312,7 @@
   margin: clamp(3.5rem, 8vw, 6rem) auto 0;
   padding: clamp(2.5rem, 6vw, 3.75rem) 1.5rem;
   text-align: center;
-  background:
-    radial-gradient(600px 300px at 50% 0%, rgba(139, 92, 246, 0.1), transparent 70%);
+  background: radial-gradient(600px 300px at 50% 0%, rgba(139, 92, 246, 0.16), transparent 70%);
   border-top: 1px solid var(--fp-border);
 }
 .fp-cta h2 {
@@ -310,6 +321,7 @@
   letter-spacing: -0.025em;
   margin: 0 0 0.8rem;
   text-wrap: balance;
+  color: var(--fp-text);
 }
 .fp-cta p {
   color: var(--fp-dim);
@@ -347,7 +359,7 @@
   font-weight: 600;
 }
 .fp-footer a:hover {
-  color: var(--fp-accent);
+  color: var(--fp-text);
 }
 .fp-footer p {
   font-size: 0.85rem;
