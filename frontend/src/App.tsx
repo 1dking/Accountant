@@ -17,6 +17,7 @@ import PrivacyPolicyPage from '@/pages/PrivacyPolicyPage'
 import TermsPage from '@/pages/TermsPage'
 import RegisterPage from '@/pages/RegisterPage'
 import SalesPage from '@/pages/SalesPage'
+import FeaturesPage from '@/pages/FeaturesPage'
 import DashboardPage from '@/pages/DashboardPage'
 import AdminTeamPage from '@/pages/AdminTeamPage'
 import DocumentsPage from '@/pages/DocumentsPage'
@@ -343,6 +344,8 @@ export default function App() {
                 footer and the Plaid connection UI, and versioned. */}
             <Route path="/privacy" element={<PrivacyPolicyPage />} />
             <Route path="/terms" element={<TermsPage />} />
+            {/* Public marketing: the full feature breakdown, one block per module. */}
+            <Route path="/features" element={<FeaturesPage />} />
             <Route path="/p/:token" element={<PublicDocumentPage />} />
             <Route path="/f/:formId" element={<PublicFormPage />} />
             <Route path="/proposals/sign/:token" element={<ProposalSigningPage />} />

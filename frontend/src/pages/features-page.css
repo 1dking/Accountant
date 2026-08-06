@@ -1,0 +1,383 @@
+/* ==========================================================================
+   Features page — editorial, long-form companion to the sales landing.
+   Light, calm reading surface; the dark product screenshots are the anchors.
+   Single violet accent shared with the sales page. Scoped under .fp-root so
+   the app's brand theme vars can't bleed in (and vice versa).
+   ========================================================================== */
+
+.fp-root {
+  --fp-accent: #7c3aed;
+  --fp-accent-2: #8b5cf6;
+  --fp-accent-soft: rgba(124, 58, 237, 0.1);
+  --fp-bg: #f6f5fb;
+  --fp-surface: #ffffff;
+  --fp-shot-bg: #0a0c14;
+  --fp-text: #14161f;
+  --fp-dim: #565c70;
+  --fp-border: #e7e4f2;
+
+  font-family: 'Segoe UI Variable Display', 'Segoe UI', ui-sans-serif, system-ui,
+    -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  background:
+    radial-gradient(1100px 520px at 82% -8%, rgba(139, 92, 246, 0.08), transparent 60%),
+    var(--fp-bg);
+  color: var(--fp-text);
+  min-height: 100vh;
+  letter-spacing: -0.01em;
+}
+
+.fp-root *,
+.fp-root *::before,
+.fp-root *::after {
+  box-sizing: border-box;
+}
+
+/* ---------- nav ---------- */
+
+.fp-nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.8rem clamp(1rem, 4vw, 3rem);
+  background: rgba(246, 245, 251, 0.82);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--fp-border);
+}
+
+.fp-logo {
+  font-weight: 800;
+  font-size: 1.15rem;
+  letter-spacing: -0.02em;
+  color: var(--fp-text);
+  text-decoration: none;
+}
+.fp-logo .dot {
+  color: var(--fp-accent-2);
+}
+
+.fp-nav-links {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.4rem, 2vw, 1.35rem);
+}
+.fp-nav-anchor {
+  color: var(--fp-dim);
+  text-decoration: none;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+.fp-nav-anchor:hover {
+  color: var(--fp-text);
+}
+
+/* ---------- buttons ---------- */
+
+.fp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.6rem 1.1rem;
+  border-radius: 999px;
+  font-weight: 650;
+  font-size: 0.9rem;
+  text-decoration: none;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+.fp-btn-primary {
+  background: var(--fp-accent);
+  color: #fff;
+  box-shadow: 0 8px 20px -6px rgba(124, 58, 237, 0.5);
+}
+.fp-btn-primary:hover {
+  background: var(--fp-accent-2);
+  transform: translateY(-1px);
+}
+.fp-btn-ghost {
+  color: var(--fp-text);
+  border-color: var(--fp-border);
+  background: #fff;
+}
+.fp-btn-ghost:hover {
+  border-color: #cfc6ee;
+}
+.fp-btn-lg {
+  padding: 0.85rem 1.7rem;
+  font-size: 1rem;
+}
+
+/* ---------- hero ---------- */
+
+.fp-hero {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: clamp(2.75rem, 8vw, 5.5rem) 1.25rem 2rem;
+  text-align: center;
+}
+.fp-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--fp-accent);
+  margin: 0 0 0.9rem;
+}
+.fp-hero-h1 {
+  font-size: clamp(2rem, 5vw, 3.1rem);
+  line-height: 1.08;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin: 0 0 1rem;
+  text-wrap: balance;
+}
+.fp-hero-sub {
+  font-size: clamp(1rem, 2vw, 1.18rem);
+  line-height: 1.6;
+  color: var(--fp-dim);
+  max-width: 62ch;
+  margin: 0 auto;
+}
+
+.fp-jump {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 2rem;
+}
+.fp-jump-pill {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--fp-dim);
+  text-decoration: none;
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid var(--fp-border);
+  background: #fff;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.fp-jump-pill:hover {
+  color: var(--fp-accent);
+  border-color: #d6cdf3;
+}
+
+/* ---------- group section ---------- */
+
+.fp-group {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: clamp(2.5rem, 6vw, 4.5rem) 1.25rem 0;
+  scroll-margin-top: 84px;
+}
+.fp-group-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.85rem;
+  padding-bottom: 1.4rem;
+  border-bottom: 1px solid var(--fp-border);
+  margin-bottom: clamp(2rem, 4vw, 3rem);
+}
+.fp-group-head h2 {
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  margin: 0;
+}
+.fp-group-count {
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--fp-accent);
+  background: var(--fp-accent-soft);
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+}
+
+/* ---------- feature rows ---------- */
+
+.fp-rows {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(3rem, 6vw, 5rem);
+}
+.fp-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(1.5rem, 4vw, 3.5rem);
+  align-items: center;
+}
+.fp-row .fp-shot {
+  order: 1;
+}
+.fp-row .fp-copy {
+  order: 2;
+}
+.fp-row.reverse .fp-shot {
+  order: 2;
+}
+.fp-row.reverse .fp-copy {
+  order: 1;
+}
+
+.fp-shot-frame {
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--fp-border);
+  background: var(--fp-shot-bg);
+  box-shadow: 0 24px 60px -24px rgba(24, 18, 48, 0.4);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.fp-row:hover .fp-shot-frame {
+  transform: translateY(-3px);
+  box-shadow: 0 30px 70px -26px rgba(24, 18, 48, 0.5);
+}
+.fp-shot-frame img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+}
+
+.fp-kicker {
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--fp-accent);
+  margin: 0 0 0.55rem;
+}
+.fp-name {
+  font-size: clamp(1.4rem, 3vw, 1.85rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0 0 0.35rem;
+}
+.fp-tag {
+  font-size: clamp(1.05rem, 2vw, 1.2rem);
+  font-weight: 600;
+  color: var(--fp-text);
+  margin: 0 0 0.9rem;
+  text-wrap: balance;
+}
+.fp-body {
+  font-size: 1rem;
+  line-height: 1.62;
+  color: var(--fp-dim);
+  margin: 0 0 1.25rem;
+  max-width: 48ch;
+}
+.fp-points {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.fp-points li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  font-size: 0.94rem;
+  line-height: 1.4;
+  color: var(--fp-text);
+}
+.fp-points li svg {
+  color: var(--fp-accent);
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+/* ---------- CTA ---------- */
+
+.fp-cta {
+  max-width: 820px;
+  margin: clamp(3.5rem, 8vw, 6rem) auto 0;
+  padding: clamp(2.5rem, 6vw, 3.75rem) 1.5rem;
+  text-align: center;
+  background:
+    radial-gradient(600px 300px at 50% 0%, rgba(139, 92, 246, 0.1), transparent 70%);
+  border-top: 1px solid var(--fp-border);
+}
+.fp-cta h2 {
+  font-size: clamp(1.6rem, 3.5vw, 2.4rem);
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  margin: 0 0 0.8rem;
+  text-wrap: balance;
+}
+.fp-cta p {
+  color: var(--fp-dim);
+  font-size: 1.05rem;
+  max-width: 52ch;
+  margin: 0 auto 1.8rem;
+  line-height: 1.6;
+}
+.fp-cta-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  justify-content: center;
+}
+
+/* ---------- footer ---------- */
+
+.fp-footer {
+  border-top: 1px solid var(--fp-border);
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  color: var(--fp-dim);
+}
+.fp-footer > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.2rem;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+.fp-footer a {
+  color: var(--fp-dim);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.fp-footer a:hover {
+  color: var(--fp-accent);
+}
+.fp-footer p {
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+/* ---------- responsive ---------- */
+
+@media (max-width: 820px) {
+  .fp-row,
+  .fp-row.reverse {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+  .fp-row .fp-shot,
+  .fp-row.reverse .fp-shot {
+    order: 1;
+  }
+  .fp-row .fp-copy,
+  .fp-row.reverse .fp-copy {
+    order: 2;
+  }
+  .fp-body {
+    max-width: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fp-btn,
+  .fp-shot-frame {
+    transition: none;
+  }
+}

@@ -481,7 +481,7 @@ export default function SalesPage() {
           O<span className="dot">·</span>Brain
         </a>
         <div className="sp-nav-links">
-          <a className="sp-nav-anchor" href="#sp-features">Features</a>
+          <Link className="sp-nav-anchor" to="/features">Features</Link>
           <a className="sp-nav-anchor" href="#sp-pricing">Pricing</a>
           <a className="sp-nav-anchor" href="#sp-faq">FAQ</a>
           <Link to="/login" className="sp-btn sp-btn-ghost sp-btn-small">
@@ -588,6 +588,11 @@ export default function SalesPage() {
               Live screenshots from a working O-Brain workspace — not concept art.
             </p>
             <FeatureShowcase />
+            <div style={{ textAlign: 'center', marginTop: '2rem' }}>
+              <Link to="/features" className="sp-btn sp-btn-ghost">
+                Explore every feature in detail →
+              </Link>
+            </div>
           </div>
         </section>
 
