@@ -53,8 +53,12 @@ async def sms_webhook(
     After persisting the message, if the recipient user has the
     conversation engine enabled AND the inbound came from a known
     contact, schedule classify_and_respond as a background task.
+
+    Signature-verified: like the voice webhooks, this validates Twilio's
+    X-Twilio-Signature (HMAC of the public URL + form params) and 403s an
+    unsigned/forged request, so inbound SMS can't be spoofed.
     """
-    form_data = await request.form()
+    form_data = await verified_twilio_form(request)
     from_number = str(form_data.get("From", ""))
     to_number = str(form_data.get("To", ""))
     body = str(form_data.get("Body", ""))

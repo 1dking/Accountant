@@ -328,24 +328,29 @@ async def classify_and_respond(
         # ── Send the SMS on the TENANT's subaccount.
         # This is an AI auto-reply: it sends without a human in the loop, so it
         # fails closed — a suspended or unresolvable tenant sends nothing.
+        # NOTE: the original `db` session was already closed at "End of DB scope"
+        # above, so resolving the telephony client and debiting credit MUST run on
+        # a fresh session (previously reused the stale, closed `db`). The Twilio
+        # client returned is a plain HTTP client and remains valid after the
+        # session closes, so the actual send happens outside the session.
         from app.communication.telephony import outbound_client_for_user_id
-
-        twilio_client, _tenant_account = await outbound_client_for_user_id(
-            db, user_id, settings
-        )
-        if twilio_client is None:
-            logger.warning(
-                "conversation_engine.skipped_no_tenant_telephony contact_id=%s", contact_id
-            )
-            return
-        # Prepaid wall applies to AI auto-replies too — no credit, no send.
         from app.billing.telephony_credits import safe_debit_by_user_id
 
-        if not await safe_debit_by_user_id(db, user_id, unit="sms_outbound"):
-            logger.warning(
-                "conversation_engine.skipped_no_credit contact_id=%s", contact_id
+        async with session_factory() as _sdb:
+            twilio_client, _tenant_account = await outbound_client_for_user_id(
+                _sdb, user_id, settings
             )
-            return
+            if twilio_client is None:
+                logger.warning(
+                    "conversation_engine.skipped_no_tenant_telephony contact_id=%s", contact_id
+                )
+                return
+            # Prepaid wall applies to AI auto-replies too — no credit, no send.
+            if not await safe_debit_by_user_id(_sdb, user_id, unit="sms_outbound"):
+                logger.warning(
+                    "conversation_engine.skipped_no_credit contact_id=%s", contact_id
+                )
+                return
 
         try:
             tw_msg = twilio_client.messages.create(

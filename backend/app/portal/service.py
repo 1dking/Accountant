@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.auth.models import Role, User
 from app.contacts.models import ClientPortalAccount, Contact, FileShare
@@ -136,24 +137,41 @@ async def get_portal_proposals(db: AsyncSession, user: User) -> list[dict]:
     portal = await _get_portal_account(db, user.id)
     from app.proposals.models import Proposal
 
+    contact = await _get_contact(db, portal.contact_id)
+    contact_email = (contact.email or "").lower()
+
     q = (
         select(Proposal)
         .where(Proposal.contact_id == portal.contact_id)
+        .options(selectinload(Proposal.recipients))
         .order_by(Proposal.created_at.desc())
     )
     result = await db.execute(q)
     proposals = result.scalars().all()
-    return [
-        {
-            "id": p.id,
-            "title": p.title,
-            "status": p.status,
-            "total": float(p.total) if p.total else None,
-            "created_at": p.created_at,
-            "signing_token": p.signing_token if hasattr(p, "signing_token") else None,
-        }
-        for p in proposals
-    ]
+
+    out: list[dict] = []
+    for p in proposals:
+        # The amount lives on Proposal.value (there is no `total` column), and the
+        # signing token lives on the per-recipient row, not the proposal. Surface
+        # THIS client's own signing link (matched by email) while their signature
+        # is still outstanding, so the portal "View / sign" button works.
+        recipients = sorted(p.recipients, key=lambda r: r.signing_order)
+        mine = next(
+            (r for r in recipients if (r.email or "").lower() == contact_email),
+            recipients[0] if recipients else None,
+        )
+        signing_token = mine.signing_token if (mine and mine.signed_at is None) else None
+        out.append(
+            {
+                "id": p.id,
+                "title": p.title,
+                "status": p.status,
+                "total": float(p.value) if p.value else None,
+                "created_at": p.created_at,
+                "signing_token": signing_token,
+            }
+        )
+    return out
 
 
 async def get_portal_files(db: AsyncSession, user: User) -> list[dict]:

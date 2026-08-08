@@ -200,21 +200,42 @@ async def test_list_sms_messages(client: AsyncClient, admin_user: User):
     assert "meta" in body
 
 
-async def test_sms_webhook_receives_message(client: AsyncClient):
-    """SMS webhook receives message (no auth) via form data."""
-    # Twilio sends webhook data as application/x-www-form-urlencoded
-    resp = await client.post(
-        "/api/communication/sms/webhook",
-        data={
+async def test_sms_webhook_receives_message(client: AsyncClient, app):
+    """SMS webhook receives a SIGNED Twilio form-POST.
+
+    The endpoint now verifies X-Twilio-Signature (like the voice webhooks), so an
+    unsigned POST is correctly rejected with 403. Sign the request the way Twilio
+    does — over the public forwarded URL + form params — and it processes.
+    """
+    from twilio.request_validator import RequestValidator
+
+    token = "test-twilio-auth-token"
+    original = app.state.settings.twilio_auth_token
+    app.state.settings.twilio_auth_token = token
+    try:
+        params = {
             "From": "+15559876543",
             "To": "+15551234567",
             "Body": "Hello from outside",
             "MessageSid": "SM123abc",
-        },
-    )
-    assert resp.status_code == 200, resp.text
-    data = resp.json()["data"]
-    assert data["message"] == "OK"
+        }
+        signed_url = "https://testhost/api/communication/sms/webhook"
+        signature = RequestValidator(token).compute_signature(signed_url, params)
+
+        resp = await client.post(
+            "/api/communication/sms/webhook",
+            data=params,
+            headers={
+                "X-Twilio-Signature": signature,
+                "X-Forwarded-Proto": "https",
+                "X-Forwarded-Host": "testhost",
+            },
+        )
+        assert resp.status_code == 200, resp.text
+        data = resp.json()["data"]
+        assert data["message"] == "OK"
+    finally:
+        app.state.settings.twilio_auth_token = original
 
 
 async def test_viewer_cannot_send_sms(client: AsyncClient, viewer_user: User):

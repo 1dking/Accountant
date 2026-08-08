@@ -170,9 +170,10 @@ async def create_subscription(
     if not contact:
         raise NotFoundError(f"Contact {data.contact_id} not found")
 
-    # Create or reuse Stripe Customer
+    # Create or reuse Stripe Customer. Contact has no `name` column — the person
+    # is `contact_name` (optional) and the business is `company_name` (required).
     customer = stripe_lib.Customer.create(
-        name=contact.name,
+        name=contact.contact_name or contact.company_name,
         email=getattr(contact, "email", None),
         metadata={"contact_id": str(contact.id)},
     )

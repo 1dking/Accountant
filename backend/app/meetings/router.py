@@ -1144,67 +1144,10 @@ async def livekit_ws_proxy(websocket: WebSocket):
             pass
 
 
-@router.post("/webhooks/livekit")
-async def livekit_webhook(
-    request: Request,
-    db: Annotated[AsyncSession, Depends(get_db)],
-) -> dict:
-    """Handle LiveKit webhook events. No auth -- validated via LiveKit signature."""
-    settings = request.app.state.settings
-    body = await request.body()
-
-    # Validate webhook signature
-    auth_header = request.headers.get("Authorization")
-    if not auth_header:
-        raise HTTPException(status_code=401, detail="Missing webhook authorization")
-
-    try:
-        from livekit.api import WebhookReceiver
-
-        receiver = WebhookReceiver(
-            api_key=settings.livekit_api_key,
-            api_secret=settings.livekit_api_secret,
-        )
-        event = receiver.receive(body.decode("utf-8"), auth_header)
-    except Exception:
-        logger.warning("Invalid LiveKit webhook signature", exc_info=True)
-        raise HTTPException(status_code=401, detail="Invalid webhook signature")
-
-    # Process webhook events
-    event_type = getattr(event, "event", None)
-    logger.info("Received LiveKit webhook event: %s", event_type)
-
-    if event_type == "egress_ended":
-        # Update recording status when egress completes
-        egress_info = getattr(event, "egress_info", None)
-        if egress_info:
-            egress_id = egress_info.egress_id
-            result = await db.execute(
-                select(MeetingRecording).where(
-                    MeetingRecording.egress_id == egress_id
-                )
-            )
-            recording = result.scalar_one_or_none()
-            if recording:
-                # Check if egress was successful
-                egress_status = getattr(egress_info, "status", None)
-                if egress_status and str(egress_status) == "EGRESS_COMPLETE":
-                    recording.status = RecordingStatus.AVAILABLE
-                    # Try to get file info from egress
-                    file_results = getattr(egress_info, "file_results", None)
-                    if file_results:
-                        recording.storage_path = getattr(
-                            file_results, "filename", None
-                        )
-                        recording.file_size = getattr(
-                            file_results, "size", None
-                        )
-                        recording.duration_seconds = int(
-                            getattr(file_results, "duration", 0)
-                        )
-                else:
-                    recording.status = RecordingStatus.FAILED
-
-                await db.commit()
-
-    return {"data": {"message": "Webhook processed"}}
+# NOTE: a second LiveKit webhook handler used to live here at POST
+# /webhooks/livekit. It was an inferior duplicate — it flipped the recording
+# status but never kicked off transcription/summarization, and it shadowed the
+# module-level `livekit_webhook` name. Removed. The canonical handler is
+# POST /livekit-webhook above (verify_webhook + handle_egress_completion, which
+# drives the full transcription → summary → quote pipeline). Point LiveKit's
+# webhook URL at /api/meetings/livekit-webhook.

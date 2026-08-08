@@ -36,9 +36,10 @@ async def export_quickbooks(
 
 @router.get("/chart-of-accounts")
 async def export_chart_of_accounts(
+    db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role([Role.ACCOUNTANT, Role.ADMIN])),
 ):
-    content = await service.export_chart_of_accounts()
+    content = await service.export_chart_of_accounts(db, user)
     return Response(
         content=content,
         media_type="text/csv",

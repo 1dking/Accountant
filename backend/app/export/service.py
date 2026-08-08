@@ -8,6 +8,8 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.models import User
+
 
 # ---------------------------------------------------------------------------
 # CSV Export (QuickBooks-compatible)
@@ -245,32 +247,38 @@ async def _write_invoices_iif(
 # ---------------------------------------------------------------------------
 
 
-async def export_chart_of_accounts() -> str:
-    """Export a basic chart of accounts in CSV format."""
+async def export_chart_of_accounts(db: AsyncSession, user: User) -> str:
+    """Export the tenant's REAL chart of accounts as CSV.
+
+    Previously this returned a hardcoded generic 16-account template — the same
+    rows for everyone, ignoring the user's actual books. Now it exports the
+    tenant's own ChartAccount rows (tenant-scoped by the CoA service), so the
+    QuickBooks import reflects reality.
+    """
+    from app.accounting import coa_service
+    from app.accounting.ledger_models import AccountType
+
+    qb_type = {
+        AccountType.ASSET: "Asset",
+        AccountType.LIABILITY: "Liability",
+        AccountType.EQUITY: "Equity",
+        AccountType.INCOME: "Income",
+        AccountType.EXPENSE: "Expense",
+    }
+
+    accounts = await coa_service.list_accounts(db, user, include_inactive=True)
+
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["Account Name", "Account Type", "Description"])
-
-    accounts = [
-        ("Checking", "Bank", "Primary checking account"),
-        ("Savings", "Bank", "Savings account"),
-        ("Accounts Receivable", "Accounts Receivable", "Money owed to the business"),
-        ("Income", "Income", "Revenue from services and products"),
-        ("Expenses", "Expense", "General business expenses"),
-        ("Cost of Goods Sold", "Cost of Goods Sold", "Direct costs of products/services"),
-        ("Accounts Payable", "Accounts Payable", "Money owed to vendors"),
-        ("Credit Card", "Credit Card", "Business credit card"),
-        ("Payroll Expenses", "Expense", "Employee wages and benefits"),
-        ("Office Supplies", "Expense", "Office supplies and materials"),
-        ("Travel", "Expense", "Business travel expenses"),
-        ("Professional Fees", "Expense", "Legal, accounting, consulting fees"),
-        ("Utilities", "Expense", "Utilities and telephone"),
-        ("Rent", "Expense", "Office rent"),
-        ("Insurance", "Expense", "Business insurance"),
-        ("Taxes", "Expense", "Business taxes"),
-    ]
-
-    for name, acct_type, desc in accounts:
-        writer.writerow([name, acct_type, desc])
-
+    writer.writerow(["Account Number", "Account Name", "Account Type", "Description", "Active"])
+    for a in accounts:
+        writer.writerow(
+            [
+                a.code,
+                a.name,
+                qb_type.get(a.account_type, a.account_type.value.title()),
+                a.description or "",
+                "Yes" if a.is_active else "No",
+            ]
+        )
     return output.getvalue()
