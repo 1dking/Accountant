@@ -254,20 +254,10 @@ def _render_config_text(template: str, contact, event_data: dict | None) -> str:
 #: Action types the engine cannot perform yet. They fail loudly rather than
 #: reporting COMPLETED — a workflow that silently skips its only real step is
 #: worse than one that visibly breaks, because nobody goes looking for it.
-#: CREATE_TASK and MOVE_PIPELINE_STAGE have no backing table to write to;
-#: ASK_OBRAIN needs a non-streaming brain call (and spends paid tokens).
-_UNIMPLEMENTED_ACTIONS: dict[ActionType, str] = {
-    ActionType.CREATE_CONTACT: "create_contact is not implemented yet",
-    ActionType.CREATE_INVOICE: "create_invoice is not implemented yet",
-    ActionType.SEND_PROPOSAL: "send_proposal is not implemented yet",
-    ActionType.MOVE_PIPELINE_STAGE: (
-        "move_pipeline_stage is not implemented yet (no pipeline model)"
-    ),
-    ActionType.ADD_TO_WORKFLOW: "add_to_workflow is not implemented yet",
-    ActionType.REMOVE_FROM_WORKFLOW: "remove_from_workflow is not implemented yet",
-    ActionType.ASK_OBRAIN: "ask_obrain is not implemented yet",
-    ActionType.LOG_TO_BRAIN: "log_to_brain is not implemented yet",
-}
+#: Empty now that every ActionType has a handler; kept as the explicit
+#: extension point so a newly-added enum member can park here (fails visibly)
+#: until its handler lands, rather than falling through to a silent success.
+_UNIMPLEMENTED_ACTIONS: dict[ActionType, str] = {}
 
 
 async def _load_contact(db: AsyncSession, contact_id: uuid.UUID | None):
@@ -648,6 +638,476 @@ async def _execute_action(
         result = {"action": "create_note", "title": title, "status": "created"}
         return ExecutionStatus.COMPLETED, json.dumps(result)
 
+    elif action == ActionType.CREATE_CONTACT:
+        # Insert the Contact directly rather than calling contacts.service.
+        # create_contact: that path commits mid-run AND dispatches CONTACT_CREATED,
+        # which re-enters the workflow engine — a CONTACT_CREATED-triggered
+        # workflow with a CREATE_CONTACT step would recurse forever. The new
+        # contact is owned by the workflow owner.
+        from app.contacts.models import Contact, ContactType
+
+        company = _render_config_text(config.get("company_name", ""), None, event_data).strip()
+        name = _render_config_text(config.get("contact_name", ""), None, event_data).strip()
+        if not company and not name:
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "create_contact", "error": "company_name or contact_name is required"}
+            )
+        try:
+            ctype = ContactType(str(config.get("type", "client")).lower())
+        except ValueError:
+            ctype = ContactType.CLIENT
+        try:
+            new_contact = Contact(
+                id=uuid.uuid4(),
+                type=ctype,
+                # company_name is NOT NULL — fall back to the person's name.
+                company_name=company or name,
+                contact_name=name or None,
+                email=(_render_config_text(config.get("email", ""), None, event_data) or None),
+                phone=(_render_config_text(config.get("phone", ""), None, event_data) or None),
+                job_title=(config.get("job_title") or None),
+                lead_source=(config.get("lead_source") or "workflow"),
+                created_by=workflow.created_by,
+            )
+            db.add(new_contact)
+            await db.flush()
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Workflow %s: CREATE_CONTACT failed", workflow.id)
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "create_contact", "error": str(exc)}
+            )
+        return ExecutionStatus.COMPLETED, json.dumps(
+            {"action": "create_contact", "contact_id": str(new_contact.id), "status": "created"}
+        )
+
+    elif action == ActionType.CREATE_INVOICE:
+        from app.invoicing.schemas import InvoiceCreate, InvoiceLineItemCreate
+        from app.invoicing.service import create_invoice
+
+        target_contact_id = contact_id
+        cfg_contact = config.get("contact_id")
+        if cfg_contact:
+            try:
+                target_contact_id = uuid.UUID(str(cfg_contact))
+            except (TypeError, ValueError):
+                return ExecutionStatus.FAILED, json.dumps(
+                    {"action": "create_invoice", "error": f"invalid contact_id: {cfg_contact!r}"}
+                )
+        if not target_contact_id:
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "create_invoice", "error": "no contact to invoice"}
+            )
+        owner = await _load_owner(db, workflow)
+        if owner is None:
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "create_invoice", "error": "workflow owner not found"}
+            )
+
+        line_items: list = []
+        for it in (config.get("line_items") or []):
+            if not isinstance(it, dict):
+                continue
+            try:
+                line_items.append(
+                    InvoiceLineItemCreate(
+                        description=str(it.get("description", "Service")),
+                        quantity=it.get("quantity", 1),
+                        unit_price=it.get("unit_price"),
+                    )
+                )
+            except Exception:  # noqa: BLE001 — skip a malformed line, validate the set below
+                continue
+        # Single-line shorthand: {"amount": 500, "description": "Retainer"}
+        if not line_items and config.get("amount") is not None:
+            try:
+                line_items = [
+                    InvoiceLineItemCreate(
+                        description=str(config.get("description", "Service")),
+                        quantity=1,
+                        unit_price=config.get("amount"),
+                    )
+                ]
+            except Exception:  # noqa: BLE001
+                line_items = []
+        if not line_items:
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "create_invoice", "error": "no valid line items configured"}
+            )
+
+        issue = datetime.now(timezone.utc).date()
+        try:
+            due_days = int(config.get("due_in_days", 30))
+        except (TypeError, ValueError):
+            due_days = 30
+        try:
+            data = InvoiceCreate(
+                contact_id=target_contact_id,
+                issue_date=issue,
+                due_date=issue + timedelta(days=due_days),
+                currency=config.get("currency", "USD"),
+                notes=config.get("notes"),
+                line_items=line_items,
+            )
+            invoice = await create_invoice(db, data, owner)
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Workflow %s: CREATE_INVOICE failed", workflow.id)
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "create_invoice", "error": str(exc)}
+            )
+        return ExecutionStatus.COMPLETED, json.dumps(
+            {
+                "action": "create_invoice",
+                "invoice_id": str(invoice.id),
+                "invoice_number": invoice.invoice_number,
+                "status": "created",
+            }
+        )
+
+    elif action == ActionType.SEND_PROPOSAL:
+        from app.proposals.service import send_proposal
+
+        raw = config.get("proposal_id") or (event_data or {}).get("proposal_id")
+        if not raw:
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "send_proposal", "error": "no proposal_id configured"}
+            )
+        try:
+            proposal_id = uuid.UUID(str(raw))
+        except (TypeError, ValueError):
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "send_proposal", "error": f"invalid proposal_id: {raw!r}"}
+            )
+        owner = await _load_owner(db, workflow)
+        if owner is None:
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "send_proposal", "error": "workflow owner not found"}
+            )
+        try:
+            proposal = await send_proposal(db, proposal_id, owner)
+        except Exception as exc:  # noqa: BLE001 — DRAFT-only, no recipients, send failure all raise
+            logger.exception("Workflow %s: SEND_PROPOSAL failed", workflow.id)
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "send_proposal", "error": str(exc)}
+            )
+        return ExecutionStatus.COMPLETED, json.dumps(
+            {
+                "action": "send_proposal",
+                "proposal_id": str(proposal.id),
+                "status": proposal.status.value,
+            }
+        )
+
+    elif action == ActionType.MOVE_PIPELINE_STAGE:
+        # NOTE: there is no deals/pipeline entity yet, so today a "pipeline stage"
+        # IS a proposal's status (Draft -> Sent -> Viewed -> Signed/Declined/Paid).
+        # This moves the triggering contact's (or a configured) proposal to the
+        # target status. A separate task will add a real deals pipeline; when it
+        # lands, branch on the deal here. Sets status directly (no PIPELINE_
+        # STAGE_CHANGED dispatch) to avoid re-entering the engine mid-run.
+        from app.proposals.models import Proposal, ProposalActivity, ProposalStatus
+
+        raw_stage = str(config.get("stage") or config.get("status") or "").strip().lower()
+        if not raw_stage:
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "move_pipeline_stage", "error": "no target stage configured"}
+            )
+        _STAGE_SYNONYMS = {
+            "won": "signed", "complete": "signed", "completed": "signed",
+            "lost": "declined", "open": "sent",
+        }
+        raw_stage = _STAGE_SYNONYMS.get(raw_stage, raw_stage)
+        try:
+            target = ProposalStatus(raw_stage)
+        except ValueError:
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "move_pipeline_stage", "error": f"unknown stage: {raw_stage!r}"}
+            )
+
+        proposal = None
+        raw_pid = config.get("proposal_id") or (event_data or {}).get("proposal_id")
+        if raw_pid:
+            try:
+                proposal = (
+                    await db.execute(
+                        select(Proposal).where(Proposal.id == uuid.UUID(str(raw_pid)))
+                    )
+                ).scalar_one_or_none()
+            except (TypeError, ValueError):
+                proposal = None
+        if proposal is None and contact_id:
+            proposal = (
+                await db.execute(
+                    select(Proposal)
+                    .where(Proposal.contact_id == contact_id)
+                    .order_by(Proposal.created_at.desc())
+                    .limit(1)
+                )
+            ).scalar_one_or_none()
+        if proposal is None:
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "move_pipeline_stage", "error": "no proposal found to move"}
+            )
+
+        prev = proposal.status
+        proposal.status = target
+        db.add(
+            ProposalActivity(
+                proposal_id=proposal.id,
+                action="stage_moved",
+                metadata_json=json.dumps(
+                    {"from": getattr(prev, "value", prev), "to": target.value, "via": "workflow"}
+                ),
+            )
+        )
+        await db.flush()
+        return ExecutionStatus.COMPLETED, json.dumps(
+            {
+                "action": "move_pipeline_stage",
+                "proposal_id": str(proposal.id),
+                "from": getattr(prev, "value", prev),
+                "to": target.value,
+                "status": "moved",
+            }
+        )
+
+    elif action == ActionType.ADD_TO_WORKFLOW:
+        raw = config.get("workflow_id") or config.get("target_workflow_id")
+        if not raw:
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "add_to_workflow", "error": "no workflow_id configured"}
+            )
+        try:
+            target_id = uuid.UUID(str(raw))
+        except (TypeError, ValueError):
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "add_to_workflow", "error": f"invalid workflow_id: {raw!r}"}
+            )
+        if target_id == workflow.id:
+            # Enrolling into the running workflow is an obvious infinite loop.
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "add_to_workflow", "error": "cannot enroll into the running workflow (self-loop)"}
+            )
+        target = (
+            await db.execute(select(Workflow).where(Workflow.id == target_id))
+        ).scalar_one_or_none()
+        if target is None:
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "add_to_workflow", "error": "target workflow not found"}
+            )
+        try:
+            new_exec = await execute_workflow(db, target_id, contact_id, event_data)
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Workflow %s: ADD_TO_WORKFLOW failed", workflow.id)
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "add_to_workflow", "error": str(exc)}
+            )
+        return ExecutionStatus.COMPLETED, json.dumps(
+            {
+                "action": "add_to_workflow",
+                "enrolled_workflow_id": str(target_id),
+                "execution_id": str(new_exec.id),
+                "status": new_exec.status.value,
+            }
+        )
+
+    elif action == ActionType.REMOVE_FROM_WORKFLOW:
+        raw = config.get("workflow_id") or config.get("target_workflow_id")
+        if not raw:
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "remove_from_workflow", "error": "no workflow_id configured"}
+            )
+        try:
+            target_id = uuid.UUID(str(raw))
+        except (TypeError, ValueError):
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "remove_from_workflow", "error": f"invalid workflow_id: {raw!r}"}
+            )
+        if not contact_id:
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "remove_from_workflow", "error": "no contact to un-enroll"}
+            )
+        rows = (
+            await db.execute(
+                select(WorkflowExecution).where(
+                    WorkflowExecution.workflow_id == target_id,
+                    WorkflowExecution.contact_id == contact_id,
+                    WorkflowExecution.status.in_(
+                        [ExecutionStatus.RUNNING, ExecutionStatus.WAITING]
+                    ),
+                )
+            )
+        ).scalars().all()
+        cancelled = 0
+        now = datetime.now(timezone.utc)
+        for ex in rows:
+            ex.status = ExecutionStatus.CANCELLED
+            ex.completed_at = now
+            ex.resume_at = None
+            ex.resume_step_index = None
+            cancelled += 1
+        await db.flush()
+        return ExecutionStatus.COMPLETED, json.dumps(
+            {
+                "action": "remove_from_workflow",
+                "removed_from_workflow": str(target_id),
+                "cancelled": cancelled,
+                "status": "removed",
+            }
+        )
+
+    elif action == ActionType.ASK_OBRAIN:
+        # Non-streaming O-Brain (Claude) call. Metered against the workflow
+        # owner's AI credits and FAIL-CLOSED: out of credits => the step FAILS
+        # rather than spending money the tenant doesn't have.
+        from app.billing import ai_meter
+        from app.config import Settings as _Settings
+
+        owner = await _load_owner(db, workflow)
+        if owner is None:
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "ask_obrain", "error": "workflow owner not found"}
+            )
+        contact = await _load_contact(db, contact_id)
+        prompt = _render_config_text(
+            config.get("prompt", "") or config.get("question", ""), contact, event_data
+        ).strip()
+        if not prompt:
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "ask_obrain", "error": "no prompt configured"}
+            )
+
+        _cfg = _Settings()
+        if not _cfg.anthropic_api_key:
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "ask_obrain", "error": "O-Brain is not configured (missing Anthropic API key)"}
+            )
+
+        try:
+            await ai_meter.consume(db, owner, "workflow_ask_obrain")
+        except ai_meter.AiCreditsExhausted as exc:
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "ask_obrain", "error": exc.message, "code": "ai_credits_exhausted"}
+            )
+        except Exception as exc:  # noqa: BLE001 — never spend on an unmetered call
+            logger.exception("Workflow %s: ASK_OBRAIN metering failed", workflow.id)
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "ask_obrain", "error": f"AI metering failed: {exc}"}
+            )
+
+        try:
+            import anthropic
+
+            client = anthropic.AsyncAnthropic(api_key=_cfg.anthropic_api_key)
+            response = await client.messages.create(
+                model=_cfg.anthropic_model,
+                max_tokens=int(config.get("max_tokens", 1024) or 1024),
+                system=(
+                    config.get("system")
+                    or "You are O-Brain, an automated assistant running inside a CRM "
+                    "workflow. Answer concisely and factually."
+                ),
+                messages=[{"role": "user", "content": prompt}],
+            )
+            answer = "".join(
+                b.text for b in response.content if getattr(b, "type", "") == "text"
+            ).strip()
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Workflow %s: ASK_OBRAIN call failed", workflow.id)
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "ask_obrain", "error": str(exc)}
+            )
+        if not answer:
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "ask_obrain", "error": "O-Brain returned an empty response"}
+            )
+
+        # Record the interaction so it's auditable and (if a contact triggered
+        # it) visible on that contact's timeline. Both are best-effort.
+        try:
+            from app.brain.models import AuditActionType, BrainAuditLog
+
+            db.add(
+                BrainAuditLog(
+                    id=uuid.uuid4(),
+                    user_id=owner.id,
+                    action_type=AuditActionType.WORKFLOW_AI_ACTION,
+                    ai_input=prompt[:2000],
+                    ai_output=answer[:2000],
+                    source_data_json=json.dumps({"workflow_id": str(workflow.id)}),
+                )
+            )
+            await db.flush()
+        except Exception:  # noqa: BLE001
+            logger.exception("Workflow %s: ASK_OBRAIN audit log failed", workflow.id)
+        if contact_id:
+            try:
+                await log_contact_activity(
+                    db,
+                    contact_id=contact_id,
+                    activity_type=ActivityType.NOTE_ADDED,
+                    title=f"O-Brain: {workflow.name}",
+                    description=answer[:2000],
+                )
+            except Exception:  # noqa: BLE001
+                logger.exception("Workflow %s: ASK_OBRAIN activity log failed", workflow.id)
+        return ExecutionStatus.COMPLETED, json.dumps(
+            {"action": "ask_obrain", "status": "answered", "answer": answer[:2000]}
+        )
+
+    elif action == ActionType.LOG_TO_BRAIN:
+        # Persist a note into O-Brain's searchable knowledge (brain_embeddings).
+        # Embedding is an AI operation, so it is metered and FAIL-CLOSED.
+        from app.billing import ai_meter
+        from app.brain.embedding_service import embed_and_store
+        from app.brain.models import EmbeddingSourceType
+
+        owner = await _load_owner(db, workflow)
+        if owner is None:
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "log_to_brain", "error": "workflow owner not found"}
+            )
+        contact = await _load_contact(db, contact_id)
+        content = _render_config_text(
+            config.get("content", "") or config.get("note", "") or config.get("text", ""),
+            contact,
+            event_data,
+        ).strip()
+        if not content:
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "log_to_brain", "error": "no content configured"}
+            )
+
+        try:
+            await ai_meter.consume(db, owner, "embedding_batch")
+        except ai_meter.AiCreditsExhausted as exc:
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "log_to_brain", "error": exc.message, "code": "ai_credits_exhausted"}
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Workflow %s: LOG_TO_BRAIN metering failed", workflow.id)
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "log_to_brain", "error": f"AI metering failed: {exc}"}
+            )
+
+        try:
+            records = await embed_and_store(
+                db,
+                user_id=owner.id,
+                content=content,
+                source_type=EmbeddingSourceType.MANUAL_NOTE,
+                source_id=f"workflow:{workflow.id}",
+                contact_id=contact_id,
+                metadata={"workflow_id": str(workflow.id), "workflow_name": workflow.name},
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Workflow %s: LOG_TO_BRAIN store failed", workflow.id)
+            return ExecutionStatus.FAILED, json.dumps(
+                {"action": "log_to_brain", "error": str(exc)}
+            )
+        return ExecutionStatus.COMPLETED, json.dumps(
+            {"action": "log_to_brain", "chunks_stored": len(records), "status": "logged"}
+        )
+
     elif action == ActionType.WAIT_DELAY:
         # Mark step as waiting; an external scheduler or poller will resume
         wait_seconds = step.wait_duration_seconds or config.get("seconds", 0)
@@ -924,6 +1384,117 @@ async def _execute_graph(
     return ExecutionStatus.COMPLETED, None
 
 
+async def _run_linear_steps(
+    db: AsyncSession,
+    workflow: Workflow,
+    execution: WorkflowExecution,
+    steps: list[WorkflowStep],
+    start_index: int,
+    contact_id: uuid.UUID | None,
+    event_data: dict | None,
+) -> tuple[ExecutionStatus, str | None]:
+    """Run the step-authored (linear) engine from ``start_index`` to the end.
+
+    Shared by the initial run (``execute_workflow``, start 0) and the resume
+    poller (``resume_waiting_workflows``, start at the parked step). Returns the
+    overall (status, error). On WAIT_DELAY it records resume state on the
+    execution and stops; on IF_ELSE_BRANCH it evaluates the condition and, when
+    false, skips the immediately-following (true-branch) step — the linear
+    mirror of how ``_execute_graph`` routes a condition node's true/false handle.
+    """
+    overall_status = ExecutionStatus.COMPLETED
+    overall_error: str | None = None
+    n = len(steps)
+    i = start_index
+
+    while i < n:
+        step = steps[i]
+        exec_step = WorkflowExecutionStep(
+            id=uuid.uuid4(),
+            execution_id=execution.id,
+            step_id=step.id,
+            status=ExecutionStatus.RUNNING,
+        )
+        db.add(exec_step)
+        await db.flush()
+
+        try:
+            step_status, result_json = await _execute_action(
+                db, workflow, step, contact_id, event_data
+            )
+            exec_step.status = step_status
+            exec_step.result_json = result_json
+            exec_step.completed_at = datetime.now(timezone.utc)
+
+            if step_status == ExecutionStatus.WAITING:
+                # Park the execution: persist WHERE to resume, WHEN it is due,
+                # and the event context to continue with. The resume poller
+                # only ever picks up rows whose resume_at is set and past-due.
+                try:
+                    wait_seconds = int((json.loads(result_json) or {}).get("wait_seconds") or 0)
+                except (json.JSONDecodeError, TypeError, ValueError):
+                    wait_seconds = 0
+                execution.resume_at = datetime.now(timezone.utc) + timedelta(
+                    seconds=max(0, wait_seconds)
+                )
+                execution.resume_step_index = i + 1
+                execution.context_json = (
+                    json.dumps(event_data) if event_data is not None else None
+                )
+                overall_status = ExecutionStatus.WAITING
+                await db.flush()
+                break
+
+            if step_status == ExecutionStatus.FAILED:
+                overall_status = ExecutionStatus.FAILED
+                overall_error = result_json
+                await db.flush()
+                break
+
+            # IF_ELSE_BRANCH routing: when the condition is false, skip the next
+            # step (the true-branch action). Recorded as a skipped row so the
+            # execution log shows the path that was taken.
+            if step.action_type == ActionType.IF_ELSE_BRANCH:
+                try:
+                    branch = (json.loads(result_json) if result_json else {}).get("branch")
+                except json.JSONDecodeError:
+                    branch = None
+                if branch == "false" and i + 1 < n:
+                    skipped = steps[i + 1]
+                    db.add(
+                        WorkflowExecutionStep(
+                            id=uuid.uuid4(),
+                            execution_id=execution.id,
+                            step_id=skipped.id,
+                            status=ExecutionStatus.COMPLETED,
+                            result_json=json.dumps(
+                                {
+                                    "action": skipped.action_type.value,
+                                    "status": "skipped",
+                                    "reason": "if_else_branch: condition false",
+                                }
+                            ),
+                            completed_at=datetime.now(timezone.utc),
+                        )
+                    )
+                    await db.flush()
+                    i += 1  # consume the skipped step
+
+        except Exception as exc:  # noqa: BLE001 — a step must never crash the run
+            logger.exception("Workflow step %s failed: %s", step.id, str(exc))
+            exec_step.status = ExecutionStatus.FAILED
+            exec_step.error_message = str(exc)
+            exec_step.completed_at = datetime.now(timezone.utc)
+            overall_status = ExecutionStatus.FAILED
+            overall_error = str(exc)
+            await db.flush()
+            break
+
+        i += 1
+
+    return overall_status, overall_error
+
+
 async def execute_workflow(
     db: AsyncSession,
     workflow_id: uuid.UUID,
@@ -981,68 +1552,16 @@ async def execute_workflow(
     )
     steps = list(steps_result.scalars().all())
 
-    overall_status = ExecutionStatus.COMPLETED
-    overall_error = None
-
-    for step in steps:
-        exec_step = WorkflowExecutionStep(
-            id=uuid.uuid4(),
-            execution_id=execution.id,
-            step_id=step.id,
-            status=ExecutionStatus.RUNNING,
-        )
-        db.add(exec_step)
-        await db.flush()
-
-        try:
-            step_status, result_json = await _execute_action(
-                db, workflow, step, contact_id, event_data
-            )
-            exec_step.status = step_status
-            exec_step.result_json = result_json
-            exec_step.completed_at = datetime.now(timezone.utc)
-
-            if step_status == ExecutionStatus.WAITING:
-                # Stop processing further steps; execution is paused
-                overall_status = ExecutionStatus.WAITING
-                await db.flush()
-                break
-
-            if step_status == ExecutionStatus.FAILED:
-                overall_status = ExecutionStatus.FAILED
-                overall_error = result_json
-                await db.flush()
-                break
-
-            # Handle if_else_branch: check result to decide skipping
-            if step.action_type == ActionType.IF_ELSE_BRANCH:
-                try:
-                    branch_result = json.loads(result_json) if result_json else {}
-                    branch = branch_result.get("branch", "default")
-                    # If branch is "false", skip the next step (the "true" branch action)
-                    # This is a simplified two-path branching model
-                    if branch == "false":
-                        # The next step in order is the "true" path action; skip it
-                        # by marking it completed with a skip note
-                        pass  # No explicit skip needed; execution continues to next
-                except json.JSONDecodeError:
-                    pass
-
-        except Exception as exc:
-            logger.exception(
-                "Workflow step %s failed: %s", step.id, str(exc)
-            )
-            exec_step.status = ExecutionStatus.FAILED
-            exec_step.error_message = str(exc)
-            exec_step.completed_at = datetime.now(timezone.utc)
-            overall_status = ExecutionStatus.FAILED
-            overall_error = str(exc)
-            await db.flush()
-            break
+    overall_status, overall_error = await _run_linear_steps(
+        db, workflow, execution, steps, 0, contact_id, event_data
+    )
 
     execution.status = overall_status
     if overall_status in (ExecutionStatus.COMPLETED, ExecutionStatus.FAILED):
         execution.completed_at = datetime.now(timezone.utc)
+        # Terminal — no longer parked; clear any resume state defensively.
+        execution.resume_at = None
+        execution.resume_step_index = None
     if overall_error:
         execution.error_message = overall_error
 
@@ -1445,3 +1964,96 @@ async def run_scheduled_workflows(db: AsyncSession, now: datetime | None = None)
         except Exception:  # noqa: BLE001
             logger.exception("scheduled workflow %s failed", workflow.id)
     return ran
+
+
+# ---------------------------------------------------------------------------
+# WAIT_DELAY resumption
+# ---------------------------------------------------------------------------
+
+async def resume_waiting_workflows(db: AsyncSession, now: datetime | None = None) -> int:
+    """Continue every parked (WAITING) linear execution whose delay has elapsed.
+
+    Called by the scheduler every minute. A WAIT_DELAY step returns WAITING and
+    ``_run_linear_steps`` stamps ``resume_at`` / ``resume_step_index`` /
+    ``context_json`` on the row. Here we pick up the rows that are due and run
+    the remaining steps — honouring any further WAIT_DELAYs (the row simply
+    re-parks with a new ``resume_at``).
+
+    Idempotency / no double-processing:
+      * only rows still in WAITING with a set, past-due ``resume_at`` are eligible;
+      * each row is claimed by flipping it to RUNNING (and clearing ``resume_at``)
+        before any work, so a second overlapping tick sees it as not-eligible;
+      * canvas/graph WAITING rows never set ``resume_at`` and are left untouched.
+
+    Returns the number of executions advanced.
+    """
+    now = now or datetime.now(timezone.utc)
+
+    rows = await db.execute(
+        select(WorkflowExecution).where(
+            WorkflowExecution.status == ExecutionStatus.WAITING,
+            WorkflowExecution.resume_at.is_not(None),
+        )
+    )
+    executions = list(rows.scalars().all())
+
+    resumed = 0
+    for execution in executions:
+        resume_at = execution.resume_at
+        if resume_at is None:
+            continue
+        if resume_at.tzinfo is None:  # SQLite returns naive datetimes
+            resume_at = resume_at.replace(tzinfo=timezone.utc)
+        if resume_at > now:
+            continue  # not due yet
+
+        # Claim the row before doing any work so an overlapping tick can't grab it.
+        start_index = execution.resume_step_index or 0
+        context = None
+        if execution.context_json:
+            try:
+                context = json.loads(execution.context_json)
+            except json.JSONDecodeError:
+                context = None
+        execution.status = ExecutionStatus.RUNNING
+        execution.resume_at = None
+        await db.flush()
+
+        workflow = (
+            await db.execute(select(Workflow).where(Workflow.id == execution.workflow_id))
+        ).scalar_one_or_none()
+        if workflow is None:
+            execution.status = ExecutionStatus.FAILED
+            execution.error_message = json.dumps({"error": "workflow no longer exists"})
+            execution.completed_at = now
+            execution.resume_step_index = None
+            resumed += 1
+            continue
+
+        steps_result = await db.execute(
+            select(WorkflowStep)
+            .where(WorkflowStep.workflow_id == workflow.id)
+            .order_by(WorkflowStep.step_order)
+        )
+        steps = list(steps_result.scalars().all())
+
+        try:
+            overall_status, overall_error = await _run_linear_steps(
+                db, workflow, execution, steps, start_index, execution.contact_id, context
+            )
+        except Exception as exc:  # noqa: BLE001 — one bad row must not stall the rest
+            logger.exception("resume workflow %s failed", execution.id)
+            overall_status = ExecutionStatus.FAILED
+            overall_error = str(exc)
+
+        execution.status = overall_status
+        if overall_status in (ExecutionStatus.COMPLETED, ExecutionStatus.FAILED):
+            execution.completed_at = now
+            execution.resume_at = None
+            execution.resume_step_index = None
+        if overall_error:
+            execution.error_message = overall_error
+        resumed += 1
+
+    await db.commit()
+    return resumed

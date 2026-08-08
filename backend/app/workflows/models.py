@@ -123,6 +123,22 @@ class WorkflowExecution(Base):
     )
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # --- WAIT_DELAY resume state (additive) -------------------------------
+    #: When a linear execution hits a WAIT_DELAY it parks in ``WAITING``; these
+    #: three columns are everything the resume poller needs to pick it back up.
+    #: ``resume_at`` is the wall-clock time the delay elapses; the poller only
+    #: touches rows whose ``resume_at`` is set and past-due (so canvas/graph
+    #: WAITING rows, which never set it, are left untouched). ``resume_step_index``
+    #: is the position in the ordered step list to continue from, and
+    #: ``context_json`` carries the triggering ``event_data`` forward (contact_id
+    #: already lives on this row). On Postgres these come from a migration; on the
+    #: SQLite deployment they are added by app/core/schema_patch.py.
+    resume_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    resume_step_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    context_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+
 
 class WorkflowExecutionStep(Base):
     __tablename__ = "workflow_execution_steps"

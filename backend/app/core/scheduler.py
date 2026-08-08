@@ -331,6 +331,22 @@ async def _run_scheduled_workflows() -> None:
         logger.exception("Error running scheduled workflows")
 
 
+async def _resume_waiting_workflows() -> None:
+    """Job: continue linear workflow executions parked on a WAIT_DELAY whose
+    delay has now elapsed. Without this, any multi-step workflow with a delay
+    stalls in WAITING forever (e.g. the Invoice Overdue Follow-Up template).
+    Runs every minute."""
+    try:
+        async with _session_factory() as db:
+            from app.workflows.service import resume_waiting_workflows
+
+            resumed = await resume_waiting_workflows(db)
+            if resumed:
+                logger.info("Resumed %d waiting workflows", resumed)
+    except Exception:
+        logger.exception("Error resuming waiting workflows")
+
+
 async def _complete_past_bookings() -> None:
     """Job: mark confirmed bookings whose end time has passed as COMPLETED.
 
@@ -451,6 +467,16 @@ def setup_scheduler(session_factory: Any, settings: Any = None) -> None:
         _run_scheduled_workflows,
         IntervalTrigger(minutes=15),
         id="run_scheduled_workflows",
+        replace_existing=True,
+    )
+
+    # WAIT_DELAY resumption: continue linear executions parked on a delay once
+    # their resume_at is past. Every minute keeps the delay's granularity tight
+    # without meaningful load (only picks up rows that are actually due).
+    scheduler.add_job(
+        _resume_waiting_workflows,
+        IntervalTrigger(minutes=1),
+        id="resume_waiting_workflows",
         replace_existing=True,
     )
 

@@ -65,6 +65,14 @@ _ADDITIVE_COLUMNS: dict[str, dict[str, str]] = {
         "capabilities_updated_by": "CHAR(32)",
         "capabilities_updated_at": "DATETIME",
     },
+    # WAIT_DELAY resumption: a linear execution that hits a delay parks in
+    # WAITING and the resume poller continues it once resume_at is past. All
+    # nullable/additive — existing rows are simply NULL and untouched.
+    "workflow_executions": {
+        "resume_at": "DATETIME",
+        "resume_step_index": "INTEGER",
+        "context_json": "TEXT",
+    },
 }
 
 
