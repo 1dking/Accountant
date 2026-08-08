@@ -172,6 +172,48 @@ def require_role(allowed_roles: list[Role]):
     return check_role
 
 
+async def _tenant_allows_feature(db: AsyncSession, user: "User", feature_key: str) -> bool:
+    """Subtractive tenant gate layered on top of the per-user feature grant.
+
+    Returns False only when an admin/operator has EXPLICITLY disabled the module
+    for the user's org (OrgFeatureOverride) or sub-account (SubAccountFeature).
+    No matching row → True, so accounts without overrides behave exactly as they
+    did before these tables gained a consumer. Deny-only: it never grants a
+    feature the user's role doesn't already have, so it can't widen access.
+
+    (Previously OrgFeatureOverride / SubAccountFeature had NO runtime consumer, so
+    toggling a feature for an account/org wrote a row that changed nothing.)
+    """
+    from app.platform_admin.models import OrgFeatureOverride
+    from app.operators.models import SubAccountFeature
+
+    if user.org_id is not None:
+        row = (
+            await db.execute(
+                select(OrgFeatureOverride).where(
+                    OrgFeatureOverride.org_id == user.org_id,
+                    OrgFeatureOverride.feature_key == feature_key,
+                )
+            )
+        ).scalar_one_or_none()
+        if row is not None and not row.enabled:
+            return False
+
+    if user.sub_account_id is not None:
+        row = (
+            await db.execute(
+                select(SubAccountFeature).where(
+                    SubAccountFeature.sub_account_id == user.sub_account_id,
+                    SubAccountFeature.feature_key == feature_key,
+                )
+            )
+        ).scalar_one_or_none()
+        if row is not None and not row.enabled:
+            return False
+
+    return True
+
+
 def require_feature(feature_key: str):
     """Dependency factory: does this employee have this MODULE switched on?
 
@@ -221,7 +263,13 @@ def require_feature(feature_key: str):
             return  # same — not our error to raise
 
         features = resolve_feature_access(user.role.value, user.feature_access_json)
-        if not features.get(feature_key, False):
+        granted = features.get(feature_key, False)
+        # Tenant-level overrides on top of the per-user grant: an admin can switch
+        # a module off for a whole org, and an operator provisions which modules a
+        # sub-account has. Subtractive + fail-open (see _tenant_allows_feature).
+        if granted:
+            granted = await _tenant_allows_feature(db, user, feature_key)
+        if not granted:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"The {feature_key} module is not enabled for your account",
