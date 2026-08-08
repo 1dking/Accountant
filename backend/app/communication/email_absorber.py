@@ -517,6 +517,30 @@ async def _absorb_inner(
                 )
                 db.add(absorbed_row)
                 contacts_touched.add(_contact.id)
+
+                # Mirror INBOUND absorbed emails into the unified inbox so the
+                # inbox is two-way for email too (previously only outbound emails
+                # and replies were recorded). Deduped by the Gmail message id.
+                if _direction == "inbound":
+                    try:
+                        from app.inbox.service import record_inbound_email
+
+                        await record_inbound_email(
+                            db,
+                            user_id,
+                            from_email=_from_addr,
+                            subject=_subject or "(no subject)",
+                            body_snippet=_snippet
+                            or (extracted["summary"] if extracted else ""),
+                            contact_id=_contact.id,
+                            source_type="absorbed_email",
+                            source_id=_msg_id,
+                        )
+                    except Exception as exc:
+                        logger.warning(
+                            "email_absorber.inbox_record_failed msg_id=%s err=%s",
+                            _msg_id, str(exc)[:200],
+                        )
                 return True
 
             page_tasks.append(_process_one())

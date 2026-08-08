@@ -115,6 +115,98 @@ async def record_outbound_sms(
     return msg
 
 
+async def record_inbound_sms(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    from_phone: str,
+    body: str,
+    contact_id: Optional[uuid.UUID] = None,
+    source_type: Optional[str] = None,
+    source_id: Optional[str] = None,
+) -> UnifiedMessage:
+    """Record an INBOUND SMS so the unified inbox is genuinely two-way.
+
+    Threads with the matching outbound messages via ``sms:{contact_id}`` (or the
+    sender's number when no contact is linked), so a back-and-forth shows as one
+    conversation. Marked unread. Deduped by source_type + source_id.
+    """
+    if source_type and source_id:
+        result = await db.execute(
+            select(UnifiedMessage).where(
+                UnifiedMessage.source_type == source_type,
+                UnifiedMessage.source_id == source_id,
+            )
+        )
+        existing = result.scalar_one_or_none()
+        if existing:
+            return existing
+
+    thread_id = f"sms:{contact_id}" if contact_id else f"sms:{from_phone}"
+    msg = UnifiedMessage(
+        id=uuid.uuid4(),
+        user_id=user_id,
+        contact_id=contact_id,
+        message_type=MessageType.SMS,
+        direction=MessageDirection.INBOUND,
+        subject=None,
+        body=body[:2000] if body else None,
+        sender=from_phone,
+        is_read=False,
+        thread_id=thread_id,
+        source_type=source_type,
+        source_id=source_id,
+    )
+    db.add(msg)
+    await db.flush()
+    return msg
+
+
+async def record_inbound_email(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    from_email: str,
+    subject: str,
+    body_snippet: str,
+    contact_id: Optional[uuid.UUID] = None,
+    source_type: Optional[str] = None,
+    source_id: Optional[str] = None,
+) -> UnifiedMessage:
+    """Record an INBOUND email so the unified inbox is genuinely two-way.
+
+    Threads with the matching outbound email via ``email:{contact_id}`` (or the
+    sender address). Marked unread. Deduped by source_type + source_id.
+    """
+    if source_type and source_id:
+        result = await db.execute(
+            select(UnifiedMessage).where(
+                UnifiedMessage.source_type == source_type,
+                UnifiedMessage.source_id == source_id,
+            )
+        )
+        existing = result.scalar_one_or_none()
+        if existing:
+            return existing
+
+    thread_id = f"email:{contact_id}" if contact_id else f"email:{from_email}"
+    msg = UnifiedMessage(
+        id=uuid.uuid4(),
+        user_id=user_id,
+        contact_id=contact_id,
+        message_type=MessageType.EMAIL,
+        direction=MessageDirection.INBOUND,
+        subject=subject,
+        body=body_snippet[:2000] if body_snippet else None,
+        sender=from_email,
+        is_read=False,
+        thread_id=thread_id,
+        source_type=source_type,
+        source_id=source_id,
+    )
+    db.add(msg)
+    await db.flush()
+    return msg
+
+
 # ---------------------------------------------------------------------------
 # Sync existing SMS logs (one-time backfill)
 # ---------------------------------------------------------------------------

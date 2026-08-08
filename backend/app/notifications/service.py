@@ -174,6 +174,33 @@ async def create_notification(
             },
         )
 
+    # Web push channel — deliver the same notification to the user's subscribed
+    # browsers/devices. Previously send_push_to_user was defined but NEVER called,
+    # so push subscriptions were collected and never delivered. Best-effort and
+    # fully isolated: it no-ops when the user has no push subscriptions or VAPID
+    # keys aren't configured, and any failure is swallowed so it can't break the
+    # in-app row or the parent feature. Push is opt-in (the user subscribed a
+    # device explicitly), so it rides on the in-app row rather than a new pref.
+    if notification is not None:
+        try:
+            from app.config import Settings
+
+            _settings = Settings()
+            if _settings.vapid_private_key:
+                await send_push_to_user(
+                    db,
+                    user_id,
+                    title,
+                    message,
+                    url=link_path or "/",
+                    settings=_settings,
+                )
+        except Exception as e:
+            logger.warning(
+                "notifications.push_channel_failed user_id=%s type=%s error=%s",
+                user_id, type, str(e)[:200],
+            )
+
     return notification
 
 

@@ -203,8 +203,12 @@ class Settings(BaseSettings):
     # Gemini AI (page builder)
     gemini_api_key: str = ""
 
-    # Google Calendar sync
-    google_calendar_sync_enabled: bool = False
+    # Google Calendar sync — master switch for BOTH directions (pull job + push
+    # of bookings to Google). On by default so a user who connects Google and
+    # enables sync on a calendar gets genuine two-way sync; each calendar still
+    # opts in per-calendar via google_sync_enabled, so this alone changes nothing
+    # for anyone who hasn't connected Google.
+    google_calendar_sync_enabled: bool = True
     google_calendar_redirect_uri: str = "http://localhost:8000/api/integrations/google-calendar/callback"
 
     # VAPID keys for Web Push notifications

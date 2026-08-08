@@ -18,6 +18,7 @@ import TermsPage from '@/pages/TermsPage'
 import RegisterPage from '@/pages/RegisterPage'
 import SalesPage from '@/pages/SalesPage'
 import FeaturesPage from '@/pages/FeaturesPage'
+import TasksPage from '@/pages/TasksPage'
 import DashboardPage from '@/pages/DashboardPage'
 import AdminTeamPage from '@/pages/AdminTeamPage'
 import DocumentsPage from '@/pages/DocumentsPage'
@@ -271,6 +272,7 @@ function AuthenticatedApp() {
         <Route path="/inbox" element={<InboxPage />} />
         <Route path="/conversations" element={<ConversationsPage />} />
         <Route path="/pipelines" element={<PipelinesPage />} />
+        <Route path="/tasks" element={<TasksPage />} />
         <Route path="/email-scan" element={<EmailScanPage />} />
         <Route path="/smart-import" element={<SmartImportPage />} />
         <Route path="/bank-transactions" element={<BankTransactionsPage />} />

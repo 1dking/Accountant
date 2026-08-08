@@ -566,6 +566,27 @@ async def receive_sms(
     await db.commit()
     await db.refresh(sms)
 
+    # Mirror into the unified inbox as an INBOUND message so the thread is
+    # genuinely two-way (previously only outbound/replies were recorded there).
+    # Isolated + best-effort: an inbox failure must never break inbound SMS.
+    if owner_user_id is not None:
+        try:
+            from app.inbox.service import record_inbound_sms
+
+            await record_inbound_sms(
+                db,
+                owner_user_id,
+                from_phone=from_number,
+                body=body,
+                contact_id=contact_id,
+                source_type="sms_message",
+                source_id=str(sms.id),
+            )
+            await db.commit()
+        except Exception as e:
+            await db.rollback()
+            logger.warning("inbox.record_inbound_sms_failed error=%s", str(e)[:200])
+
     # Log to contact timeline
     if contact_id:
         await log_contact_activity(

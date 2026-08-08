@@ -1,6 +1,7 @@
 """Business logic for the native calendar & scheduling module."""
 
 import json
+import logging
 import math
 import secrets
 import uuid
@@ -9,7 +10,9 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import NotFoundError
+from app.core.exceptions import NotFoundError, ValidationError
+
+logger = logging.getLogger(__name__)
 from app.scheduling.models import (
     BookingStatus,
     CalendarBooking,
@@ -178,6 +181,32 @@ async def list_members(db: AsyncSession, calendar_id: uuid.UUID):
 # ---------------------------------------------------------------------------
 
 
+async def _slot_is_free(
+    db: AsyncSession, calendar_id: uuid.UUID, start, end
+) -> bool:
+    """True if no CONFIRMED/PENDING booking on this calendar overlaps [start, end).
+
+    Normalises naive vs aware datetimes (SQLite stores naive) before comparing,
+    matching the overlap test in get_available_slots.
+    """
+    s = start if start.tzinfo else start.replace(tzinfo=timezone.utc)
+    e = end if end.tzinfo else end.replace(tzinfo=timezone.utc)
+    result = await db.execute(
+        select(CalendarBooking).where(
+            CalendarBooking.calendar_id == calendar_id,
+            CalendarBooking.status.in_(
+                [BookingStatus.CONFIRMED, BookingStatus.PENDING]
+            ),
+        )
+    )
+    for b in result.scalars().all():
+        bs = b.start_time if b.start_time.tzinfo else b.start_time.replace(tzinfo=timezone.utc)
+        be = b.end_time if b.end_time.tzinfo else b.end_time.replace(tzinfo=timezone.utc)
+        if s < be and e > bs:
+            return False
+    return True
+
+
 async def create_booking(
     db: AsyncSession, calendar_id: uuid.UUID, data
 ) -> CalendarBooking:
@@ -185,6 +214,23 @@ async def create_booking(
 
     start = data.start_time
     end = start + timedelta(minutes=cal.duration_minutes)
+
+    # Enforce the booking-window policy (min_notice_hours / max_advance_days were
+    # stored on the calendar but never enforced) and RE-VALIDATE the slot is free.
+    # create_booking used to trust the submitted start time, so a concurrent
+    # booking or a direct API call could double-book the same slot.
+    now = datetime.now(timezone.utc)
+    start_utc = start if start.tzinfo else start.replace(tzinfo=timezone.utc)
+    if cal.min_notice_hours and start_utc < now + timedelta(hours=cal.min_notice_hours):
+        raise ValidationError(
+            f"That time is inside the {cal.min_notice_hours}-hour minimum-notice window."
+        )
+    if cal.max_advance_days and start_utc > now + timedelta(days=cal.max_advance_days):
+        raise ValidationError(
+            f"That time is more than {cal.max_advance_days} days out."
+        )
+    if not await _slot_is_free(db, calendar_id, start_utc, end):
+        raise ValidationError("That time was just taken — please choose another slot.")
 
     # Round-robin assignment
     assigned_user_id = None
@@ -222,6 +268,25 @@ async def create_booking(
     db.add(booking)
     await db.commit()
     await db.refresh(booking)
+
+    # Push to the creator's Google Calendar (this is the "two-way" half — pushing
+    # local bookings up to Google, which previously was dead code). Double-gated:
+    # the global google_calendar_sync_enabled flag AND the calendar's own
+    # google_sync_enabled + linked google_calendar_id. Best-effort: a Google
+    # failure must never break the booking.
+    try:
+        from app.config import Settings
+        from app.integrations.google_calendar.service import push_booking_to_google
+
+        gevent_id = await push_booking_to_google(db, booking, Settings())
+        if gevent_id:
+            booking.google_event_id = gevent_id
+            await db.commit()
+            await db.refresh(booking)
+    except Exception:
+        logger.warning(
+            "scheduling.google_push_failed booking_id=%s", booking.id, exc_info=True
+        )
 
     from app.workflows.models import TriggerType
     from app.workflows.service import safe_dispatch
@@ -298,6 +363,18 @@ async def cancel_booking(
     booking.cancellation_reason = reason
     await db.commit()
     await db.refresh(booking)
+
+    # Remove the corresponding Google Calendar event (best-effort; no-op if the
+    # booking was never pushed or Google isn't connected).
+    try:
+        from app.config import Settings
+        from app.integrations.google_calendar.service import delete_google_event
+
+        await delete_google_event(db, booking, Settings())
+    except Exception:
+        logger.warning(
+            "scheduling.google_delete_failed booking_id=%s", booking.id, exc_info=True
+        )
 
     from app.workflows.models import TriggerType
     from app.workflows.service import safe_dispatch
@@ -559,6 +636,18 @@ async def cancel_booking_by_token(
     booking.cancellation_reason = reason or "Cancelled by guest"
     await db.commit()
     await db.refresh(booking)
+
+    # Remove the corresponding Google Calendar event (best-effort; no-op if the
+    # booking was never pushed or Google isn't connected).
+    try:
+        from app.config import Settings
+        from app.integrations.google_calendar.service import delete_google_event
+
+        await delete_google_event(db, booking, Settings())
+    except Exception:
+        logger.warning(
+            "scheduling.google_delete_failed booking_id=%s", booking.id, exc_info=True
+        )
 
     from app.workflows.models import TriggerType
     from app.workflows.service import safe_dispatch

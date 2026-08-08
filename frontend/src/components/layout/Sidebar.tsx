@@ -35,6 +35,7 @@ import {
   MessageSquare,
   MessageCircle,
   Kanban,
+  ListTodo,
   Settings,
   Lightbulb,
   Trash2,
@@ -86,6 +87,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { path: '/contacts', label: 'Contacts', icon: Users, featureKey: 'contacts' },
       { path: '/pipelines', label: 'Pipelines', icon: Kanban, featureKey: 'pipeline' },
+      { path: '/tasks', label: 'Tasks', icon: ListTodo, featureKey: 'tasks' },
       { path: '/business-card', label: 'Business Card', icon: Contact, featureKey: 'cards' },
     ],
   },
