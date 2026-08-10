@@ -13,6 +13,8 @@ import type { CellData, SheetData, MergedRange } from '@/lib/spreadsheet/types'
 import { colLabel, cellId, parseCellRef } from '@/lib/spreadsheet/types'
 import { evaluateFormula } from '@/lib/spreadsheet/formulaEngine'
 import { formatCellValue, isNumeric, parseNumeric } from '@/lib/spreadsheet/cellFormatting'
+import * as Y from 'yjs'
+import { HocuspocusProvider, WebSocketStatus } from '@hocuspocus/provider'
 
 // ---------------------------------------------------------------------------
 // Selection range type
@@ -72,18 +74,171 @@ const MAX_HISTORY = 50
 const SAVE_DELAY_MS = 2000
 
 // ---------------------------------------------------------------------------
+// Real-time collaboration (Hocuspocus / Yjs) helpers
+// ---------------------------------------------------------------------------
+// The spreadsheet's shared state lives in a top-level Y.Array 'sheets'. Each
+// entry is a Y.Map with three keys:
+//   - 'name'  : the sheet's name (string)
+//   - 'meta'  : every SheetData field except name/cells, as one plain object
+//               (numRows, colWidths, mergedCells, freezeRow, filters, ...).
+//               Structural edits are rare and coarse, so last-writer-wins on
+//               this blob is acceptable.
+//   - 'cells' : a nested Y.Map keyed by cell ref ("A1") -> CellData. Because
+//               each cell is its own map entry, two people editing DIFFERENT
+//               cells merge cleanly instead of clobbering each other.
+// This maps 1:1 onto the existing content_json shape ({ sheets: SheetData[] }),
+// so the REST autosave / exports keep working unchanged.
+
+const CURSOR_COLORS = ['#f87171', '#fb923c', '#fbbf24', '#a3e635', '#34d399', '#22d3ee', '#60a5fa', '#a78bfa', '#f472b6']
+
+function colorForUser(userId: string): string {
+  let hash = 0
+  for (let i = 0; i < userId.length; i++) hash = (hash * 31 + userId.charCodeAt(i)) >>> 0
+  return CURSOR_COLORS[hash % CURSOR_COLORS.length]
+}
+
+// Marks Y transactions we originate locally so our own observer skips the echo
+// (React state is already up to date for local edits; only remote changes need
+// to flow back into React).
+const SHEET_LOCAL_ORIGIN = Symbol('sheet-local-edit')
+
+type SheetMeta = Omit<SheetData, 'name' | 'cells'>
+
+function splitSheet(s: SheetData): { name: string; cells: Record<string, CellData>; meta: SheetMeta } {
+  const { name, cells, ...meta } = s
+  return { name, cells: cells || {}, meta }
+}
+
+// Rebuild the React-facing SheetData[] from the shared Y.Doc.
+function readSheetsFromY(ydoc: Y.Doc): SheetData[] {
+  const ySheets = ydoc.getArray<Y.Map<unknown>>('sheets')
+  const out: SheetData[] = []
+  ySheets.forEach((ySheet) => {
+    const meta = (ySheet.get('meta') as SheetMeta | undefined) || {}
+    const yCells = ySheet.get('cells') as Y.Map<CellData> | undefined
+    const cells: Record<string, CellData> = {}
+    if (yCells) yCells.forEach((value, key) => { cells[key] = value })
+    out.push({ name: (ySheet.get('name') as string) ?? 'Sheet1', cells, ...meta })
+  })
+  return out
+}
+
+// Reconcile the shared Y.Doc to match `next` (only writing what actually
+// changed, so remote peers receive minimal updates and our equality guards
+// make repeated calls idempotent). Runs inside a single transaction tagged
+// with `origin` so the local observer can distinguish self vs remote.
+function writeSheetsToY(ydoc: Y.Doc, next: SheetData[], origin: symbol): void {
+  const ySheets = ydoc.getArray<Y.Map<unknown>>('sheets')
+  ydoc.transact(() => {
+    while (ySheets.length > next.length) ySheets.delete(ySheets.length - 1, 1)
+    for (let i = 0; i < next.length; i++) {
+      const { name, cells, meta } = splitSheet(next[i])
+      let ySheet = ySheets.get(i) as Y.Map<unknown> | undefined
+      if (!ySheet) {
+        ySheet = new Y.Map<unknown>()
+        ySheets.insert(i, [ySheet])
+      }
+      if (ySheet.get('name') !== name) ySheet.set('name', name)
+      if (JSON.stringify(ySheet.get('meta')) !== JSON.stringify(meta)) ySheet.set('meta', meta)
+
+      let yCells = ySheet.get('cells') as Y.Map<CellData> | undefined
+      if (!yCells) {
+        yCells = new Y.Map<CellData>()
+        ySheet.set('cells', yCells)
+      }
+      const nextKeys = new Set(Object.keys(cells))
+      nextKeys.forEach((key) => {
+        const value = cells[key]
+        if (JSON.stringify(yCells!.get(key)) !== JSON.stringify(value)) yCells!.set(key, value)
+      })
+      const toDelete: string[] = []
+      yCells.forEach((_value, key) => { if (!nextKeys.has(key)) toDelete.push(key) })
+      toDelete.forEach((key) => yCells!.delete(key))
+    }
+  }, origin)
+}
+
+// ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 export default function SheetEditorPage() {
   const { id } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
-  const { user: _user } = useAuthStore()
+  const { user } = useAuthStore()
 
   // ---------------------------------------------------------------------------
-  // Connection state (collaboration placeholders)
+  // Real-time collaboration (Hocuspocus) -- mirrors DocEditorPage. The Y.Doc +
+  // provider are created once per mount via the lazy-ref pattern (both are safe
+  // to construct synchronously). If Hocuspocus is unreachable the editor still
+  // works: edits go into the local Y.Doc regardless of connection state and the
+  // REST autosave keeps persisting content_json exactly as it always has.
   // ---------------------------------------------------------------------------
-  const [connectionStatus] = useState<'connected' | 'connecting' | 'disconnected'>('connected')
-  const [connectedUsers] = useState<{ name: string; color: string }[]>([])
+  const [connectionStatus, setConnectionStatus] = useState<WebSocketStatus>(WebSocketStatus.Connecting)
+  const [connectedUsers, setConnectedUsers] = useState<{ name: string; color: string }[]>([])
+
+  const ydocRef = useRef<Y.Doc | null>(null)
+  if (!ydocRef.current) {
+    ydocRef.current = new Y.Doc()
+  }
+  const providerRef = useRef<HocuspocusProvider | null>(null)
+  if (!providerRef.current && id) {
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    providerRef.current = new HocuspocusProvider({
+      url: `${wsProtocol}//${window.location.host}/api/collaborate/${id}`,
+      name: id,
+      document: ydocRef.current,
+      token: () => localStorage.getItem('access_token') || '',
+    })
+  }
+
+  // Only the provider (a live network resource) is torn down on unmount -- NOT
+  // the Y.Doc (see DocEditorPage for the StrictMode rationale).
+  useEffect(() => {
+    return () => {
+      providerRef.current?.destroy()
+      providerRef.current = null
+    }
+  }, [])
+
+  // Connection status + presence (awareness). No in-grid live cursors -- same
+  // as DocEditorPage, which also renders presence avatars but no carets.
+  useEffect(() => {
+    const provider = providerRef.current
+    if (!provider) return
+
+    provider.awareness?.setLocalStateField('user', {
+      name: user?.full_name || 'Anonymous',
+      color: colorForUser(user?.id || 'anon'),
+    })
+
+    const handleStatus = ({ status }: { status: WebSocketStatus }) => setConnectionStatus(status)
+    const handleAwarenessChange = () => {
+      const states = provider.awareness?.getStates()
+      if (!states) return
+      const localClientId = provider.awareness?.clientID
+      const others: { name: string; color: string }[] = []
+      states.forEach((state: Record<string, { name?: string; color?: string }>, clientId: number) => {
+        if (clientId === localClientId) return
+        if (state?.user?.name) others.push({ name: state.user.name, color: state.user.color || '#888' })
+      })
+      setConnectedUsers(others)
+    }
+
+    provider.on('status', handleStatus)
+    provider.on('awarenessChange', handleAwarenessChange)
+    handleAwarenessChange()
+
+    const pollId = window.setInterval(() => {
+      const liveStatus = providerRef.current?.configuration?.websocketProvider?.status
+      if (liveStatus) setConnectionStatus(liveStatus)
+    }, 500)
+
+    return () => {
+      provider.off('status', handleStatus)
+      provider.off('awarenessChange', handleAwarenessChange)
+      window.clearInterval(pollId)
+    }
+  }, [user?.id, user?.full_name])
 
   // ---------------------------------------------------------------------------
   // Core spreadsheet state
@@ -140,6 +295,10 @@ export default function SheetEditorPage() {
   const cellRefs = useRef<Record<string, HTMLInputElement | null>>({})
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const initialLoadRef = useRef(false)
+  // Set when a server-side import (XLSX) replaces the doc, so the next seed
+  // overwrites the shared Y.Doc from the freshly-loaded content_json instead of
+  // preferring whatever is already in Y.
+  const forceReseedRef = useRef(false)
 
   // ---------------------------------------------------------------------------
   // Undo/Redo history
@@ -204,28 +363,77 @@ export default function SheetEditorPage() {
   })
 
   // ---------------------------------------------------------------------------
-  // Load from backend
+  // Load from backend + seed the shared Y.Doc
   // ---------------------------------------------------------------------------
+  // On first load we wait for the Hocuspocus provider to sync (with a fallback
+  // timer if it never connects). If the shared doc is empty we seed it from the
+  // REST-loaded content_json; if a collaborator (or persisted yjs_state) already
+  // populated it, we adopt that instead so we don't stomp live edits. A forced
+  // re-seed (after a server-side XLSX import) always overwrites Y from
+  // content_json.
   useEffect(() => {
-    if (!doc || initialLoadRef.current) return
-    initialLoadRef.current = true
+    const provider = providerRef.current
+    const ydoc = ydocRef.current
+    if (!provider || !ydoc || !doc || initialLoadRef.current) return
 
-    if (doc.content_json && typeof doc.content_json === 'object') {
-      const saved = doc.content_json as { sheets?: SheetData[] }
-      if (saved.sheets && Array.isArray(saved.sheets) && saved.sheets.length > 0) {
-        setSheets(saved.sheets)
-        // Seed history
-        historyStack.current = [JSON.parse(JSON.stringify(saved.sheets))]
-        historyIndex.current = 0
-      } else {
-        historyStack.current = [JSON.parse(JSON.stringify([{ name: 'Sheet1', cells: {} }]))]
-        historyIndex.current = 0
-      }
-    } else {
-      historyStack.current = [JSON.parse(JSON.stringify([{ name: 'Sheet1', cells: {} }]))]
+    const seedHistory = (snapshot: SheetData[]) => {
+      historyStack.current = [JSON.parse(JSON.stringify(snapshot))]
       historyIndex.current = 0
     }
+
+    const trySeed = () => {
+      if (initialLoadRef.current) return
+      initialLoadRef.current = true
+
+      const ySheets = ydoc.getArray('sheets')
+      const forced = forceReseedRef.current
+      forceReseedRef.current = false
+
+      if (ySheets.length === 0 || forced) {
+        const saved = doc.content_json && typeof doc.content_json === 'object'
+          ? (doc.content_json as { sheets?: SheetData[] })
+          : null
+        const initial = saved?.sheets && Array.isArray(saved.sheets) && saved.sheets.length > 0
+          ? saved.sheets
+          : [{ name: 'Sheet1', cells: {} }]
+        writeSheetsToY(ydoc, initial, SHEET_LOCAL_ORIGIN)
+        setSheets(initial)
+        seedHistory(initial)
+      } else {
+        const rebuilt = readSheetsFromY(ydoc)
+        setSheets(rebuilt)
+        seedHistory(rebuilt)
+      }
+    }
+
+    if (provider.isSynced) {
+      trySeed()
+      return
+    }
+    provider.on('synced', trySeed)
+    const fallbackTimer = setTimeout(trySeed, 4000)
+    return () => {
+      provider.off('synced', trySeed)
+      clearTimeout(fallbackTimer)
+    }
   }, [doc])
+
+  // Apply REMOTE Y.Doc changes back into React state. Local edits carry the
+  // SHEET_LOCAL_ORIGIN tag (React is already up to date for those) and are
+  // skipped to avoid an echo loop.
+  useEffect(() => {
+    const ydoc = ydocRef.current
+    if (!ydoc) return
+    const ySheets = ydoc.getArray('sheets')
+    const handler = (_events: Y.YEvent<Y.AbstractType<unknown>>[], txn: Y.Transaction) => {
+      if (txn.origin === SHEET_LOCAL_ORIGIN) return
+      if (!initialLoadRef.current) return
+      const rebuilt = readSheetsFromY(ydoc)
+      setSheets(rebuilt.length > 0 ? rebuilt : [{ name: 'Sheet1', cells: {} }])
+    }
+    ySheets.observeDeep(handler)
+    return () => ySheets.unobserveDeep(handler)
+  }, [])
 
   // Cleanup save timer
   useEffect(() => {
@@ -239,6 +447,13 @@ export default function SheetEditorPage() {
   // ---------------------------------------------------------------------------
   const debouncedSave = useCallback(
     (updatedSheets: SheetData[]) => {
+      // Mirror into the shared Y.Doc immediately so collaborators see edits
+      // live. Tagged SHEET_LOCAL_ORIGIN so our own observer ignores the echo;
+      // harmless when Hocuspocus is down (writes to a local, unsynced doc).
+      const ydoc = ydocRef.current
+      if (ydoc && initialLoadRef.current) writeSheetsToY(ydoc, updatedSheets, SHEET_LOCAL_ORIGIN)
+      // Durable REST autosave (unchanged) -- keeps content_json authoritative
+      // for exports (xlsx/pdf) and non-collaborative / read-only loads.
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
       saveTimerRef.current = setTimeout(() => {
         updateMutation.mutate({
@@ -1089,8 +1304,11 @@ export default function SheetEditorPage() {
           body: formData,
         })
         if (res.ok) {
-          queryClient.invalidateQueries({ queryKey: ['office-doc', id] })
+          // Force the next seed to overwrite the shared Y.Doc from the newly
+          // imported content_json rather than preferring existing Y state.
+          forceReseedRef.current = true
           initialLoadRef.current = false
+          queryClient.invalidateQueries({ queryKey: ['office-doc', id] })
         }
       } catch (e) {
         console.error('XLSX import failed', e)

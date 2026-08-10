@@ -48,6 +48,8 @@ import UnderlineExt from '@tiptap/extension-underline'
 import TextAlign from '@tiptap/extension-text-align'
 import Image from '@tiptap/extension-image'
 import Placeholder from '@tiptap/extension-placeholder'
+import * as Y from 'yjs'
+import { HocuspocusProvider, WebSocketStatus } from '@hocuspocus/provider'
 
 // ---------------------------------------------------------------------------
 // Data model
@@ -751,15 +753,126 @@ function escapeHtml(str: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Real-time collaboration (Hocuspocus / Yjs) helpers
+// ---------------------------------------------------------------------------
+// The deck's shared state lives in a top-level Y.Array 'slides'. Each entry is
+// a Y.Map with three keys:
+//   - 'props'        : every SlideContent field except elements (content,
+//                      speakerNotes, layout, transition, backgroundColor) as a
+//                      plain object; last-writer-wins on this blob.
+//   - 'elements'     : a nested Y.Map keyed by element id -> SlideElement, so
+//                      two people editing DIFFERENT elements on a slide merge
+//                      instead of clobbering each other.
+//   - 'elementOrder' : the element ids in paint order (z-order), as a plain
+//                      array. Reorder/add is last-writer-wins.
+// This maps 1:1 onto the existing content_json shape ({ slides: SlideContent[] })
+// so REST autosave and exports (pptx/pdf) keep working unchanged.
+
+const CURSOR_COLORS = ['#f87171', '#fb923c', '#fbbf24', '#a3e635', '#34d399', '#22d3ee', '#60a5fa', '#a78bfa', '#f472b6']
+
+function colorForUser(userId: string): string {
+  let hash = 0
+  for (let i = 0; i < userId.length; i++) hash = (hash * 31 + userId.charCodeAt(i)) >>> 0
+  return CURSOR_COLORS[hash % CURSOR_COLORS.length]
+}
+
+// Tags Y transactions we originate locally so our own observer skips the echo.
+const SLIDE_LOCAL_ORIGIN = Symbol('slide-local-edit')
+
+interface SlideProps {
+  content: Record<string, unknown> | null
+  speakerNotes: string
+  layout: SlideLayout
+  transition: SlideTransition
+  backgroundColor: string
+}
+
+function slideProps(s: SlideContent): SlideProps {
+  return {
+    content: s.content ?? null,
+    speakerNotes: s.speakerNotes ?? '',
+    layout: s.layout ?? 'blank',
+    transition: s.transition ?? 'none',
+    backgroundColor: s.backgroundColor ?? '#ffffff',
+  }
+}
+
+// Rebuild the React-facing SlideContent[] from the shared Y.Doc.
+function readSlidesFromY(ydoc: Y.Doc): SlideContent[] {
+  const ySlides = ydoc.getArray<Y.Map<unknown>>('slides')
+  const out: SlideContent[] = []
+  ySlides.forEach((ySlide) => {
+    const props = (ySlide.get('props') as SlideProps | undefined) || slideProps({ content: null })
+    const yElements = ySlide.get('elements') as Y.Map<SlideElement> | undefined
+    const order = (ySlide.get('elementOrder') as string[] | undefined) || []
+    const byId = new Map<string, SlideElement>()
+    if (yElements) yElements.forEach((value, key) => byId.set(key, value))
+    const elements: SlideElement[] = []
+    order.forEach((elId) => {
+      const el = byId.get(elId)
+      if (el) { elements.push(el); byId.delete(elId) }
+    })
+    byId.forEach((el) => elements.push(el)) // safety: any ids missing from order
+    out.push({
+      content: props.content ?? null,
+      elements,
+      speakerNotes: props.speakerNotes ?? '',
+      layout: props.layout ?? 'blank',
+      transition: props.transition ?? 'none',
+      backgroundColor: props.backgroundColor ?? '#ffffff',
+    })
+  })
+  return out
+}
+
+// Reconcile the shared Y.Doc to match `next`, writing only what changed.
+function writeSlidesToY(ydoc: Y.Doc, next: SlideContent[], origin: symbol): void {
+  const ySlides = ydoc.getArray<Y.Map<unknown>>('slides')
+  ydoc.transact(() => {
+    while (ySlides.length > next.length) ySlides.delete(ySlides.length - 1, 1)
+    for (let i = 0; i < next.length; i++) {
+      const slide = next[i]
+      let ySlide = ySlides.get(i) as Y.Map<unknown> | undefined
+      if (!ySlide) {
+        ySlide = new Y.Map<unknown>()
+        ySlides.insert(i, [ySlide])
+      }
+      const props = slideProps(slide)
+      if (JSON.stringify(ySlide.get('props')) !== JSON.stringify(props)) ySlide.set('props', props)
+
+      let yElements = ySlide.get('elements') as Y.Map<SlideElement> | undefined
+      if (!yElements) {
+        yElements = new Y.Map<SlideElement>()
+        ySlide.set('elements', yElements)
+      }
+      const elements = slide.elements ?? []
+      const ids = elements.map((el) => el.id)
+      const idSet = new Set(ids)
+      elements.forEach((el) => {
+        if (JSON.stringify(yElements!.get(el.id)) !== JSON.stringify(el)) yElements!.set(el.id, el)
+      })
+      const toDelete: string[] = []
+      yElements.forEach((_value, key) => { if (!idSet.has(key)) toDelete.push(key) })
+      toDelete.forEach((key) => yElements!.delete(key))
+
+      if (JSON.stringify(ySlide.get('elementOrder')) !== JSON.stringify(ids)) ySlide.set('elementOrder', ids)
+    }
+  }, origin)
+}
+
+// ---------------------------------------------------------------------------
 // Main page component
 // ---------------------------------------------------------------------------
 
 export default function SlideEditorPage() {
   const { id } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
-  const { user: _user } = useAuthStore()
-  const [connectionStatus] = useState<'connected' | 'connecting' | 'disconnected'>('connected')
-  const [connectedUsers] = useState<{ name: string; color: string }[]>([])
+  const { user } = useAuthStore()
+
+  // Real-time collaboration (Hocuspocus) -- mirrors DocEditorPage. Editing still
+  // works with REST autosave if Hocuspocus is unreachable (see below).
+  const [connectionStatus, setConnectionStatus] = useState<WebSocketStatus>(WebSocketStatus.Connecting)
+  const [connectedUsers, setConnectedUsers] = useState<{ name: string; color: string }[]>([])
   const [activeSlide, setActiveSlide] = useState(0)
   const [slides, setSlides] = useState<SlideContent[]>([{ content: null, elements: [], layout: 'blank', transition: 'none', backgroundColor: '#ffffff', speakerNotes: '' }])
   const [isPresenting, setIsPresenting] = useState(false)
@@ -768,8 +881,75 @@ export default function SlideEditorPage() {
   const [showNotes, setShowNotes] = useState(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const initialLoadRef = useRef(false)
+  // Set when a server-side import (PPTX) replaces the doc, so the next seed
+  // overwrites the shared Y.Doc from the freshly-loaded content_json.
+  const forceReseedRef = useRef(false)
   const canvasRef = useRef<HTMLDivElement>(null)
   const importInputRef = useRef<HTMLInputElement>(null)
+
+  const ydocRef = useRef<Y.Doc | null>(null)
+  if (!ydocRef.current) {
+    ydocRef.current = new Y.Doc()
+  }
+  const providerRef = useRef<HocuspocusProvider | null>(null)
+  if (!providerRef.current && id) {
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    providerRef.current = new HocuspocusProvider({
+      url: `${wsProtocol}//${window.location.host}/api/collaborate/${id}`,
+      name: id,
+      document: ydocRef.current,
+      token: () => localStorage.getItem('access_token') || '',
+    })
+  }
+
+  // Only the provider (a live network resource) is torn down on unmount -- NOT
+  // the Y.Doc (see DocEditorPage for the StrictMode rationale).
+  useEffect(() => {
+    return () => {
+      providerRef.current?.destroy()
+      providerRef.current = null
+    }
+  }, [])
+
+  // Connection status + presence (awareness). No in-canvas live cursors -- same
+  // as DocEditorPage, which renders presence avatars but no carets.
+  useEffect(() => {
+    const provider = providerRef.current
+    if (!provider) return
+
+    provider.awareness?.setLocalStateField('user', {
+      name: user?.full_name || 'Anonymous',
+      color: colorForUser(user?.id || 'anon'),
+    })
+
+    const handleStatus = ({ status }: { status: WebSocketStatus }) => setConnectionStatus(status)
+    const handleAwarenessChange = () => {
+      const states = provider.awareness?.getStates()
+      if (!states) return
+      const localClientId = provider.awareness?.clientID
+      const others: { name: string; color: string }[] = []
+      states.forEach((state: Record<string, { name?: string; color?: string }>, clientId: number) => {
+        if (clientId === localClientId) return
+        if (state?.user?.name) others.push({ name: state.user.name, color: state.user.color || '#888' })
+      })
+      setConnectedUsers(others)
+    }
+
+    provider.on('status', handleStatus)
+    provider.on('awarenessChange', handleAwarenessChange)
+    handleAwarenessChange()
+
+    const pollId = window.setInterval(() => {
+      const liveStatus = providerRef.current?.configuration?.websocketProvider?.status
+      if (liveStatus) setConnectionStatus(liveStatus)
+    }, 500)
+
+    return () => {
+      provider.off('status', handleStatus)
+      provider.off('awarenessChange', handleAwarenessChange)
+      window.clearInterval(pollId)
+    }
+  }, [user?.id, user?.full_name])
 
   const { data: docData } = useQuery({
     queryKey: ['office-doc', id],
@@ -793,25 +973,77 @@ export default function SlideEditorPage() {
     },
   })
 
-  // Load initial content from backend
+  // Load initial content from backend + seed the shared Y.Doc. If the shared
+  // doc is empty we seed it from the REST-loaded content_json; if a collaborator
+  // (or persisted yjs_state) already populated it, we adopt that instead. A
+  // forced re-seed (after a server-side PPTX import) always overwrites Y from
+  // content_json.
   useEffect(() => {
-    if (!doc || initialLoadRef.current) return
-    initialLoadRef.current = true
+    const provider = providerRef.current
+    const ydoc = ydocRef.current
+    if (!provider || !ydoc || !doc || initialLoadRef.current) return
 
-    if (doc.content_json && typeof doc.content_json === 'object') {
-      const saved = doc.content_json as { slides?: SlideContent[] }
-      if (saved.slides && Array.isArray(saved.slides) && saved.slides.length > 0) {
-        setSlides(saved.slides.map((s) => ({
-          content: s.content ?? null,
-          elements: s.elements ?? [],
-          speakerNotes: s.speakerNotes ?? '',
-          layout: s.layout ?? 'blank',
-          transition: s.transition ?? 'none',
-          backgroundColor: s.backgroundColor ?? '#ffffff',
-        })))
+    const normalize = (list: SlideContent[]): SlideContent[] => list.map((s) => ({
+      content: s.content ?? null,
+      elements: s.elements ?? [],
+      speakerNotes: s.speakerNotes ?? '',
+      layout: s.layout ?? 'blank',
+      transition: s.transition ?? 'none',
+      backgroundColor: s.backgroundColor ?? '#ffffff',
+    }))
+
+    const trySeed = () => {
+      if (initialLoadRef.current) return
+      initialLoadRef.current = true
+
+      const ySlides = ydoc.getArray('slides')
+      const forced = forceReseedRef.current
+      forceReseedRef.current = false
+
+      if (ySlides.length === 0 || forced) {
+        const saved = doc.content_json && typeof doc.content_json === 'object'
+          ? (doc.content_json as { slides?: SlideContent[] })
+          : null
+        if (saved?.slides && Array.isArray(saved.slides) && saved.slides.length > 0) {
+          const initial = normalize(saved.slides)
+          writeSlidesToY(ydoc, initial, SLIDE_LOCAL_ORIGIN)
+          setSlides(initial)
+        } else {
+          // Nothing saved yet -- publish the default single slide into Y.
+          writeSlidesToY(ydoc, slides, SLIDE_LOCAL_ORIGIN)
+        }
+      } else {
+        setSlides(readSlidesFromY(ydoc))
       }
     }
-  }, [doc])
+
+    if (provider.isSynced) {
+      trySeed()
+      return
+    }
+    provider.on('synced', trySeed)
+    const fallbackTimer = setTimeout(trySeed, 4000)
+    return () => {
+      provider.off('synced', trySeed)
+      clearTimeout(fallbackTimer)
+    }
+  }, [doc]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Apply REMOTE Y.Doc changes back into React state. Local edits carry
+  // SLIDE_LOCAL_ORIGIN (React is already up to date) and are skipped.
+  useEffect(() => {
+    const ydoc = ydocRef.current
+    if (!ydoc) return
+    const ySlides = ydoc.getArray('slides')
+    const handler = (_events: Y.YEvent<Y.AbstractType<unknown>>[], txn: Y.Transaction) => {
+      if (txn.origin === SLIDE_LOCAL_ORIGIN) return
+      if (!initialLoadRef.current) return
+      const rebuilt = readSlidesFromY(ydoc)
+      if (rebuilt.length > 0) setSlides(rebuilt)
+    }
+    ySlides.observeDeep(handler)
+    return () => ySlides.unobserveDeep(handler)
+  }, [])
 
   // Cleanup save timer
   useEffect(() => {
@@ -822,6 +1054,13 @@ export default function SlideEditorPage() {
 
   const debouncedSave = useCallback(
     (updatedSlides: SlideContent[]) => {
+      // Mirror into the shared Y.Doc immediately so collaborators see edits
+      // live. Tagged SLIDE_LOCAL_ORIGIN so our own observer ignores the echo;
+      // harmless when Hocuspocus is down (writes to a local, unsynced doc).
+      const ydoc = ydocRef.current
+      if (ydoc && initialLoadRef.current) writeSlidesToY(ydoc, updatedSlides, SLIDE_LOCAL_ORIGIN)
+      // Durable REST autosave (unchanged) -- keeps content_json authoritative
+      // for exports (pptx/pdf) and non-collaborative / read-only loads.
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
       saveTimerRef.current = setTimeout(() => {
         updateMutation.mutate({ content_json: { slides: updatedSlides } as Record<string, unknown> })
@@ -1013,7 +1252,9 @@ export default function SlideEditorPage() {
       const formData = new FormData()
       formData.append('file', file)
       await api.upload(`/office/${id}/import`, formData)
-      // Reload document
+      // Reload document -- force the next seed to overwrite the shared Y.Doc
+      // from the newly imported content_json.
+      forceReseedRef.current = true
       initialLoadRef.current = false
       queryClient.invalidateQueries({ queryKey: ['office-doc', id] })
     } catch (err) {
