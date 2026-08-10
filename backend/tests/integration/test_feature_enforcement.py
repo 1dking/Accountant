@@ -136,6 +136,52 @@ async def test_a_manager_has_a_role_default(client, db, manager_user: User):
     ).status_code == 200
 
 
+@pytest.mark.critical
+async def test_an_org_override_switches_a_module_off_for_the_whole_org(client, db):
+    """OrgFeatureOverride(enabled=False) must deny a module for everyone in the
+    org, even a user whose per-user grant would allow it. These tables previously
+    had NO runtime consumer, so an admin toggling a feature for an org changed
+    nothing — this locks in that they now bite."""
+    from app.platform_admin.models import Organization, OrgFeatureOverride
+
+    user = await _user_with_features(db, Role.TEAM_MEMBER, {"cashbook": True})
+    org = Organization(
+        id=uuid.uuid4(), name="Acme", slug=f"acme-{uuid.uuid4().hex[:8]}", owner_id=user.id
+    )
+    db.add(org)
+    await db.flush()
+    user.org_id = org.id
+    db.add(
+        OrgFeatureOverride(
+            id=uuid.uuid4(), org_id=org.id, feature_key="cashbook", enabled=False
+        )
+    )
+    await db.commit()
+
+    resp = await client.get("/api/cashbook/entries", headers=auth_header(user))
+    assert resp.status_code == 403, "an org-level disable must be enforced by the server"
+
+
+@pytest.mark.critical
+async def test_org_gate_is_fail_open_when_no_override_exists(client, db):
+    """The tenant gate is fail-open: a user in an org with NO override row for the
+    module is completely unaffected (behaves exactly as before the gate existed),
+    so no one is ever locked out by the mere presence of an org_id."""
+    from app.platform_admin.models import Organization
+
+    user = await _user_with_features(db, Role.TEAM_MEMBER, {"cashbook": True})
+    org = Organization(
+        id=uuid.uuid4(), name="Beta", slug=f"beta-{uuid.uuid4().hex[:8]}", owner_id=user.id
+    )
+    db.add(org)
+    await db.flush()
+    user.org_id = org.id
+    await db.commit()
+
+    resp = await client.get("/api/cashbook/entries", headers=auth_header(user))
+    assert resp.status_code == 200
+
+
 @pytest.mark.high
 async def test_a_viewer_can_open_contacts_so_a_share_can_reach_it(
     client, db, viewer_user: User
