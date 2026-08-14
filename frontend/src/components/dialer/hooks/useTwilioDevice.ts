@@ -40,6 +40,8 @@ export interface TwilioDeviceState {
   acceptIncoming: () => Promise<void>
   rejectIncoming: () => void
   toggleMute: () => void
+  /** Send DTMF touch-tones on the active call (IVR prompts, PINs, extensions). */
+  sendDigits: (digits: string) => void
   retryInit: () => void
 
   // Side-effect signal: ‘incoming’ event flips this momentarily so the
@@ -275,6 +277,18 @@ export function useTwilioDevice({
     setIsMuted(next)
   }, [isMuted])
 
+  // Send DTMF touch-tones on the LIVE call (IVR menus, "enter your number",
+  // PINs, extensions). Twilio's Call.sendDigits accepts 0-9, *, #, w (0.5s
+  // pause). No-op if there's no active call.
+  const sendDigits = useCallback((digits: string) => {
+    if (!callRef.current) return
+    try {
+      callRef.current.sendDigits(digits)
+    } catch (err) {
+      console.error('[Dialer] sendDigits error', err)
+    }
+  }, [])
+
   const retryInit = useCallback(() => {
     initOnceRef.current = false
     void initDevice()
@@ -291,6 +305,7 @@ export function useTwilioDevice({
     acceptIncoming,
     rejectIncoming,
     toggleMute,
+    sendDigits,
     retryInit,
   }
 }

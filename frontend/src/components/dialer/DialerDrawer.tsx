@@ -41,7 +41,7 @@ interface Props {
 export default function DialerDrawer({ isOpen, onClose, device, callingFrom }: Props) {
   const {
     mode, errorMsg, durationSeconds, isMuted, incomingNumber,
-    dial, hangup, acceptIncoming, rejectIncoming, toggleMute, retryInit,
+    dial, hangup, acceptIncoming, rejectIncoming, toggleMute, sendDigits, retryInit,
   } = device
 
   // Persistent state across drawer open/close.
@@ -130,6 +130,7 @@ export default function DialerDrawer({ isOpen, onClose, device, callingFrom }: P
           isMuted={isMuted}
           onMute={toggleMute}
           onHangup={hangup}
+          onSendDigits={sendDigits}
         />
       )
     }
