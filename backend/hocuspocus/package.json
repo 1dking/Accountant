@@ -9,7 +9,7 @@
     "dev": "node --watch server.js"
   },
   "dependencies": {
-    "@hocuspocus/server": "^2.15.0",
+    "@hocuspocus/server": "^4.6.0",
     "@hocuspocus/extension-database": "^2.15.0"
   }
 }
