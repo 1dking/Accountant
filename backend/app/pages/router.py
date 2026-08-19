@@ -1692,8 +1692,25 @@ async def serve_published_page(
     from sqlalchemy import select as sa_select
     from app.pages.models import Page
 
-    row = await db.execute(sa_select(Page).where(Page.slug == slug))
-    page = row.scalar_one_or_none()
+    # A slug is only unique WITHIN a website, so two sites can each have (e.g.) a
+    # "home" page. This public serve used scalar_one_or_none(), which raised
+    # MultipleResultsFound → 500 on any such collision. Make it deterministic and
+    # crash-proof: prefer a published page, newest publish first. (Proper
+    # per-domain disambiguation rides on custom domains; until then latest wins.)
+    # The is_(None) sort key is 0 for published rows and 1 for unpublished, so
+    # ascending puts published first — portable across SQLite/Postgres without
+    # relying on NULLS LAST.
+    row = await db.execute(
+        sa_select(Page)
+        .where(Page.slug == slug)
+        .order_by(
+            Page.compiled_html_published_at.is_(None),
+            Page.compiled_html_published_at.desc(),
+            Page.updated_at.desc(),
+        )
+        .limit(1)
+    )
+    page = row.scalars().first()
     if page is None:
         return HTMLResponse("<h1>Page not found</h1>", status_code=404)
     if page.compiled_html:
