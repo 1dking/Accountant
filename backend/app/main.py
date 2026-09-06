@@ -92,6 +92,7 @@ import app.platform_admin.models  # noqa: F401
 import app.coach.models  # noqa: F401
 import app.news.models  # noqa: F401
 import app.events.models  # noqa: F401
+import app.payroll.models  # noqa: F401
 # contacts.models now includes ContactTag, ContactActivity, FileShare, etc.
 
 
@@ -361,6 +362,7 @@ def create_app() -> FastAPI:
     from app.news.router import router as news_router
     from app.events.router import router as events_router
     from app.wtp.router import router as wtp_router
+    from app.payroll.router import router as payroll_router
 
     fastapi_app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
     fastapi_app.include_router(mfa_router, prefix="/api/auth/mfa", tags=["mfa"])
@@ -404,6 +406,8 @@ def create_app() -> FastAPI:
     fastapi_app.include_router(ledger_report_router, prefix="/api/accounting", tags=["ledger-reports"], dependencies=[Depends(require_feature("expenses")), Depends(require_business_mode)])
     fastapi_app.include_router(ap_router, prefix="/api/accounting", tags=["accounts-payable"], dependencies=[Depends(require_feature("expenses")), Depends(require_business_mode)])
     fastapi_app.include_router(tax1099_router, prefix="/api/accounting", tags=["tax-1099"], dependencies=[Depends(require_feature("expenses")), Depends(require_business_mode)])
+    # Payroll (sprint 2) — business-only; role gate (admin/accountant) lives in the router.
+    fastapi_app.include_router(payroll_router, prefix="/api/payroll", tags=["payroll"], dependencies=[Depends(require_business_mode)])
     fastapi_app.include_router(credit_notes_router, prefix="/api/invoices", tags=["credit-notes"], dependencies=[Depends(require_feature("invoices"))])
     fastapi_app.include_router(tax_router, prefix="/api", tags=["sales-tax"], dependencies=[Depends(require_feature("tax")), Depends(require_business_mode)])
     fastapi_app.include_router(cashbook_router, prefix="/api/cashbook", tags=["cashbook"], dependencies=[Depends(require_feature("cashbook")), Depends(require_business_mode)])

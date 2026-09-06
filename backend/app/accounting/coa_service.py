@@ -65,6 +65,13 @@ DEFAULT_COA: list[tuple[str, str, AccountType]] = [
     ("2000", "Accounts Payable", AccountType.LIABILITY),
     ("2100", "Sales Tax Payable", AccountType.LIABILITY),
     ("2200", "Credit Card Payable", AccountType.LIABILITY),
+    # Payroll liabilities 2300-2399 (sprint 2). Split by remittance destination
+    # so the PD7A (CRA) and the Revenu Québec remittance each read one account.
+    ("2300", "Payroll Remittance Payable — CRA", AccountType.LIABILITY),
+    ("2310", "Payroll Remittance Payable — Revenu Québec", AccountType.LIABILITY),
+    ("2340", "Vacation Pay Payable", AccountType.LIABILITY),
+    ("2350", "Wages Payable", AccountType.LIABILITY),
+    ("2360", "Other Payroll Deductions Payable", AccountType.LIABILITY),
     # Equity 3000-3999
     ("3000", "Owner's Equity", AccountType.EQUITY),
     ("3900", "Retained Earnings", AccountType.EQUITY),
@@ -81,6 +88,9 @@ DEFAULT_COA: list[tuple[str, str, AccountType]] = [
     ("6400", "Rent", AccountType.EXPENSE),
     ("6500", "Travel", AccountType.EXPENSE),
     ("6600", "Utilities", AccountType.EXPENSE),
+    # Payroll expenses 6700-6799 (sprint 2)
+    ("6700", "Wages & Salaries", AccountType.EXPENSE),
+    ("6710", "Employer Payroll Taxes (CPP/EI/QPIP)", AccountType.EXPENSE),
     ("6900", "Other Expenses", AccountType.EXPENSE),
 ]
 
@@ -89,6 +99,17 @@ CODE_ACCOUNTS_PAYABLE = "2000"
 CODE_UNDEPOSITED = "1500"
 CODE_OTHER_INCOME = "4900"
 CODE_OTHER_EXPENSE = "6900"
+CODE_BANK = "1010"
+
+#: Payroll posting accounts (sprint 2). payroll/service.py looks these up by
+#: code after ensuring the tenant's CoA is seeded.
+CODE_PAYROLL_CRA_PAYABLE = "2300"
+CODE_PAYROLL_RQ_PAYABLE = "2310"
+CODE_VACATION_PAYABLE = "2340"
+CODE_WAGES_PAYABLE = "2350"
+CODE_OTHER_DEDUCTIONS_PAYABLE = "2360"
+CODE_WAGES_EXPENSE = "6700"
+CODE_EMPLOYER_PAYROLL_TAX_EXPENSE = "6710"
 
 #: Where migrated categories/payment-accounts land when we auto-number them.
 _INCOME_BASE = 4000
