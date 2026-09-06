@@ -1,0 +1,31 @@
+{
+  "province": {
+    "title": "Where your business is registered",
+    "subtitle": "Your province sets the sales tax you charge and claim. Change it and every new invoice and cashbook entry follows.",
+    "label": "Province or territory",
+    "placeholder": "Choose a province",
+    "regime": "You charge {{regime}}",
+    "businessNumber": "CRA Business Number",
+    "businessNumberHint": "9 digits, e.g. 123456789",
+    "gstNumber": "GST/HST account",
+    "gstNumberHint": "Usually your BN + RT0001. Required on invoices once registered.",
+    "fiscalYearEnd": "Fiscal year ends in",
+    "saved": "Province saved — new entries will use {{regime}}.",
+    "saveFailed": "Couldn't save your province."
+  },
+  "rates": {
+    "title": "Sales tax rates",
+    "subtitle": "Canadian rates are built in and kept current. Add your own only for something unusual.",
+    "type": "Type",
+    "province": "Province",
+    "federal": "Federal",
+    "recoverable": "Claimable",
+    "nonRecoverable": "Not claimable",
+    "systemHint": "Built-in rate — can't be edited or deleted.",
+    "addCustom": "Add a custom rate"
+  },
+  "months": {
+    "1": "January", "2": "February", "3": "March", "4": "April", "5": "May", "6": "June",
+    "7": "July", "8": "August", "9": "September", "10": "October", "11": "November", "12": "December"
+  }
+}

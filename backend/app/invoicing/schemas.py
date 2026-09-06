@@ -25,6 +25,10 @@ class InvoiceLineItemResponse(BaseModel):
     quantity: Decimal
     unit_price: Decimal
     tax_rate: Decimal | None
+    # Canadian split — second component (PST/QST) and the system rates used.
+    tax_rate_2: Decimal | None = None
+    tax_rate_id: str | None = None
+    tax_rate_2_id: str | None = None
     total: Decimal
 
     model_config = {"from_attributes": True}
@@ -88,6 +92,11 @@ class InvoiceResponse(BaseModel):
     subtotal: Decimal
     tax_rate: Decimal | None
     tax_amount: Decimal | None
+    # Canadian split — None on explicit-rate or pre-matrix invoices.
+    tax_gst_hst_amount: Decimal | None = None
+    tax_pst_amount: Decimal | None = None
+    tax_rate_id: str | None = None
+    tax_rate_2_id: str | None = None
     discount_amount: Decimal
     total: Decimal
     currency: str

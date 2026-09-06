@@ -73,6 +73,45 @@ _ADDITIVE_COLUMNS: dict[str, dict[str, str]] = {
         "resume_step_index": "INTEGER",
         "context_json": "TEXT",
     },
+    # ── Canadian tax matrix (alembic i7f8a9b0c1d2). All nullable/defaulted. ──
+    "company_settings": {
+        "province": "VARCHAR(2)",
+        "business_number": "VARCHAR(15)",
+        "gst_hst_number": "VARCHAR(15)",
+        "fiscal_year_end_month": "INTEGER",
+    },
+    "tax_rates": {
+        "tax_type": "VARCHAR(10)",
+        "province": "VARCHAR(2)",
+        "is_recoverable": "BOOLEAN NOT NULL DEFAULT 1",
+        "is_system": "BOOLEAN NOT NULL DEFAULT 0",
+        "effective_from": "DATE",
+    },
+    # Split tax components. tax_amount stays the total; these are the CRA vs.
+    # province halves. tax_rates.id is VARCHAR(36) in this schema.
+    "cashbook_entries": {
+        "tax_gst_hst_amount": "NUMERIC(12, 2)",
+        "tax_pst_amount": "NUMERIC(12, 2)",
+        "tax_rate_id": "VARCHAR(36)",
+        "tax_rate_2_id": "VARCHAR(36)",
+    },
+    "invoices": {
+        "tax_gst_hst_amount": "NUMERIC(12, 2)",
+        "tax_pst_amount": "NUMERIC(12, 2)",
+        "tax_rate_id": "VARCHAR(36)",
+        "tax_rate_2_id": "VARCHAR(36)",
+    },
+    "invoice_line_items": {
+        "tax_rate_2": "NUMERIC(5, 2)",
+        "tax_rate_id": "VARCHAR(36)",
+        "tax_rate_2_id": "VARCHAR(36)",
+    },
+    "expenses": {
+        "tax_gst_hst_amount": "NUMERIC(12, 2)",
+        "tax_pst_amount": "NUMERIC(12, 2)",
+        "tax_rate_id": "VARCHAR(36)",
+        "tax_rate_2_id": "VARCHAR(36)",
+    },
 }
 
 

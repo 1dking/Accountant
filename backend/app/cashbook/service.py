@@ -118,10 +118,12 @@ DEFAULT_CATEGORIES = [
 
 
 def calculate_tax(total_amount: float, tax_rate: float) -> Decimal:
-    """Extract tax from a tax-inclusive amount.
+    """Extract TOTAL tax from a tax-inclusive amount at a combined rate.
 
-    For Ontario HST at 13%: tax = total - (total / 1.13)
-    This matches the spreadsheet formula: =amount/1.13
+    tax = total - (total / (1 + rate/100)). At 13% (ON HST) that is the
+    accountant's spreadsheet formula =amount/1.13; at 12% (BC GST+PST) it is
+    /1.12. For the CRA-vs-province split of that total, see
+    accounting.canadian_tax.split_inclusive.
     """
     if tax_rate <= 0:
         return Decimal('0')
@@ -543,22 +545,62 @@ async def get_account_balances_batch(
 # ---------------------------------------------------------------------------
 
 
+async def _resolve_account_tax_rates(
+    db: AsyncSession,
+    account_id: uuid.UUID,
+):
+    """(primary, secondary, combined_rate) for an account's default tax.
+
+    The account's ``default_tax_rate_id`` is the primary. A secondary (PST/RST/
+    QST) is attached only when the primary is a *system* rate that a province's
+    regime pairs with one — a BC business whose account defaults to GST 5%
+    gets PST 7% alongside it via the company's province. A user-created rate,
+    or a system rate the province doesn't pair, stays single-component.
+
+    Returns (None, None, 0.0) when no active default rate is set.
+    """
+    from app.accounting import canadian_tax
+    from app.accounting.tax_models import TaxRate
+
+    account = await get_account(db, account_id)
+    if not account.default_tax_rate_id:
+        return None, None, 0.0
+
+    primary = (
+        await db.execute(select(TaxRate).where(TaxRate.id == account.default_tax_rate_id))
+    ).scalar_one_or_none()
+    if primary is None or not primary.is_active:
+        return None, None, 0.0
+
+    secondary = None
+    if primary.is_system:
+        # Which province's regime should we consult? The rate's own province if
+        # it is province-bound (HST ON, PST BC); else — federal GST — the company's.
+        province = primary.province
+        if province is None:
+            from app.settings.service import get_company_settings
+
+            company = await get_company_settings(db)
+            province = company.province if company else None
+        if province:
+            p, s = await canadian_tax.rates_for_province(db, province)
+            if p is not None and p.id == primary.id:
+                secondary = s
+
+    return primary, secondary, canadian_tax.combined_rate(primary, secondary)
+
+
 async def _get_tax_rate_for_account(
     db: AsyncSession,
     account_id: uuid.UUID,
 ) -> float:
-    """Get the default tax rate for an account. Returns 0 if none set."""
-    account = await get_account(db, account_id)
-    if account.default_tax_rate_id:
-        from app.accounting.tax_models import TaxRate
+    """Combined default tax rate for an account. Returns 0 if none set.
 
-        result = await db.execute(
-            select(TaxRate).where(TaxRate.id == account.default_tax_rate_id)
-        )
-        tax_rate = result.scalar_one_or_none()
-        if tax_rate and tax_rate.is_active:
-            return tax_rate.rate
-    return 0.0
+    Kept for callers that only need the percentage; the split-aware path is
+    :func:`_resolve_account_tax_rates`.
+    """
+    _p, _s, combined = await _resolve_account_tax_rates(db, account_id)
+    return combined
 
 
 async def create_entry(
@@ -574,17 +616,26 @@ async def create_entry(
 
     await assert_period_open(db, data.date)
 
-    # Calculate tax
+    # Calculate tax — total, plus the CRA-vs-province split.
+    from app.accounting import canadian_tax
+
     tax_amount = data.tax_amount
     tax_rate_used: float | None = None
     tax_override = data.tax_override
+    tax_gst_hst = tax_pst = None
+    tax_rate_id = tax_rate_2_id = None
 
     if not tax_override:
-        tax_rate_used = await _get_tax_rate_for_account(db, data.account_id)
+        primary, secondary, tax_rate_used = await _resolve_account_tax_rates(db, data.account_id)
         if tax_rate_used > 0:
-            tax_amount = calculate_tax(data.total_amount, tax_rate_used)
+            tax_gst_hst, tax_pst, tax_amount = canadian_tax.split_inclusive(
+                data.total_amount, primary, secondary
+            )
+            tax_rate_id = primary.id if primary else None
+            tax_rate_2_id = secondary.id if secondary else None
         else:
             tax_amount = None
+            tax_rate_used = None
     else:
         tax_rate_used = None
 
@@ -600,6 +651,10 @@ async def create_entry(
         tax_amount=tax_amount,
         tax_rate_used=tax_rate_used,
         tax_override=tax_override,
+        tax_gst_hst_amount=tax_gst_hst,
+        tax_pst_amount=tax_pst,
+        tax_rate_id=tax_rate_id,
+        tax_rate_2_id=tax_rate_2_id,
         category_id=data.category_id,
         contact_id=data.contact_id,
         document_id=data.document_id,
@@ -637,6 +692,10 @@ def _entry_to_dict(entry: CashbookEntry, bank_balance: Decimal | None) -> dict:
         "tax_amount": entry.tax_amount,
         "tax_rate_used": entry.tax_rate_used,
         "tax_override": entry.tax_override,
+        "tax_gst_hst_amount": entry.tax_gst_hst_amount,
+        "tax_pst_amount": entry.tax_pst_amount,
+        "tax_rate_id": entry.tax_rate_id,
+        "tax_rate_2_id": entry.tax_rate_2_id,
         "category_id": entry.category_id,
         "contact_id": entry.contact_id,
         "document_id": entry.document_id,
@@ -805,12 +864,21 @@ async def update_entry(
     for field, value in update_data.items():
         setattr(entry, field, value)
 
-    # Recalculate tax if amount changed and not overridden
+    # Recalculate tax (and its CRA/province split) if amount changed and not overridden
     if not entry.tax_override and "total_amount" in update_data:
-        tax_rate = await _get_tax_rate_for_account(db, entry.account_id)
+        from app.accounting import canadian_tax
+
+        primary, secondary, tax_rate = await _resolve_account_tax_rates(db, entry.account_id)
         if tax_rate > 0:
-            entry.tax_amount = calculate_tax(entry.total_amount, tax_rate)
+            gst_hst, pst, total_tax = canadian_tax.split_inclusive(
+                entry.total_amount, primary, secondary
+            )
+            entry.tax_amount = total_tax
             entry.tax_rate_used = tax_rate
+            entry.tax_gst_hst_amount = gst_hst
+            entry.tax_pst_amount = pst
+            entry.tax_rate_id = primary.id if primary else None
+            entry.tax_rate_2_id = secondary.id if secondary else None
 
     await db.commit()
     await db.refresh(entry)

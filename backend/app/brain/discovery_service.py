@@ -34,7 +34,7 @@ DISCOVERY_QUESTIONS = [
     # Section 4: Financial
     {"id": "revenue_range", "section": "Financial", "question": "What is your approximate annual revenue?", "placeholder": "e.g., $100K-$500K", "order": 15},
     {"id": "fiscal_year", "section": "Financial", "question": "When does your fiscal year end?", "placeholder": "e.g., December 31, March 31", "order": 16},
-    {"id": "tax_setup", "section": "Financial", "question": "What taxes do you collect? (e.g., HST, GST, Sales Tax)", "placeholder": "e.g., HST 13%, No tax collected", "order": 17},
+    {"id": "tax_setup", "section": "Financial", "question": "Which province is your business registered in, and are you GST/HST registered?", "placeholder": "e.g., Ontario, registered (HST 13%) — or BC, not yet registered", "order": 17},
     {"id": "bank_accounts", "section": "Financial", "question": "How many bank accounts does the business have?", "placeholder": "e.g., 2 (checking + savings)", "order": 18},
     {"id": "payment_methods", "section": "Financial", "question": "How do your clients typically pay?", "placeholder": "e.g., Bank transfer, Credit card, Check", "order": 19},
 

@@ -1,4 +1,5 @@
 import { useNavigate, useLocation } from 'react-router'
+import { useTranslation } from 'react-i18next'
 import {
   LayoutDashboard,
   HardDrive,
@@ -18,6 +19,7 @@ import {
   Presentation,
   Sun,
   Moon,
+  Languages,
   FileSignature,
   Scale,
   Zap,
@@ -189,6 +191,8 @@ export default function Sidebar() {
   const navigate = useNavigate()
   const location = useLocation()
   const { sidebarOpen, isMobile, panelState, closePanel, theme, toggleTheme, mode, setMode } = useUiStore()
+  const { i18n, t: tc } = useTranslation('common')
+  const nextLocale = i18n.language === 'fr-CA' ? 'en' : 'fr-CA'
   const { user, logout } = useAuthStore()
   const { logoUrl, orgName } = useBranding()
   const queryClient = useQueryClient()
@@ -407,6 +411,14 @@ export default function Sidebar() {
           className="w-full flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100"
         >
           {theme === 'light' ? <><Moon className="h-4 w-4" /> Dark mode</> : <><Sun className="h-4 w-4" /> Light mode</>}
+        </button>
+        <button
+          onClick={() => i18n.changeLanguage(nextLocale)}
+          className="w-full flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100"
+          aria-label={tc('locale.label')}
+          lang={nextLocale}
+        >
+          <Languages className="h-4 w-4" /> {tc(`locale.${nextLocale}`)}
         </button>
         <button
           onClick={() => handleNavigate('/help')}

@@ -38,6 +38,10 @@ class CompanySettingsResponse(BaseModel):
     state: str | None = None
     zip_code: str | None = None
     country: str | None = None
+    province: str | None = None
+    business_number: str | None = None
+    gst_hst_number: str | None = None
+    fiscal_year_end_month: int | None = None
     logo_storage_path: str | None = None
     default_tax_rate_id: str | None = None
     default_currency: str = "CAD"
@@ -65,5 +69,10 @@ class CompanySettingsUpdate(BaseModel):
     state: str | None = Field(None, max_length=100)
     zip_code: str | None = Field(None, max_length=20)
     country: str | None = Field(None, max_length=100)
+    #: ISO-3166-2:CA code — validated against canadian_tax.PROVINCES in the service.
+    province: str | None = Field(None, min_length=2, max_length=2)
+    business_number: str | None = Field(None, max_length=15)
+    gst_hst_number: str | None = Field(None, max_length=15)
+    fiscal_year_end_month: int | None = Field(None, ge=1, le=12)
     default_tax_rate_id: str | None = None
     default_currency: str | None = Field(None, min_length=3, max_length=3)

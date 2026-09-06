@@ -188,6 +188,17 @@ async def lifespan(application: FastAPI):
     except Exception as e:
         logger.warning("Failed to seed personal categories: %s", e)
 
+    # Seed Canadian system tax rates (GST/HST/PST/RST/QST by province)
+    try:
+        from app.accounting.canadian_tax import seed_canadian_tax_rates
+
+        async with application.state.session_factory() as session:
+            count = await seed_canadian_tax_rates(session)
+            if count:
+                logger.info("Seeded %d Canadian tax rates", count)
+    except Exception as e:
+        logger.warning("Failed to seed Canadian tax rates: %s", e)
+
     yield
 
     shutdown_scheduler()

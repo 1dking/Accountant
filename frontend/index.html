@@ -17,6 +17,10 @@
       (function () {
         var stored = localStorage.getItem('theme')
         if (stored !== 'light') document.documentElement.classList.add('dark')
+        // Same pre-paint trick for language so <html lang> is right before
+        // i18next boots (Bill 96 audits and screen readers both read it).
+        var locale = localStorage.getItem('locale')
+        if (locale === 'fr-CA') document.documentElement.lang = 'fr-CA'
       })()
     </script>
   </head>

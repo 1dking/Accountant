@@ -62,6 +62,73 @@ def _calculate_invoice_totals(
     return subtotal.quantize(Decimal('0.01')), tax_amount, total.quantize(Decimal('0.01'))
 
 
+class _ResolvedTax:
+    """What an invoice's tax resolved to — the combined rate plus the split.
+
+    ``rate`` is the percentage stored in ``Invoice.tax_rate`` (backward compat).
+    When the caller supplied an explicit ``tax_rate`` we keep it single-scalar
+    and leave the split NULL (pre-matrix semantics: readers treat it as all-CRA).
+    When they didn't, the company's province decides, and we record which
+    system rates were used so the invoice PDF can print "GST 5% + PST 7%".
+    """
+
+    __slots__ = ("rate", "gst_hst", "pst", "rate_id", "rate_2_id", "rate_2")
+
+    def __init__(self):
+        self.rate: float | None = None
+        self.gst_hst: Decimal | None = None
+        self.pst: Decimal | None = None
+        self.rate_id: str | None = None
+        self.rate_2_id: str | None = None
+        self.rate_2: float | None = None
+
+
+async def _resolve_invoice_tax(db: AsyncSession, explicit_rate: float | None) -> _ResolvedTax:
+    """Province-aware tax resolution for an invoice.
+
+    Explicit rate -> honoured as-is, no split. No rate -> the company's province
+    (canadian_tax.rates_for_province) supplies (primary, secondary).
+    """
+    from app.accounting import canadian_tax
+    from app.settings.service import get_company_settings
+
+    out = _ResolvedTax()
+    if explicit_rate is not None:
+        out.rate = explicit_rate
+        return out
+
+    company = await get_company_settings(db)
+    if not company or not company.province:
+        return out
+    primary, secondary = await canadian_tax.rates_for_province(db, company.province)
+    if primary is None:
+        return out
+    out.rate = canadian_tax.combined_rate(primary, secondary)
+    out.rate_id = primary.id
+    out.rate_2_id = secondary.id if secondary else None
+    out.rate_2 = float(secondary.rate) if secondary else None
+    return out
+
+
+def _apply_split(
+    subtotal: Decimal, resolved: _ResolvedTax
+) -> tuple[Decimal | None, Decimal | None]:
+    """(gst_hst, pst) on a tax-EXCLUSIVE subtotal, or (None, None) when the
+    invoice isn't province-resolved."""
+    if resolved.rate_id is None:
+        return None, None
+    from app.accounting import canadian_tax
+    # Re-derive the pair from the recorded ids' rates without another query:
+    # gst_hst = subtotal × primary; pst = subtotal × secondary. The primary's
+    # rate is combined − secondary.
+    combined = Decimal(str(resolved.rate or 0))
+    sec = Decimal(str(resolved.rate_2 or 0))
+    prim = combined - sec
+    cra = (subtotal * prim / Decimal("100")).quantize(Decimal("0.01"))
+    prov = (subtotal * sec / Decimal("100")).quantize(Decimal("0.01"))
+    return cra, prov
+
+
 async def create_invoice(
     db: AsyncSession, data: InvoiceCreate, user: User
 ) -> Invoice:
@@ -70,9 +137,11 @@ async def create_invoice(
 
     await assert_period_open(db, data.issue_date)
 
+    resolved = await _resolve_invoice_tax(db, data.tax_rate)
     subtotal, tax_amount, total = _calculate_invoice_totals(
-        data.line_items, data.tax_rate, data.discount_amount
+        data.line_items, resolved.rate, data.discount_amount
     )
+    gst_hst, pst = _apply_split(subtotal, resolved)
 
     # Retry loop handles the race condition when the invoices table is empty:
     # FOR UPDATE cannot lock non-existent rows, so concurrent inserts may
@@ -87,8 +156,12 @@ async def create_invoice(
             contact_id=data.contact_id,
             issue_date=data.issue_date,
             due_date=data.due_date,
-            tax_rate=data.tax_rate,
+            tax_rate=resolved.rate,
             tax_amount=tax_amount,
+            tax_gst_hst_amount=gst_hst,
+            tax_pst_amount=pst,
+            tax_rate_id=resolved.rate_id,
+            tax_rate_2_id=resolved.rate_2_id,
             discount_amount=data.discount_amount,
             subtotal=subtotal,
             total=total,
@@ -113,7 +186,13 @@ async def create_invoice(
             description=li.description,
             quantity=li.quantity,
             unit_price=li.unit_price,
-            tax_rate=li.tax_rate,
+            # Province-resolved invoices stamp the pair on every line so the PDF
+            # can print per-line "GST 5% + PST 7%"; explicit-rate invoices keep
+            # whatever the caller put on the line.
+            tax_rate=li.tax_rate if resolved.rate_id is None else resolved.rate,
+            tax_rate_2=resolved.rate_2,
+            tax_rate_id=resolved.rate_id,
+            tax_rate_2_id=resolved.rate_2_id,
             total=_calculate_line_total(li),
         )
         db.add(line)
@@ -222,11 +301,22 @@ async def update_invoice(
             await db.delete(li)
         # Create new ones
         items = [InvoiceLineItemCreate(**li) for li in line_items_data]
-        subtotal, tax_amount, total = _calculate_invoice_totals(
-            items, invoice.tax_rate, invoice.discount_amount
+        # Re-resolve: a province-resolved invoice (has tax_rate_id) keeps
+        # following the province; an explicit-rate invoice keeps its rate.
+        resolved = await _resolve_invoice_tax(
+            db, None if invoice.tax_rate_id else invoice.tax_rate
         )
+        subtotal, tax_amount, total = _calculate_invoice_totals(
+            items, resolved.rate, invoice.discount_amount
+        )
+        gst_hst, pst = _apply_split(subtotal, resolved)
         invoice.subtotal = subtotal
+        invoice.tax_rate = resolved.rate
         invoice.tax_amount = tax_amount
+        invoice.tax_gst_hst_amount = gst_hst
+        invoice.tax_pst_amount = pst
+        invoice.tax_rate_id = resolved.rate_id
+        invoice.tax_rate_2_id = resolved.rate_2_id
         invoice.total = total
 
         for li in items:
@@ -235,7 +325,10 @@ async def update_invoice(
                 description=li.description,
                 quantity=li.quantity,
                 unit_price=li.unit_price,
-                tax_rate=li.tax_rate,
+                tax_rate=li.tax_rate if resolved.rate_id is None else resolved.rate,
+                tax_rate_2=resolved.rate_2,
+                tax_rate_id=resolved.rate_id,
+                tax_rate_2_id=resolved.rate_2_id,
                 total=_calculate_line_total(li),
             )
             db.add(line)

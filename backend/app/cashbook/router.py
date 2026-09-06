@@ -583,9 +583,23 @@ async def import_excel_preview(
     _: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
     file: UploadFile = File(...),
 ) -> dict:
-    """Upload an Excel cashbook file and return a preview of parsed rows."""
+    """Upload an Excel cashbook file and return a preview of parsed rows.
+
+    Rows without an explicit tax column are back-filled at the company's
+    combined provincial rate (BC = 12, ON = 13, AB = 5). Falls back to the
+    legacy 13% only when no province is configured.
+    """
+    from app.accounting import canadian_tax
+    from app.settings.service import get_company_settings
+
     contents = await file.read()
-    preview = parse_excel_file(contents)
+    default_rate = 13.0
+    company = await get_company_settings(db)
+    if company and company.province:
+        primary, secondary = await canadian_tax.rates_for_province(db, company.province)
+        if primary is not None:
+            default_rate = canadian_tax.combined_rate(primary, secondary)
+    preview = parse_excel_file(contents, default_tax_rate=default_rate)
     return {"data": preview.model_dump(mode="json")}
 
 

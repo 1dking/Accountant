@@ -23,6 +23,14 @@ export interface CompanySettings {
   state: string | null
   zip_code: string | null
   country: string | null
+  /** ISO-3166-2:CA — ON, BC, QC… Drives default GST/HST/PST/QST rates. */
+  province: string | null
+  /** CRA Business Number, 9 digits. */
+  business_number: string | null
+  /** GST/HST program account — usually BN + "RT0001". */
+  gst_hst_number: string | null
+  /** 1–12. */
+  fiscal_year_end_month: number | null
   logo_storage_path: string | null
   default_tax_rate_id: string | null
   default_currency: string

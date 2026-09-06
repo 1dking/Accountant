@@ -35,7 +35,17 @@ class Invoice(TimestampMixin, Base):
     )
     subtotal: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0, nullable=False)
     tax_rate: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
+    #: TOTAL tax on the invoice (all components).
     tax_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    # ── Canadian split (see accounting/canadian_tax.py) ──
+    tax_gst_hst_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    tax_pst_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    tax_rate_id: Mapped[str | None] = mapped_column(
+        ForeignKey("tax_rates.id", ondelete="SET NULL"), nullable=True
+    )
+    tax_rate_2_id: Mapped[str | None] = mapped_column(
+        ForeignKey("tax_rates.id", ondelete="SET NULL"), nullable=True
+    )
     discount_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0, nullable=False)
     total: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0, nullable=False)
     currency: Mapped[str] = mapped_column(String(3), default="USD", nullable=False)
@@ -68,6 +78,14 @@ class InvoiceLineItem(Base):
     quantity: Mapped[Decimal] = mapped_column(Numeric(10, 4), default=1, nullable=False)
     unit_price: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     tax_rate: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
+    #: Second component (PST/QST) percentage for two-tax provinces.
+    tax_rate_2: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
+    tax_rate_id: Mapped[str | None] = mapped_column(
+        ForeignKey("tax_rates.id", ondelete="SET NULL"), nullable=True
+    )
+    tax_rate_2_id: Mapped[str | None] = mapped_column(
+        ForeignKey("tax_rates.id", ondelete="SET NULL"), nullable=True
+    )
     total: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
 
     invoice: Mapped[Invoice] = relationship("Invoice", back_populates="line_items")

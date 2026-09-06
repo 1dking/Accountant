@@ -143,10 +143,23 @@ class CashbookEntry(TimestampMixin, Base):
 
     # Amount fields
     total_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    #: TOTAL tax on the entry (all components). Every report sums this.
     tax_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     tax_rate_used: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
     tax_override: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False
+    )
+    # ── Canadian split (see canadian_tax.py). NULL = pre-matrix row; readers
+    #    treat tax_amount as all-CRA via COALESCE(tax_gst_hst_amount, tax_amount).
+    #: GST or HST portion — goes on the CRA GST34 (lines 105 / 108).
+    tax_gst_hst_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    #: PST / RST / QST portion — remitted to the province, never on GST34.
+    tax_pst_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    tax_rate_id: Mapped[str | None] = mapped_column(
+        ForeignKey("tax_rates.id", ondelete="SET NULL"), nullable=True
+    )
+    tax_rate_2_id: Mapped[str | None] = mapped_column(
+        ForeignKey("tax_rates.id", ondelete="SET NULL"), nullable=True
     )
 
     # Category

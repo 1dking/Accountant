@@ -1,0 +1,31 @@
+{
+  "app": {
+    "name": "O-Brain"
+  },
+  "actions": {
+    "save": "Save",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "delete": "Delete",
+    "create": "Create",
+    "update": "Update",
+    "generate": "Generate",
+    "close": "Close"
+  },
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive",
+    "default": "Default",
+    "system": "System"
+  },
+  "locale": {
+    "label": "Language",
+    "en": "English",
+    "fr-CA": "Français (Canada)"
+  },
+  "errors": {
+    "generic": "Something went wrong. Try again.",
+    "saveFailed": "Couldn't save your changes."
+  }
+}

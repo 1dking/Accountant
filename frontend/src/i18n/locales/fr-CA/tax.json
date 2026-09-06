@@ -1,0 +1,31 @@
+{
+  "province": {
+    "title": "Où votre entreprise est enregistrée",
+    "subtitle": "Votre province détermine la taxe de vente que vous facturez et réclamez. Modifiez-la et chaque nouvelle facture et écriture suivra.",
+    "label": "Province ou territoire",
+    "placeholder": "Choisir une province",
+    "regime": "Vous facturez {{regime}}",
+    "businessNumber": "Numéro d'entreprise de l'ARC",
+    "businessNumberHint": "9 chiffres, p. ex. 123456789",
+    "gstNumber": "Compte TPS/TVH",
+    "gstNumberHint": "Habituellement votre NE + RT0001. Obligatoire sur les factures une fois inscrit.",
+    "fiscalYearEnd": "L'exercice se termine en",
+    "saved": "Province enregistrée — les nouvelles écritures utiliseront {{regime}}.",
+    "saveFailed": "Impossible d'enregistrer votre province."
+  },
+  "rates": {
+    "title": "Taux de taxe de vente",
+    "subtitle": "Les taux canadiens sont intégrés et tenus à jour. N'ajoutez les vôtres que pour un cas inhabituel.",
+    "type": "Type",
+    "province": "Province",
+    "federal": "Fédéral",
+    "recoverable": "Réclamable",
+    "nonRecoverable": "Non réclamable",
+    "systemHint": "Taux intégré — ne peut être modifié ni supprimé.",
+    "addCustom": "Ajouter un taux personnalisé"
+  },
+  "months": {
+    "1": "janvier", "2": "février", "3": "mars", "4": "avril", "5": "mai", "6": "juin",
+    "7": "juillet", "8": "août", "9": "septembre", "10": "octobre", "11": "novembre", "12": "décembre"
+  }
+}

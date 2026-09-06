@@ -84,7 +84,17 @@ class Expense(TimestampMixin, Base):
     description: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     currency: Mapped[str] = mapped_column(String(3), default="USD", nullable=False)
+    #: TOTAL tax on the expense (all components).
     tax_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    # ── Canadian split (see accounting/canadian_tax.py) ──
+    tax_gst_hst_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    tax_pst_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    tax_rate_id: Mapped[str | None] = mapped_column(
+        ForeignKey("tax_rates.id", ondelete="SET NULL"), nullable=True
+    )
+    tax_rate_2_id: Mapped[str | None] = mapped_column(
+        ForeignKey("tax_rates.id", ondelete="SET NULL"), nullable=True
+    )
     date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
 
     payment_method: Mapped[PaymentMethod | None] = mapped_column(Enum(PaymentMethod), nullable=True)

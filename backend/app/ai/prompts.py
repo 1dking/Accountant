@@ -57,7 +57,7 @@ Create quotes/estimates for potential work. Similar to invoices with line items 
 
 ### Cashbook
 A unified ledger for recording cash and credit card transactions. Create payment accounts (bank accounts, credit cards), then log entries with date, description, amount, and category. Features include:
-- Auto HST/GST tax splitting (configurable tax rate, default 13% for Ontario)
+- Auto GST/HST/PST/QST tax splitting (rate resolved from the business's province)
 - Running bank balance computed automatically
 - Category-based tax summaries for your accountant
 - Excel import from accountant-provided spreadsheet templates

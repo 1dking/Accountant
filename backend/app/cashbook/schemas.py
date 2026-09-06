@@ -137,6 +137,11 @@ class CashbookEntryResponse(BaseModel):
     tax_amount: Decimal | None
     tax_rate_used: Decimal | None
     tax_override: bool
+    # Canadian split — None on pre-matrix rows (treat tax_amount as all-CRA).
+    tax_gst_hst_amount: Decimal | None = None
+    tax_pst_amount: Decimal | None = None
+    tax_rate_id: str | None = None
+    tax_rate_2_id: str | None = None
     category_id: uuid.UUID | None
     contact_id: uuid.UUID | None
     document_id: uuid.UUID | None

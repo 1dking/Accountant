@@ -1,6 +1,6 @@
 """Pydantic schemas for sales tax tracking."""
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
 
 from pydantic import BaseModel, Field
@@ -17,6 +17,11 @@ class TaxRateCreate(BaseModel):
     description: Optional[str] = Field(None, max_length=500)
     is_default: bool = False
     region: Optional[str] = Field(None, max_length=100)
+    # Canadian tax matrix — optional on user-created rates.
+    tax_type: Optional[str] = Field(None, pattern="^(gst|hst|pst|rst|qst|other)$")
+    province: Optional[str] = Field(None, min_length=2, max_length=2)
+    is_recoverable: bool = True
+    effective_from: Optional[date] = None
 
 
 class TaxRateUpdate(BaseModel):
@@ -26,6 +31,10 @@ class TaxRateUpdate(BaseModel):
     is_default: Optional[bool] = None
     is_active: Optional[bool] = None
     region: Optional[str] = Field(None, max_length=100)
+    tax_type: Optional[str] = Field(None, pattern="^(gst|hst|pst|rst|qst|other)$")
+    province: Optional[str] = Field(None, min_length=2, max_length=2)
+    is_recoverable: Optional[bool] = None
+    effective_from: Optional[date] = None
 
 
 class TaxRateResponse(BaseModel):
@@ -36,11 +45,36 @@ class TaxRateResponse(BaseModel):
     is_default: bool
     is_active: bool
     region: Optional[str]
+    tax_type: Optional[str] = None
+    province: Optional[str] = None
+    is_recoverable: bool = True
+    is_system: bool = False
+    effective_from: Optional[date] = None
     created_by: str
     created_at: datetime
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+# ---------------------------------------------------------------------------
+# Province matrix
+# ---------------------------------------------------------------------------
+
+
+class ProvinceInfo(BaseModel):
+    code: str
+    name: str
+    #: Human summary of the regime — "HST 13%", "GST 5% + PST 7%".
+    regime: str
+    combined_rate: float
+
+
+class ProvinceRatesResponse(BaseModel):
+    province: str
+    primary: Optional[TaxRateResponse]
+    secondary: Optional[TaxRateResponse]
+    combined_rate: float
 
 
 # ---------------------------------------------------------------------------

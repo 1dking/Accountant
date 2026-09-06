@@ -40,11 +40,40 @@ async def get_or_create_company_settings(
 async def update_company_settings(
     db: AsyncSession, data: CompanySettingsUpdate, user: User
 ) -> CompanySettings:
-    """Apply a partial update to company settings."""
+    """Apply a partial update to company settings.
+
+    Province is validated against the Canadian matrix. Setting a province for
+    the first time (or changing it) with no explicit default tax rate points
+    ``default_tax_rate_id`` at that province's primary system rate, so a BC
+    business starts charging GST+PST without a second setup step. An explicit
+    ``default_tax_rate_id`` in the same request always wins.
+    """
+    from app.accounting import canadian_tax
+    from app.core.exceptions import ValidationError
+
     settings = await get_or_create_company_settings(db, user)
     update_data = data.model_dump(exclude_unset=True)
+
+    province = update_data.get("province")
+    if province is not None:
+        province = province.upper()
+        if province not in canadian_tax.PROVINCES:
+            raise ValidationError(
+                f"Unknown province code {province!r}. "
+                f"Expected one of: {', '.join(canadian_tax.PROVINCES)}"
+            )
+        update_data["province"] = province
+
     for key, value in update_data.items():
         setattr(settings, key, value)
+
+    # Province changed and the caller didn't pin a rate -> default to the
+    # province's primary system rate (HST for ON, GST for BC/QC/AB, …).
+    if province is not None and "default_tax_rate_id" not in update_data:
+        primary, _secondary = await canadian_tax.rates_for_province(db, province)
+        if primary is not None:
+            settings.default_tax_rate_id = primary.id
+
     await db.commit()
     await db.refresh(settings)
     return settings

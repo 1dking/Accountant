@@ -6,8 +6,10 @@ from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.accounting import tax_service
+from app.accounting import canadian_tax, tax_service
 from app.accounting.tax_schemas import (
+    ProvinceInfo,
+    ProvinceRatesResponse,
     TaxLiabilityReport,
     TaxRateCreate,
     TaxRateResponse,
@@ -17,6 +19,56 @@ from app.auth.models import Role, User
 from app.dependencies import get_current_user, get_db, require_role
 
 router = APIRouter()
+
+
+# ---------------------------------------------------------------------------
+# Canadian province matrix
+# ---------------------------------------------------------------------------
+
+
+@router.get("/accounting/tax/provinces")
+async def list_provinces(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    """Every Canadian province/territory with its sales-tax regime.
+
+    Drives the province picker in company settings. Regime text is derived
+    from the seeded system rates so it stays correct when a rate changes.
+    """
+    out: list[ProvinceInfo] = []
+    for code, name in canadian_tax.PROVINCES.items():
+        primary, secondary = await canadian_tax.rates_for_province(db, code)
+        parts = [f"{r.tax_type.upper()} {r.rate:g}%" for r in (primary, secondary) if r]
+        out.append(ProvinceInfo(
+            code=code,
+            name=name,
+            regime=" + ".join(parts) if parts else "—",
+            combined_rate=canadian_tax.combined_rate(primary, secondary),
+        ))
+    return {"data": [p.model_dump() for p in out]}
+
+
+@router.get("/accounting/tax/provinces/{province}/rates")
+async def rates_for_province(
+    province: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    """The (primary, secondary) system rates a province applies.
+
+    ON -> HST 13 / None.  BC -> GST 5 / PST 7.  QC -> GST 5 / QST 9.975.
+    """
+    code = province.upper()
+    if code not in canadian_tax.PROVINCES:
+        raise HTTPException(status_code=404, detail=f"Unknown province code: {province}")
+    primary, secondary = await canadian_tax.rates_for_province(db, code)
+    return {"data": ProvinceRatesResponse(
+        province=code,
+        primary=TaxRateResponse.model_validate(primary) if primary else None,
+        secondary=TaxRateResponse.model_validate(secondary) if secondary else None,
+        combined_rate=canadian_tax.combined_rate(primary, secondary),
+    ).model_dump()}
 
 
 # ---------------------------------------------------------------------------
