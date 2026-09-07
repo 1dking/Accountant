@@ -46,6 +46,7 @@ import MediaPickerModal, { type MediaSlotKind } from './MediaPickerModal'
 import AnimationPickerModal from './AnimationPickerModal'
 import StyleEditorDrawer from './StyleEditorDrawer'
 import BlockFieldsPanel from './BlockFieldsPanel'
+import BackgroundPanel from './BackgroundPanel'
 import './section-editor.css'
 import { useTranslation } from 'react-i18next'
 
@@ -106,6 +107,69 @@ function tokenLabel(token: string): string {
 // Types
 // ---------------------------------------------------------------------------
 
+export interface SectionBackground {
+  type: 'none' | 'image' | 'video' | 'gradient'
+  url?: string
+  poster?: string
+  gradient?: string
+  overlay_color?: string
+  overlay_opacity?: number
+  position?: 'center' | 'top' | 'bottom' | 'left' | 'right'
+  parallax?: boolean
+  fixed?: boolean
+  blur?: number
+}
+
+/** Client-side twin of variants.normalize_video_url so the live preview
+ *  plays a pasted YouTube/Vimeo link before the PATCH normalises it. */
+export function normalizeVideoUrl(raw: string): string {
+  const s = raw.trim()
+  const yt = s.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{6,})/)
+  if (yt) return `https://www.youtube.com/embed/${yt[1]}?autoplay=1&mute=1&loop=1&playlist=${yt[1]}&controls=0&rel=0&modestbranding=1`
+  const vm = s.match(/vimeo\.com\/(?:video\/)?(\d+)/)
+  if (vm) return `https://player.vimeo.com/video/${vm[1]}?autoplay=1&muted=1&loop=1&background=1`
+  return s
+}
+
+/** Mirror of compiler.render_background_layer — the editor iframe shows
+ *  the same layer the published page gets. */
+export function renderBackgroundLayer(bg?: SectionBackground | null): string {
+  if (!bg || !bg.type || bg.type === 'none') return ''
+  const esc = (s: string) => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!))
+  const pos = bg.position || 'center'
+  const blur = bg.blur || 0
+  const mediaStyle = `position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:${pos};${blur ? `filter:blur(${blur}px);transform:scale(1.05);` : ''}`
+  let media = ''
+  if (bg.type === 'video' && bg.url) {
+    const url = normalizeVideoUrl(bg.url)
+    if (/youtube\.com\/embed\/|player\.vimeo\.com\/video\//.test(url)) {
+      // Hosted players: chromeless muted autoplay iframe covering the box
+      // (same markup as compiler.render_background_layer).
+      const sep = url.includes('?') ? '&' : '?'
+      const src = url.includes('youtube.com') ? `${url}${sep}playsinline=1&iv_load_policy=3&disablekb=1` : url
+      // Same three counters as the compiler: 1.6× oversize (bars off-box),
+      // shield above the frame (no hover chrome), fade-in after 2.5 s
+      // (start-up overlay never visible).
+      const frameStyle = `position:absolute;top:50%;left:50%;width:max(160%,285vh);height:max(160%,90vw);transform:translate(-50%,-50%);pointer-events:none;border:0;opacity:0;animation:pg-bgin .8s ease 2.5s forwards;${blur ? `filter:blur(${blur}px);` : ''}`
+      const poster = bg.poster ? `<img src="${esc(bg.poster)}" alt="" style="${mediaStyle}" aria-hidden="true">` : ''
+      media = `<style>@keyframes pg-bgin{to{opacity:1}}</style>${poster}<iframe src="${esc(src)}" title="" tabindex="-1" allow="autoplay; encrypted-media" style="${frameStyle}" aria-hidden="true"></iframe><div style="position:absolute;inset:0" aria-hidden="true"></div>`
+    } else {
+      media = `<video autoplay muted loop playsinline preload="metadata"${bg.poster ? ` poster="${esc(bg.poster)}"` : ''} style="${mediaStyle}" aria-hidden="true"><source src="${esc(url)}"></video>`
+    }
+  } else if (bg.type === 'image' && bg.url) {
+    media = bg.fixed
+      ? `<div style="position:absolute;inset:0;background-image:url('${esc(bg.url)}');background-size:cover;background-position:${pos};background-attachment:fixed;${blur ? `filter:blur(${blur}px);` : ''}" aria-hidden="true"></div>`
+      : `<img src="${esc(bg.url)}" alt="" style="${mediaStyle}" aria-hidden="true">`
+  } else if (bg.type === 'gradient' && bg.gradient) {
+    media = `<div style="position:absolute;inset:0;background:${esc(bg.gradient)}" aria-hidden="true"></div>`
+  } else {
+    return ''
+  }
+  const op = Math.min(1, Math.max(0, Number(bg.overlay_opacity) || 0))
+  const overlay = op > 0 ? `<div style="position:absolute;inset:0;background:${esc(bg.overlay_color || '#000000')};opacity:${op.toFixed(2)}" aria-hidden="true"></div>` : ''
+  return `<div class="pg-bg" style="position:absolute;inset:0;overflow:hidden;z-index:0">${media}${overlay}</div>`
+}
+
 export interface PageSection {
   id?: string
   type?: string
@@ -115,6 +179,8 @@ export interface PageSection {
   edited_html?: string | null
   style_overrides?: Record<string, unknown> | null
   media_overrides?: Record<string, string> | null
+  /** Section background layer (image / video / gradient + overlay). */
+  background?: SectionBackground | null
   /** Commit 4B per-section animation preset + config. preset 'none'
    *  means explicitly no animation; absent means use the variant's
    *  default_animations. */
@@ -670,6 +736,15 @@ const EDITOR_SCRIPT = `
     var clone = document.body.cloneNode(true);
     var ov = clone.querySelectorAll('#__editor_overlay');
     for (var i = 0; i < ov.length; i++) ov[i].remove();
+    // Section background layer is editor chrome, not content: drop the
+    // layer and unwrap the content wrapper so edited_html stays clean.
+    var bgl = clone.querySelector('#__editor_bg');
+    if (bgl) bgl.remove();
+    var wrap = clone.querySelector('#__editor_bgwrap');
+    if (wrap) {
+      while (wrap.firstChild) wrap.parentNode.insertBefore(wrap.firstChild, wrap);
+      wrap.remove();
+    }
     var sc = clone.querySelectorAll('script');
     for (var j = 0; j < sc.length; j++) sc[j].remove();
     var all = clone.querySelectorAll('*');
@@ -881,6 +956,10 @@ function SectionBlock({
   // Block model v2 — schema-driven Fields drawer (only for library blocks).
   const [fieldsOpen, setFieldsOpen] = useState(false)
   const isLibraryBlock = !!section.metadata?.variant_id
+  // Section background drawer + live preview of the unsaved value.
+  const [bgOpen, setBgOpen] = useState(false)
+  const [previewBg, setPreviewBg] = useState<SectionBackground | null | undefined>(section.background)
+  useEffect(() => { setPreviewBg(section.background) }, [section.background])
   const [styleSelector, setStyleSelector] = useState<string>('section')
   const selectedElementRef = useRef<string>('section')
 
@@ -954,7 +1033,18 @@ function SectionBlock({
   // every persisted edit — killing GSAP scroll-triggers, scroll
   // position, hover state, and any animation runtime state. The
   // postMessage approach (useEffect below) preserves all of that.
+  // Background layer preview (image / video / gradient). Lives behind the
+  // content in the iframe; cleanBodyHtml() strips it before edited_html
+  // is saved. Mirrors compiler.render_background_layer exactly.
+  const bgLayerHtml = useMemo(
+    () => renderBackgroundLayer(previewBg).replace('class="pg-bg"', 'id="__editor_bg" class="pg-bg"'),
+    [previewBg],
+  )
+
   const srcdoc = useMemo(() => {
+    const content = bgLayerHtml
+      ? `${bgLayerHtml}<div id="__editor_bgwrap" style="position:relative;z-index:1">${previewHtml}</div>`
+      : previewHtml
     return `<!DOCTYPE html>
 <html>
 <head>
@@ -962,7 +1052,8 @@ function SectionBlock({
   <script src="${TAILWIND_CDN}"><\/script>
   <script src="${GSAP_CDN}" defer><\/script>
   <style>
-    body { margin: 0; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+    body { margin: 0; font-family: 'Inter', system-ui, -apple-system, sans-serif; ${bgLayerHtml ? 'position: relative;' : ''} }
+    ${bgLayerHtml ? '#__editor_bgwrap > *:first-child { background: transparent !important; } #__editor_bgwrap > *:first-child > .absolute.inset-0 { display: none; }' : ''}
     *:hover { cursor: text; }
     [contenteditable="true"]:focus { outline: 2px solid #6366f1; outline-offset: 2px; }
   </style>
@@ -973,14 +1064,14 @@ function SectionBlock({
     window.__sectionId = ${JSON.stringify(sectionId)};
     window.__sectionAnimation = ${animationSpecJson};
   <\/script>
-  ${previewHtml}
+  ${content}
   ${ANIMATION_RUNTIME_SCRIPT}
   ${EDITOR_SCRIPT}
 </body>
 </html>`
     // styleOverridesCss intentionally excluded — see comment above.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [previewHtml, sectionId, animationSpecJson])
+  }, [previewHtml, sectionId, animationSpecJson, bgLayerHtml])
 
   // Listen for messages from THIS section's iframe
   useEffect(() => {
@@ -1173,7 +1264,7 @@ function SectionBlock({
           </button>
           {isLibraryBlock && (
             <button
-              onClick={() => { setStyleOpen(false); setAnimOpen(false); setMediaSlot(null); setFieldsOpen(true) }}
+              onClick={() => { setStyleOpen(false); setAnimOpen(false); setMediaSlot(null); setBgOpen(false); setFieldsOpen(true) }}
               className="se-control-btn se-ctrl-fields"
               aria-label={t('ui:SectionEditor.fields')}
             >
@@ -1181,6 +1272,14 @@ function SectionBlock({
               <span className="se-tooltip">{t('ui:SectionEditor.fields')}</span>
             </button>
           )}
+          <button
+            onClick={() => { setStyleOpen(false); setAnimOpen(false); setMediaSlot(null); setFieldsOpen(false); setBgOpen(true) }}
+            className="se-control-btn se-ctrl-bg"
+            aria-label={t('ui:SectionEditor.background')}
+          >
+            <ImageIcon className="h-4 w-4" />
+            <span className="se-tooltip">{t('ui:SectionEditor.background')}</span>
+          </button>
 
           <span className="se-control-divider" aria-hidden="true" />
 
@@ -1379,6 +1478,18 @@ function SectionBlock({
         section={section}
         onSaved={invalidate}
         onClose={() => setFieldsOpen(false)}
+      />
+
+      {/* Background drawer — image / looping video / gradient behind the
+          block with overlay, blur, parallax. Live-previews into the iframe. */}
+      <BackgroundPanel
+        open={bgOpen}
+        pageId={pageId}
+        sectionIndex={index}
+        value={section.background}
+        onPreview={setPreviewBg}
+        onSaved={invalidate}
+        onClose={() => setBgOpen(false)}
       />
 
       {/* Media picker modal — opens when a slot pill is clicked. The

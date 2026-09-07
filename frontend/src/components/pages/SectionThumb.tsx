@@ -57,7 +57,11 @@ export default function SectionThumb({ html, ratio = 2, className = '', width }:
           scrolling="no"
           tabIndex={-1}
           loading="lazy"
-          sandbox="allow-scripts"
+          // allow-same-origin is required: an opaque-origin frame is
+          // cross-origin to /api, and the app's Cross-Origin-Resource-Policy
+          // header then blocks every library image. The HTML is our own
+          // block library, not user input; forms/popups/top-nav stay blocked.
+          sandbox="allow-scripts allow-same-origin"
           style={{ width: DOC_WIDTH, height: docHeight, border: 'none', transform: `scale(${scale})`, transformOrigin: 'top left', pointerEvents: 'none' }}
         />
       )}

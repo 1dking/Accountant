@@ -2776,15 +2776,15 @@
     "style": "Style",
     "animations": "Animations",
     "changeVariant": "Changer de variante",
-    "refineWithAi": "Affiner avec l'IA",
+    "refineWithAi": "Réviser le texte avec l’IA",
     "duplicateSection": "Dupliquer la section",
     "revertThisSectionToThe": "Rétablir la version originale de l'IA pour cette section? Vos modifications seront perdues.",
     "revertToAiOriginal": "Rétablir l'original de l'IA",
     "deleteThisSection": "Supprimer cette section?",
     "deleteSection": "Supprimer la section",
     "refine": "Affiner",
-    "withAi": "avec l'IA",
-    "eGMakeTheHeadline": "p. ex. « rends le titre plus ludique » ou « passe la palette à des tons chauds »",
+    "withAi": "texte avec l’IA",
+    "eGMakeTheHeadline": "p. ex. Rends le titre plus percutant et mentionne Ottawa — l’IA réécrit les mots seulement, jamais la mise en page",
     "toSubmit": "⌘↵ pour envoyer",
     "working": "En cours…",
     "replayAnimation": "Rejouer l'animation",
@@ -2806,7 +2806,8 @@
     "reorderFailedV0": "Échec du réordonnancement : {{v0}}",
     "variantSwappedLengthFieldV1": "Variante remplacée — {{length}} champ{{v1}} migré(s)",
     "swapFailedV0": "Échec du remplacement : {{v0}}",
-    "fields": "Champs"
+    "fields": "Champs",
+    "background": "Arrière-plan"
   },
   "ChartOfAccountsPage": {
     "asset": "Actif",
@@ -4954,7 +4955,8 @@
     "deactivateFullName": "Désactiver {{full_name}}?",
     "v0KeysSaved": "Clés {{v0}} enregistrées",
     "v0KeysRemoved": "Clés {{v0}} retirées",
-    "removeAllV0Keys": "Retirer toutes les clés {{v0}}?"
+    "removeAllV0Keys": "Retirer toutes les clés {{v0}}?",
+    "blocks": "Blocs"
   },
   "PortalAdminPage": {
     "invitationSent": "Invitation envoyée",
@@ -6179,5 +6181,49 @@
     "loading": "Chargement des champs…",
     "noFields": "Ce bloc n’a aucun champ modifiable.",
     "inlineEditsWarning": "Ce bloc contient des modifications en ligne. Enregistrer les champs les remplacera par un nouveau rendu."
+  },
+  "BlocksAdminTab": {
+    "title": "Bibliothèque de blocs",
+    "summary": "{{total}} blocs · {{active}} actifs · {{thumbs}} avec vignette rendue",
+    "resync": "Resynchroniser depuis le code",
+    "resynced": "{{count}} blocs synchronisés",
+    "renderThumbnails": "Générer les vignettes",
+    "rendering": "Génération…",
+    "renderStarted": "Génération des vignettes lancée",
+    "thumbnailRendered": "Vignette générée",
+    "playwrightMissing": "Playwright n’est pas installé sur ce serveur : générez les vignettes depuis un poste de développement.",
+    "search": "Rechercher un bloc…",
+    "allCategories": "Toutes les catégories",
+    "dynamicOnly": "Dynamiques seulement",
+    "loading": "Chargement des blocs…",
+    "stale": "Périmée",
+    "fields": "champs",
+    "disable": "Désactiver (masquer des sélecteurs et de l’IA)",
+    "enable": "Activer",
+    "noThumbnail": "Aucune vignette rendue",
+    "render": "Générer"
+  },
+  "BackgroundPanel": {
+    "title": "Arrière-plan de la section",
+    "close": "Fermer",
+    "cancel": "Annuler",
+    "save": "Enregistrer l’arrière-plan",
+    "saved": "Arrière-plan enregistré",
+    "saveFailed": "Échec de l’enregistrement : {{v0}}",
+    "none": "Aucun",
+    "image": "Image",
+    "video": "Vidéo",
+    "gradient": "Dégradé",
+    "imageUrl": "Image",
+    "videoUrl": "Vidéo (MP4, YouTube ou Vimeo)",
+    "poster": "Image d’attente (avant le chargement de la vidéo)",
+    "choose": "Choisir",
+    "position": "Point focal",
+    "blur": "Flou",
+    "parallax": "Parallaxe au défilement",
+    "fixed": "Fixe (reste en place pendant le défilement)",
+    "overlay": "Voile",
+    "overlayHint": "Assombrissez ou teintez le média pour garder le texte lisible.",
+    "hostedVideoHint": "Les lecteurs YouTube et Vimeo affichent toujours un peu de leur image de marque; nous masquons leurs barres et commandes, mais pour un arrière-plan parfaitement propre, téléversez un MP4 avec « Choisir »."
   }
 }

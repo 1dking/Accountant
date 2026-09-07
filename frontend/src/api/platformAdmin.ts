@@ -140,4 +140,13 @@ export const platformAdminApi = {
     our_cost_usd?: number; sell_price_usd?: number | null
     markup_multiplier?: number | null; is_enabled?: boolean; notes?: string
   }) => api.put('/platform-admin/telephony/rate-card', body),
+
+  // Block library (page builder, block model v2)
+  listBlocks: () => api.get('/platform-admin/blocks'),
+  patchBlock: (id: string, body: { is_active?: boolean; sort_order?: number; display_name?: string; description?: string }) =>
+    api.patch(`/platform-admin/blocks/${id}`, body),
+  resyncBlocks: () => api.post('/platform-admin/blocks/resync'),
+  renderBlockThumbnail: (id: string) => api.post(`/platform-admin/blocks/${id}/thumbnail`),
+  renderAllThumbnails: (force = false) => api.post(`/platform-admin/blocks/thumbnails${force ? '?force=true' : ''}`),
+  thumbnailsStatus: () => api.get('/platform-admin/blocks/thumbnails/status'),
 }

@@ -628,6 +628,105 @@ def _slugify(text: str) -> str:
 # ---------------------------------------------------------------------------
 
 
+COPY_SYSTEM_PROMPT = """You are a conversion copywriter for small Canadian businesses.
+You rewrite the TEXT of one website block. You never write HTML, CSS, JSX or markup.
+You receive the block's field schema (keys, types, limits), its current values and
+an instruction. Return ONLY a JSON object mapping field keys to new values:
+- Keep every key you don't need to change out of the object (unchanged fields are kept).
+- Respect max_len, options (select), item_fields shape and max_items for lists.
+- Do not touch keys whose type is image, url, color, boolean, number or select unless
+  the instruction explicitly asks for that value.
+- Match the current language of the copy (English or Québec French) unless told otherwise.
+- Plain text only: no HTML tags, no markdown, no emojis unless already present."""
+
+
+async def refine_copy(
+    db: AsyncSession, section: dict, instruction: str, settings: Settings,
+) -> tuple[dict, str]:
+    """Copy-only refine for a library block: AI returns new field values,
+    which are validated against the variant's fields_schema and rendered
+    through the block's own template. Markup can never change here.
+    Returns (section, provider). Falls back to the unchanged section
+    with provider 'none' when no AI provider is available or the reply
+    is unusable."""
+    from app.pages.fields import ai_schema_summary, runtime_fields, validate_fields
+    from app.pages.models import SectionVariant
+    from app.pages.variants import EMBED_TOKENS, MEDIA_TOKENS, render_template
+
+    meta = section.get("metadata") or {}
+    rows = await db.execute(
+        select(SectionVariant).where(
+            SectionVariant.variant_id == meta.get("variant_id"),
+            SectionVariant.is_active.is_(True),
+        )
+    )
+    variant = rows.scalar_one_or_none()
+    if variant is None:
+        return section, "none"
+    schema = getattr(variant, "fields_schema", None) or []
+    current = meta.get("props") or dict(variant.default_props or {})
+    editable = [f for f in ai_schema_summary(schema) if f["type"] not in ("image", "url", "color")]
+    user_msg = (
+        f"Block: {variant.display_name} ({variant.category})\n"
+        f"Locale: {meta.get('locale') or 'en'}\n\n"
+        f"Field schema (JSON):\n{json.dumps(editable, ensure_ascii=False)}\n\n"
+        f"Current values (JSON):\n{json.dumps({k: v for k, v in current.items() if k in {f['key'] for f in editable}}, ensure_ascii=False)}\n\n"
+        f"Instruction:\n{instruction}\n\n"
+        f"Return the JSON object of changed fields only."
+    )
+
+    new_values: dict | None = None
+    provider = "none"
+    if getattr(settings, "anthropic_api_key", None):
+        try:
+            new_values = await _claude_call_json(
+                settings=settings, model=PRD_MODEL, system_prompt=COPY_SYSTEM_PROMPT,
+                user_msg=user_msg, max_tokens=SECTION_MAX_TOKENS, timeout=SECTION_TIMEOUT_SECONDS,
+            )
+            provider = "claude"
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("pages.refine_copy_claude_failed err=%s", str(exc)[:200])
+    if new_values is None and (getattr(settings, "gemini_api_key", "") or ""):
+        try:
+            new_values = await _gemini_call_json(
+                api_key=settings.gemini_api_key, model=GEMINI_SECTION_MODEL,
+                system_prompt=COPY_SYSTEM_PROMPT, user_msg=user_msg,
+                max_tokens=SECTION_MAX_TOKENS, timeout=SECTION_TIMEOUT_SECONDS,
+            )
+            provider = "gemini_fallback"
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("pages.refine_copy_gemini_failed err=%s", str(exc)[:200])
+    if not isinstance(new_values, dict) or not new_values:
+        return section, "none"
+
+    # Only copy fields may change; media/url/colour values stay as they were.
+    locked = {f["key"] for f in schema if f.get("type") in ("image", "url", "color")}
+    merged = {**current, **{k: v for k, v in new_values.items() if k not in locked}}
+    clean, errors = validate_fields(schema, merged, locale=meta.get("locale") or "en")
+    schema_keys = {f["key"] for f in schema if f.get("key")}
+    props = {k: v for k, v in current.items() if k not in schema_keys}
+    props.update(clean)
+    for k in schema_keys:
+        if k not in props and k in current:
+            props[k] = current[k]
+    if errors:
+        logger.info("pages.refine_copy_field_errors errors=%s", errors[:5])
+
+    is_v2 = int(getattr(variant, "schema_version", 1) or 1) >= 2
+    section["jsx_content"] = render_template(
+        variant.jsx_template, props, skip_tokens=MEDIA_TOKENS | EMBED_TOKENS, escape=is_v2,
+    )
+    section["edited_html"] = None
+    meta["props"] = props
+    rt = runtime_fields(schema, props)
+    if rt:
+        meta["runtime"] = rt
+    meta["provider"] = provider
+    meta["last_refine"] = instruction[:500]
+    section["metadata"] = meta
+    return section, provider
+
+
 async def refine_section(
     db: AsyncSession,
     page_id: uuid.UUID,
@@ -660,16 +759,23 @@ async def refine_section(
         )
 
     target = sections[section_index]
-    refined, provider = await _generate_section_hybrid(
-        target,
-        settings,
-        instruction=instruction,
-        existing_jsx=target.get("jsx_content", ""),
-    )
-    target["jsx_content"] = refined.get("jsx_content", target.get("jsx_content"))
-    existing_meta = target.get("metadata") or {}
-    new_meta = refined.get("metadata") or {}
-    target["metadata"] = {**existing_meta, **new_meta, "provider": provider}
+    variant_id = (target.get("metadata") or {}).get("variant_id")
+    if variant_id:
+        # Library block (block model v2): the AI rewrites COPY ONLY — the
+        # field values — never the markup. (Nate, 2026-09-07.)
+        target, provider = await refine_copy(db, target, instruction, settings)
+    else:
+        # Legacy AI-authored section without a template: JSX rewrite path.
+        refined, provider = await _generate_section_hybrid(
+            target,
+            settings,
+            instruction=instruction,
+            existing_jsx=target.get("jsx_content", ""),
+        )
+        target["jsx_content"] = refined.get("jsx_content", target.get("jsx_content"))
+        existing_meta = target.get("metadata") or {}
+        new_meta = refined.get("metadata") or {}
+        target["metadata"] = {**existing_meta, **new_meta, "provider": provider}
     sections[section_index] = target
 
     page.sections_json = json.dumps(sections)

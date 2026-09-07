@@ -589,6 +589,20 @@ def _seed_values(v: dict) -> dict:
 
     default_props = v.get("default_props", {}) or {}
     fields_schema = v.get("fields_schema") or infer_fields_schema(default_props)
+    # Library imagery (S3): fill image slots from the committed manifest
+    # pools so every block looks finished in the picker. No-op until the
+    # manifest exists.
+    from app.pages.imagery import apply_imagery
+    default_props = apply_imagery(v["variant_id"], v["category"], default_props, fields_schema)
+    locale_props = v.get("locale_props")
+    if locale_props:
+        locale_props = {
+            loc: apply_imagery(v["variant_id"], v["category"], {**default_props, **lp}, fields_schema)
+            for loc, lp in locale_props.items()
+        }
+        # keep only the locale's own keys (plus any image slots it carries)
+        locale_props = {loc: {k: val for k, val in lp.items() if k in (v.get("locale_props") or {}).get(loc, {})}
+                        for loc, lp in locale_props.items()}
     return {
         "display_name": v["display_name"],
         "description": v.get("description"),
@@ -604,7 +618,7 @@ def _seed_values(v: dict) -> dict:
         "behaviour": v.get("behaviour"),
         "capabilities": v.get("capabilities"),
         "motion_preset": v.get("motion_preset"),
-        "locale_props": v.get("locale_props"),
+        "locale_props": locale_props,
     }
 
 

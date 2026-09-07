@@ -6,6 +6,11 @@ requires-python = ">=3.10"
 dependencies = [
     "fastapi>=0.115.0",
     "nh3>=0.3.0",
+    # Block-library thumbnails (app/pages/thumbnails.py) need headless
+    # Chromium: `pip install playwright && playwright install chromium`.
+    # Optional — the admin endpoint answers 501 without it; render from a
+    # dev machine, the results are committed under app/pages/static/.
+    "playwright>=1.47",
     "uvicorn[standard]>=0.34.0",
     "sqlalchemy[asyncio]>=2.0.36",
     "aiosqlite>=0.21.0",

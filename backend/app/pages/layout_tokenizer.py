@@ -176,10 +176,26 @@ class _Tokenizer(HTMLParser):
         super().close()
 
 
+_GRADIENT_PLACEHOLDER = re.compile(
+    r'<div class="([^"]*\baspect-\[[^"]*\bbg-gradient-to-[a-z]+[^"]*)"></div>'
+)
+
+
+def _promote_gradient_placeholders(html: str) -> str:
+    """The visual layouts used empty gradient boxes where a photo belongs
+    (`<div class="aspect-[4/3] … bg-gradient-to-br …"></div>`). Turn them
+    into real <img> slots so they become image fields (and get library
+    imagery in S3) while keeping the same size/rounding classes."""
+    def _sub(m: re.Match[str]) -> str:
+        classes = " ".join(c for c in m.group(1).split() if not c.startswith(("bg-gradient", "from-", "to-", "via-")))
+        return f'<img src="" alt="" class="{classes} w-full object-cover"/>'
+    return _GRADIENT_PLACEHOLDER.sub(_sub, html)
+
+
 def tokenize_layout(html: str) -> tuple[str, dict[str, Any], list[dict]]:
     """Returns (jsx_template, default_props, fields_schema)."""
     p = _Tokenizer()
-    p.feed(html)
+    p.feed(_promote_gradient_placeholders(html))
     p.close()
     template = "".join(p.out)
     # Entities inside captured copy: the engine escapes v2 values, so store

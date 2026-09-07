@@ -39,7 +39,9 @@ import {
   Mail,
   X,
   Phone,
+  Blocks,
 } from 'lucide-react'
+import BlocksAdminTab from '@/components/pages/BlocksAdminTab'
 import { FEATURE_CATEGORIES, ROLE_DEFAULTS, FEATURE_LABELS } from '@/lib/features'
 import { useTranslation } from 'react-i18next'
 import i18n from '@/i18n'
@@ -54,6 +56,7 @@ const TABS = [
   { key: 'pricing', label: i18n.t('ui:PlatformAdminPage.pricingLimits'), icon: DollarSign },
   { key: 'apikeys', label: i18n.t('ui:PlatformAdminPage.apiKeys'), icon: Key },
   { key: 'telephony', label: i18n.t('ui:PlatformAdminPage.telephony'), icon: Phone },
+  { key: 'blocks', label: i18n.t('ui:PlatformAdminPage.blocks'), icon: Blocks },
   { key: 'health', label: i18n.t('ui:PlatformAdminPage.health'), icon: HeartPulse },
   { key: 'security', label: i18n.t('ui:PlatformAdminPage.security'), icon: Shield },
   { key: 'errors', label: i18n.t('ui:PlatformAdminPage.errors'), icon: AlertTriangle },
@@ -114,6 +117,7 @@ export default function PlatformAdminPage() {
         {activeTab === 'pricing' && <PricingTab />}
         {activeTab === 'apikeys' && <ApiKeysTab />}
         {activeTab === 'telephony' && <TelephonyTab />}
+        {activeTab === 'blocks' && <BlocksAdminTab />}
         {activeTab === 'health' && <HealthTab />}
         {activeTab === 'security' && <SecurityTab />}
         {activeTab === 'errors' && <ErrorsTab />}

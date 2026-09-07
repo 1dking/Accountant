@@ -462,6 +462,9 @@ def create_app() -> FastAPI:
     fastapi_app.include_router(kyc_router, prefix="/api/kyc", tags=["KYC"])
     fastapi_app.include_router(google_calendar_router, prefix="/api/integrations/google-calendar", tags=["google-calendar"], dependencies=[Depends(require_feature("calendar"))])
     fastapi_app.include_router(platform_admin_router, prefix="/api/platform-admin", tags=["platform-admin"], dependencies=[Depends(require_feature("platform_admin"))])
+    # Block library management (page builder, block model v2).
+    from app.pages.admin_router import router as blocks_admin_router
+    fastapi_app.include_router(blocks_admin_router, prefix="/api/platform-admin/blocks", tags=["platform-admin"], dependencies=[Depends(require_feature("platform_admin"))])
     fastapi_app.include_router(events_router, prefix="/api/platform-admin/events", tags=["events"], dependencies=[Depends(require_feature("platform_admin"))])
     fastapi_app.include_router(wtp_router, prefix="/api/platform-admin/wtp", tags=["wtp"], dependencies=[Depends(require_feature("platform_admin"))])
     fastapi_app.include_router(coach_router, prefix="/api/coach", tags=["coach"], dependencies=[Depends(require_feature("obrain_coach"))])

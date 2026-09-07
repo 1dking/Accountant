@@ -1099,15 +1099,15 @@
     "style": "Style",
     "animations": "Animations",
     "changeVariant": "Change variant",
-    "refineWithAi": "Refine with AI",
+    "refineWithAi": "Refine copy with AI",
     "duplicateSection": "Duplicate section",
     "revertThisSectionToThe": "Revert this section to the AI original? Your edits will be lost.",
     "revertToAiOriginal": "Revert to AI original",
     "deleteThisSection": "Delete this section?",
     "deleteSection": "Delete section",
     "refine": "Refine",
-    "withAi": "with AI",
-    "eGMakeTheHeadline": "e.g. 'make the headline more playful' or 'change the color scheme to warm tones'",
+    "withAi": "copy with AI",
+    "eGMakeTheHeadline": "e.g. Make the headline punchier and mention Ottawa — the AI rewrites the words only, never the layout",
     "toSubmit": "⌘↵ to submit",
     "working": "Working…",
     "replayAnimation": "Replay animation",
@@ -1129,7 +1129,8 @@
     "reorderFailedV0": "Reorder failed: {{v0}}",
     "variantSwappedLengthFieldV1": "Variant swapped — {{length}} field{{v1}} migrated",
     "swapFailedV0": "Swap failed: {{v0}}",
-    "fields": "Fields"
+    "fields": "Fields",
+    "background": "Background"
   },
   "StyleEditorDrawer": {
     "light": "Light",
@@ -4873,7 +4874,8 @@
     "deactivateFullName": "Deactivate {{full_name}}?",
     "v0KeysSaved": "{{v0}} keys saved",
     "v0KeysRemoved": "{{v0}} keys removed",
-    "removeAllV0Keys": "Remove all {{v0}} keys?"
+    "removeAllV0Keys": "Remove all {{v0}} keys?",
+    "blocks": "Blocks"
   },
   "PortalAdminPage": {
     "invitationSent": "Invitation sent",
@@ -6179,5 +6181,49 @@
     "loading": "Loading fields…",
     "noFields": "This block has no editable fields.",
     "inlineEditsWarning": "This block has inline edits. Saving fields will replace them with a fresh render."
+  },
+  "BlocksAdminTab": {
+    "title": "Block library",
+    "summary": "{{total}} blocks · {{active}} active · {{thumbs}} with rendered thumbnails",
+    "resync": "Re-seed from code",
+    "resynced": "{{count}} blocks synced",
+    "renderThumbnails": "Render thumbnails",
+    "rendering": "Rendering…",
+    "renderStarted": "Thumbnail render started",
+    "thumbnailRendered": "Thumbnail rendered",
+    "playwrightMissing": "Playwright is not installed on this server — render thumbnails from a dev machine.",
+    "search": "Search blocks…",
+    "allCategories": "All categories",
+    "dynamicOnly": "Dynamic only",
+    "loading": "Loading blocks…",
+    "stale": "Stale",
+    "fields": "fields",
+    "disable": "Disable (hide from pickers and AI)",
+    "enable": "Enable",
+    "noThumbnail": "No rendered thumbnail",
+    "render": "Render"
+  },
+  "BackgroundPanel": {
+    "title": "Section background",
+    "close": "Close",
+    "cancel": "Cancel",
+    "save": "Save background",
+    "saved": "Background saved",
+    "saveFailed": "Save failed: {{v0}}",
+    "none": "None",
+    "image": "Image",
+    "video": "Video",
+    "gradient": "Gradient",
+    "imageUrl": "Image",
+    "videoUrl": "Video (MP4, YouTube or Vimeo)",
+    "poster": "Poster image (shown before the video loads)",
+    "choose": "Choose",
+    "position": "Focus",
+    "blur": "Blur",
+    "parallax": "Parallax on scroll",
+    "fixed": "Fixed (stays put while the page scrolls)",
+    "overlay": "Overlay",
+    "overlayHint": "Darken or tint the media so the text stays readable.",
+    "hostedVideoHint": "YouTube and Vimeo players always carry some branding; we hide their bars and controls, but for a completely clean background upload an MP4 with “Choose”."
   }
 }

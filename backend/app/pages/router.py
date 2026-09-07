@@ -1455,6 +1455,22 @@ async def patch_section(
         target["metadata"] = meta
         target["edited_html"] = None  # inline edits were against the old render
 
+    if "background" in body:
+        val = body["background"]
+        if val is not None and not isinstance(val, dict):
+            raise HTTPException(status_code=400, detail="background must be an object or null")
+        from app.pages.compiler import normalize_background
+        from app.pages.variants import normalize_video_url
+        if isinstance(val, dict) and isinstance(val.get("url"), str) and val.get("type") == "video":
+            val = {**val, "url": normalize_video_url(val["url"])}
+        norm = normalize_background(val)
+        if val is not None and norm is None:
+            raise HTTPException(status_code=400, detail="background is invalid (type/url)")
+        if norm is None:
+            target.pop("background", None)
+        else:
+            target["background"] = norm
+
     if "edited_html" in body:
         val = body["edited_html"]
         if val is not None and not isinstance(val, str):

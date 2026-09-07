@@ -76,6 +76,18 @@ async def serve_runtime(version: str, filename: str) -> FileResponse:
     return FileResponse(path, headers={"Cache-Control": "public, max-age=31536000, immutable"})
 
 
+@router.get("/static/{path:path}")
+async def serve_static(path: str) -> FileResponse:
+    """Local-dev fallback for thumbnails / library imagery (R2 serves them
+    in production). Path-confined to app/pages/static."""
+    if not path or any(not _SAFE_SEG.match(seg) for seg in path.split("/")):
+        raise HTTPException(status_code=404, detail="Not found")
+    target = (_STATIC_DIR / path).resolve()
+    if not str(target).startswith(str(_STATIC_DIR.resolve())) or not target.is_file():
+        raise HTTPException(status_code=404, detail="Not found")
+    return FileResponse(target, headers={"Cache-Control": "public, max-age=86400"})
+
+
 # ------------------------------------------------------------------- data ---
 
 @router.get("/{slug}/data/company")

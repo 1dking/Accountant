@@ -797,6 +797,146 @@ def _wrap_section_with_animation(html: str, anim_config: dict | None) -> str:
     return f'<div data-section-anim="{safe}">{html}</div>'
 
 
+BACKGROUND_TYPES = ("none", "image", "video", "gradient")
+_HEX = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
+_BG_POSITIONS = ("center", "top", "bottom", "left", "right")
+
+
+def normalize_background(bg: Any) -> dict | None:
+    """Validate/clamp a section background spec. Returns None for
+    "no background". Shape:
+      {type: image|video|gradient, url, poster, overlay_color (#hex),
+       overlay_opacity 0..1, position, parallax bool, fixed bool,
+       gradient (css gradient string, gradient type only), blur 0..20}
+    """
+    if not isinstance(bg, dict) or bg.get("type") in (None, "", "none"):
+        return None
+    t = bg.get("type")
+    if t not in BACKGROUND_TYPES:
+        return None
+    out: dict[str, Any] = {"type": t}
+    url = bg.get("url")
+    if t in ("image", "video"):
+        if not isinstance(url, str) or not url.strip():
+            return None
+        url = url.strip()[:1000]
+        if not re.match(r"^(https?://|/|data:image/)", url, re.IGNORECASE):
+            return None
+        out["url"] = url
+        poster = bg.get("poster")
+        if isinstance(poster, str) and re.match(r"^(https?://|/)", poster.strip(), re.IGNORECASE):
+            out["poster"] = poster.strip()[:1000]
+    if t == "gradient":
+        g = bg.get("gradient")
+        if not isinstance(g, str) or "gradient(" not in g or "url(" in g.lower() or ";" in g:
+            return None
+        out["gradient"] = g.strip()[:300]
+    color = bg.get("overlay_color")
+    if isinstance(color, str) and _HEX.match(color.strip()):
+        out["overlay_color"] = color.strip()
+    try:
+        op = float(bg.get("overlay_opacity", 0) or 0)
+        out["overlay_opacity"] = min(1.0, max(0.0, op))
+    except (TypeError, ValueError):
+        out["overlay_opacity"] = 0.0
+    pos = bg.get("position")
+    out["position"] = pos if pos in _BG_POSITIONS else "center"
+    out["parallax"] = bool(bg.get("parallax"))
+    out["fixed"] = bool(bg.get("fixed"))
+    try:
+        out["blur"] = min(20, max(0, int(bg.get("blur", 0) or 0)))
+    except (TypeError, ValueError):
+        out["blur"] = 0
+    return out
+
+
+def render_background_layer(bg: dict | None) -> str:
+    """Absolutely-positioned media/overlay layer that sits behind a
+    section's content. The compiler and the editor preview both use
+    this markup (the editor mirrors it in SectionEditor.tsx)."""
+    bg = normalize_background(bg)
+    if not bg:
+        return ""
+    esc = lambda s: html_escape.escape(str(s), quote=True)  # noqa: E731
+    pos = bg.get("position", "center")
+    blur = bg.get("blur", 0)
+    media_style = (
+        "position:absolute;inset:0;width:100%;height:100%;object-fit:cover;"
+        f"object-position:{pos};"
+        + (f"filter:blur({blur}px);transform:scale(1.05);" if blur else "")
+    )
+    parallax_attr = " data-parallax" if bg.get("parallax") else ""
+    if bg["type"] == "video":
+        url = bg["url"]
+        if "youtube.com/embed/" in url or "player.vimeo.com/video/" in url:
+            # Hosted players can't be fed to <video>: cover the section
+            # with a muted, looping, chromeless iframe. 16:9 cover math —
+            # the frame is at least as wide/tall as the box either way.
+            sep = "&" if "?" in url else "?"
+            if "youtube.com" in url:
+                url = f"{url}{sep}playsinline=1&iv_load_policy=3&disablekb=1"
+            # Hosted players always draw their own chrome (title bar, play/
+            # pause overlay, "more videos", logo). Three counters: 1.6×
+            # oversize so the top/bottom bars sit outside the clipped box;
+            # a transparent shield above the frame so hover never wakes the
+            # controls; and the frame fades in 2.5 s after load so the
+            # start-up overlay is never seen (poster/overlay show meanwhile).
+            frame_style = (
+                "position:absolute;top:50%;left:50%;width:max(160%,285vh);"
+                "height:max(160%,90vw);transform:translate(-50%,-50%);"
+                "pointer-events:none;border:0;opacity:0;"
+                "animation:pg-bgin .8s ease 2.5s forwards;"
+                + (f"filter:blur({blur}px);" if blur else "")
+            )
+            poster_layer = (
+                f'<img src="{esc(bg["poster"])}" alt="" style="{media_style}" aria-hidden="true">'
+                if bg.get("poster") else ""
+            )
+            media = (
+                "<style>@keyframes pg-bgin{to{opacity:1}}</style>"
+                f'{poster_layer}<iframe src="{esc(url)}" title="" tabindex="-1" '
+                f'allow="autoplay; encrypted-media" style="{frame_style}"{parallax_attr} aria-hidden="true"></iframe>'
+                '<div style="position:absolute;inset:0" aria-hidden="true"></div>'
+            )
+        else:
+            poster = f' poster="{esc(bg["poster"])}"' if bg.get("poster") else ""
+            media = (
+                f'<video autoplay muted loop playsinline preload="metadata"{poster}'
+                f' style="{media_style}"{parallax_attr} aria-hidden="true">'
+                f'<source src="{esc(url)}"></video>'
+            )
+    elif bg["type"] == "image":
+        if bg.get("fixed"):
+            media = (
+                f'<div style="position:absolute;inset:0;background-image:url(\'{esc(bg["url"])}\');'
+                f'background-size:cover;background-position:{pos};background-attachment:fixed;'
+                + (f"filter:blur({blur}px);" if blur else "") + f'"{parallax_attr} aria-hidden="true"></div>'
+            )
+        else:
+            media = f'<img src="{esc(bg["url"])}" alt="" style="{media_style}"{parallax_attr} aria-hidden="true">'
+    else:
+        media = f'<div style="position:absolute;inset:0;background:{esc(bg["gradient"])}" aria-hidden="true"></div>'
+    overlay = ""
+    if bg.get("overlay_opacity", 0) > 0:
+        c = bg.get("overlay_color", "#000000")
+        overlay = (
+            f'<div style="position:absolute;inset:0;background:{esc(c)};'
+            f'opacity:{bg["overlay_opacity"]:.2f}" aria-hidden="true"></div>'
+        )
+    return f'<div class="pg-bg" style="position:absolute;inset:0;overflow:hidden;z-index:0">{media}{overlay}</div>'
+
+
+def background_content_css(scope: str) -> str:
+    """CSS that makes a block transparent over its background layer:
+    the outermost element loses its own background and any full-bleed
+    `absolute inset-0` decorative layer directly under it is hidden.
+    Mirrored in SectionEditor.tsx for the editor preview."""
+    return (
+        f"{scope} .pg-bg-content > *:first-child{{background:transparent !important}}"
+        f"{scope} .pg-bg-content > *:first-child > .absolute.inset-0{{display:none}}"
+    )
+
+
 def _attr_escape_json(obj: Any) -> str:
     """JSON-encode + HTML-attribute-escape an object. Used by both
     4A flat and 4B preset wrappers."""
@@ -946,6 +1086,20 @@ def compile_page(
                     runtime_cfg = dict(sec_meta.get("runtime") or {})
                     runtime_cfg["id"] = sid
                     block_attrs += f' data-block-config="{_attr_escape_json(runtime_cfg)}"'
+                # Section background (image / video / gradient + overlay).
+                bg_layer = render_background_layer(sec.get("background"))
+                if bg_layer:
+                    block_attrs += ' style="position:relative"'
+                    bg = normalize_background(sec.get("background")) or {}
+                    if bg.get("parallax") and not motion:
+                        block_attrs += ' data-motion="css_parallax_slow"'
+                        motion_presets_used.add("css_parallax_slow")
+                        needs_runtime = True
+                    rendered = f'{bg_layer}<div class="pg-bg-content" style="position:relative;z-index:1">{rendered}</div>'
+                    # The block's own solid/gradient background (and its
+                    # full-bleed decorative layers) would hide the media —
+                    # let the background layer show through.
+                    style_blocks.append(background_content_css(f"#section-{sid}"))
                 body_sections.append(
                     f'<section id="section-{sid}" data-pages-section{block_attrs}>{rendered}</section>'
                 )

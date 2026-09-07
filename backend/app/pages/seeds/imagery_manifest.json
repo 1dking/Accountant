@@ -1,0 +1,90 @@
+{
+ "pools": {
+  "hero": [
+   "/api/pages/public/static/library/hero/00.webp",
+   "/api/pages/public/static/library/hero/01.webp",
+   "/api/pages/public/static/library/hero/02.webp",
+   "/api/pages/public/static/library/hero/03.webp",
+   "/api/pages/public/static/library/hero/04.webp",
+   "/api/pages/public/static/library/hero/05.webp",
+   "/api/pages/public/static/library/hero/06.webp",
+   "/api/pages/public/static/library/hero/07.webp",
+   "/api/pages/public/static/library/hero/08.webp",
+   "/api/pages/public/static/library/hero/09.webp",
+   "/api/pages/public/static/library/hero/10.webp",
+   "/api/pages/public/static/library/hero/11.webp",
+   "/api/pages/public/static/library/hero/12.webp",
+   "/api/pages/public/static/library/hero/13.webp",
+   "/api/pages/public/static/library/hero/14.webp",
+   "/api/pages/public/static/library/hero/15.webp",
+   "/api/pages/public/static/library/hero/16.webp",
+   "/api/pages/public/static/library/hero/17.webp"
+  ],
+  "feature": [
+   "/api/pages/public/static/library/feature/00.webp",
+   "/api/pages/public/static/library/feature/01.webp",
+   "/api/pages/public/static/library/feature/02.webp",
+   "/api/pages/public/static/library/feature/03.webp",
+   "/api/pages/public/static/library/feature/04.webp",
+   "/api/pages/public/static/library/feature/05.webp",
+   "/api/pages/public/static/library/feature/06.webp",
+   "/api/pages/public/static/library/feature/07.webp",
+   "/api/pages/public/static/library/feature/08.webp",
+   "/api/pages/public/static/library/feature/09.webp",
+   "/api/pages/public/static/library/feature/10.webp",
+   "/api/pages/public/static/library/feature/11.webp"
+  ],
+  "gallery": [
+   "/api/pages/public/static/library/gallery/00.webp",
+   "/api/pages/public/static/library/gallery/01.webp",
+   "/api/pages/public/static/library/gallery/02.webp",
+   "/api/pages/public/static/library/gallery/03.webp",
+   "/api/pages/public/static/library/gallery/04.webp",
+   "/api/pages/public/static/library/gallery/05.webp",
+   "/api/pages/public/static/library/gallery/06.webp",
+   "/api/pages/public/static/library/gallery/07.webp",
+   "/api/pages/public/static/library/gallery/08.webp",
+   "/api/pages/public/static/library/gallery/09.webp",
+   "/api/pages/public/static/library/gallery/10.webp",
+   "/api/pages/public/static/library/gallery/11.webp",
+   "/api/pages/public/static/library/gallery/12.webp",
+   "/api/pages/public/static/library/gallery/13.webp",
+   "/api/pages/public/static/library/gallery/14.webp",
+   "/api/pages/public/static/library/gallery/15.webp",
+   "/api/pages/public/static/library/gallery/16.webp",
+   "/api/pages/public/static/library/gallery/17.webp",
+   "/api/pages/public/static/library/gallery/18.webp",
+   "/api/pages/public/static/library/gallery/19.webp"
+  ],
+  "team": [
+   "/api/pages/public/static/library/team/00.webp",
+   "/api/pages/public/static/library/team/01.webp",
+   "/api/pages/public/static/library/team/02.webp",
+   "/api/pages/public/static/library/team/03.webp",
+   "/api/pages/public/static/library/team/04.webp",
+   "/api/pages/public/static/library/team/05.webp",
+   "/api/pages/public/static/library/team/06.webp",
+   "/api/pages/public/static/library/team/07.webp",
+   "/api/pages/public/static/library/team/08.webp",
+   "/api/pages/public/static/library/team/09.webp",
+   "/api/pages/public/static/library/team/10.webp",
+   "/api/pages/public/static/library/team/11.webp"
+  ],
+  "before_after": [
+   "/api/pages/public/static/library/before_after/00.webp",
+   "/api/pages/public/static/library/before_after/01.webp",
+   "/api/pages/public/static/library/before_after/02.webp",
+   "/api/pages/public/static/library/before_after/03.webp"
+  ],
+  "location": [
+   "/api/pages/public/static/library/location/00.webp",
+   "/api/pages/public/static/library/location/01.webp",
+   "/api/pages/public/static/library/location/02.webp",
+   "/api/pages/public/static/library/location/03.webp",
+   "/api/pages/public/static/library/location/04.webp",
+   "/api/pages/public/static/library/location/05.webp"
+  ]
+ },
+ "slots": {},
+ "stock_fallback": {}
+}
