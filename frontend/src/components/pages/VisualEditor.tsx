@@ -183,7 +183,7 @@ interface LibraryVariantRow {
 const CATEGORY_LABELS: Record<string, string> = {
   nav: 'Navbar', hero: 'Hero', features: 'Features', pricing: 'Pricing',
   testimonials: 'Testimonials', cta: 'CTA', faq: 'FAQ', team: 'Team', stats: 'Stats',
-  contact: 'Contact', booking: 'Booking', location: 'Location', footer: 'Footer', gallery: 'Gallery', logos: 'Logos',
+  contact: 'Contact', booking: 'Booking', location: 'Location', services: 'Services', footer: 'Footer', gallery: 'Gallery', logos: 'Logos',
 }
 const CATEGORY_ORDER = Object.keys(CATEGORY_LABELS)
 function groupLibrary(rows: LibraryVariantRow[]): LibraryCategory[] {

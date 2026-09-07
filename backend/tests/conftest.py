@@ -122,6 +122,7 @@ def _import_all_models():
     import app.communication.models  # noqa
     import app.workflows.models  # noqa
     import app.pages.models  # noqa
+    import app.pages.catalog_models  # noqa
     import app.scheduling.models  # noqa
     import app.branding.models  # noqa
     import app.brain.models  # noqa

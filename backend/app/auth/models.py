@@ -69,6 +69,12 @@ class User(TimestampMixin, Base):
     #: active value for a request can be overridden by the X-App-Mode header (see
     #: app/dependencies.py). Defaults "business" so every existing user is
     #: unchanged until they opt into Personal mode.
+    # S5: public profile used by the team block. Only read by pages/*.
+    public_title: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    public_bio: Mapped[str | None] = mapped_column(Text, nullable=True)
+    avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    show_on_site: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1", nullable=False)
+
     active_mode: Mapped[str] = mapped_column(
         String(20), default="business", server_default="business", nullable=False
     )

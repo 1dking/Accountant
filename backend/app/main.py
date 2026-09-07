@@ -82,6 +82,7 @@ import app.communication.identity_capture  # noqa: F401
 import app.tasks.models  # noqa: F401
 import app.workflows.models  # noqa: F401
 import app.pages.models  # noqa: F401
+import app.pages.catalog_models  # noqa: F401
 import app.scheduling.models  # noqa: F401
 import app.branding.models  # noqa: F401
 import app.brain.models  # noqa: F401
@@ -465,6 +466,9 @@ def create_app() -> FastAPI:
     # Block library management (page builder, block model v2).
     from app.pages.admin_router import router as blocks_admin_router
     fastapi_app.include_router(blocks_admin_router, prefix="/api/platform-admin/blocks", tags=["platform-admin"], dependencies=[Depends(require_feature("platform_admin"))])
+    # Site catalogue CRUD (services / reviews / faqs) — authed.
+    from app.pages.catalog_router import router as catalog_router
+    fastapi_app.include_router(catalog_router, prefix="/api/pages/catalog", tags=["pages"], dependencies=[Depends(require_feature("pages"))])
     fastapi_app.include_router(events_router, prefix="/api/platform-admin/events", tags=["events"], dependencies=[Depends(require_feature("platform_admin"))])
     fastapi_app.include_router(wtp_router, prefix="/api/platform-admin/wtp", tags=["wtp"], dependencies=[Depends(require_feature("platform_admin"))])
     fastapi_app.include_router(coach_router, prefix="/api/coach", tags=["coach"], dependencies=[Depends(require_feature("obrain_coach"))])

@@ -30,10 +30,26 @@ logger = logging.getLogger(__name__)
 Resolver = Callable[[AsyncSession, Page], Awaitable[dict[str, Any]]]
 
 
-async def resolve_company(db: AsyncSession, page: Page) -> dict[str, Any]:
-    from app.settings.service import get_company_settings
+async def _page_owner(db: AsyncSession, page: Page):
+    from app.auth.models import User
+    return (await db.execute(select(User).where(User.id == page.created_by))).scalar_one_or_none()
 
-    company = await get_company_settings(db)
+
+async def resolve_company(db: AsyncSession, page: Page) -> dict[str, Any]:
+    """Company profile scoped to the page's owner (or their org).
+
+    Falls back to the singleton row when no per-owner row exists so a
+    freshly-installed workspace still fills COMPANY_* tokens."""
+    from app.settings.models import CompanySettings
+
+    owner = await _page_owner(db, page)
+    company = None
+    if owner is not None:
+        q = select(CompanySettings)
+        q = q.where(CompanySettings.org_id == owner.org_id) if owner.org_id else q.where(CompanySettings.created_by == owner.id)
+        company = (await db.execute(q.limit(1))).scalars().first()
+    if company is None:
+        company = (await db.execute(select(CompanySettings).limit(1))).scalars().first()
     if company is None:
         return {}
     address = ", ".join(
@@ -49,19 +65,23 @@ async def resolve_company(db: AsyncSession, page: Page) -> dict[str, Any]:
         "COMPANY_WEBSITE": company.company_website,
         "COMPANY_ADDRESS": address or None,
         "COMPANY_LOGO_URL": "/api/settings/company/logo" if company.logo_storage_path else None,
+        "COMPANY_TAGLINE": getattr(company, "tagline", None),
+        "SERVICE_AREA": getattr(company, "service_area_text", None),
+        "MAP_EMBED_URL": getattr(company, "map_embed_url", None),
+        "BRAND_PRIMARY_COLOR": getattr(company, "brand_primary_color", None),
     }
     return {k: v for k, v in out.items() if v}
 
 
 async def resolve_users(db: AsyncSession, page: Page) -> dict[str, Any]:
-    """Team grid: active users in the page owner's workspace (same org, or
-    the owner alone when there is no org)."""
+    """Team grid: active users in the page owner's workspace who opted
+    into the public site (User.show_on_site)."""
     from app.auth.models import User
 
-    owner = (await db.execute(select(User).where(User.id == page.created_by))).scalar_one_or_none()
+    owner = await _page_owner(db, page)
     if owner is None:
         return {}
-    q = select(User).where(User.is_active.is_(True))
+    q = select(User).where(User.is_active.is_(True), User.show_on_site.is_(True))
     if owner.org_id:
         q = q.where(User.org_id == owner.org_id)
     else:
@@ -72,6 +92,7 @@ async def resolve_users(db: AsyncSession, page: Page) -> dict[str, Any]:
             "NAME": u.full_name,
             "TITLE": getattr(u, "public_title", None) or u.role.value.replace("_", " ").title(),
             "AVATAR_URL": getattr(u, "avatar_url", None) or "",
+            "BIO": (getattr(u, "public_bio", None) or "")[:400],
             "BOOKING_HREF": u.booking_link or "",
             "INITIALS": "".join(p[0] for p in u.full_name.split()[:2]).upper(),
         }
@@ -80,9 +101,87 @@ async def resolve_users(db: AsyncSession, page: Page) -> dict[str, Any]:
     return {"TEAM": team} if team else {}
 
 
+async def resolve_catalog(db: AsyncSession, page: Page) -> dict[str, Any]:
+    """Services / products / plans owned by the page's workspace."""
+    from app.pages import catalog_service
+
+    owner = await _page_owner(db, page)
+    if owner is None:
+        return {}
+    items = await catalog_service.list_catalog(db, owner)
+    if not items:
+        return {}                       # nothing to bind — keep the sample copy
+    services = [_service_row(catalog_service.catalog_out(i)) for i in items if i.kind == "service"]
+    products = [_product_row(catalog_service.catalog_out(i)) for i in items if i.kind == "product"]
+    plans = [_plan_row(catalog_service.catalog_out(i)) for i in items if i.kind == "plan"]
+    out: dict[str, Any] = {}
+    if services: out["SERVICES"] = services
+    if products: out["PRODUCTS"] = products
+    if plans:    out["PLANS"] = plans
+    return out
+
+
+async def resolve_reviews(db: AsyncSession, page: Page) -> dict[str, Any]:
+    from app.pages import catalog_service
+
+    owner = await _page_owner(db, page)
+    if owner is None:
+        return {}
+    rows = await catalog_service.list_reviews(db, owner, limit=12)
+    out = [
+        {
+            "QUOTE": r.quote,
+            "AUTHOR_NAME": r.author_name,
+            "AUTHOR_TITLE": r.author_title or "",
+            "AUTHOR_AVATAR_URL": r.author_avatar_url or "",
+            "RATING": r.rating or 0,
+            "STARS": "★" * (r.rating or 0),
+            "SOURCE": r.source,
+            "INITIALS": "".join(p[0] for p in r.author_name.split()[:2]).upper(),
+        }
+        for r in rows
+    ]
+    return {"REVIEWS": out} if out else {}
+
+
+async def resolve_faqs(db: AsyncSession, page: Page) -> dict[str, Any]:
+    from app.pages import catalog_service
+
+    owner = await _page_owner(db, page)
+    if owner is None:
+        return {}
+    rows = await catalog_service.list_faqs(db, owner, limit=40)
+    out = [{"QUESTION": f.question, "ANSWER": f.answer, "CATEGORY": f.category or ""} for f in rows]
+    return {"FAQS": out} if out else {}
+
+
+def _service_row(s: dict) -> dict:
+    return {
+        "NAME": s["name"], "SLUG": s["slug"], "SUMMARY": s.get("summary") or "",
+        "DESCRIPTION": s.get("description") or "", "PRICE_DISPLAY": s.get("price_display") or "",
+        "PRICE_PERIOD": s.get("price_period") or "", "IMAGE_URL": s.get("image_url") or "",
+        "CTA_TEXT": s.get("cta_text") or "", "CTA_HREF": s.get("cta_href") or "",
+        "FEATURES": s.get("features") or [],
+    }
+
+
+def _product_row(s: dict) -> dict:
+    return {**_service_row(s), "STRIPE_PRICE_ID": s.get("stripe_price_id") or ""}
+
+
+def _plan_row(s: dict) -> dict:
+    return {
+        **_service_row(s),
+        "FEATURED": bool(s.get("is_featured")),
+    }
+
+
 RESOLVERS: dict[str, Resolver] = {
     "company": resolve_company,
     "users": resolve_users,
+    "catalog": resolve_catalog,
+    "reviews": resolve_reviews,
+    "faqs": resolve_faqs,
 }
 
 

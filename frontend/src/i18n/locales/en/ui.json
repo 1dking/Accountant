@@ -1244,7 +1244,9 @@
     "booking": "Booking",
     "liveCalendarSlots": "Live calendar slots, booked in place",
     "location": "Location",
-    "mapHoursAndOpenNow": "Map, hours and “open now”"
+    "mapHoursAndOpenNow": "Map, hours and “open now”",
+    "services": "Services",
+    "fromYourCatalogue": "Services / products / plans from your catalogue"
   },
   "VisualEditor": {
     "thin": "Thin",

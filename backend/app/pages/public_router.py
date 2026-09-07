@@ -138,6 +138,63 @@ async def public_availability(
     }
 
 
+@router.get("/{slug}/data/services")
+async def public_services(
+    slug: str, request: Request, db: Annotated[AsyncSession, Depends(get_db)],
+    kind: str = Query("service", pattern="^(service|product|plan)$"),
+    featured: bool = False,
+    limit: int = Query(24, ge=1, le=60),
+) -> dict:
+    enforce(request, "pages.read", *READ_LIMITS)
+    page = await _page_by_slug(db, slug)
+    from app.auth.models import User
+    from app.pages import catalog_service
+
+    owner = (await db.execute(select(User).where(User.id == page.created_by))).scalar_one_or_none()
+    if owner is None:
+        return {"data": []}
+    items = await catalog_service.list_catalog(db, owner, kind=kind, featured_only=featured, limit=limit)
+    return {"data": [catalog_service.catalog_out(i) for i in items]}
+
+
+@router.get("/{slug}/data/reviews")
+async def public_reviews(
+    slug: str, request: Request, db: Annotated[AsyncSession, Depends(get_db)],
+    source: str | None = Query(None),
+    featured: bool = False,
+    min_rating: int | None = Query(None, ge=1, le=5),
+    limit: int = Query(12, ge=1, le=60),
+) -> dict:
+    enforce(request, "pages.read", *READ_LIMITS)
+    page = await _page_by_slug(db, slug)
+    from app.auth.models import User
+    from app.pages import catalog_service
+
+    owner = (await db.execute(select(User).where(User.id == page.created_by))).scalar_one_or_none()
+    if owner is None:
+        return {"data": []}
+    rows = await catalog_service.list_reviews(db, owner, source=source, featured_only=featured, min_rating=min_rating, limit=limit)
+    return {"data": [catalog_service.review_out(r) for r in rows]}
+
+
+@router.get("/{slug}/data/faqs")
+async def public_faqs(
+    slug: str, request: Request, db: Annotated[AsyncSession, Depends(get_db)],
+    category: str | None = Query(None),
+    limit: int = Query(40, ge=1, le=100),
+) -> dict:
+    enforce(request, "pages.read", *READ_LIMITS)
+    page = await _page_by_slug(db, slug)
+    from app.auth.models import User
+    from app.pages import catalog_service
+
+    owner = (await db.execute(select(User).where(User.id == page.created_by))).scalar_one_or_none()
+    if owner is None:
+        return {"data": []}
+    rows = await catalog_service.list_faqs(db, owner, category=category, limit=limit)
+    return {"data": [catalog_service.faq_out(f) for f in rows]}
+
+
 async def _owned_calendar(db: AsyncSession, page: Page, calendar_slug: str):
     from app.scheduling.models import SchedulingCalendar
 

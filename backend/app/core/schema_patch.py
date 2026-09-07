@@ -27,6 +27,11 @@ _ADDITIVE_COLUMNS: dict[str, dict[str, str]] = {
         # Business/Personal ledger toggle. Defaults 'business' so every existing
         # user keeps today's behaviour until they opt into Personal mode.
         "active_mode": "VARCHAR(20) NOT NULL DEFAULT 'business'",
+        # S5: team block reads these; nothing else does.
+        "public_title": "VARCHAR(120)",
+        "public_bio": "TEXT",
+        "avatar_url": "VARCHAR(500)",
+        "show_on_site": "BOOLEAN NOT NULL DEFAULT 1",
     },
     # Bank Scanner: link a payment account to its Plaid account, and a synced
     # bank transaction to the Cashbook entry it was posted to. Both nullable and
@@ -42,6 +47,20 @@ _ADDITIVE_COLUMNS: dict[str, dict[str, str]] = {
         "matched_cashbook_entry_id": "CHAR(32)",
         # Back-link when a personal-tagged bank txn is copied to the Personal ledger.
         "matched_personal_transaction_id": "CHAR(32)",
+    },
+    # Page builder site catalogue (alembic m1j2k3l4m5n6). Additive on
+    # company_settings + users; new tables (catalog_items, page_reviews,
+    # page_faqs) come from create_all on a fresh SQLite DB.
+    "company_settings": {
+        "org_id": "CHAR(32)",
+        "tagline": "VARCHAR(255)",
+        "business_hours_json": "TEXT",
+        "google_place_id": "VARCHAR(255)",
+        "service_area_text": "VARCHAR(500)",
+        "map_embed_url": "VARCHAR(1000)",
+        "brand_primary_color": "VARCHAR(9)",
+        "booking_calendar_slug": "VARCHAR(255)",
+        "lead_form_id": "CHAR(32)",
     },
     # Page builder block model v2 (alembic l0i1b2c3d4e5 on Postgres). All
     # nullable/defaulted — the 18 v1 seeds keep working with NULLs.

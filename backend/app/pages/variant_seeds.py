@@ -1517,10 +1517,12 @@ def all_variants() -> list[dict]:
     Hero to flagships across all 12 categories. Commit 6 adds nav
     as a 13th category. Block model v2 (2026-09) folds in the 72
     Visual-tab layouts via visual_editor_variants()."""
+    from app.pages.seeds.bound_blocks import BOUND_BLOCKS
     from app.pages.seeds.dynamic_blocks import DYNAMIC_BLOCKS
 
     return [
         *DYNAMIC_BLOCKS,
+        *BOUND_BLOCKS,
         *visual_editor_variants(),
         *HERO_VARIANTS,
         *FEATURES_VARIANTS,

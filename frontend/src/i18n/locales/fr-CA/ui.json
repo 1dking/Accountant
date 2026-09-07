@@ -1218,7 +1218,9 @@
     "booking": "Réservation",
     "liveCalendarSlots": "Plages horaires en direct, réservées sur place",
     "location": "Emplacement",
-    "mapHoursAndOpenNow": "Carte, heures et « ouvert maintenant »"
+    "mapHoursAndOpenNow": "Carte, heures et « ouvert maintenant »",
+    "services": "Services",
+    "fromYourCatalogue": "Services / produits / forfaits de votre catalogue"
   },
   "VisualEditor": {
     "thin": "Fin",

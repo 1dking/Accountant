@@ -20,7 +20,7 @@ import {
   Layout, Grid3x3, BadgeDollarSign, Quote, Zap, HelpCircle,
   Users, BarChart3, Mail, LayoutTemplate, Image as ImageIcon,
   Hexagon,
-  PanelTop, CalendarDays, MapPin,
+  PanelTop, CalendarDays, MapPin, Wrench,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { pagesApi } from '@/api/pages'
@@ -84,6 +84,7 @@ const CATEGORIES: CategoryDef[] = [
   { value: 'contact',      label: i18n.t('ui:VariantPickerModal.contact'),      subtitle: i18n.t('ui:VariantPickerModal.reachOutPathsAndForms'),          Icon: Mail,             gradient: 'linear-gradient(135deg, #8B5CF6, #06B6D4)' },
   { value: 'booking',      label: i18n.t('ui:VariantPickerModal.booking'),      subtitle: i18n.t('ui:VariantPickerModal.liveCalendarSlots'),               Icon: CalendarDays,     gradient: 'linear-gradient(135deg, #10B981, #00D4FF)' },
   { value: 'location',     label: i18n.t('ui:VariantPickerModal.location'),     subtitle: i18n.t('ui:VariantPickerModal.mapHoursAndOpenNow'),              Icon: MapPin,           gradient: 'linear-gradient(135deg, #F59E0B, #10B981)' },
+  { value: 'services',     label: i18n.t('ui:VariantPickerModal.services'),     subtitle: i18n.t('ui:VariantPickerModal.fromYourCatalogue'),               Icon: Wrench,           gradient: 'linear-gradient(135deg, #06B6D4, #10B981)' },
   { value: 'footer',       label: i18n.t('ui:VariantPickerModal.footer'),       subtitle: i18n.t('ui:VariantPickerModal.closingStructureAndLinks'),        Icon: LayoutTemplate,   gradient: 'linear-gradient(135deg, #475569, #8B5CF6)' },
   { value: 'gallery',      label: i18n.t('ui:VariantPickerModal.gallery'),      subtitle: i18n.t('ui:VariantPickerModal.imageVideoShowcases'),            Icon: ImageIcon,        gradient: 'linear-gradient(135deg, #EC4899, #8B5CF6)' },
   { value: 'logos',        label: i18n.t('ui:VariantPickerModal.logos'),        subtitle: i18n.t('ui:VariantPickerModal.brandWallsAndTrustMarks'),        Icon: Hexagon,          gradient: 'linear-gradient(135deg, #06B6D4, #6366F1)' },

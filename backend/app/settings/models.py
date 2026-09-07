@@ -2,7 +2,7 @@
 
 import uuid
 
-from sqlalchemy import ForeignKey, Integer, String
+from sqlalchemy import ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base, TimestampMixin
@@ -55,6 +55,18 @@ class CompanySettings(TimestampMixin, Base):
     created_by: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id"), nullable=False
     )
+    # S5 site content — used by the page builder's data resolvers. Never
+    # touched by the accounting side. Org-scoped so operator sub-accounts
+    # can each have their own public profile.
+    org_id: Mapped[uuid.UUID | None] = mapped_column(nullable=True)
+    tagline: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    business_hours_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    google_place_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    service_area_text: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    map_embed_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    brand_primary_color: Mapped[str | None] = mapped_column(String(9), nullable=True)
+    booking_calendar_slug: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    lead_form_id: Mapped[uuid.UUID | None] = mapped_column(nullable=True)
 
     # Relationships
     default_tax_rate = relationship(
