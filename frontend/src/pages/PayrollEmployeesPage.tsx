@@ -3,9 +3,9 @@ import { Link } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { Plus, Users, Loader2, Pencil, Trash2, X, Check, ArrowLeft } from 'lucide-react'
+import { Plus, Users, Loader2, Pencil, Trash2, X, Check, ArrowLeft, FileBadge } from 'lucide-react'
 import {
-  listEmployees, createEmployee, updateEmployee, deleteEmployee,
+  listEmployees, createEmployee, updateEmployee, deleteEmployee, downloadT4Pdf,
   type Employee, type EmployeeInput, type PayFrequency, type PayType,
 } from '@/api/payroll'
 import { listProvinces, type ProvinceInfo } from '@/api/tax'
@@ -117,6 +117,10 @@ function EmployeeRow({ e, onEdit, t, tc }: { e: Employee; onEdit: () => void; t:
         </span>
       </td>
       <td className="px-4 py-3 text-right whitespace-nowrap">
+        <button
+          onClick={() => downloadT4Pdf(e.id, new Date().getFullYear(), `T4-${new Date().getFullYear()}-${e.last_name.toLowerCase()}.pdf`).catch((err: any) => toast.error(err?.message || tc('errors.generic')))}
+          className="p-1.5 text-gray-400 hover:text-blue-600 rounded hover:bg-blue-50 dark:hover:bg-blue-950" title={`${t('t4.download')} ${new Date().getFullYear()}`}
+        ><FileBadge className="w-4 h-4" /></button>
         <button onClick={onEdit} className="p-1.5 text-gray-400 hover:text-blue-600 rounded hover:bg-blue-50 dark:hover:bg-blue-950" title={tc('actions.edit')}><Pencil className="w-4 h-4" /></button>
         <button onClick={() => { if (confirm(`${tc('actions.delete')} ${e.full_name}?`)) del.mutate() }} disabled={del.isPending} className="p-1.5 text-gray-400 hover:text-red-600 rounded hover:bg-red-50 dark:hover:bg-red-950" title={tc('actions.delete')}><Trash2 className="w-4 h-4" /></button>
       </td>

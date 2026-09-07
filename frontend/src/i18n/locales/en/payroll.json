@@ -63,9 +63,11 @@
       "hours": "Hours", "regular": "Regular", "overtime": "Overtime", "bonus": "Bonus", "vacation": "Vacation", "other": "Other",
       "cpp": "CPP", "cpp2": "CPP2", "qpp": "QPP", "ei": "EI", "qpip": "QPIP", "fedTax": "Federal tax", "provTax": "Provincial tax",
       "otherDed": "Other deductions", "net": "Net", "employerCpp": "Employer CPP", "employerEi": "Employer EI",
-      "ytd": "Year to date", "ytdGross": "YTD gross", "ytdNet": "YTD net", "tables": "Tax tables"
+      "ytd": "Year to date", "ytdGross": "YTD gross", "ytdNet": "YTD net", "tables": "Tax tables",
+      "pdf": "Pay stub (PDF)"
     }
   },
+  "t4": { "download": "T4 slip", "year": "Tax year" },
   "remittance": {
     "title": "CRA remittance (PD7A)",
     "subtitle": "What to send CRA for a month's pay dates. Regular remitters pay by the 15th of the next month.",

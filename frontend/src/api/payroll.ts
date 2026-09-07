@@ -263,6 +263,29 @@ export function voidRun(id: string) {
   return api.post<ApiResponse<PayrollRun>>(`/payroll/runs/${id}/void`)
 }
 
+// ── PDFs ──
+
+async function saveBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
+
+export async function downloadStubPdf(runId: string, stubId: string, filename = 'paystub.pdf') {
+  const blob = await api.download(`/payroll/runs/${runId}/stubs/${stubId}/pdf`)
+  await saveBlob(blob, filename)
+}
+
+export async function downloadT4Pdf(employeeId: string, year: number, filename = `T4-${year}.pdf`) {
+  const blob = await api.download(`/payroll/employees/${employeeId}/t4/pdf?year=${year}`)
+  await saveBlob(blob, filename)
+}
+
 // ── Preview + remittance ──
 
 export function previewPay(data: PreviewInput) {

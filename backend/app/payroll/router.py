@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import Role, User
@@ -136,6 +136,59 @@ async def get_stub(run_id: uuid.UUID, stub_id: uuid.UUID, db: _DB, user: _Payrol
     out = PayStubResponse.model_validate(stub)
     out.employee_name = stub.employee.full_name if stub.employee else None
     return {"data": out.model_dump(mode="json")}
+
+
+# ── PDFs ───────────────────────────────────────────────────────────────────
+
+
+async def _company_ctx(request: Request, db: AsyncSession):
+    """(company_settings, logo_bytes) for PDF headers — same source as invoice PDFs."""
+    from app.documents.storage import LocalStorage
+    from app.settings.service import get_company_settings, get_logo_bytes
+
+    company = await get_company_settings(db)
+    logo = None
+    if company and company.logo_storage_path:
+        try:
+            res = await get_logo_bytes(db, LocalStorage(request.app.state.settings.storage_path))
+            logo = res[0] if res else None
+        except Exception:  # noqa: BLE001 — a missing logo must not block a stub
+            logo = None
+    return company, logo
+
+
+def _pdf(content: bytes, filename: str) -> Response:
+    return Response(content=content, media_type="application/pdf",
+                    headers={"Content-Disposition": f'inline; filename="{filename}"'})
+
+
+@router.get("/runs/{run_id}/stubs/{stub_id}/pdf")
+async def stub_pdf(run_id: uuid.UUID, stub_id: uuid.UUID, request: Request, db: _DB, user: _PayrollUser) -> Response:
+    from app.core.exceptions import NotFoundError
+    from app.payroll.pdf import generate_stub_pdf
+
+    run = await service.get_run(db, user, run_id)
+    stub = next((s for s in run.stubs if s.id == stub_id), None)
+    if stub is None:
+        raise NotFoundError("PayStub", str(stub_id))
+    emp = stub.employee or await service.get_employee(db, user, stub.employee_id)
+    company, logo = await _company_ctx(request, db)
+    pdf = generate_stub_pdf(stub, run, emp, company, logo)
+    return _pdf(pdf, f"paystub-{emp.last_name.lower()}-{run.pay_date.isoformat()}.pdf")
+
+
+@router.get("/employees/{employee_id}/t4/pdf")
+async def t4_pdf(employee_id: uuid.UUID, request: Request, db: _DB, user: _PayrollUser, year: int | None = None) -> Response:
+    from datetime import date
+
+    from app.payroll.pdf import generate_t4_pdf
+
+    y = year or date.today().year
+    emp = await service.get_employee(db, user, employee_id)
+    ytd = await service.employee_ytd(db, user, employee_id, year=y)
+    company, logo = await _company_ctx(request, db)
+    pdf = generate_t4_pdf(emp, ytd, y, company, logo)
+    return _pdf(pdf, f"T4-{y}-{emp.last_name.lower()}.pdf")
 
 
 # ── Preview + remittance ───────────────────────────────────────────────────

@@ -63,9 +63,11 @@
       "hours": "Heures", "regular": "Régulier", "overtime": "Temps supp.", "bonus": "Prime", "vacation": "Vacances", "other": "Autre",
       "cpp": "RPC", "cpp2": "RPC2", "qpp": "RRQ", "ei": "AE", "qpip": "RQAP", "fedTax": "Impôt fédéral", "provTax": "Impôt provincial",
       "otherDed": "Autres retenues", "net": "Net", "employerCpp": "RPC employeur", "employerEi": "AE employeur",
-      "ytd": "Cumul annuel", "ytdGross": "Brut cumulé", "ytdNet": "Net cumulé", "tables": "Tables d'impôt"
+      "ytd": "Cumul annuel", "ytdGross": "Brut cumulé", "ytdNet": "Net cumulé", "tables": "Tables d'impôt",
+      "pdf": "Talon de paie (PDF)"
     }
   },
+  "t4": { "download": "Feuillet T4", "year": "Année d'imposition" },
   "remittance": {
     "title": "Remise à l'ARC (PD7A)",
     "subtitle": "Ce qu'il faut envoyer à l'ARC pour les dates de paie d'un mois. Les remettants réguliers paient au plus tard le 15 du mois suivant.",

@@ -3,8 +3,8 @@ import { Link, useParams } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { ArrowLeft, Loader2, CheckCircle2, Banknote, Ban, ChevronDown, ChevronRight, BookText } from 'lucide-react'
-import { getRun, approveRun, markRunPaid, voidRun, type PayrollRun, type PayStub, type RunStatus } from '@/api/payroll'
+import { ArrowLeft, Loader2, CheckCircle2, Banknote, Ban, ChevronDown, ChevronRight, BookText, FileDown } from 'lucide-react'
+import { getRun, approveRun, markRunPaid, voidRun, downloadStubPdf, type PayrollRun, type PayStub, type RunStatus } from '@/api/payroll'
 import { formatDate } from '@/lib/utils'
 
 const money = (n: string | number) =>
@@ -150,6 +150,14 @@ function StubRow({ s }: { s: PayStub }) {
       {open && (
         <tr className="bg-gray-50/50 dark:bg-gray-900/30">
           <td colSpan={9} className="px-6 py-4">
+            <div className="flex justify-end mb-3">
+              <button
+                onClick={(e) => { e.stopPropagation(); downloadStubPdf(s.run_id, s.id, `paystub-${(s.employee_name || 'employee').replace(/\s+/g, '-').toLowerCase()}.pdf`).catch((err: any) => toast.error(err?.message || 'Download failed')) }}
+                className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 px-2 py-1 rounded"
+              >
+                <FileDown className="w-3.5 h-3.5" /> {t('run.stub.pdf')}
+              </button>
+            </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-8 gap-y-3 text-sm">
               <Section title={t('runs.gross')}>
                 <L k={t('run.stub.regular')} v={s.regular_pay} />
