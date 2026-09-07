@@ -1082,13 +1082,14 @@
     "queueing": "Queueing…",
     "approveGenerate": "Approve & generate",
     "queued": "Queued…",
-    "generatingSections": "Generating sections…",
+    "generatingSections": "Building your page from the block library…",
     "thisUsuallyTakes3060": "This usually takes 30-60 seconds. You can leave this dialog open or come back to it from the page builder.",
     "generationFailed": "Generation failed",
     "somethingWentWrongTryRephrasing": "Something went wrong. Try rephrasing the prompt.",
     "tryAgain": "Try again",
     "generationFailedV0": "Generation failed: {{v0}}",
-    "couldnTKickOffGeneration": "Couldn't kick off generation: {{v0}}"
+    "couldnTKickOffGeneration": "Couldn't kick off generation: {{v0}}",
+    "copyOnlyNote": "Blocks come from your library; the AI only wrote the words. Every field stays editable after generation."
   },
   "SectionEditor": {
     "addSectionHere": "Add section here",

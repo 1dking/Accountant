@@ -47,8 +47,8 @@ export const pagesApi = {
   aiCreateSession: () => api.post('/pages/ai/sessions'),
   aiGetSession: (sessionId: string) =>
     api.get(`/pages/ai/sessions/${sessionId}`),
-  aiSubmitPrompt: (sessionId: string, prompt: string) =>
-    api.post(`/pages/ai/sessions/${sessionId}/prompt`, { prompt }),
+  aiSubmitPrompt: (sessionId: string, prompt: string, locale: 'en' | 'fr-CA' = 'en') =>
+    api.post(`/pages/ai/sessions/${sessionId}/prompt`, { prompt, locale }),
   aiApprovePrd: (sessionId: string) =>
     api.post(`/pages/ai/sessions/${sessionId}/approve`),
   aiTriggerGenerate: (sessionId: string) =>

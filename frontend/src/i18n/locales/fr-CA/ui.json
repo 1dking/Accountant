@@ -2759,13 +2759,14 @@
     "queueing": "Mise en file…",
     "approveGenerate": "Approuver et générer",
     "queued": "En file…",
-    "generatingSections": "Génération des sections…",
+    "generatingSections": "Assemblage de votre page à partir de la bibliothèque de blocs…",
     "thisUsuallyTakes3060": "Cela prend habituellement de 30 à 60 secondes. Vous pouvez laisser cette fenêtre ouverte ou y revenir depuis le constructeur de pages.",
     "generationFailed": "Échec de la génération",
     "somethingWentWrongTryRephrasing": "Une erreur est survenue. Essayez de reformuler la demande.",
     "tryAgain": "Réessayer",
     "generationFailedV0": "Échec de la génération : {{v0}}",
-    "couldnTKickOffGeneration": "Impossible de lancer la génération : {{v0}}"
+    "couldnTKickOffGeneration": "Impossible de lancer la génération : {{v0}}",
+    "copyOnlyNote": "Les blocs viennent de votre bibliothèque; l’IA n’a rédigé que les textes. Chaque champ reste modifiable après la génération."
   },
   "SectionEditor": {
     "addSectionHere": "Ajouter une section ici",

@@ -1055,11 +1055,15 @@ async def submit_session_prompt(
     if len(prompt) > 4000:
         raise HTTPException(status_code=400, detail="prompt must be <= 4000 chars")
 
+    locale = (body.get("locale") or "en").strip()
+    if locale not in ("en", "fr-CA"):
+        locale = "en"
+
     from app.billing.ai_meter import consume
     await consume(db, user, "page_generate")
     settings = request.app.state.settings
     try:
-        session = await submit_prompt(db, session_id, user.id, prompt, settings)
+        session = await submit_prompt(db, session_id, user.id, prompt, settings, locale=locale)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     return {"data": _session_to_dict(session)}

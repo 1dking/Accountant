@@ -42,7 +42,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings
-from app.pages.models import Page, PageGenerationSession, PageStatus
+from app.pages.models import Page, PageGenerationSession, PageStatus, SectionVariant
 
 logger = logging.getLogger(__name__)
 
@@ -431,10 +431,14 @@ async def submit_prompt(
     user_id: uuid.UUID,
     prompt: str,
     settings: Settings,
+    *,
+    locale: str = "en",
 ) -> PageGenerationSession:
-    """Append the user's prompt to the conversation, regenerate the PRD
-    via Claude Sonnet 4.5. The PRD replaces (not appends) so the user
-    can iterate freely without history compounding."""
+    """Append the user's prompt to the conversation and produce a PLAN
+    (block model v2): Sonnet picks blocks from the library and writes
+    their copy — never markup. The plan replaces (not appends) so the
+    user can iterate freely; the previous plan is shown to the model so
+    "make the hero bolder" edits the existing choice."""
     rows = await db.execute(
         select(PageGenerationSession).where(
             PageGenerationSession.id == session_id,
@@ -453,14 +457,23 @@ async def submit_prompt(
     history = list(session.prompt_history or [])
     history.append({"role": "user", "content": prompt, "timestamp": now})
 
-    # Hybrid stack handles parse failures + provider outages internally;
-    # the static fallback guarantees we return a usable PRD.
-    prd, provider = await _generate_prd_hybrid(prompt, settings)
+    # Copy-only planner: choose blocks → write their fields. Static
+    # fallback guarantees a usable plan even with no AI provider.
+    from app.pages.planner import fill_fields, plan_page
+
+    previous = session.prd if isinstance(session.prd, dict) and session.prd.get("sections") else None
+    prd, provider, _catalogue, profile = await plan_page(
+        db, prompt, settings, user_id=user_id, locale=locale, previous_plan=previous,
+    )
+    prd, fill_provider = await fill_fields(db, prd, settings, profile=profile, locale=locale, prompt=prompt)
+    prd["locale"] = locale
+    prd["provider"] = provider
+    prd["fill_provider"] = fill_provider
     history.append({
         "role": "assistant",
-        "content": json.dumps(prd),
+        "content": json.dumps({"title": prd.get("title"), "sections": [s.get("variant_id") for s in prd.get("sections", [])]}),
         "timestamp": now,
-        "provider": provider,
+        "provider": f"{provider}+{fill_provider}",
     })
     sections_list = prd.get("sections") or []
     sitemap = [s.get("id") for s in sections_list if s.get("id")]
@@ -544,9 +557,35 @@ async def generate_page_task(
                 raise ValueError("PRD has no sections to generate")
 
             generated_sections = []
+            locale = prd.get("locale") or "en"
+            planned_ids = [b.get("variant_id") for b in sections_brief if b.get("variant_id")]
+            variants_by_id: dict[str, SectionVariant] = {}
+            if planned_ids:
+                rows_v = await db.execute(
+                    select(SectionVariant).where(
+                        SectionVariant.variant_id.in_(planned_ids),
+                        SectionVariant.is_active.is_(True),
+                    )
+                )
+                variants_by_id = {v.variant_id: v for v in rows_v.scalars().all()}
+            from app.pages.variants import variant_to_section
+
             for brief in sections_brief:
-                # Hybrid stack guarantees a section dict back; static
-                # fallback fires if both providers fail or shapes fail.
+                variant = variants_by_id.get(brief.get("variant_id") or "")
+                if variant is not None:
+                    # Block model v2: render the library template with the
+                    # planner's copy. No AI markup, ever.
+                    section = variant_to_section(
+                        variant, prop_overrides=brief.get("fields") or {}, locale=locale,
+                    )
+                    if brief.get("id"):
+                        section["id"] = brief["id"]
+                    section["summary"] = brief.get("summary") or section.get("summary")
+                    section["metadata"]["provider"] = prd.get("fill_provider") or "planner"
+                    section["metadata"]["brief"] = (brief.get("brief") or "")[:500]
+                    generated_sections.append(section)
+                    continue
+                # Legacy PRD section (pre-v2 sessions): JSX path.
                 generated, provider = await _generate_section_hybrid(brief, settings)
                 generated_sections.append({
                     "id": brief.get("id"),

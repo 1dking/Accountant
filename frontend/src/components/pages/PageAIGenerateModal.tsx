@@ -34,7 +34,13 @@ interface SessionData {
     title?: string
     audience?: string
     goals?: string[]
-    sections?: { id: string; type: string; title: string; summary: string }[]
+    locale?: string
+    provider?: string
+    sections?: {
+      id: string; type: string; title: string; summary: string
+      /** Block model v2 plan: chosen library block + the copy the AI wrote. */
+      variant_id?: string; thumbnail_url?: string | null; fields?: Record<string, unknown>
+    }[]
   } | null
   sitemap: string[]
   page_id: string | null
@@ -48,7 +54,7 @@ interface Props {
 }
 
 export default function PageAIGenerateModal({ open, onClose, onComplete }: Props) {
-  const { t } = useTranslation('ui')
+  const { t, i18n } = useTranslation('ui')
   const queryClient = useQueryClient()
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [prompt, setPrompt] = useState('')
@@ -106,7 +112,7 @@ export default function PageAIGenerateModal({ open, onClose, onComplete }: Props
   }, [session?.status, session?.page_id, onComplete, queryClient])
 
   const submitMut = useMutation({
-    mutationFn: (p: string) => pagesApi.aiSubmitPrompt(sessionId!, p),
+    mutationFn: (p: string) => pagesApi.aiSubmitPrompt(sessionId!, p, i18n.language === 'fr-CA' ? 'fr-CA' : 'en'),
     onSuccess: (resp: any) => {
       const s = resp?.data as SessionData
       // If parse failed, the backend returns status='failed'. Show it.
@@ -371,14 +377,21 @@ function PrdStep({
            {t('ui:PageAIGenerateModal.sections')}{prd.sections.length})
           </h5>
           <ol className="space-y-1.5">
-            {prd.sections.map((s, i) => (
+            {prd.sections.map((s, i) => {
+              const f = s.fields || {}
+              const headline = [f.HEADLINE, f.TITLE_1, f.BRAND_NAME, f.TEXT].find(v => typeof v === 'string' && v) as string | undefined
+              const sub = [f.SUBHEADLINE, f.TEXT_1, f.SUBMIT_TEXT].find(v => typeof v === 'string' && v) as string | undefined
+              return (
               <li
                 key={s.id || i}
-                className="flex items-start gap-2 px-3 py-2 rounded-md bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700"
+                className="flex items-start gap-3 px-3 py-2 rounded-md bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700"
               >
                 <span className="text-xs font-mono text-gray-400 dark:text-gray-500 mt-0.5 shrink-0">
                   {i + 1}.
                 </span>
+                {s.thumbnail_url && (
+                  <img src={s.thumbnail_url} alt="" className="w-24 aspect-[16/10] object-cover object-top rounded border border-gray-200 dark:border-gray-700 shrink-0" />
+                )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-baseline gap-2">
                     <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
@@ -388,15 +401,20 @@ function PrdStep({
                       {s.type}
                     </span>
                   </div>
-                  {s.summary && (
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
-                      {s.summary}
+                  {headline ? (
+                    <p className="text-xs text-gray-800 dark:text-gray-200 mt-0.5 font-medium truncate">“{headline}”</p>
+                  ) : null}
+                  {(sub || s.summary) && (
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 line-clamp-2">
+                      {sub || s.summary}
                     </p>
                   )}
                 </div>
               </li>
-            ))}
+              )
+            })}
           </ol>
+          <p className="mt-2 text-[11px] text-gray-400">{t('ui:PageAIGenerateModal.copyOnlyNote')}</p>
         </div>
       ) : null}
 
