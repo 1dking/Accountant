@@ -6,6 +6,7 @@ import { X, UserPlus, Users, Trash2, ChevronDown } from 'lucide-react'
 import { getInitials } from '@/lib/utils'
 import { useAuthStore } from '@/stores/authStore'
 import type { OfficePermission } from '@/types/models'
+import { useTranslation } from 'react-i18next'
 
 interface ShareDialogProps {
   docId: string
@@ -14,6 +15,7 @@ interface ShareDialogProps {
 }
 
 export default function ShareDialog({ docId, isOpen, onClose }: ShareDialogProps) {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const currentUser = useAuthStore((s) => s.user)
   const [selectedUserId, setSelectedUserId] = useState('')
@@ -47,7 +49,7 @@ export default function ShareDialog({ docId, isOpen, onClose }: ShareDialogProps
       setSelectedUserId('')
     },
     onError: (err: Error) => {
-      alert(`Failed to share: ${err.message}`)
+      alert(t('ui:ShareDialog.failedToShareMessage', { message: err.message }))
     },
   })
 
@@ -57,7 +59,7 @@ export default function ShareDialog({ docId, isOpen, onClose }: ShareDialogProps
       queryClient.invalidateQueries({ queryKey: ['office-collaborators', docId] })
     },
     onError: (err: Error) => {
-      alert(`Failed to remove access: ${err.message}`)
+      alert(t('ui:ShareDialog.failedToRemoveAccessMessage', { message: err.message }))
     },
   })
 
@@ -68,7 +70,7 @@ export default function ShareDialog({ docId, isOpen, onClose }: ShareDialogProps
       <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl w-full max-w-md mx-4">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Share document</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('ui:ShareDialog.shareDocument')}</h2>
           <button
             onClick={onClose}
             className="p-1 rounded-md text-gray-400 dark:text-gray-500 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -86,7 +88,7 @@ export default function ShareDialog({ docId, isOpen, onClose }: ShareDialogProps
                 onChange={(e) => setSelectedUserId(e.target.value)}
                 className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none pr-8"
               >
-                <option value="">Select a team member...</option>
+                <option value="">{t('ui:ShareDialog.selectATeamMember')}</option>
                 {availableUsers.map((u) => (
                   <option key={u.id} value={u.id}>
                     {u.full_name} ({u.email})
@@ -100,8 +102,8 @@ export default function ShareDialog({ docId, isOpen, onClose }: ShareDialogProps
               onChange={(e) => setPermission(e.target.value as OfficePermission)}
               className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900"
             >
-              <option value="view">View</option>
-              <option value="edit">Edit</option>
+              <option value="view">{t('ui:ShareDialog.view')}</option>
+              <option value="edit">{t('ui:ShareDialog.edit')}</option>
             </select>
             <button
               onClick={() => shareMutation.mutate()}
@@ -113,17 +115,17 @@ export default function ShareDialog({ docId, isOpen, onClose }: ShareDialogProps
           </div>
 
           {availableUsers.length === 0 && allUsers.length > 0 && (
-            <p className="text-xs text-gray-500 dark:text-gray-400">All team members already have access.</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{t('ui:ShareDialog.allTeamMembersAlreadyHave')}</p>
           )}
 
           {/* Current collaborators */}
           <div>
             <div className="flex items-center gap-2 mb-3">
               <Users className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">People with access</h3>
+              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('ui:ShareDialog.peopleWithAccess')}</h3>
             </div>
             {collaborators.length === 0 ? (
-              <p className="text-sm text-gray-500 dark:text-gray-400 py-2">Only you have access</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 py-2">{t('ui:ShareDialog.onlyYouHaveAccess')}</p>
             ) : (
               <div className="space-y-2 max-h-48 overflow-y-auto">
                 {collaborators.map((collab) => (
@@ -142,7 +144,7 @@ export default function ShareDialog({ docId, isOpen, onClose }: ShareDialogProps
                       onClick={() => unshareMutation.mutate(collab.user_id)}
                       disabled={unshareMutation.isPending}
                       className="p-1 text-gray-400 dark:text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-md"
-                      title="Remove access"
+                      title={t('ui:ShareDialog.removeAccess')}
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -159,7 +161,7 @@ export default function ShareDialog({ docId, isOpen, onClose }: ShareDialogProps
             onClick={onClose}
             className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
           >
-            Done
+           {t('ui:ShareDialog.done')}
           </button>
         </div>
       </div>

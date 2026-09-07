@@ -23,6 +23,7 @@ import { cn, formatRelativeTime } from '@/lib/utils'
 import { getContactBrief, regenerateContactBrief, type ContactMemory } from '@/api/automation'
 import { formatDateTime } from './contactDetailUtils'
 import type { TabKey } from './ContactDetailCenterPanel'
+import { useTranslation } from 'react-i18next'
 
 function memorySourceIcon(src: string): string {
   if (src === 'voicemail') return '🎙'
@@ -85,6 +86,7 @@ function Card({
 // ---------------------------------------------------------------------------
 
 function AIBriefCard({ contactId }: { contactId: string }) {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const { data, isLoading, isError } = useQuery({
     queryKey: ['contact-brief', contactId],
@@ -97,9 +99,9 @@ function AIBriefCard({ contactId }: { contactId: string }) {
     mutationFn: () => regenerateContactBrief(contactId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contact-brief', contactId] })
-      toast.success('Brief refreshed')
+      toast.success(t('ui:ContactDetailRightPanel.briefRefreshed'))
     },
-    onError: (e: any) => toast.error(`Brief refresh failed: ${e.message || ''}`),
+    onError: (e: any) => toast.error(t('ui:ContactDetailRightPanel.briefRefreshFailedV0', { v0: e.message || '' })),
   })
 
   const brief = data?.data?.brief
@@ -108,7 +110,7 @@ function AIBriefCard({ contactId }: { contactId: string }) {
 
   return (
     <Card
-      title="AI Brief"
+      title={t('ui:ContactDetailRightPanel.aiBrief')}
       icon={Sparkles}
       iconColor="text-indigo-500 dark:text-indigo-400"
       action={
@@ -116,19 +118,19 @@ function AIBriefCard({ contactId }: { contactId: string }) {
           onClick={() => regenMut.mutate()}
           disabled={regenMut.isPending}
           className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline disabled:opacity-50"
-          title="Regenerate brief"
+          title={t('ui:ContactDetailRightPanel.regenerateBrief')}
         >
-          {regenMut.isPending ? 'Refreshing…' : 'Refresh'}
+          {regenMut.isPending ? t('ui:ContactDetailRightPanel.refreshing') : t('ui:ContactDetailRightPanel.refresh')}
         </button>
       }
     >
       {isLoading ? (
-        <p className="text-xs text-gray-500 dark:text-gray-400">Generating…</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400">{t('ui:ContactDetailRightPanel.generating')}</p>
       ) : isError ? (
-        <p className="text-xs text-red-500 dark:text-red-400">Brief unavailable.</p>
+        <p className="text-xs text-red-500 dark:text-red-400">{t('ui:ContactDetailRightPanel.briefUnavailable')}</p>
       ) : !brief ? (
         <p className="text-xs text-gray-500 dark:text-gray-400">
-          No brief yet. Add a memory or message to generate context.
+         {t('ui:ContactDetailRightPanel.noBriefYetAddA')}
         </p>
       ) : (
         <>
@@ -137,7 +139,7 @@ function AIBriefCard({ contactId }: { contactId: string }) {
           </p>
           {generated && (
             <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-2">
-              {isFresh ? 'Generated' : 'Cached'} {formatRelativeTime(generated)}
+              {isFresh ? t('ui:ContactDetailRightPanel.generated') : t('ui:ContactDetailRightPanel.cached')} {formatRelativeTime(generated)}
             </p>
           )}
         </>
@@ -160,6 +162,7 @@ export default function ContactDetailRightPanel({
   onEmailClick,
   onNoteClick,
 }: Props) {
+  const { t } = useTranslation('ui')
   const recentMemories = memories.slice(0, 3)
   const recentActivities = activities.slice(0, 5)
 
@@ -171,7 +174,7 @@ export default function ContactDetailRightPanel({
 
       {/* 2. Recent Memories */}
       <Card
-        title="Recent Memories"
+        title={t('ui:ContactDetailRightPanel.recentMemories')}
         icon={Brain}
         iconColor="text-purple-500 dark:text-purple-400"
         action={
@@ -179,12 +182,12 @@ export default function ContactDetailRightPanel({
             onClick={() => onSwitchTab('memory')}
             className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
           >
-            View all
+           {t('ui:ContactDetailRightPanel.viewAll')}
           </button>
         }
       >
         {recentMemories.length === 0 ? (
-          <p className="text-xs text-gray-500 dark:text-gray-400 italic">No memories yet</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 italic">{t('ui:ContactDetailRightPanel.noMemoriesYet')}</p>
         ) : (
           <ul className="space-y-2">
             {recentMemories.map((m) => (
@@ -193,7 +196,7 @@ export default function ContactDetailRightPanel({
                   <span className="text-sm">{memorySourceIcon(m.source_type)}</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-gray-700 dark:text-gray-300 line-clamp-2">
-                      {m.summary || <span className="italic text-gray-400">No summary</span>}
+                      {m.summary || <span className="italic text-gray-400">{t('ui:ContactDetailRightPanel.noSummary')}</span>}
                     </p>
                     <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
                       {m.created_at ? formatDateTime(m.created_at) : ''}
@@ -207,21 +210,21 @@ export default function ContactDetailRightPanel({
       </Card>
 
       {/* 3. Quick Actions */}
-      <Card title="Quick Actions" icon={MessageSquare} iconColor="text-blue-500 dark:text-blue-400">
+      <Card title={t('ui:ContactDetailRightPanel.quickActions')} icon={MessageSquare} iconColor="text-blue-500 dark:text-blue-400">
         <div className="grid grid-cols-3 gap-2">
           <button
             onClick={onEmailClick}
             disabled={!contactEmail}
-            title={contactEmail || 'No email on file'}
+            title={contactEmail || t('ui:ContactDetailRightPanel.noEmailOnFile')}
             className="flex flex-col items-center gap-1 px-2 py-2 rounded-md text-xs font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <Mail className="h-4 w-4" />
-            Email
+           {t('ui:ContactDetailRightPanel.email')}
           </button>
           <a
             href={contactPhone ? `tel:${contactPhone}` : undefined}
             onClick={contactPhone ? undefined : (e) => e.preventDefault()}
-            title={contactPhone || 'No phone on file'}
+            title={contactPhone || t('ui:ContactDetailRightPanel.noPhoneOnFile')}
             className={cn(
               'flex flex-col items-center gap-1 px-2 py-2 rounded-md text-xs font-medium transition-colors',
               contactPhone
@@ -230,21 +233,21 @@ export default function ContactDetailRightPanel({
             )}
           >
             <Phone className="h-4 w-4" />
-            Call
+           {t('ui:ContactDetailRightPanel.call')}
           </a>
           <button
             onClick={onNoteClick}
             className="flex flex-col items-center gap-1 px-2 py-2 rounded-md text-xs font-medium bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-100 dark:hover:bg-yellow-900/40 transition-colors"
           >
             <StickyNote className="h-4 w-4" />
-            Note
+           {t('ui:ContactDetailRightPanel.note')}
           </button>
         </div>
       </Card>
 
       {/* 4. Recent Activity */}
       <Card
-        title="Recent Activity"
+        title={t('ui:ContactDetailRightPanel.recentActivity')}
         icon={Activity}
         iconColor="text-orange-500 dark:text-orange-400"
         action={
@@ -252,12 +255,12 @@ export default function ContactDetailRightPanel({
             onClick={() => onSwitchTab('activity')}
             className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
           >
-            View all
+           {t('ui:ContactDetailRightPanel.viewAll')}
           </button>
         }
       >
         {recentActivities.length === 0 ? (
-          <p className="text-xs text-gray-500 dark:text-gray-400 italic">No activity yet</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 italic">{t('ui:ContactDetailRightPanel.noActivityYet')}</p>
         ) : (
           <ul className="space-y-2">
             {recentActivities.map((a: any) => {

@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft } from 'lucide-react'
 import { createContact } from '@/api/contacts'
+import { useTranslation } from 'react-i18next'
 
 export default function NewContactPage() {
+  const { t } = useTranslation('ui')
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
@@ -57,26 +59,26 @@ export default function NewContactPage() {
         <button onClick={() => navigate('/contacts')} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
           <ArrowLeft className="h-5 w-5 text-gray-500 dark:text-gray-400" />
         </button>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">New Contact</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('ui:NewContactPage.newContact')}</h1>
       </div>
 
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type *</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:NewContactPage.type')}</label>
             <select
               value={type}
               onChange={(e) => setType(e.target.value)}
               className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="client">Client</option>
-              <option value="vendor">Vendor</option>
-              <option value="both">Client & Vendor</option>
+              <option value="client">{t('ui:NewContactPage.client')}</option>
+              <option value="vendor">{t('ui:NewContactPage.vendor')}</option>
+              <option value="both">{t('ui:NewContactPage.clientVendor')}</option>
             </select>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Company Name *</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:NewContactPage.companyName')}</label>
             <input
               type="text"
               value={companyName}
@@ -85,7 +87,7 @@ export default function NewContactPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contact Name</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:NewContactPage.contactName')}</label>
             <input
               type="text"
               value={contactName}
@@ -94,7 +96,7 @@ export default function NewContactPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:NewContactPage.email')}</label>
             <input
               type="email"
               value={email}
@@ -103,7 +105,7 @@ export default function NewContactPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phone</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:NewContactPage.phone')}</label>
             <input
               type="tel"
               value={phone}
@@ -112,7 +114,7 @@ export default function NewContactPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tax ID</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:NewContactPage.taxId')}</label>
             <input
               type="text"
               value={taxId}
@@ -121,7 +123,7 @@ export default function NewContactPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Country</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:NewContactPage.country')}</label>
             <input
               type="text"
               value={country}
@@ -131,7 +133,7 @@ export default function NewContactPage() {
           </div>
 
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Address Line 1</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:NewContactPage.addressLine1')}</label>
             <input
               type="text"
               value={addressLine1}
@@ -140,7 +142,7 @@ export default function NewContactPage() {
             />
           </div>
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Address Line 2</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:NewContactPage.addressLine2')}</label>
             <input
               type="text"
               value={addressLine2}
@@ -149,7 +151,7 @@ export default function NewContactPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">City</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:NewContactPage.city')}</label>
             <input
               type="text"
               value={city}
@@ -158,7 +160,7 @@ export default function NewContactPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">State</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:NewContactPage.state')}</label>
             <input
               type="text"
               value={state}
@@ -167,7 +169,7 @@ export default function NewContactPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ZIP Code</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:NewContactPage.zipCode')}</label>
             <input
               type="text"
               value={zipCode}
@@ -177,7 +179,7 @@ export default function NewContactPage() {
           </div>
 
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:NewContactPage.notes')}</label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
@@ -195,13 +197,13 @@ export default function NewContactPage() {
             disabled={!isValid || mutation.isPending}
             className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
           >
-            {mutation.isPending ? 'Creating...' : 'Create Contact'}
+            {mutation.isPending ? t('ui:NewContactPage.creating') : t('ui:NewContactPage.createContact')}
           </button>
           <button
             onClick={() => navigate('/contacts')}
             className="px-4 py-2 text-sm font-medium border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
           >
-            Cancel
+           {t('ui:NewContactPage.cancel')}
           </button>
         </div>
       </div>

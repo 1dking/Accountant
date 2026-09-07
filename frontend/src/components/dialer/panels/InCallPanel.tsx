@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Delete, Grid3x3, Mic, MicOff, PhoneOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
 
 const DTMF = [
   ['1', '2', '3'],
@@ -31,6 +32,7 @@ export default function InCallPanel({
   /** Send a DTMF touch-tone on the LIVE call (for IVR prompts, PINs, extensions). */
   onSendDigits: (digit: string) => void
 }) {
+  const { t } = useTranslation('ui')
   const [showKeypad, setShowKeypad] = useState(false)
   const [entered, setEntered] = useState('')
 
@@ -47,7 +49,7 @@ export default function InCallPanel({
             aria-hidden="true"
             className="lg-breathing inline-block w-1.5 h-1.5 rounded-full bg-emerald-400"
           />
-          In call
+         {t('ui:InCallPanel.inCall')}
         </div>
         <div className="font-mono text-2xl mt-3 text-[color:var(--lg-text-primary)] tabular-nums">
           {remoteNumber}
@@ -66,13 +68,13 @@ export default function InCallPanel({
           <div className="lg-card flex items-center justify-center gap-2 px-4 py-2.5 min-h-[2.75rem]">
             <span className="flex-1 text-center font-mono text-lg tabular-nums tracking-widest text-[color:var(--lg-text-primary)]">
               {entered || (
-                <span className="text-[color:var(--lg-text-muted)]">Tap to enter digits</span>
+                <span className="text-[color:var(--lg-text-muted)]">{t('ui:InCallPanel.tapToEnterDigits')}</span>
               )}
             </span>
             {entered && (
               <button
                 onClick={() => setEntered('')}
-                aria-label="Clear entered digits"
+                aria-label={t('ui:InCallPanel.clearEnteredDigits')}
                 className="p-1.5 text-[color:var(--lg-text-secondary)] hover:text-[color:var(--lg-text-primary)] rounded-md"
               >
                 <Delete className="h-4 w-4" />
@@ -84,7 +86,7 @@ export default function InCallPanel({
               <button
                 key={digit}
                 onClick={() => press(digit)}
-                aria-label={`Send ${digit}`}
+                aria-label={t('ui:InCallPanel.sendDigit', { digit })}
                 className="lg-key h-14 rounded-xl text-xl font-medium"
               >
                 {digit}
@@ -103,7 +105,7 @@ export default function InCallPanel({
           )}
         >
           {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-          {isMuted ? 'Unmute' : 'Mute'}
+          {isMuted ? t('ui:InCallPanel.unmute') : t('ui:InCallPanel.mute')}
         </button>
         <button
           onClick={() => setShowKeypad((v) => !v)}
@@ -114,7 +116,7 @@ export default function InCallPanel({
           )}
         >
           <Grid3x3 className="h-5 w-5" />
-          Keypad
+         {t('ui:InCallPanel.keypad')}
         </button>
       </div>
       <button
@@ -122,7 +124,7 @@ export default function InCallPanel({
         className="w-full h-12 rounded-xl bg-red-600/90 text-white font-medium flex items-center justify-center gap-2 hover:bg-red-600 transition-colors"
       >
         <PhoneOff className="h-5 w-5" />
-        Hang Up
+       {t('ui:InCallPanel.hangUp')}
       </button>
     </div>
   )

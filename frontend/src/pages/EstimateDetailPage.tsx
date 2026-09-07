@@ -21,12 +21,14 @@ import {
 import ShareLinkDialog from '@/components/documents/ShareLinkDialog';
 import { useAuthStore } from '@/stores/authStore';
 import { ESTIMATE_STATUSES } from '@/lib/constants';
-import { formatDate } from '@/lib/utils';
+import { formatDate, uiLocale } from '@/lib/utils';
+import { useTranslation } from 'react-i18next'
 
 const formatCurrency = (amount: number, currency = 'USD') =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
+  new Intl.NumberFormat(uiLocale(), { style: 'currency', currency }).format(amount);
 
 export default function EstimateDetailPage() {
+  const { t } = useTranslation('ui')
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -105,7 +107,7 @@ export default function EstimateDetailPage() {
   if (estimateQuery.isLoading) {
     return (
       <div className="p-6">
-        <p className="text-gray-400 dark:text-gray-500">Loading estimate...</p>
+        <p className="text-gray-400 dark:text-gray-500">{t('ui:EstimateDetailPage.loadingEstimate')}</p>
       </div>
     );
   }
@@ -113,12 +115,12 @@ export default function EstimateDetailPage() {
   if (estimateQuery.isError || !estimateQuery.data) {
     return (
       <div className="p-6">
-        <p className="text-red-500">Failed to load estimate.</p>
+        <p className="text-red-500">{t('ui:EstimateDetailPage.failedToLoadEstimate')}</p>
         <button
           onClick={() => navigate('/estimates')}
           className="mt-2 text-blue-600 dark:text-blue-400 hover:underline"
         >
-          Back to Estimates
+         {t('ui:EstimateDetailPage.backToEstimates')}
         </button>
       </div>
     );
@@ -154,7 +156,7 @@ export default function EstimateDetailPage() {
           className="flex items-center gap-1 text-gray-500 dark:text-gray-400 hover:text-gray-700 mb-4 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span className="text-sm">Back to Estimates</span>
+          <span className="text-sm">{t('ui:EstimateDetailPage.backToEstimates')}</span>
         </button>
 
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -187,7 +189,7 @@ export default function EstimateDetailPage() {
                   className="flex items-center gap-1.5 px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
                 >
                   <Send className="w-4 h-4" />
-                  {sendMutation.isPending ? 'Sending...' : 'Mark as Sent'}
+                  {sendMutation.isPending ? t('ui:EstimateDetailPage.sending') : t('ui:EstimateDetailPage.markAsSent')}
                 </button>
               )}
 
@@ -199,7 +201,7 @@ export default function EstimateDetailPage() {
                     className="flex items-center gap-1.5 px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
                   >
                     <CheckCircle className="w-4 h-4" />
-                    {acceptMutation.isPending ? 'Accepting...' : 'Accept'}
+                    {acceptMutation.isPending ? t('ui:EstimateDetailPage.accepting') : t('ui:EstimateDetailPage.accept')}
                   </button>
                   <button
                     onClick={() => rejectMutation.mutate()}
@@ -207,7 +209,7 @@ export default function EstimateDetailPage() {
                     className="flex items-center gap-1.5 px-3 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
                   >
                     <XCircle className="w-4 h-4" />
-                    {rejectMutation.isPending ? 'Rejecting...' : 'Reject'}
+                    {rejectMutation.isPending ? t('ui:EstimateDetailPage.rejecting') : t('ui:EstimateDetailPage.reject')}
                   </button>
                 </>
               )}
@@ -219,7 +221,7 @@ export default function EstimateDetailPage() {
                   className="flex items-center gap-1.5 px-3 py-2 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors"
                 >
                   <FileText className="w-4 h-4" />
-                  {convertMutation.isPending ? 'Converting...' : 'Convert to Invoice'}
+                  {convertMutation.isPending ? t('ui:EstimateDetailPage.converting') : t('ui:EstimateDetailPage.convertToInvoice')}
                 </button>
               )}
 
@@ -229,7 +231,7 @@ export default function EstimateDetailPage() {
                   className="flex items-center gap-1.5 px-3 py-2 text-sm border border-purple-200 text-purple-700 rounded-lg hover:bg-purple-50 transition-colors"
                 >
                   <FileText className="w-4 h-4" />
-                  View Invoice
+                 {t('ui:EstimateDetailPage.viewInvoice')}
                 </button>
               )}
 
@@ -237,19 +239,19 @@ export default function EstimateDetailPage() {
                 onClick={() => emailMutation.mutate()}
                 disabled={emailMutation.isPending}
                 className="flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                title="Email estimate to client"
+                title={t('ui:EstimateDetailPage.emailEstimateToClient')}
               >
                 <Mail className="w-4 h-4" />
-                Email
+               {t('ui:EstimateDetailPage.email')}
               </button>
 
               <button
                 onClick={() => setShowShareDialog(true)}
                 className="flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                title="Create shareable link"
+                title={t('ui:EstimateDetailPage.createShareableLink')}
               >
                 <Link className="w-4 h-4" />
-                Share Link
+               {t('ui:EstimateDetailPage.shareLink')}
               </button>
 
               {isDraft && (
@@ -258,7 +260,7 @@ export default function EstimateDetailPage() {
                   className="flex items-center gap-1.5 px-3 py-2 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
                 >
                   <Trash2 className="w-4 h-4" />
-                  Delete
+                 {t('ui:EstimateDetailPage.delete')}
                 </button>
               )}
             </div>
@@ -270,21 +272,21 @@ export default function EstimateDetailPage() {
       {deleteConfirm && (
         <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 rounded-xl p-4 mb-6 flex items-center justify-between">
           <p className="text-sm text-red-700">
-            Are you sure you want to delete this estimate? This action cannot be undone.
+           {t('ui:EstimateDetailPage.areYouSureYouWant')}
           </p>
           <div className="flex items-center gap-2 ml-4">
             <button
               onClick={() => setDeleteConfirm(false)}
               className="px-3 py-1.5 text-sm border rounded-lg hover:bg-white dark:bg-gray-900 transition-colors"
             >
-              Cancel
+             {t('ui:EstimateDetailPage.cancel')}
             </button>
             <button
               onClick={() => deleteMutation.mutate()}
               disabled={deleteMutation.isPending}
               className="px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
             >
-              {deleteMutation.isPending ? 'Deleting...' : 'Confirm Delete'}
+              {deleteMutation.isPending ? t('ui:EstimateDetailPage.deleting') : t('ui:EstimateDetailPage.confirmDelete')}
             </button>
           </div>
         </div>
@@ -300,22 +302,22 @@ export default function EstimateDetailPage() {
       {/* Convert mutation error */}
       {convertMutation.isError && (
         <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 rounded-lg p-3 mb-6 text-sm text-red-700">
-          Failed to convert estimate to invoice. Please try again.
+         {t('ui:EstimateDetailPage.failedToConvertEstimateTo')}
         </div>
       )}
 
       {/* Estimate Details */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
-          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Issue Date</h3>
+          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">{t('ui:EstimateDetailPage.issueDate')}</h3>
           <p className="text-gray-900 dark:text-gray-100">{formatDate(estimate.issue_date)}</p>
         </div>
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
-          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Expiry Date</h3>
+          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">{t('ui:EstimateDetailPage.expiryDate')}</h3>
           <p className="text-gray-900 dark:text-gray-100">{formatDate(estimate.expiry_date)}</p>
         </div>
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
-          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Total</h3>
+          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">{t('ui:EstimateDetailPage.total')}</h3>
           <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
             {formatCurrency(estimate.total, currency)}
           </p>
@@ -325,16 +327,16 @@ export default function EstimateDetailPage() {
       {/* Line Items Table */}
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden mb-6">
         <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
-          <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">Line Items</h2>
+          <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">{t('ui:EstimateDetailPage.lineItems')}</h2>
         </div>
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-100 dark:border-gray-700">
-              <th className="text-left px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Description</th>
-              <th className="text-right px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Qty</th>
-              <th className="text-right px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Unit Price</th>
-              <th className="text-right px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Tax %</th>
-              <th className="text-right px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Total</th>
+              <th className="text-left px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">{t('ui:EstimateDetailPage.description')}</th>
+              <th className="text-right px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">{t('ui:EstimateDetailPage.qty')}</th>
+              <th className="text-right px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">{t('ui:EstimateDetailPage.unitPrice')}</th>
+              <th className="text-right px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">{t('ui:EstimateDetailPage.tax')}</th>
+              <th className="text-right px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">{t('ui:EstimateDetailPage.total')}</th>
             </tr>
           </thead>
           <tbody>
@@ -365,25 +367,25 @@ export default function EstimateDetailPage() {
         <div className="border-t border-gray-100 dark:border-gray-700 px-5 py-4">
           <div className="flex flex-col items-end gap-1">
             <div className="flex justify-between w-64">
-              <span className="text-sm text-gray-500 dark:text-gray-400">Subtotal</span>
+              <span className="text-sm text-gray-500 dark:text-gray-400">{t('ui:EstimateDetailPage.subtotal')}</span>
               <span className="text-sm text-gray-900 dark:text-gray-100">{formatCurrency(subtotal, currency)}</span>
             </div>
             {taxTotal > 0 && (
               <div className="flex justify-between w-64">
-                <span className="text-sm text-gray-500 dark:text-gray-400">Tax</span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">{t('ui:EstimateDetailPage.tax_2')}</span>
                 <span className="text-sm text-gray-900 dark:text-gray-100">{formatCurrency(taxTotal, currency)}</span>
               </div>
             )}
             {discountAmount > 0 && (
               <div className="flex justify-between w-64">
-                <span className="text-sm text-gray-500 dark:text-gray-400">Discount</span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">{t('ui:EstimateDetailPage.discount')}</span>
                 <span className="text-sm text-red-600">
                   -{formatCurrency(discountAmount, currency)}
                 </span>
               </div>
             )}
             <div className="flex justify-between w-64 pt-2 border-t border-gray-200 dark:border-gray-700 mt-1">
-              <span className="text-sm font-medium text-gray-900 dark:text-gray-100">Total</span>
+              <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{t('ui:EstimateDetailPage.total')}</span>
               <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                 {formatCurrency(total, currency)}
               </span>
@@ -395,7 +397,7 @@ export default function EstimateDetailPage() {
       {/* Notes */}
       {estimate.notes && (
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5 mb-6">
-          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Notes</h3>
+          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">{t('ui:EstimateDetailPage.notes')}</h3>
           <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{estimate.notes}</p>
         </div>
       )}

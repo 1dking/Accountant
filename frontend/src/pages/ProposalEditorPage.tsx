@@ -35,7 +35,9 @@ import {
   removeRecipient,
 } from '@/api/proposals';
 import type { Proposal, ProposalRecipient } from '@/api/proposals';
-import { cn } from '@/lib/utils';
+import { cn, uiLocale } from '@/lib/utils';
+import { useTranslation } from 'react-i18next'
+import i18n from '@/i18n'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -63,20 +65,20 @@ interface PricingItem {
 // ---------------------------------------------------------------------------
 
 const BLOCK_TYPES = [
-  { type: 'text' as const, label: 'Text', icon: Type },
-  { type: 'image' as const, label: 'Image', icon: ImageIcon },
-  { type: 'video' as const, label: 'Video', icon: Video },
-  { type: 'pricing_table' as const, label: 'Pricing Table', icon: Table },
-  { type: 'custom_value' as const, label: 'Custom Value', icon: Tag },
-  { type: 'signature' as const, label: 'Signature', icon: PenTool },
-  { type: 'page_break' as const, label: 'Page Break', icon: Minus },
+  { type: 'text' as const, label: i18n.t('ui:ProposalEditorPage.text'), icon: Type },
+  { type: 'image' as const, label: i18n.t('ui:ProposalEditorPage.image'), icon: ImageIcon },
+  { type: 'video' as const, label: i18n.t('ui:ProposalEditorPage.video'), icon: Video },
+  { type: 'pricing_table' as const, label: i18n.t('ui:ProposalEditorPage.pricingTable'), icon: Table },
+  { type: 'custom_value' as const, label: i18n.t('ui:ProposalEditorPage.customValue'), icon: Tag },
+  { type: 'signature' as const, label: i18n.t('ui:ProposalEditorPage.signature'), icon: PenTool },
+  { type: 'page_break' as const, label: i18n.t('ui:ProposalEditorPage.pageBreak'), icon: Minus },
 ];
 
 const MERGE_FIELDS = [
-  { value: '{{contact.name}}', label: 'Contact Name' },
-  { value: '{{contact.email}}', label: 'Contact Email' },
-  { value: '{{contact.company}}', label: 'Contact Company' },
-  { value: '{{contact.address}}', label: 'Contact Address' },
+  { value: '{{contact.name}}', label: i18n.t('ui:ProposalEditorPage.contactName') },
+  { value: '{{contact.email}}', label: i18n.t('ui:ProposalEditorPage.contactEmail') },
+  { value: '{{contact.company}}', label: i18n.t('ui:ProposalEditorPage.contactCompany') },
+  { value: '{{contact.address}}', label: i18n.t('ui:ProposalEditorPage.contactAddress') },
 ];
 
 const STATUS_COLORS: Record<string, string> = {
@@ -90,7 +92,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const formatCurrency = (amount: number, currency = 'USD') =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
+  new Intl.NumberFormat(uiLocale(), { style: 'currency', currency }).format(amount);
 
 // ---------------------------------------------------------------------------
 // Helper: create a default block
@@ -123,7 +125,7 @@ function createBlock(type: ContentBlock['type'], order: number): ContentBlock {
     case 'custom_value':
       return { ...base, data: { field: '{{contact.name}}' } };
     case 'signature':
-      return { ...base, data: { recipient_id: '', label: 'Signature' } };
+      return { ...base, data: { recipient_id: '', label: i18n.t('ui:ProposalEditorPage.signature') } };
     case 'page_break':
       return { ...base, data: {} };
     default:
@@ -161,6 +163,7 @@ function TextBlockEditor({
   preview: boolean;
   onChange: (data: Record<string, any>) => void;
 }) {
+  const { t } = useTranslation('ui')
   if (preview) {
     return (
       <div
@@ -174,7 +177,7 @@ function TextBlockEditor({
     <textarea
       value={block.data.html || ''}
       onChange={(e) => onChange({ html: e.target.value })}
-      placeholder="Enter text content (supports HTML)..."
+      placeholder={t('ui:ProposalEditorPage.enterTextContentSupportsHtml')}
       rows={4}
       className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y"
     />
@@ -194,9 +197,10 @@ function ImageBlockEditor({
   preview: boolean;
   onChange: (data: Record<string, any>) => void;
 }) {
+  const { t } = useTranslation('ui')
   if (preview) {
     if (!block.data.url) {
-      return <div className="text-sm text-gray-400 italic">No image set</div>;
+      return <div className="text-sm text-gray-400 italic">{t('ui:ProposalEditorPage.noImageSet')}</div>;
     }
     return (
       <div className="flex justify-center">
@@ -213,7 +217,7 @@ function ImageBlockEditor({
     <div className="space-y-3">
       <div>
         <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-          Image URL
+         {t('ui:ProposalEditorPage.imageUrl')}
         </label>
         <input
           type="url"
@@ -225,13 +229,13 @@ function ImageBlockEditor({
       </div>
       <div>
         <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-          Alt Text
+         {t('ui:ProposalEditorPage.altText')}
         </label>
         <input
           type="text"
           value={block.data.alt || ''}
           onChange={(e) => onChange({ ...block.data, alt: e.target.value })}
-          placeholder="Describe the image..."
+          placeholder={t('ui:ProposalEditorPage.describeTheImage')}
           className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
       </div>
@@ -261,11 +265,12 @@ function VideoBlockEditor({
   preview: boolean;
   onChange: (data: Record<string, any>) => void;
 }) {
+  const { t } = useTranslation('ui')
   const embedUrl = getEmbedUrl(block.data.url || '');
 
   if (preview) {
     if (!embedUrl) {
-      return <div className="text-sm text-gray-400 italic">No video set</div>;
+      return <div className="text-sm text-gray-400 italic">{t('ui:ProposalEditorPage.noVideoSet')}</div>;
     }
     return (
       <div className="aspect-video w-full max-w-2xl mx-auto">
@@ -274,7 +279,7 @@ function VideoBlockEditor({
           className="w-full h-full rounded-lg"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen
-          title="Embedded video"
+          title={t('ui:ProposalEditorPage.embeddedVideo')}
         />
       </div>
     );
@@ -284,7 +289,7 @@ function VideoBlockEditor({
     <div className="space-y-3">
       <div>
         <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-          Video URL (YouTube or Vimeo)
+         {t('ui:ProposalEditorPage.videoUrlYoutubeOrVimeo')}
         </label>
         <input
           type="url"
@@ -301,7 +306,7 @@ function VideoBlockEditor({
             className="w-full h-full rounded-lg"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
-            title="Embedded video preview"
+            title={t('ui:ProposalEditorPage.embeddedVideoPreview')}
           />
         </div>
       )}
@@ -322,6 +327,7 @@ function PricingTableEditor({
   preview: boolean;
   onChange: (data: Record<string, any>) => void;
 }) {
+  const { t } = useTranslation('ui')
   const items: PricingItem[] = block.data.items || [];
 
   const recalculate = useCallback(
@@ -384,13 +390,13 @@ function PricingTableEditor({
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="border-b border-gray-200 dark:border-gray-700">
-              <th className="text-left px-3 py-2 text-gray-500 dark:text-gray-400 font-medium">Item</th>
-              <th className="text-left px-3 py-2 text-gray-500 dark:text-gray-400 font-medium">Description</th>
-              <th className="text-right px-3 py-2 text-gray-500 dark:text-gray-400 font-medium">Qty</th>
-              <th className="text-right px-3 py-2 text-gray-500 dark:text-gray-400 font-medium">Rate</th>
-              <th className="text-right px-3 py-2 text-gray-500 dark:text-gray-400 font-medium">Tax%</th>
-              <th className="text-right px-3 py-2 text-gray-500 dark:text-gray-400 font-medium">Disc%</th>
-              <th className="text-right px-3 py-2 text-gray-500 dark:text-gray-400 font-medium">Total</th>
+              <th className="text-left px-3 py-2 text-gray-500 dark:text-gray-400 font-medium">{t('ui:ProposalEditorPage.item')}</th>
+              <th className="text-left px-3 py-2 text-gray-500 dark:text-gray-400 font-medium">{t('ui:ProposalEditorPage.description')}</th>
+              <th className="text-right px-3 py-2 text-gray-500 dark:text-gray-400 font-medium">{t('ui:ProposalEditorPage.qty')}</th>
+              <th className="text-right px-3 py-2 text-gray-500 dark:text-gray-400 font-medium">{t('ui:ProposalEditorPage.rate')}</th>
+              <th className="text-right px-3 py-2 text-gray-500 dark:text-gray-400 font-medium">{t('ui:ProposalEditorPage.tax')}</th>
+              <th className="text-right px-3 py-2 text-gray-500 dark:text-gray-400 font-medium">{t('ui:ProposalEditorPage.disc')}</th>
+              <th className="text-right px-3 py-2 text-gray-500 dark:text-gray-400 font-medium">{t('ui:ProposalEditorPage.total')}</th>
             </tr>
           </thead>
           <tbody>
@@ -411,19 +417,19 @@ function PricingTableEditor({
         </table>
         <div className="flex flex-col items-end mt-3 space-y-1">
           <div className="flex justify-between w-56 text-sm">
-            <span className="text-gray-500 dark:text-gray-400">Subtotal</span>
+            <span className="text-gray-500 dark:text-gray-400">{t('ui:ProposalEditorPage.subtotal')}</span>
             <span className="text-gray-900 dark:text-gray-100">{formatCurrency(block.data.subtotal || 0)}</span>
           </div>
           <div className="flex justify-between w-56 text-sm">
-            <span className="text-gray-500 dark:text-gray-400">Tax</span>
+            <span className="text-gray-500 dark:text-gray-400">{t('ui:ProposalEditorPage.tax_2')}</span>
             <span className="text-gray-900 dark:text-gray-100">{formatCurrency(block.data.tax_total || 0)}</span>
           </div>
           <div className="flex justify-between w-56 text-sm">
-            <span className="text-gray-500 dark:text-gray-400">Discount</span>
+            <span className="text-gray-500 dark:text-gray-400">{t('ui:ProposalEditorPage.discount')}</span>
             <span className="text-red-500">-{formatCurrency(block.data.discount_total || 0)}</span>
           </div>
           <div className="flex justify-between w-56 text-sm pt-1 border-t border-gray-200 dark:border-gray-700 mt-1">
-            <span className="font-medium text-gray-900 dark:text-gray-100">Grand Total</span>
+            <span className="font-medium text-gray-900 dark:text-gray-100">{t('ui:ProposalEditorPage.grandTotal')}</span>
             <span className="font-semibold text-gray-900 dark:text-gray-100">
               {formatCurrency(block.data.grand_total || 0)}
             </span>
@@ -439,13 +445,13 @@ function PricingTableEditor({
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="border-b border-gray-200 dark:border-gray-700">
-              <th className="text-left px-2 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">Item</th>
-              <th className="text-left px-2 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">Description</th>
-              <th className="text-right px-2 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 w-16">Qty</th>
-              <th className="text-right px-2 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 w-24">Rate</th>
-              <th className="text-right px-2 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 w-16">Tax%</th>
-              <th className="text-right px-2 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 w-16">Disc%</th>
-              <th className="text-right px-2 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 w-24">Total</th>
+              <th className="text-left px-2 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">{t('ui:ProposalEditorPage.item')}</th>
+              <th className="text-left px-2 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">{t('ui:ProposalEditorPage.description')}</th>
+              <th className="text-right px-2 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 w-16">{t('ui:ProposalEditorPage.qty')}</th>
+              <th className="text-right px-2 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 w-24">{t('ui:ProposalEditorPage.rate')}</th>
+              <th className="text-right px-2 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 w-16">{t('ui:ProposalEditorPage.tax')}</th>
+              <th className="text-right px-2 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 w-16">{t('ui:ProposalEditorPage.disc')}</th>
+              <th className="text-right px-2 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 w-24">{t('ui:ProposalEditorPage.total')}</th>
               <th className="w-8" />
             </tr>
           </thead>
@@ -457,7 +463,7 @@ function PricingTableEditor({
                     type="text"
                     value={row.item}
                     onChange={(e) => updateItem(row.id, 'item', e.target.value)}
-                    placeholder="Item name"
+                    placeholder={t('ui:ProposalEditorPage.itemName')}
                     className="w-full px-2 py-1 text-sm border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 </td>
@@ -466,7 +472,7 @@ function PricingTableEditor({
                     type="text"
                     value={row.description}
                     onChange={(e) => updateItem(row.id, 'description', e.target.value)}
-                    placeholder="Description"
+                    placeholder={t('ui:ProposalEditorPage.description')}
                     className="w-full px-2 py-1 text-sm border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 </td>
@@ -519,7 +525,7 @@ function PricingTableEditor({
                   <button
                     onClick={() => removeRow(row.id)}
                     className="p-1 text-gray-400 hover:text-red-500 transition-colors"
-                    title="Remove row"
+                    title={t('ui:ProposalEditorPage.removeRow')}
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -535,24 +541,24 @@ function PricingTableEditor({
         className="flex items-center gap-1.5 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
       >
         <Plus className="w-3.5 h-3.5" />
-        Add Row
+       {t('ui:ProposalEditorPage.addRow')}
       </button>
 
       <div className="flex flex-col items-end space-y-1 text-sm">
         <div className="flex justify-between w-56">
-          <span className="text-gray-500 dark:text-gray-400">Subtotal</span>
+          <span className="text-gray-500 dark:text-gray-400">{t('ui:ProposalEditorPage.subtotal')}</span>
           <span className="text-gray-900 dark:text-gray-100">{formatCurrency(block.data.subtotal || 0)}</span>
         </div>
         <div className="flex justify-between w-56">
-          <span className="text-gray-500 dark:text-gray-400">Tax</span>
+          <span className="text-gray-500 dark:text-gray-400">{t('ui:ProposalEditorPage.tax_2')}</span>
           <span className="text-gray-900 dark:text-gray-100">{formatCurrency(block.data.tax_total || 0)}</span>
         </div>
         <div className="flex justify-between w-56">
-          <span className="text-gray-500 dark:text-gray-400">Discount</span>
+          <span className="text-gray-500 dark:text-gray-400">{t('ui:ProposalEditorPage.discount')}</span>
           <span className="text-red-500">-{formatCurrency(block.data.discount_total || 0)}</span>
         </div>
         <div className="flex justify-between w-56 pt-1 border-t border-gray-200 dark:border-gray-700 mt-1">
-          <span className="font-medium text-gray-900 dark:text-gray-100">Grand Total</span>
+          <span className="font-medium text-gray-900 dark:text-gray-100">{t('ui:ProposalEditorPage.grandTotal')}</span>
           <span className="font-semibold text-gray-900 dark:text-gray-100">
             {formatCurrency(block.data.grand_total || 0)}
           </span>
@@ -575,6 +581,7 @@ function CustomValueEditor({
   preview: boolean;
   onChange: (data: Record<string, any>) => void;
 }) {
+  const { t } = useTranslation('ui')
   const selected = MERGE_FIELDS.find((f) => f.value === block.data.field);
 
   if (preview) {
@@ -589,7 +596,7 @@ function CustomValueEditor({
   return (
     <div>
       <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-        Merge Field
+       {t('ui:ProposalEditorPage.mergeField')}
       </label>
       <select
         value={block.data.field || '{{contact.name}}'}
@@ -627,13 +634,14 @@ function SignatureBlockEditor({
   recipients: ProposalRecipient[];
   onChange: (data: Record<string, any>) => void;
 }) {
+  const { t } = useTranslation('ui')
   if (preview) {
     const assigned = recipients.find((r) => r.id === block.data.recipient_id);
     return (
       <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center">
         <PenTool className="w-6 h-6 mx-auto text-gray-400 dark:text-gray-500 mb-2" />
         <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-          {block.data.label || 'Signature'}
+          {block.data.label || t('ui:ProposalEditorPage.signature')}
         </p>
         {assigned && (
           <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
@@ -648,26 +656,26 @@ function SignatureBlockEditor({
     <div className="space-y-3">
       <div>
         <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-          Label
+         {t('ui:ProposalEditorPage.label')}
         </label>
         <input
           type="text"
           value={block.data.label || ''}
           onChange={(e) => onChange({ ...block.data, label: e.target.value })}
-          placeholder="Signature"
+          placeholder={t('ui:ProposalEditorPage.signature')}
           className="w-full max-w-xs px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
       </div>
       <div>
         <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-          Assigned Recipient
+         {t('ui:ProposalEditorPage.assignedRecipient')}
         </label>
         <select
           value={block.data.recipient_id || ''}
           onChange={(e) => onChange({ ...block.data, recipient_id: e.target.value })}
           className="w-full max-w-xs px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         >
-          <option value="">-- Select recipient --</option>
+          <option value="">{t('ui:ProposalEditorPage.selectRecipient')}</option>
           {recipients.map((r) => (
             <option key={r.id} value={r.id}>
               {r.name} ({r.email})
@@ -677,7 +685,7 @@ function SignatureBlockEditor({
       </div>
       <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center">
         <PenTool className="w-6 h-6 mx-auto text-gray-400 dark:text-gray-500 mb-2" />
-        <p className="text-sm text-gray-500 dark:text-gray-400">{block.data.label || 'Signature'} placeholder</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">{block.data.label || t('ui:ProposalEditorPage.signature')} placeholder</p>
       </div>
     </div>
   );
@@ -688,11 +696,12 @@ function SignatureBlockEditor({
 // ---------------------------------------------------------------------------
 
 function PageBreakBlock({ preview: _preview }: { preview: boolean }) {
+  const { t } = useTranslation('ui')
   return (
     <div className="flex items-center gap-3 py-2">
       <div className="flex-1 border-t border-gray-300 dark:border-gray-600 border-dashed" />
       <span className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-        Page Break
+       {t('ui:ProposalEditorPage.pageBreak')}
       </span>
       <div className="flex-1 border-t border-gray-300 dark:border-gray-600 border-dashed" />
     </div>
@@ -724,6 +733,7 @@ function BlockRenderer({
   onMoveUp: () => void;
   onMoveDown: () => void;
 }) {
+  const { t } = useTranslation('ui')
   const blockTypeInfo = BLOCK_TYPES.find((bt) => bt.type === block.type);
   const Icon = blockTypeInfo?.icon || Type;
 
@@ -751,7 +761,7 @@ function BlockRenderer({
               onClick={onMoveUp}
               disabled={isFirst}
               className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-              title="Move up"
+              title={t('ui:ProposalEditorPage.moveUp')}
             >
               <ChevronUp className="w-4 h-4" />
             </button>
@@ -759,14 +769,14 @@ function BlockRenderer({
               onClick={onMoveDown}
               disabled={isLast}
               className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-              title="Move down"
+              title={t('ui:ProposalEditorPage.moveDown')}
             >
               <ChevronDown className="w-4 h-4" />
             </button>
             <button
               onClick={onDelete}
               className="p-1 text-gray-400 hover:text-red-500 transition-colors"
-              title="Delete block"
+              title={t('ui:ProposalEditorPage.deleteBlock')}
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
@@ -818,6 +828,7 @@ function RecipientManager({
   recipients: ProposalRecipient[];
   isDraft: boolean;
 }) {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient();
   const [showAdd, setShowAdd] = useState(false);
   const [newEmail, setNewEmail] = useState('');
@@ -833,18 +844,18 @@ function RecipientManager({
       setNewName('');
       setNewRole('signer');
       setShowAdd(false);
-      toast.success('Recipient added');
+      toast.success(t('ui:ProposalEditorPage.recipientAdded'));
     },
-    onError: () => toast.error('Failed to add recipient'),
+    onError: () => toast.error(t('ui:ProposalEditorPage.failedToAddRecipient')),
   });
 
   const removeMutation = useMutation({
     mutationFn: (recipientId: string) => removeRecipient(proposalId, recipientId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['proposal', proposalId] });
-      toast.success('Recipient removed');
+      toast.success(t('ui:ProposalEditorPage.recipientRemoved'));
     },
-    onError: () => toast.error('Failed to remove recipient'),
+    onError: () => toast.error(t('ui:ProposalEditorPage.failedToRemoveRecipient')),
   });
 
   const handleAdd = (e: React.FormEvent) => {
@@ -856,20 +867,20 @@ function RecipientManager({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">Recipients</h3>
+        <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">{t('ui:ProposalEditorPage.recipients')}</h3>
         {isDraft && (
           <button
             onClick={() => setShowAdd(!showAdd)}
             className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
           >
             <UserPlus className="w-3.5 h-3.5" />
-            Add
+           {t('ui:ProposalEditorPage.add')}
           </button>
         )}
       </div>
 
       {recipients.length === 0 && (
-        <p className="text-xs text-gray-400 dark:text-gray-500 italic">No recipients yet</p>
+        <p className="text-xs text-gray-400 dark:text-gray-500 italic">{t('ui:ProposalEditorPage.noRecipientsYet')}</p>
       )}
 
       {recipients.map((r) => (
@@ -887,7 +898,7 @@ function RecipientManager({
               onClick={() => removeMutation.mutate(r.id)}
               disabled={removeMutation.isPending}
               className="p-1 text-gray-400 hover:text-red-500 transition-colors shrink-0"
-              title="Remove recipient"
+              title={t('ui:ProposalEditorPage.removeRecipient')}
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -901,7 +912,7 @@ function RecipientManager({
             type="text"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
-            placeholder="Name"
+            placeholder={t('ui:ProposalEditorPage.name')}
             required
             className="w-full px-2.5 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
@@ -909,7 +920,7 @@ function RecipientManager({
             type="email"
             value={newEmail}
             onChange={(e) => setNewEmail(e.target.value)}
-            placeholder="Email"
+            placeholder={t('ui:ProposalEditorPage.email')}
             required
             className="w-full px-2.5 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
@@ -918,9 +929,9 @@ function RecipientManager({
             onChange={(e) => setNewRole(e.target.value)}
             className="w-full px-2.5 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
           >
-            <option value="signer">Signer</option>
-            <option value="viewer">Viewer</option>
-            <option value="approver">Approver</option>
+            <option value="signer">{t('ui:ProposalEditorPage.signer')}</option>
+            <option value="viewer">{t('ui:ProposalEditorPage.viewer')}</option>
+            <option value="approver">{t('ui:ProposalEditorPage.approver')}</option>
           </select>
           <div className="flex items-center gap-2">
             <button
@@ -928,14 +939,14 @@ function RecipientManager({
               disabled={addMutation.isPending}
               className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
             >
-              {addMutation.isPending ? 'Adding...' : 'Add'}
+              {addMutation.isPending ? t('ui:ProposalEditorPage.adding') : t('ui:ProposalEditorPage.add')}
             </button>
             <button
               type="button"
               onClick={() => setShowAdd(false)}
               className="px-3 py-1.5 text-xs border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
             >
-              Cancel
+             {t('ui:ProposalEditorPage.cancel')}
             </button>
           </div>
         </form>
@@ -949,6 +960,7 @@ function RecipientManager({
 // ---------------------------------------------------------------------------
 
 export default function ProposalEditorPage() {
+  const { t } = useTranslation('ui')
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -1025,7 +1037,7 @@ export default function ProposalEditorPage() {
       queryClient.invalidateQueries({ queryKey: ['proposal', id] });
       queryClient.invalidateQueries({ queryKey: ['proposals'] });
     },
-    onError: () => toast.error('Failed to save proposal'),
+    onError: () => toast.error(t('ui:ProposalEditorPage.failedToSaveProposal')),
   });
 
   // ---- Send mutation ----
@@ -1034,9 +1046,9 @@ export default function ProposalEditorPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['proposal', id] });
       queryClient.invalidateQueries({ queryKey: ['proposals'] });
-      toast.success('Proposal sent successfully');
+      toast.success(t('ui:ProposalEditorPage.proposalSentSuccessfully'));
     },
-    onError: () => toast.error('Failed to send proposal'),
+    onError: () => toast.error(t('ui:ProposalEditorPage.failedToSendProposal')),
   });
 
   // ---- Debounced auto-save ----
@@ -1124,7 +1136,7 @@ export default function ProposalEditorPage() {
       follow_up_hours: followUpEnabled ? followUpHours : 0,
       value: manualValue !== null ? manualValue : computedValue,
     });
-    toast.success('Proposal saved');
+    toast.success(t('ui:ProposalEditorPage.proposalSaved'));
   }, [
     id,
     title,
@@ -1187,7 +1199,7 @@ export default function ProposalEditorPage() {
   if (proposalQuery.isLoading) {
     return (
       <div className="flex items-center justify-center h-full p-12">
-        <p className="text-gray-400 dark:text-gray-500">Loading proposal...</p>
+        <p className="text-gray-400 dark:text-gray-500">{t('ui:ProposalEditorPage.loadingProposal')}</p>
       </div>
     );
   }
@@ -1195,12 +1207,12 @@ export default function ProposalEditorPage() {
   if (proposalQuery.isError || !proposal) {
     return (
       <div className="p-6">
-        <p className="text-red-500">Failed to load proposal.</p>
+        <p className="text-red-500">{t('ui:ProposalEditorPage.failedToLoadProposal')}</p>
         <button
           onClick={() => navigate('/proposals')}
           className="mt-2 text-blue-600 dark:text-blue-400 hover:underline text-sm"
         >
-          Back to Proposals
+         {t('ui:ProposalEditorPage.backToProposals')}
         </button>
       </div>
     );
@@ -1218,7 +1230,7 @@ export default function ProposalEditorPage() {
           <button
             onClick={() => navigate('/proposals')}
             className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
-            title="Back to Proposals"
+            title={t('ui:ProposalEditorPage.backToProposals')}
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -1243,9 +1255,9 @@ export default function ProposalEditorPage() {
             <button
               onClick={() => setEditingTitle(true)}
               className="text-lg font-semibold text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors truncate max-w-md"
-              title="Click to edit title"
+              title={t('ui:ProposalEditorPage.clickToEditTitle')}
             >
-              {title || 'Untitled Proposal'}
+              {title || t('ui:ProposalEditorPage.untitledProposal')}
             </button>
           )}
 
@@ -1271,7 +1283,7 @@ export default function ProposalEditorPage() {
             )}
           >
             {preview ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-            {preview ? 'Edit' : 'Preview'}
+            {preview ? t('ui:ProposalEditorPage.edit') : t('ui:ProposalEditorPage.preview')}
           </button>
 
           <button
@@ -1280,7 +1292,7 @@ export default function ProposalEditorPage() {
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg hover:bg-gray-800 dark:hover:bg-gray-200 disabled:opacity-50 transition-colors"
           >
             <Save className="w-4 h-4" />
-            {saveMutation.isPending ? 'Saving...' : 'Save'}
+            {saveMutation.isPending ? t('ui:ProposalEditorPage.saving') : t('ui:ProposalEditorPage.save')}
           </button>
 
           {isDraft && (
@@ -1290,7 +1302,7 @@ export default function ProposalEditorPage() {
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
             >
               <Send className="w-4 h-4" />
-              {sendMutation.isPending ? 'Sending...' : 'Send'}
+              {sendMutation.isPending ? t('ui:ProposalEditorPage.sending') : t('ui:ProposalEditorPage.send')}
             </button>
           )}
         </div>
@@ -1307,7 +1319,7 @@ export default function ProposalEditorPage() {
               <div className="flex items-center gap-2 mb-3">
                 <Layers className="w-4 h-4 text-gray-400 dark:text-gray-500" />
                 <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                  Blocks
+                 {t('ui:ProposalEditorPage.blocks')}
                 </h3>
               </div>
               <div className="space-y-1">
@@ -1336,12 +1348,12 @@ export default function ProposalEditorPage() {
               <div className="flex flex-col items-center justify-center py-20 text-center">
                 <Layers className="w-12 h-12 text-gray-300 dark:text-gray-700 mb-4" />
                 <p className="text-gray-500 dark:text-gray-400 text-sm mb-2">
-                  No content blocks yet
+                 {t('ui:ProposalEditorPage.noContentBlocksYet')}
                 </p>
                 <p className="text-gray-400 dark:text-gray-500 text-xs">
                   {preview
-                    ? 'Switch to edit mode to add content blocks'
-                    : 'Click a block type from the left sidebar to add content'}
+                    ? t('ui:ProposalEditorPage.switchToEditModeTo')
+                    : t('ui:ProposalEditorPage.clickABlockTypeFrom')}
                 </p>
               </div>
             ) : (
@@ -1371,7 +1383,7 @@ export default function ProposalEditorPage() {
                 <div className="relative group">
                   <button className="flex items-center gap-1.5 text-sm text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors px-3 py-2 rounded-lg border border-dashed border-gray-300 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-600">
                     <Plus className="w-4 h-4" />
-                    Add block
+                   {t('ui:ProposalEditorPage.addBlock')}
                   </button>
                   {/* Dropdown on hover */}
                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block z-20">
@@ -1404,7 +1416,7 @@ export default function ProposalEditorPage() {
             <div className="flex items-center gap-2">
               <Settings className="w-4 h-4 text-gray-400 dark:text-gray-500" />
               <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                Settings
+               {t('ui:ProposalEditorPage.settings')}
               </h3>
             </div>
 
@@ -1421,16 +1433,16 @@ export default function ProposalEditorPage() {
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <DollarSign className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
-                <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">Value</h3>
+                <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">{t('ui:ProposalEditorPage.value')}</h3>
               </div>
               {computedValue > 0 && (
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Auto-calculated: {formatCurrency(computedValue, proposal.currency)}
+                 {t('ui:ProposalEditorPage.autoCalculated')} {formatCurrency(computedValue, proposal.currency)}
                 </p>
               )}
               <div>
                 <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
-                  {computedValue > 0 ? 'Override value' : 'Manual value'}
+                  {computedValue > 0 ? t('ui:ProposalEditorPage.overrideValue') : t('ui:ProposalEditorPage.manualValue')}
                 </label>
                 <input
                   type="number"
@@ -1446,7 +1458,7 @@ export default function ProposalEditorPage() {
                 />
               </div>
               <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                Total: {formatCurrency(displayValue, proposal.currency)}
+               {t('ui:ProposalEditorPage.total_2')} {formatCurrency(displayValue, proposal.currency)}
               </p>
             </div>
 
@@ -1454,7 +1466,7 @@ export default function ProposalEditorPage() {
 
             {/* Payment */}
             <div className="space-y-3">
-              <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">Payment</h3>
+              <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">{t('ui:ProposalEditorPage.payment')}</h3>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
@@ -1463,7 +1475,7 @@ export default function ProposalEditorPage() {
                   className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
                 />
                 <span className="text-sm text-gray-700 dark:text-gray-300">
-                  Collect payment on signature
+                 {t('ui:ProposalEditorPage.collectPaymentOnSignature')}
                 </span>
               </label>
 
@@ -1471,33 +1483,33 @@ export default function ProposalEditorPage() {
                 <div className="space-y-2 pl-6">
                   <div>
                     <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
-                      Payment Mode
+                     {t('ui:ProposalEditorPage.paymentMode')}
                     </label>
                     <select
                       value={paymentMode}
                       onChange={(e) => setPaymentMode(e.target.value)}
                       className="w-full px-2.5 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
                     >
-                      <option value="one-time">One-time</option>
-                      <option value="recurring">Recurring</option>
+                      <option value="one-time">{t('ui:ProposalEditorPage.oneTime')}</option>
+                      <option value="recurring">{t('ui:ProposalEditorPage.recurring')}</option>
                     </select>
                   </div>
 
                   {paymentMode === 'recurring' && (
                     <div>
                       <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
-                        Frequency
+                       {t('ui:ProposalEditorPage.frequency')}
                       </label>
                       <select
                         value={paymentFrequency}
                         onChange={(e) => setPaymentFrequency(e.target.value)}
                         className="w-full px-2.5 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
                       >
-                        <option value="weekly">Weekly</option>
-                        <option value="biweekly">Bi-weekly</option>
-                        <option value="monthly">Monthly</option>
-                        <option value="quarterly">Quarterly</option>
-                        <option value="annually">Annually</option>
+                        <option value="weekly">{t('ui:ProposalEditorPage.weekly')}</option>
+                        <option value="biweekly">{t('ui:ProposalEditorPage.biWeekly')}</option>
+                        <option value="monthly">{t('ui:ProposalEditorPage.monthly')}</option>
+                        <option value="quarterly">{t('ui:ProposalEditorPage.quarterly')}</option>
+                        <option value="annually">{t('ui:ProposalEditorPage.annually')}</option>
                       </select>
                     </div>
                   )}
@@ -1509,7 +1521,7 @@ export default function ProposalEditorPage() {
 
             {/* Follow-up */}
             <div className="space-y-3">
-              <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">Follow-up</h3>
+              <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">{t('ui:ProposalEditorPage.followUp')}</h3>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
@@ -1518,14 +1530,14 @@ export default function ProposalEditorPage() {
                   className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
                 />
                 <span className="text-sm text-gray-700 dark:text-gray-300">
-                  Send follow-up if not signed
+                 {t('ui:ProposalEditorPage.sendFollowUpIfNot')}
                 </span>
               </label>
 
               {followUpEnabled && (
                 <div className="pl-6">
                   <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
-                    Hours after sending
+                   {t('ui:ProposalEditorPage.hoursAfterSending')}
                   </label>
                   <input
                     type="number"

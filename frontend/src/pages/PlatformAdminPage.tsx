@@ -41,20 +41,22 @@ import {
   Phone,
 } from 'lucide-react'
 import { FEATURE_CATEGORIES, ROLE_DEFAULTS, FEATURE_LABELS } from '@/lib/features'
+import { useTranslation } from 'react-i18next'
+import i18n from '@/i18n'
 
 // ── Tab definitions ──────────────────────────────────────────────────────
 
 const TABS = [
-  { key: 'overview', label: 'Overview', icon: LayoutDashboard },
-  { key: 'organizations', label: 'Organizations', icon: Building2 },
-  { key: 'users', label: 'Users', icon: Users },
-  { key: 'features', label: 'Feature Toggles', icon: ToggleLeft },
-  { key: 'pricing', label: 'Pricing & Limits', icon: DollarSign },
-  { key: 'apikeys', label: 'API Keys', icon: Key },
-  { key: 'telephony', label: 'Telephony', icon: Phone },
-  { key: 'health', label: 'Health', icon: HeartPulse },
-  { key: 'security', label: 'Security', icon: Shield },
-  { key: 'errors', label: 'Errors', icon: AlertTriangle },
+  { key: 'overview', label: i18n.t('ui:PlatformAdminPage.overview'), icon: LayoutDashboard },
+  { key: 'organizations', label: i18n.t('ui:PlatformAdminPage.organizations'), icon: Building2 },
+  { key: 'users', label: i18n.t('ui:PlatformAdminPage.users'), icon: Users },
+  { key: 'features', label: i18n.t('ui:PlatformAdminPage.featureToggles'), icon: ToggleLeft },
+  { key: 'pricing', label: i18n.t('ui:PlatformAdminPage.pricingLimits'), icon: DollarSign },
+  { key: 'apikeys', label: i18n.t('ui:PlatformAdminPage.apiKeys'), icon: Key },
+  { key: 'telephony', label: i18n.t('ui:PlatformAdminPage.telephony'), icon: Phone },
+  { key: 'health', label: i18n.t('ui:PlatformAdminPage.health'), icon: HeartPulse },
+  { key: 'security', label: i18n.t('ui:PlatformAdminPage.security'), icon: Shield },
+  { key: 'errors', label: i18n.t('ui:PlatformAdminPage.errors'), icon: AlertTriangle },
 ] as const
 
 type TabKey = (typeof TABS)[number]['key']
@@ -62,13 +64,14 @@ type TabKey = (typeof TABS)[number]['key']
 // ── Main page ────────────────────────────────────────────────────────────
 
 export default function PlatformAdminPage() {
+  const { t } = useTranslation('ui')
   const [activeTab, setActiveTab] = useState<TabKey>('overview')
   const user = useAuthStore((s) => s.user)
 
   if (user?.role !== 'admin') {
     return (
       <div className="flex items-center justify-center h-full">
-        <p className="text-gray-500 dark:text-gray-400">You do not have access to this page.</p>
+        <p className="text-gray-500 dark:text-gray-400">{t('ui:PlatformAdminPage.youDoNotHaveAccess')}</p>
       </div>
     )
   }
@@ -78,8 +81,8 @@ export default function PlatformAdminPage() {
       {/* Sidebar */}
       <div className="w-56 shrink-0 border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 overflow-y-auto">
         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Platform Admin</h2>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">System management</p>
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-white">{t('ui:PlatformAdminPage.platformAdmin')}</h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{t('ui:PlatformAdminPage.systemManagement')}</p>
         </div>
         <nav className="p-2">
           {TABS.map((tab) => {
@@ -122,11 +125,11 @@ export default function PlatformAdminPage() {
 // ── Telephony tab — least-privilege capability grants ─────────────────────
 
 const TELEPHONY_CAPS = [
-  { apiKey: 'number_purchase', field: 'allow_number_purchase', label: 'Buy numbers' },
-  { apiKey: 'sms', field: 'allow_sms', label: 'Send SMS' },
-  { apiKey: 'mms', field: 'allow_mms', label: 'Send MMS' },
-  { apiKey: 'voice_outbound', field: 'allow_voice_outbound', label: 'Outbound calls' },
-  { apiKey: 'voice_inbound', field: 'allow_voice_inbound', label: 'Inbound calls' },
+  { apiKey: 'number_purchase', field: 'allow_number_purchase', label: i18n.t('ui:PlatformAdminPage.buyNumbers') },
+  { apiKey: 'sms', field: 'allow_sms', label: i18n.t('ui:PlatformAdminPage.sendSms') },
+  { apiKey: 'mms', field: 'allow_mms', label: i18n.t('ui:PlatformAdminPage.sendMms') },
+  { apiKey: 'voice_outbound', field: 'allow_voice_outbound', label: i18n.t('ui:PlatformAdminPage.outboundCalls') },
+  { apiKey: 'voice_inbound', field: 'allow_voice_inbound', label: i18n.t('ui:PlatformAdminPage.inboundCalls') },
 ] as const
 
 function CapToggle({
@@ -153,6 +156,7 @@ function CapToggle({
 }
 
 function TelephonyTab() {
+  const { t } = useTranslation('ui')
   const qc = useQueryClient()
   const [provisionId, setProvisionId] = useState('')
   const [view, setView] = useState<'capabilities' | 'pricing'>('capabilities')
@@ -170,22 +174,22 @@ function TelephonyTab() {
   const setCap = useMutation({
     mutationFn: ({ tenantKey, field, value }: { tenantKey: string; field: string; value: boolean }) =>
       platformAdminApi.setTelephonyCapability(tenantKey, field, value),
-    onSuccess: () => { toast.success('Capability updated'); invalidate() },
+    onSuccess: () => { toast.success(t('ui:PlatformAdminPage.capabilityUpdated')); invalidate() },
     onError: (e: any) => toast.error(e?.response?.data?.detail || 'Failed to update capability'),
   })
   const provision = useMutation({
     mutationFn: (userId: string) => platformAdminApi.provisionTelephony(userId),
-    onSuccess: () => { toast.success('Subaccount provisioned'); setProvisionId(''); invalidate() },
+    onSuccess: () => { toast.success(t('ui:PlatformAdminPage.subaccountProvisioned')); setProvisionId(''); invalidate() },
     onError: (e: any) => toast.error(e?.response?.data?.detail || 'Provision failed'),
   })
   const suspend = useMutation({
     mutationFn: (id: string) => platformAdminApi.suspendTelephony(id),
-    onSuccess: () => { toast.success('Suspended'); invalidate() },
+    onSuccess: () => { toast.success(t('ui:PlatformAdminPage.suspended')); invalidate() },
     onError: (e: any) => toast.error(e?.response?.data?.detail || 'Failed'),
   })
   const reactivate = useMutation({
     mutationFn: (id: string) => platformAdminApi.reactivateTelephony(id),
-    onSuccess: () => { toast.success('Reactivated'); invalidate() },
+    onSuccess: () => { toast.success(t('ui:PlatformAdminPage.reactivated')); invalidate() },
     onError: (e: any) => toast.error(e?.response?.data?.detail || 'Failed'),
   })
 
@@ -202,7 +206,7 @@ function TelephonyTab() {
                 : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'
             }`}
           >
-            {v === 'capabilities' ? 'Capabilities' : 'Pricing & margin'}
+            {v === 'capabilities' ? t('ui:PlatformAdminPage.capabilities') : t('ui:PlatformAdminPage.pricingMargin')}
           </button>
         ))}
       </div>
@@ -212,11 +216,10 @@ function TelephonyTab() {
       <>
       <div>
         <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-          Telephony capabilities
+         {t('ui:PlatformAdminPage.telephonyCapabilities')}
         </h2>
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          Least-privilege: every subaccount starts with nothing. Grant only what a
-          tenant should have. Tenants cannot grant themselves anything.
+         {t('ui:PlatformAdminPage.leastPrivilegeEverySubaccountStarts')}
         </p>
       </div>
 
@@ -230,19 +233,19 @@ function TelephonyTab() {
       >
         <Shield className="h-4 w-4 shrink-0" />
         {enforcing ? (
-          <span><strong>Enforcing.</strong> Ungranted actions are blocked (403), and an ungranted tenant cannot auto-provision.</span>
+          <span><strong>{t('ui:PlatformAdminPage.enforcing')}</strong> {t('ui:PlatformAdminPage.ungrantedActionsAreBlocked403')}</span>
         ) : (
-          <span><strong>Staging (not enforced).</strong> Grants are recorded but do not block yet. Flip <code>telephony_enforce_capabilities</code> on to enforce.</span>
+          <span><strong>{t('ui:PlatformAdminPage.stagingNotEnforced')}</strong> {t('ui:PlatformAdminPage.grantsAreRecordedButDo')} <code>telephony_enforce_capabilities</code> {t('ui:PlatformAdminPage.onToEnforce')}</span>
         )}
       </div>
 
       {/* Provision */}
       <div className="flex flex-wrap items-center gap-2 rounded-md border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800">
-        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Provision a subaccount</span>
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('ui:PlatformAdminPage.provisionASubaccount')}</span>
         <input
           value={provisionId}
           onChange={(e) => setProvisionId(e.target.value)}
-          placeholder="tenant owner user id (UUID)"
+          placeholder={t('ui:PlatformAdminPage.tenantOwnerUserIdUuid')}
           className="flex-1 min-w-[220px] rounded-md border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900"
         />
         <button
@@ -250,27 +253,27 @@ function TelephonyTab() {
           disabled={!provisionId || provision.isPending}
           className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
         >
-          <Plus className="h-4 w-4" /> Provision
+          <Plus className="h-4 w-4" /> {t('ui:PlatformAdminPage.provision')}
         </button>
       </div>
 
       {isLoading ? (
-        <div className="flex items-center gap-2 p-6 text-gray-500"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>
+        <div className="flex items-center gap-2 p-6 text-gray-500"><Loader2 className="h-4 w-4 animate-spin" /> {t('ui:PlatformAdminPage.loading')}</div>
       ) : accounts.length === 0 ? (
         <div className="rounded-md border border-dashed border-gray-300 p-8 text-center text-sm text-gray-500 dark:border-gray-700">
-          No telephony subaccounts yet. Provision one above (go-live step 1), then grant capabilities.
+         {t('ui:PlatformAdminPage.noTelephonySubaccountsYetProvision')}
         </div>
       ) : (
         <div className="overflow-x-auto rounded-md border border-gray-200 dark:border-gray-700">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 dark:bg-gray-800/50">
               <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
-                <th className="px-3 py-2">Tenant</th>
-                <th className="px-3 py-2">Status</th>
+                <th className="px-3 py-2">{t('ui:PlatformAdminPage.tenant')}</th>
+                <th className="px-3 py-2">{t('ui:PlatformAdminPage.status')}</th>
                 {TELEPHONY_CAPS.map((c) => (
                   <th key={c.apiKey} className="px-3 py-2 text-center">{c.label}</th>
                 ))}
-                <th className="px-3 py-2">Numbers</th>
+                <th className="px-3 py-2">{t('ui:PlatformAdminPage.numbers')}</th>
                 <th className="px-3 py-2"></th>
               </tr>
             </thead>
@@ -306,9 +309,9 @@ function TelephonyTab() {
                     <td className="px-3 py-2 tabular-nums">{a.numbers_held}/{a.max_numbers}</td>
                     <td className="px-3 py-2 text-right">
                       {suspended ? (
-                        <button onClick={() => reactivate.mutate(a.id)} className="text-xs font-medium text-green-600 hover:underline">Reactivate</button>
+                        <button onClick={() => reactivate.mutate(a.id)} className="text-xs font-medium text-green-600 hover:underline">{t('ui:PlatformAdminPage.reactivate')}</button>
                       ) : (
-                        <button onClick={() => suspend.mutate(a.id)} className="text-xs font-medium text-red-600 hover:underline">Suspend</button>
+                        <button onClick={() => suspend.mutate(a.id)} className="text-xs font-medium text-red-600 hover:underline">{t('ui:PlatformAdminPage.suspend')}</button>
                       )}
                     </td>
                   </tr>
@@ -333,6 +336,7 @@ const RATE_ORDER = [
 ]
 
 function TelephonyPricingPanel() {
+  const { t } = useTranslation('ui')
   const qc = useQueryClient()
   const [draft, setDraft] = useState<Record<string, string>>({})
 
@@ -350,7 +354,7 @@ function TelephonyPricingPanel() {
     mutationFn: ({ unit, sell }: { unit: string; sell: number }) =>
       platformAdminApi.updateRate({ unit, scope: 'global', sell_price_usd: sell }),
     onSuccess: () => {
-      toast.success('Sell price updated')
+      toast.success(t('ui:PlatformAdminPage.sellPriceUpdated'))
       qc.invalidateQueries({ queryKey: ['platform-admin', 'telephony-rate-card'] })
     },
     onError: (e: any) => toast.error(e?.response?.data?.detail || 'Failed to update price'),
@@ -360,7 +364,7 @@ function TelephonyPricingPanel() {
     const raw = draft[unit]
     if (raw === undefined) return
     const val = Number(raw)
-    if (Number.isNaN(val) || val < 0) { toast.error('Enter a valid price'); return }
+    if (Number.isNaN(val) || val < 0) { toast.error(t('ui:PlatformAdminPage.enterAValidPrice')); return }
     save.mutate({ unit, sell: val })
     setDraft((d) => { const n = { ...d }; delete n[unit]; return n })
   }
@@ -368,28 +372,27 @@ function TelephonyPricingPanel() {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Pricing &amp; margin</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('ui:PlatformAdminPage.pricingMargin')}</h2>
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          <strong>Our cost</strong> is what Twilio bills us. <strong>Your sell price</strong> is what
-          the tenant pays — the spread is your revenue. Edit a sell price and press Enter.
+          <strong>{t('ui:PlatformAdminPage.ourCost')}</strong> {t('ui:PlatformAdminPage.isWhatTwilioBillsUs')} <strong>{t('ui:PlatformAdminPage.yourSellPrice')}</strong> {t('ui:PlatformAdminPage.isWhatTheTenantPays')}
           {globalMarkup !== undefined && (
-            <> Units without a pinned price default to a <strong>{globalMarkup}×</strong> markup.</>
+            <> {t('ui:PlatformAdminPage.unitsWithoutAPinnedPrice')} <strong>{globalMarkup}×</strong> {t('ui:PlatformAdminPage.markup')}</>
           )}
         </p>
       </div>
 
       {isLoading ? (
-        <div className="flex items-center gap-2 p-6 text-gray-500"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>
+        <div className="flex items-center gap-2 p-6 text-gray-500"><Loader2 className="h-4 w-4 animate-spin" /> {t('ui:PlatformAdminPage.loading')}</div>
       ) : (
         <div className="overflow-x-auto rounded-md border border-gray-200 dark:border-gray-700">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 dark:bg-gray-800/50">
               <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
-                <th className="px-3 py-2">Unit</th>
-                <th className="px-3 py-2 text-right">Our cost</th>
-                <th className="px-3 py-2 text-right">Your sell price</th>
-                <th className="px-3 py-2 text-right">Margin</th>
-                <th className="px-3 py-2 text-right">Margin %</th>
+                <th className="px-3 py-2">{t('ui:PlatformAdminPage.unit')}</th>
+                <th className="px-3 py-2 text-right">{t('ui:PlatformAdminPage.ourCost')}</th>
+                <th className="px-3 py-2 text-right">{t('ui:PlatformAdminPage.yourSellPrice')}</th>
+                <th className="px-3 py-2 text-right">{t('ui:PlatformAdminPage.margin')}</th>
+                <th className="px-3 py-2 text-right">{t('ui:PlatformAdminPage.margin_2')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -399,7 +402,7 @@ function TelephonyPricingPanel() {
                   <tr key={r.unit} className={highlight ? 'bg-blue-50/60 dark:bg-blue-900/20' : ''}>
                     <td className="px-3 py-2">
                       <div className="font-medium text-gray-800 dark:text-gray-200">{r.label}</div>
-                      <div className="font-mono text-[11px] text-gray-400">{r.unit} · via {r.source}</div>
+                      <div className="font-mono text-[11px] text-gray-400">{r.unit} {t('ui:PlatformAdminPage.via')} {r.source}</div>
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums text-gray-600 dark:text-gray-400">${r.our_cost_usd.toFixed(4)}</td>
                     <td className="px-3 py-2 text-right">
@@ -424,8 +427,7 @@ function TelephonyPricingPanel() {
         </div>
       )}
       <p className="text-xs text-gray-400">
-        Global prices shown. Per-plan and per-tenant overrides are supported by the same endpoint
-        (scope=plan / scope=tenant) for finer control.
+       {t('ui:PlatformAdminPage.globalPricesShownPerPlan')}
       </p>
     </div>
   )
@@ -434,6 +436,7 @@ function TelephonyPricingPanel() {
 // ── Overview tab ─────────────────────────────────────────────────────────
 
 function OverviewTab() {
+  const { t } = useTranslation('ui')
   const { data, isLoading } = useQuery({
     queryKey: ['platform-admin', 'dashboard'],
     queryFn: () => platformAdminApi.getDashboard(),
@@ -443,19 +446,19 @@ function OverviewTab() {
   if (isLoading) return <LoadingSpinner />
 
   const cards = [
-    { label: 'Total Users', value: metrics?.total_users ?? 0, sub: `${metrics?.active_users ?? 0} active`, icon: Users, color: 'blue' },
-    { label: 'Pages', value: metrics?.total_pages ?? 0, sub: `${metrics?.published_pages ?? 0} published`, icon: Globe, color: 'purple' },
-    { label: 'Documents', value: metrics?.total_documents ?? 0, sub: formatBytes(metrics?.storage_used_bytes ?? 0), icon: FileText, color: 'green' },
-    { label: 'Invoices', value: metrics?.total_invoices ?? 0, sub: `$${(metrics?.total_revenue ?? 0).toLocaleString()}`, icon: DollarSign, color: 'amber' },
-    { label: 'Contacts', value: metrics?.total_contacts ?? 0, icon: Users, color: 'cyan' },
-    { label: 'Proposals', value: metrics?.total_proposals ?? 0, icon: FileText, color: 'indigo' },
-    { label: 'Expenses', value: `$${(metrics?.total_expenses ?? 0).toLocaleString()}`, icon: DollarSign, color: 'red' },
-    { label: 'Meetings', value: metrics?.total_meetings ?? 0, icon: Activity, color: 'emerald' },
+    { label: t('ui:PlatformAdminPage.totalUsers'), value: metrics?.total_users ?? 0, sub: `${metrics?.active_users ?? 0} active`, icon: Users, color: 'blue' },
+    { label: t('ui:PlatformAdminPage.pages'), value: metrics?.total_pages ?? 0, sub: `${metrics?.published_pages ?? 0} published`, icon: Globe, color: 'purple' },
+    { label: t('ui:PlatformAdminPage.documents'), value: metrics?.total_documents ?? 0, sub: formatBytes(metrics?.storage_used_bytes ?? 0), icon: FileText, color: 'green' },
+    { label: t('ui:PlatformAdminPage.invoices'), value: metrics?.total_invoices ?? 0, sub: `$${(metrics?.total_revenue ?? 0).toLocaleString()}`, icon: DollarSign, color: 'amber' },
+    { label: t('ui:PlatformAdminPage.contacts'), value: metrics?.total_contacts ?? 0, icon: Users, color: 'cyan' },
+    { label: t('ui:PlatformAdminPage.proposals'), value: metrics?.total_proposals ?? 0, icon: FileText, color: 'indigo' },
+    { label: t('ui:PlatformAdminPage.expenses'), value: `$${(metrics?.total_expenses ?? 0).toLocaleString()}`, icon: DollarSign, color: 'red' },
+    { label: t('ui:PlatformAdminPage.meetings'), value: metrics?.total_meetings ?? 0, icon: Activity, color: 'emerald' },
   ]
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Dashboard Overview</h1>
+      <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('ui:PlatformAdminPage.dashboardOverview')}</h1>
 
       {/* Metric cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -477,7 +480,7 @@ function OverviewTab() {
       {/* Users by role */}
       {metrics?.users_by_role && Object.keys(metrics.users_by_role).length > 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-          <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Users by Role</h3>
+          <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">{t('ui:PlatformAdminPage.usersByRole')}</h3>
           <div className="flex gap-4 flex-wrap">
             {Object.entries(metrics.users_by_role).map(([role, count]) => (
               <div key={role} className="flex items-center gap-2">
@@ -494,7 +497,7 @@ function OverviewTab() {
       {/* Activity chart (simple bar representation) */}
       {metrics?.activity_by_day?.length > 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-          <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Activity (Last 30 Days)</h3>
+          <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">{t('ui:PlatformAdminPage.activityLast30Days')}</h3>
           <div className="flex items-end gap-1 h-24">
             {(() => {
               const maxCount = Math.max(...metrics.activity_by_day.map((d: any) => d.count), 1)
@@ -503,7 +506,7 @@ function OverviewTab() {
                   key={i}
                   className="flex-1 bg-blue-500 dark:bg-blue-400 rounded-t opacity-80 hover:opacity-100 transition-opacity"
                   style={{ height: `${Math.max((day.count / maxCount) * 100, 2)}%` }}
-                  title={`${day.date}: ${day.count} actions`}
+                  title={t('ui:PlatformAdminPage.dateCountActions', { date: day.date, count: day.count })}
                 />
               ))
             })()}
@@ -517,7 +520,7 @@ function OverviewTab() {
 
       {/* Recent activity */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-        <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Recent Activity</h3>
+        <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">{t('ui:PlatformAdminPage.recentActivity')}</h3>
         <div className="space-y-2 max-h-80 overflow-y-auto">
           {(metrics?.recent_activity ?? []).map((a: any) => (
             <div key={a.id} className="flex items-center gap-3 text-sm py-1.5 border-b border-gray-100 dark:border-gray-700 last:border-0">
@@ -529,7 +532,7 @@ function OverviewTab() {
             </div>
           ))}
           {(!metrics?.recent_activity || metrics.recent_activity.length === 0) && (
-            <p className="text-sm text-gray-400">No recent activity</p>
+            <p className="text-sm text-gray-400">{t('ui:PlatformAdminPage.noRecentActivity')}</p>
           )}
         </div>
       </div>
@@ -540,6 +543,7 @@ function OverviewTab() {
 // ── Organizations tab ─────────────────────────────────────────────────────
 
 function OrganizationsTab() {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [planFilter, setPlanFilter] = useState('')
@@ -601,12 +605,12 @@ function OrganizationsTab() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Organizations</h1>
+        <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('ui:PlatformAdminPage.organizations')}</h1>
         <button
           onClick={() => setShowCreate(true)}
           className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium bg-blue-600 text-white hover:bg-blue-700"
         >
-          <Plus className="w-4 h-4" /> Create Organization
+          <Plus className="w-4 h-4" /> {t('ui:PlatformAdminPage.createOrganization')}
         </button>
       </div>
 
@@ -615,7 +619,7 @@ function OrganizationsTab() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             type="text"
-            placeholder="Search organizations..."
+            placeholder={t('ui:PlatformAdminPage.searchOrganizations')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-10 pr-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
@@ -626,11 +630,11 @@ function OrganizationsTab() {
           onChange={(e) => setPlanFilter(e.target.value)}
           className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
         >
-          <option value="">All Plans</option>
-          <option value="starter">Starter</option>
-          <option value="pro">Pro</option>
-          <option value="business">Business</option>
-          <option value="enterprise">Enterprise</option>
+          <option value="">{t('ui:PlatformAdminPage.allPlans')}</option>
+          <option value="starter">{t('ui:PlatformAdminPage.starter')}</option>
+          <option value="pro">{t('ui:PlatformAdminPage.pro')}</option>
+          <option value="business">{t('ui:PlatformAdminPage.business')}</option>
+          <option value="enterprise">{t('ui:PlatformAdminPage.enterprise')}</option>
         </select>
       </div>
 
@@ -639,19 +643,19 @@ function OrganizationsTab() {
       ) : orgs.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
           <Building2 className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-          <p className="text-sm text-gray-500 dark:text-gray-400">No organizations yet</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{t('ui:PlatformAdminPage.noOrganizationsYet')}</p>
         </div>
       ) : (
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 dark:bg-gray-900">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Organization</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Plan</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Members</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Owner</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Created</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('ui:PlatformAdminPage.organization')}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('ui:PlatformAdminPage.plan')}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('ui:PlatformAdminPage.members')}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('ui:PlatformAdminPage.owner')}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('ui:PlatformAdminPage.status')}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('ui:PlatformAdminPage.created')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -683,11 +687,11 @@ function OrganizationsTab() {
                   <td className="px-4 py-3">
                     {org.is_active ? (
                       <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400 text-xs">
-                        <CheckCircle className="w-3 h-3" /> Active
+                        <CheckCircle className="w-3 h-3" /> {t('ui:PlatformAdminPage.active')}
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 text-red-500 text-xs">
-                        <XCircle className="w-3 h-3" /> Inactive
+                        <XCircle className="w-3 h-3" /> {t('ui:PlatformAdminPage.inactive')}
                       </span>
                     )}
                   </td>
@@ -719,6 +723,7 @@ function OrganizationsTab() {
 // ── Create Org Modal ──────────────────────────────────────────────────────
 
 function CreateOrgModal({ allUsers, onClose, onCreated }: { allUsers: any[]; onClose: () => void; onCreated: () => void }) {
+  const { t } = useTranslation('ui')
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
   const [ownerId, setOwnerId] = useState('')
@@ -738,7 +743,7 @@ function CreateOrgModal({ allUsers, onClose, onCreated }: { allUsers: any[]; onC
       notes: notes || undefined,
     }),
     onSuccess: () => {
-      toast.success('Organization created')
+      toast.success(t('ui:PlatformAdminPage.organizationCreated'))
       onCreated()
     },
     onError: (err: any) => toast.error(err?.message || 'Failed to create organization'),
@@ -749,21 +754,21 @@ function CreateOrgModal({ allUsers, onClose, onCreated }: { allUsers: any[]; onC
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Create Organization</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{t('ui:PlatformAdminPage.createOrganization')}</h2>
 
         <div className="space-y-3">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:PlatformAdminPage.name')} <span className="text-red-500">*</span></label>
             <input
               type="text"
               value={name}
               onChange={(e) => { setName(e.target.value); if (!slug || slug === autoSlug(name)) setSlug(autoSlug(e.target.value)) }}
               className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white"
-              placeholder="Acme Corp"
+              placeholder={t('ui:PlatformAdminPage.acmeCorp')}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Slug <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:PlatformAdminPage.slug')} <span className="text-red-500">*</span></label>
             <input
               type="text"
               value={slug}
@@ -773,13 +778,13 @@ function CreateOrgModal({ allUsers, onClose, onCreated }: { allUsers: any[]; onC
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Owner <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:PlatformAdminPage.owner')} <span className="text-red-500">*</span></label>
             <select
               value={ownerId}
               onChange={(e) => setOwnerId(e.target.value)}
               className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white"
             >
-              <option value="">Select owner...</option>
+              <option value="">{t('ui:PlatformAdminPage.selectOwner')}</option>
               {allUsers.map((u: any) => (
                 <option key={u.id} value={u.id}>{u.full_name} ({u.email})</option>
               ))}
@@ -787,31 +792,31 @@ function CreateOrgModal({ allUsers, onClose, onCreated }: { allUsers: any[]; onC
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Plan</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:PlatformAdminPage.plan')}</label>
               <select
                 value={plan}
                 onChange={(e) => setPlan(e.target.value)}
                 className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white"
               >
-                <option value="starter">Starter</option>
-                <option value="pro">Pro</option>
-                <option value="business">Business</option>
-                <option value="enterprise">Enterprise</option>
+                <option value="starter">{t('ui:PlatformAdminPage.starter')}</option>
+                <option value="pro">{t('ui:PlatformAdminPage.pro')}</option>
+                <option value="business">{t('ui:PlatformAdminPage.business')}</option>
+                <option value="enterprise">{t('ui:PlatformAdminPage.enterprise')}</option>
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Max Users</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:PlatformAdminPage.maxUsers')}</label>
               <input type="number" value={maxUsers} onChange={(e) => setMaxUsers(Number(e.target.value))} min={1}
                 className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Storage (GB)</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:PlatformAdminPage.storageGb')}</label>
               <input type="number" value={maxStorage} onChange={(e) => setMaxStorage(Number(e.target.value))} min={1}
                 className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white" />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:PlatformAdminPage.notes')}</label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
@@ -822,13 +827,13 @@ function CreateOrgModal({ allUsers, onClose, onCreated }: { allUsers: any[]; onC
         </div>
 
         <div className="flex justify-end gap-2 mt-5">
-          <button onClick={onClose} className="px-4 py-2 rounded-md text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Cancel</button>
+          <button onClick={onClose} className="px-4 py-2 rounded-md text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">{t('ui:PlatformAdminPage.cancel')}</button>
           <button
             onClick={() => createMut.mutate()}
             disabled={!name || !slug || !ownerId || createMut.isPending}
             className="px-4 py-2 rounded-md text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
           >
-            {createMut.isPending ? 'Creating...' : 'Create'}
+            {createMut.isPending ? t('ui:PlatformAdminPage.creating') : t('ui:PlatformAdminPage.create')}
           </button>
         </div>
       </div>
@@ -841,6 +846,7 @@ function CreateOrgModal({ allUsers, onClose, onCreated }: { allUsers: any[]; onC
 function OrgDetailView({ org, allFlags, allSettings, allUsers, onBack }: {
   org: any; allFlags: any[]; allSettings: any[]; allUsers: any[]; onBack: () => void
 }) {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const [editMode, setEditMode] = useState(false)
   const [editData, setEditData] = useState<any>({})
@@ -852,14 +858,14 @@ function OrgDetailView({ org, allFlags, allSettings, allUsers, onBack }: {
   // Update org
   const updateMut = useMutation({
     mutationFn: (data: any) => platformAdminApi.updateOrganization(org.id, data),
-    onSuccess: () => { toast.success('Organization updated'); setEditMode(false); invalidateOrg() },
+    onSuccess: () => { toast.success(t('ui:PlatformAdminPage.organizationUpdated')); setEditMode(false); invalidateOrg() },
     onError: (err: any) => toast.error(err?.message || 'Update failed'),
   })
 
   // Delete org
   const deleteMut = useMutation({
     mutationFn: () => platformAdminApi.deleteOrganization(org.id),
-    onSuccess: () => { toast.success('Organization deleted'); onBack() },
+    onSuccess: () => { toast.success(t('ui:PlatformAdminPage.organizationDeleted')); onBack() },
   })
 
   // Feature override
@@ -889,12 +895,12 @@ function OrgDetailView({ org, allFlags, allSettings, allUsers, onBack }: {
   // Members
   const addMemberMut = useMutation({
     mutationFn: (userId: string) => platformAdminApi.addOrgMember(org.id, userId),
-    onSuccess: () => { toast.success('Member added'); setShowAddMember(false); setAddUserId(''); invalidateOrg() },
+    onSuccess: () => { toast.success(t('ui:PlatformAdminPage.memberAdded')); setShowAddMember(false); setAddUserId(''); invalidateOrg() },
   })
 
   const removeMemberMut = useMutation({
     mutationFn: (userId: string) => platformAdminApi.removeOrgMember(org.id, userId),
-    onSuccess: () => { toast.success('Member removed'); invalidateOrg() },
+    onSuccess: () => { toast.success(t('ui:PlatformAdminPage.memberRemoved')); invalidateOrg() },
   })
 
   // Build override lookup maps
@@ -924,13 +930,13 @@ function OrgDetailView({ org, allFlags, allSettings, allUsers, onBack }: {
             onClick={() => { setEditMode(!editMode); setEditData({ name: org.name, slug: org.slug, plan: org.plan, max_users: org.max_users, max_storage_gb: org.max_storage_gb, is_active: org.is_active, logo_url: org.logo_url || '', primary_color: org.primary_color || '', secondary_color: org.secondary_color || '', custom_domain: org.custom_domain || '', notes: org.notes || '' }) }}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
           >
-            <Edit3 className="w-3.5 h-3.5" /> Edit
+            <Edit3 className="w-3.5 h-3.5" /> {t('ui:PlatformAdminPage.edit')}
           </button>
           <button
-            onClick={() => { if (confirm('Delete this organization? Members will be unlinked.')) deleteMut.mutate() }}
+            onClick={() => { if (confirm(t('ui:PlatformAdminPage.deleteThisOrganizationMembersWill'))) deleteMut.mutate() }}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm border border-red-300 dark:border-red-600 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
           >
-            <Trash2 className="w-3.5 h-3.5" /> Delete
+            <Trash2 className="w-3.5 h-3.5" /> {t('ui:PlatformAdminPage.delete')}
           </button>
         </div>
       </div>
@@ -938,43 +944,43 @@ function OrgDetailView({ org, allFlags, allSettings, allUsers, onBack }: {
       {/* Edit form */}
       {editMode && (
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-blue-200 dark:border-blue-800 p-4 space-y-3">
-          <h3 className="text-sm font-medium text-gray-900 dark:text-white">Edit Organization</h3>
+          <h3 className="text-sm font-medium text-gray-900 dark:text-white">{t('ui:PlatformAdminPage.editOrganization')}</h3>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Name</label>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('ui:PlatformAdminPage.name')}</label>
               <input type="text" value={editData.name ?? ''} onChange={(e) => setEditData({ ...editData, name: e.target.value })}
                 className="w-full px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Slug</label>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('ui:PlatformAdminPage.slug')}</label>
               <input type="text" value={editData.slug ?? ''} onChange={(e) => setEditData({ ...editData, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })}
                 className="w-full px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white font-mono" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Plan</label>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('ui:PlatformAdminPage.plan')}</label>
               <select value={editData.plan ?? 'starter'} onChange={(e) => setEditData({ ...editData, plan: e.target.value })}
                 className="w-full px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white">
-                <option value="starter">Starter</option>
-                <option value="pro">Pro</option>
-                <option value="business">Business</option>
-                <option value="enterprise">Enterprise</option>
+                <option value="starter">{t('ui:PlatformAdminPage.starter')}</option>
+                <option value="pro">{t('ui:PlatformAdminPage.pro')}</option>
+                <option value="business">{t('ui:PlatformAdminPage.business')}</option>
+                <option value="enterprise">{t('ui:PlatformAdminPage.enterprise')}</option>
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Active</label>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('ui:PlatformAdminPage.active')}</label>
               <select value={editData.is_active ? 'true' : 'false'} onChange={(e) => setEditData({ ...editData, is_active: e.target.value === 'true' })}
                 className="w-full px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white">
-                <option value="true">Active</option>
-                <option value="false">Inactive</option>
+                <option value="true">{t('ui:PlatformAdminPage.active')}</option>
+                <option value="false">{t('ui:PlatformAdminPage.inactive')}</option>
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Max Users</label>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('ui:PlatformAdminPage.maxUsers')}</label>
               <input type="number" min={1} value={editData.max_users ?? 5} onChange={(e) => setEditData({ ...editData, max_users: Number(e.target.value) })}
                 className="w-full px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Max Storage (GB)</label>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('ui:PlatformAdminPage.maxStorageGb')}</label>
               <input type="number" min={1} value={editData.max_storage_gb ?? 5} onChange={(e) => setEditData({ ...editData, max_storage_gb: Number(e.target.value) })}
                 className="w-full px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white" />
             </div>
@@ -982,20 +988,20 @@ function OrgDetailView({ org, allFlags, allSettings, allUsers, onBack }: {
 
           {/* White-label */}
           <div className="border-t border-gray-200 dark:border-gray-700 pt-3 mt-3">
-            <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-2 flex items-center gap-1"><Palette className="w-3.5 h-3.5" /> White-label</h4>
+            <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-2 flex items-center gap-1"><Palette className="w-3.5 h-3.5" /> {t('ui:PlatformAdminPage.whiteLabel')}</h4>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Logo URL</label>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('ui:PlatformAdminPage.logoUrl')}</label>
                 <input type="text" value={editData.logo_url ?? ''} onChange={(e) => setEditData({ ...editData, logo_url: e.target.value })}
                   className="w-full px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white" placeholder="https://..." />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Custom Domain</label>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('ui:PlatformAdminPage.customDomain')}</label>
                 <input type="text" value={editData.custom_domain ?? ''} onChange={(e) => setEditData({ ...editData, custom_domain: e.target.value })}
-                  className="w-full px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white" placeholder="app.example.com" />
+                  className="w-full px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white" placeholder={t('ui:PlatformAdminPage.appExampleCom')} />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Primary Color</label>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('ui:PlatformAdminPage.primaryColor')}</label>
                 <div className="flex items-center gap-2">
                   <input type="color" value={editData.primary_color || '#3b82f6'} onChange={(e) => setEditData({ ...editData, primary_color: e.target.value })}
                     className="w-8 h-8 rounded border border-gray-300 dark:border-gray-600 cursor-pointer" />
@@ -1004,7 +1010,7 @@ function OrgDetailView({ org, allFlags, allSettings, allUsers, onBack }: {
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Secondary Color</label>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('ui:PlatformAdminPage.secondaryColor')}</label>
                 <div className="flex items-center gap-2">
                   <input type="color" value={editData.secondary_color || '#6b7280'} onChange={(e) => setEditData({ ...editData, secondary_color: e.target.value })}
                     className="w-8 h-8 rounded border border-gray-300 dark:border-gray-600 cursor-pointer" />
@@ -1016,16 +1022,16 @@ function OrgDetailView({ org, allFlags, allSettings, allUsers, onBack }: {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Notes</label>
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('ui:PlatformAdminPage.notes')}</label>
             <textarea value={editData.notes ?? ''} onChange={(e) => setEditData({ ...editData, notes: e.target.value })} rows={2}
               className="w-full px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white" />
           </div>
 
           <div className="flex justify-end gap-2">
-            <button onClick={() => setEditMode(false)} className="px-3 py-1.5 rounded text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Cancel</button>
+            <button onClick={() => setEditMode(false)} className="px-3 py-1.5 rounded text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">{t('ui:PlatformAdminPage.cancel')}</button>
             <button onClick={() => updateMut.mutate(editData)} disabled={updateMut.isPending}
               className="flex items-center gap-1 px-3 py-1.5 rounded text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
-              <Save className="w-3.5 h-3.5" /> Save
+              <Save className="w-3.5 h-3.5" /> {t('ui:PlatformAdminPage.save')}
             </button>
           </div>
         </div>
@@ -1034,43 +1040,43 @@ function OrgDetailView({ org, allFlags, allSettings, allUsers, onBack }: {
       {/* Info cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-          <p className="text-xs text-gray-500 dark:text-gray-400 uppercase">Plan</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 uppercase">{t('ui:PlatformAdminPage.plan')}</p>
           <p className="text-lg font-bold text-gray-900 dark:text-white capitalize">{org.plan}</p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-          <p className="text-xs text-gray-500 dark:text-gray-400 uppercase">Members</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 uppercase">{t('ui:PlatformAdminPage.members')}</p>
           <p className="text-lg font-bold text-gray-900 dark:text-white">{org.member_count} / {org.max_users}</p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-          <p className="text-xs text-gray-500 dark:text-gray-400 uppercase">Storage Limit</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 uppercase">{t('ui:PlatformAdminPage.storageLimit')}</p>
           <p className="text-lg font-bold text-gray-900 dark:text-white">{org.max_storage_gb} GB</p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-          <p className="text-xs text-gray-500 dark:text-gray-400 uppercase">Status</p>
-          <p className={`text-lg font-bold ${org.is_active ? 'text-green-600' : 'text-red-500'}`}>{org.is_active ? 'Active' : 'Inactive'}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 uppercase">{t('ui:PlatformAdminPage.status')}</p>
+          <p className={`text-lg font-bold ${org.is_active ? 'text-green-600' : 'text-red-500'}`}>{org.is_active ? t('ui:PlatformAdminPage.active') : t('ui:PlatformAdminPage.inactive')}</p>
         </div>
       </div>
 
       {/* Members */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="px-4 py-3 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-          <h3 className="text-sm font-medium text-gray-900 dark:text-white">Members ({org.members?.length ?? 0})</h3>
+          <h3 className="text-sm font-medium text-gray-900 dark:text-white">{t('ui:PlatformAdminPage.members_2')}{org.members?.length ?? 0})</h3>
           <button onClick={() => setShowAddMember(!showAddMember)}
             className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-blue-600 text-white hover:bg-blue-700">
-            <UserPlus className="w-3 h-3" /> Add
+            <UserPlus className="w-3 h-3" /> {t('ui:PlatformAdminPage.add')}
           </button>
         </div>
         {showAddMember && (
           <div className="px-4 py-2 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-200 dark:border-blue-800 flex items-center gap-2">
             <select value={addUserId} onChange={(e) => setAddUserId(e.target.value)}
               className="flex-1 px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white">
-              <option value="">Select user...</option>
+              <option value="">{t('ui:PlatformAdminPage.selectUser')}</option>
               {nonMembers.map((u: any) => <option key={u.id} value={u.id}>{u.full_name} ({u.email})</option>)}
             </select>
             <button onClick={() => addUserId && addMemberMut.mutate(addUserId)} disabled={!addUserId || addMemberMut.isPending}
-              className="px-3 py-1.5 rounded text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">Add</button>
+              className="px-3 py-1.5 rounded text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">{t('ui:PlatformAdminPage.add')}</button>
             <button onClick={() => { setShowAddMember(false); setAddUserId('') }}
-              className="px-2 py-1.5 rounded text-xs text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700">Cancel</button>
+              className="px-2 py-1.5 rounded text-xs text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700">{t('ui:PlatformAdminPage.cancel')}</button>
           </div>
         )}
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -1080,14 +1086,14 @@ function OrgDetailView({ org, allFlags, allSettings, allUsers, onBack }: {
                 <p className="text-sm font-medium text-gray-900 dark:text-white">{m.full_name}</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">{m.email} &middot; <span className="capitalize">{m.role?.replace('_', ' ')}</span></p>
               </div>
-              <button onClick={() => { if (confirm(`Remove ${m.full_name}?`)) removeMemberMut.mutate(m.id) }}
-                className="p-1 rounded text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20" title="Remove member">
+              <button onClick={() => { if (confirm(t('ui:PlatformAdminPage.removeFullName', { full_name: m.full_name }))) removeMemberMut.mutate(m.id) }}
+                className="p-1 rounded text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20" title={t('ui:PlatformAdminPage.removeMember')}>
                 <UserMinus className="w-4 h-4" />
               </button>
             </div>
           ))}
           {(!org.members || org.members.length === 0) && (
-            <p className="px-4 py-3 text-sm text-gray-400">No members</p>
+            <p className="px-4 py-3 text-sm text-gray-400">{t('ui:PlatformAdminPage.noMembers')}</p>
           )}
         </div>
       </div>
@@ -1095,8 +1101,8 @@ function OrgDetailView({ org, allFlags, allSettings, allUsers, onBack }: {
       {/* Feature Overrides */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="px-4 py-3 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
-          <h3 className="text-sm font-medium text-gray-900 dark:text-white">Feature Overrides</h3>
-          <p className="text-xs text-gray-500 dark:text-gray-400">Override global feature flags for this org. Unset = uses global default.</p>
+          <h3 className="text-sm font-medium text-gray-900 dark:text-white">{t('ui:PlatformAdminPage.featureOverrides')}</h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400">{t('ui:PlatformAdminPage.overrideGlobalFeatureFlagsFor')}</p>
         </div>
         {categories.map((cat) => (
           <div key={cat}>
@@ -1112,7 +1118,7 @@ function OrgDetailView({ org, allFlags, allSettings, allUsers, onBack }: {
                   <div key={flag.key} className="flex items-center justify-between px-4 py-2.5">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-gray-900 dark:text-white">{flag.name}</p>
-                      <p className="text-[10px] text-gray-400 font-mono">{flag.key} {hasOverride ? '(overridden)' : '(global)'}</p>
+                      <p className="text-[10px] text-gray-400 font-mono">{flag.key} {hasOverride ? t('ui:PlatformAdminPage.overridden') : t('ui:PlatformAdminPage.global')}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <button
@@ -1127,7 +1133,7 @@ function OrgDetailView({ org, allFlags, allSettings, allUsers, onBack }: {
                       </button>
                       {hasOverride && (
                         <button onClick={() => deleteFeatureOverrideMut.mutate(flag.key)}
-                          className="p-0.5 rounded text-gray-400 hover:text-red-500" title="Reset to global">
+                          className="p-0.5 rounded text-gray-400 hover:text-red-500" title={t('ui:PlatformAdminPage.resetToGlobal')}>
                           <XCircle className="w-3.5 h-3.5" />
                         </button>
                       )}
@@ -1143,8 +1149,8 @@ function OrgDetailView({ org, allFlags, allSettings, allUsers, onBack }: {
       {/* Setting Overrides */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="px-4 py-3 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
-          <h3 className="text-sm font-medium text-gray-900 dark:text-white">Setting Overrides</h3>
-          <p className="text-xs text-gray-500 dark:text-gray-400">Override global pricing/limits for this org.</p>
+          <h3 className="text-sm font-medium text-gray-900 dark:text-white">{t('ui:PlatformAdminPage.settingOverrides')}</h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400">{t('ui:PlatformAdminPage.overrideGlobalPricingLimitsFor')}</p>
         </div>
         {settingCategories.map((cat) => (
           <div key={cat}>
@@ -1160,7 +1166,7 @@ function OrgDetailView({ org, allFlags, allSettings, allUsers, onBack }: {
                   <div key={setting.key} className="flex items-center justify-between px-4 py-2.5">
                     <div className="flex-1 min-w-0 mr-4">
                       <p className="text-sm text-gray-900 dark:text-white">{setting.description || setting.key}</p>
-                      <p className="text-[10px] text-gray-400 font-mono">{setting.key} {hasOverride ? '(overridden)' : '(global)'}</p>
+                      <p className="text-[10px] text-gray-400 font-mono">{setting.key} {hasOverride ? t('ui:PlatformAdminPage.overridden') : t('ui:PlatformAdminPage.global')}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <input
@@ -1175,7 +1181,7 @@ function OrgDetailView({ org, allFlags, allSettings, allUsers, onBack }: {
                       />
                       {hasOverride && (
                         <button onClick={() => deleteSettingOverrideMut.mutate(setting.key)}
-                          className="p-0.5 rounded text-gray-400 hover:text-red-500" title="Reset to global">
+                          className="p-0.5 rounded text-gray-400 hover:text-red-500" title={t('ui:PlatformAdminPage.resetToGlobal')}>
                           <XCircle className="w-3.5 h-3.5" />
                         </button>
                       )}
@@ -1191,17 +1197,17 @@ function OrgDetailView({ org, allFlags, allSettings, allUsers, onBack }: {
       {/* White-label preview */}
       {(org.logo_url || org.primary_color || org.custom_domain) && (
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-          <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3 flex items-center gap-1.5"><Palette className="w-4 h-4" /> White-label Settings</h3>
+          <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3 flex items-center gap-1.5"><Palette className="w-4 h-4" /> {t('ui:PlatformAdminPage.whiteLabelSettings')}</h3>
           <div className="grid grid-cols-2 gap-4 text-sm">
             {org.logo_url && (
               <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Logo</p>
-                <img src={org.logo_url} alt="Org logo" className="h-10 object-contain" />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{t('ui:PlatformAdminPage.logo')}</p>
+                <img src={org.logo_url} alt={t('ui:PlatformAdminPage.orgLogo')} className="h-10 object-contain" />
               </div>
             )}
             {org.primary_color && (
               <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Primary Color</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{t('ui:PlatformAdminPage.primaryColor')}</p>
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 rounded" style={{ backgroundColor: org.primary_color }} />
                   <span className="font-mono text-gray-700 dark:text-gray-300">{org.primary_color}</span>
@@ -1210,7 +1216,7 @@ function OrgDetailView({ org, allFlags, allSettings, allUsers, onBack }: {
             )}
             {org.secondary_color && (
               <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Secondary Color</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{t('ui:PlatformAdminPage.secondaryColor')}</p>
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 rounded" style={{ backgroundColor: org.secondary_color }} />
                   <span className="font-mono text-gray-700 dark:text-gray-300">{org.secondary_color}</span>
@@ -1219,7 +1225,7 @@ function OrgDetailView({ org, allFlags, allSettings, allUsers, onBack }: {
             )}
             {org.custom_domain && (
               <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Custom Domain</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{t('ui:PlatformAdminPage.customDomain')}</p>
                 <span className="font-mono text-gray-700 dark:text-gray-300">{org.custom_domain}</span>
               </div>
             )}
@@ -1231,17 +1237,17 @@ function OrgDetailView({ org, allFlags, allSettings, allUsers, onBack }: {
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 text-sm">
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Owner</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{t('ui:PlatformAdminPage.owner')}</p>
             <p className="text-gray-900 dark:text-white font-medium">{org.owner_name}</p>
             <p className="text-xs text-gray-500 dark:text-gray-400">{org.owner_email}</p>
           </div>
           <div>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Created</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{t('ui:PlatformAdminPage.created')}</p>
             <p className="text-gray-900 dark:text-white">{org.created_at ? new Date(org.created_at).toLocaleDateString() : '-'}</p>
           </div>
           {org.notes && (
             <div className="col-span-2">
-              <p className="text-xs text-gray-500 dark:text-gray-400">Notes</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{t('ui:PlatformAdminPage.notes')}</p>
               <p className="text-gray-700 dark:text-gray-300">{org.notes}</p>
             </div>
           )}
@@ -1254,12 +1260,12 @@ function OrgDetailView({ org, allFlags, allSettings, allUsers, onBack }: {
 // ── Users tab ────────────────────────────────────────────────────────────
 
 const ROLES = [
-  { value: 'admin', label: 'Admin' },
-  { value: 'manager', label: 'Manager' },
-  { value: 'team_member', label: 'Team Member' },
-  { value: 'accountant', label: 'Accountant' },
-  { value: 'client', label: 'Client' },
-  { value: 'viewer', label: 'Viewer' },
+  { value: 'admin', label: i18n.t('ui:PlatformAdminPage.admin') },
+  { value: 'manager', label: i18n.t('ui:PlatformAdminPage.manager') },
+  { value: 'team_member', label: i18n.t('ui:PlatformAdminPage.teamMember') },
+  { value: 'accountant', label: i18n.t('ui:PlatformAdminPage.accountant') },
+  { value: 'client', label: i18n.t('ui:PlatformAdminPage.client') },
+  { value: 'viewer', label: i18n.t('ui:PlatformAdminPage.viewer') },
 ]
 
 function FeatureAccessEditor({ features, onChange, role }: {
@@ -1267,15 +1273,16 @@ function FeatureAccessEditor({ features, onChange, role }: {
   onChange: (f: Record<string, boolean>) => void
   role: string
 }) {
+  const { t } = useTranslation('ui')
   const defaults = ROLE_DEFAULTS[role] ?? {}
   const applyDefaults = () => onChange({ ...defaults })
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Feature Access</h4>
+        <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">{t('ui:PlatformAdminPage.featureAccess')}</h4>
         <button onClick={applyDefaults} className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400">
-          Reset to role defaults
+         {t('ui:PlatformAdminPage.resetToRoleDefaults')}
         </button>
       </div>
       {Object.entries(FEATURE_CATEGORIES).map(([category, keys]) => (
@@ -1305,6 +1312,7 @@ function UserModal({ user, onClose, onSaved }: {
   onClose: () => void
   onSaved: () => void
 }) {
+  const { t } = useTranslation('ui')
   const isEdit = !!user
   const [fullName, setFullName] = useState(user?.full_name || '')
   const [email, setEmail] = useState(user?.email || '')
@@ -1350,7 +1358,7 @@ function UserModal({ user, onClose, onSaved }: {
       if (link) {
         setInviteLink(link)
       } else {
-        toast.success('User created')
+        toast.success(t('ui:PlatformAdminPage.userCreated'))
         onSaved()
         onClose()
       }
@@ -1369,7 +1377,7 @@ function UserModal({ user, onClose, onSaved }: {
       manager_id: managerId || null,
     }),
     onSuccess: () => {
-      toast.success('User updated')
+      toast.success(t('ui:PlatformAdminPage.userUpdated'))
       onSaved()
       onClose()
     },
@@ -1381,9 +1389,9 @@ function UserModal({ user, onClose, onSaved }: {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
         <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-md p-6 shadow-xl" onClick={e => e.stopPropagation()}>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">User Created — Invite Link</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{t('ui:PlatformAdminPage.userCreatedInviteLink')}</h2>
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-            {sendInvite ? 'An invite email was sent. You can also share this link:' : 'Share this setup link with the user:'}
+            {sendInvite ? t('ui:PlatformAdminPage.anInviteEmailWasSent') : t('ui:PlatformAdminPage.shareThisSetupLinkWith')}
           </p>
           <div className="flex items-center gap-2">
             <input
@@ -1392,14 +1400,14 @@ function UserModal({ user, onClose, onSaved }: {
               className="flex-1 px-3 py-2 text-xs font-mono rounded-md border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white"
             />
             <button
-              onClick={() => { navigator.clipboard.writeText(inviteLink); toast.success('Copied!') }}
+              onClick={() => { navigator.clipboard.writeText(inviteLink); toast.success(t('ui:PlatformAdminPage.copied')) }}
               className="px-3 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700"
             >
               <Copy className="w-4 h-4" />
             </button>
           </div>
           <button onClick={() => { onSaved(); onClose() }} className="mt-4 w-full py-2 rounded-md bg-gray-100 dark:bg-gray-700 text-sm font-medium text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-600">
-            Done
+           {t('ui:PlatformAdminPage.done')}
           </button>
         </div>
       </div>
@@ -1411,7 +1419,7 @@ function UserModal({ user, onClose, onSaved }: {
       <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 shadow-xl" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-            {isEdit ? 'Edit User' : 'Add User'}
+            {isEdit ? t('ui:PlatformAdminPage.editUser') : t('ui:PlatformAdminPage.addUser')}
           </h2>
           <button onClick={onClose} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500">
             <X className="w-5 h-5" />
@@ -1422,12 +1430,12 @@ function UserModal({ user, onClose, onSaved }: {
           {/* Basic fields */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Full Name</label>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">{t('ui:PlatformAdminPage.fullName')}</label>
               <input value={fullName} onChange={e => setFullName(e.target.value)}
                 className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Email</label>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">{t('ui:PlatformAdminPage.email')}</label>
               <input type="email" value={email} onChange={e => setEmail(e.target.value)}
                 className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white" />
             </div>
@@ -1435,7 +1443,7 @@ function UserModal({ user, onClose, onSaved }: {
 
           {/* Role */}
           <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Role</label>
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">{t('ui:PlatformAdminPage.role')}</label>
             <select value={role} onChange={e => handleRoleChange(e.target.value)}
               className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
               {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
@@ -1447,17 +1455,17 @@ function UserModal({ user, onClose, onSaved }: {
           {role !== 'client' && (
             <div>
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                Reports to
+               {t('ui:PlatformAdminPage.reportsTo')}
               </label>
               <select value={managerId} onChange={e => setManagerId(e.target.value)}
                 className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
-                <option value="">— No manager —</option>
+                <option value="">{t('ui:PlatformAdminPage.noManager')}</option>
                 {managerOptions.map((u: any) => (
                   <option key={u.id} value={u.id}>{u.full_name} ({u.email})</option>
                 ))}
               </select>
               <p className="mt-1 text-xs text-gray-400">
-                A manager sees the records of everyone who reports to them.
+               {t('ui:PlatformAdminPage.aManagerSeesTheRecords')}
               </p>
             </div>
           )}
@@ -1469,7 +1477,7 @@ function UserModal({ user, onClose, onSaved }: {
                 className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
               <span className="text-sm text-gray-700 dark:text-gray-300">
                 <Mail className="w-3.5 h-3.5 inline mr-1" />
-                Send invite email (user sets their own password)
+               {t('ui:PlatformAdminPage.sendInviteEmailUserSets')}
               </span>
             </label>
           )}
@@ -1478,10 +1486,10 @@ function UserModal({ user, onClose, onSaved }: {
           {(isEdit || !sendInvite) && (
             <div>
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                {isEdit ? 'New Password (leave blank to keep)' : 'Password'}
+                {isEdit ? t('ui:PlatformAdminPage.newPasswordLeaveBlankTo') : t('ui:PlatformAdminPage.password')}
               </label>
               <input type="password" value={password} onChange={e => setPassword(e.target.value)}
-                placeholder={isEdit ? 'Leave blank to keep current' : 'Min 8 chars, 1 upper, 1 lower, 1 digit'}
+                placeholder={isEdit ? t('ui:PlatformAdminPage.leaveBlankToKeepCurrent') : t('ui:PlatformAdminPage.min8Chars1Upper')}
                 className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white" />
             </div>
           )}
@@ -1491,7 +1499,7 @@ function UserModal({ user, onClose, onSaved }: {
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)}
                 className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-              <span className="text-sm text-gray-700 dark:text-gray-300">Account active</span>
+              <span className="text-sm text-gray-700 dark:text-gray-300">{t('ui:PlatformAdminPage.accountActive')}</span>
             </label>
           )}
 
@@ -1509,11 +1517,11 @@ function UserModal({ user, onClose, onSaved }: {
             className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
           >
             {(createMut.isPending || updateMut.isPending) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            {isEdit ? 'Save Changes' : (sendInvite ? 'Create & Send Invite' : 'Create User')}
+            {isEdit ? t('ui:PlatformAdminPage.saveChanges') : (sendInvite ? t('ui:PlatformAdminPage.createSendInvite') : t('ui:PlatformAdminPage.createUser'))}
           </button>
           <button onClick={onClose}
             className="px-4 py-2 text-sm font-medium rounded-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600">
-            Cancel
+           {t('ui:PlatformAdminPage.cancel')}
           </button>
         </div>
       </div>
@@ -1522,6 +1530,7 @@ function UserModal({ user, onClose, onSaved }: {
 }
 
 function UsersTab() {
+  const { t } = useTranslation('ui')
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState('')
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
@@ -1544,7 +1553,7 @@ function UsersTab() {
     onSuccess: (res: any) => {
       const token = res.data.access_token
       localStorage.setItem('access_token', token)
-      toast.success('Impersonation active. Refresh to apply.')
+      toast.success(t('ui:PlatformAdminPage.impersonationActiveRefreshToApply'))
       window.location.reload()
     },
   })
@@ -1552,7 +1561,7 @@ function UsersTab() {
   const revokeSessionsMut = useMutation({
     mutationFn: (userId: string) => platformAdminApi.revokeUserSessions(userId),
     onSuccess: () => {
-      toast.success('All sessions revoked')
+      toast.success(t('ui:PlatformAdminPage.allSessionsRevoked'))
       queryClient.invalidateQueries({ queryKey: ['platform-admin'] })
     },
   })
@@ -1560,7 +1569,7 @@ function UsersTab() {
   const deactivateMut = useMutation({
     mutationFn: (userId: string) => platformAdminApi.deactivateUser(userId),
     onSuccess: () => {
-      toast.success('User deactivated')
+      toast.success(t('ui:PlatformAdminPage.userDeactivated'))
       queryClient.invalidateQueries({ queryKey: ['platform-admin'] })
     },
   })
@@ -1568,7 +1577,7 @@ function UsersTab() {
   const reactivateMut = useMutation({
     mutationFn: (userId: string) => platformAdminApi.reactivateUser(userId),
     onSuccess: () => {
-      toast.success('User reactivated')
+      toast.success(t('ui:PlatformAdminPage.userReactivated'))
       queryClient.invalidateQueries({ queryKey: ['platform-admin'] })
     },
   })
@@ -1580,12 +1589,12 @@ function UsersTab() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Users Management</h1>
+        <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('ui:PlatformAdminPage.usersManagement')}</h1>
         <button
           onClick={() => setShowModal('create')}
           className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700"
         >
-          <UserPlus className="w-4 h-4" /> Add User
+          <UserPlus className="w-4 h-4" /> {t('ui:PlatformAdminPage.addUser')}
         </button>
       </div>
 
@@ -1594,7 +1603,7 @@ function UsersTab() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             type="text"
-            placeholder="Search users..."
+            placeholder={t('ui:PlatformAdminPage.searchUsers')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-10 pr-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
@@ -1605,12 +1614,12 @@ function UsersTab() {
           onChange={(e) => setRoleFilter(e.target.value)}
           className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
         >
-          <option value="">All Roles</option>
-          <option value="admin">Admin</option>
-          <option value="team_member">Team Member</option>
-          <option value="accountant">Accountant</option>
-          <option value="client">Client</option>
-          <option value="viewer">Viewer</option>
+          <option value="">{t('ui:PlatformAdminPage.allRoles')}</option>
+          <option value="admin">{t('ui:PlatformAdminPage.admin')}</option>
+          <option value="team_member">{t('ui:PlatformAdminPage.teamMember')}</option>
+          <option value="accountant">{t('ui:PlatformAdminPage.accountant')}</option>
+          <option value="client">{t('ui:PlatformAdminPage.client')}</option>
+          <option value="viewer">{t('ui:PlatformAdminPage.viewer')}</option>
         </select>
       </div>
 
@@ -1623,11 +1632,11 @@ function UsersTab() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 dark:bg-gray-900">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">User</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Role</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Last Login</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('ui:PlatformAdminPage.user')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('ui:PlatformAdminPage.role')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('ui:PlatformAdminPage.status')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('ui:PlatformAdminPage.lastLogin')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('ui:PlatformAdminPage.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -1649,37 +1658,37 @@ function UsersTab() {
                     <td className="px-4 py-3">
                       {u.is_active ? (
                         <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400 text-xs">
-                          <CheckCircle className="w-3 h-3" /> Active
+                          <CheckCircle className="w-3 h-3" /> {t('ui:PlatformAdminPage.active')}
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 text-red-500 text-xs">
-                          <XCircle className="w-3 h-3" /> Inactive
+                          <XCircle className="w-3 h-3" /> {t('ui:PlatformAdminPage.inactive')}
                         </span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
-                      {u.last_login ? timeAgo(u.last_login) : 'Never'}
+                      {u.last_login ? timeAgo(u.last_login) : t('ui:PlatformAdminPage.never')}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
                         <button
                           onClick={(e) => { e.stopPropagation(); setSelectedUserId(u.id); setShowModal('edit') }}
-                          title="Edit user"
+                          title={t('ui:PlatformAdminPage.editUser_2')}
                           className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 hover:text-blue-600"
                         >
                           <Edit3 className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); impersonateMut.mutate(u.id) }}
-                          title="Impersonate"
+                          title={t('ui:PlatformAdminPage.impersonate')}
                           className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 hover:text-blue-600"
                         >
                           <LogIn className="w-3.5 h-3.5" />
                         </button>
                         {u.is_active ? (
                           <button
-                            onClick={(e) => { e.stopPropagation(); if (confirm(`Deactivate ${u.full_name}?`)) deactivateMut.mutate(u.id) }}
-                            title="Deactivate"
+                            onClick={(e) => { e.stopPropagation(); if (confirm(t('ui:PlatformAdminPage.deactivateFullName', { full_name: u.full_name }))) deactivateMut.mutate(u.id) }}
+                            title={t('ui:PlatformAdminPage.deactivate')}
                             className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 hover:text-red-600"
                           >
                             <Power className="w-3.5 h-3.5" />
@@ -1687,7 +1696,7 @@ function UsersTab() {
                         ) : (
                           <button
                             onClick={(e) => { e.stopPropagation(); reactivateMut.mutate(u.id) }}
-                            title="Reactivate"
+                            title={t('ui:PlatformAdminPage.reactivate')}
                             className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 hover:text-green-600"
                           >
                             <Power className="w-3.5 h-3.5" />
@@ -1695,7 +1704,7 @@ function UsersTab() {
                         )}
                         <button
                           onClick={(e) => { e.stopPropagation(); revokeSessionsMut.mutate(u.id) }}
-                          title="Revoke sessions"
+                          title={t('ui:PlatformAdminPage.revokeSessions')}
                           className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 hover:text-red-600"
                         >
                           <XCircle className="w-3.5 h-3.5" />
@@ -1721,42 +1730,42 @@ function UsersTab() {
             <p className="text-sm text-gray-500 dark:text-gray-400">{detail.email}</p>
             <div className="mt-3 space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-500 dark:text-gray-400">Role</span>
+                <span className="text-gray-500 dark:text-gray-400">{t('ui:PlatformAdminPage.role')}</span>
                 <span className="text-gray-900 dark:text-white capitalize">{detail.role?.replace('_', ' ')}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500 dark:text-gray-400">Auth</span>
+                <span className="text-gray-500 dark:text-gray-400">{t('ui:PlatformAdminPage.auth')}</span>
                 <span className="text-gray-900 dark:text-white">{detail.auth_provider}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500 dark:text-gray-400">Pages</span>
+                <span className="text-gray-500 dark:text-gray-400">{t('ui:PlatformAdminPage.pages')}</span>
                 <span className="text-gray-900 dark:text-white">{detail.page_count}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500 dark:text-gray-400">Documents</span>
+                <span className="text-gray-500 dark:text-gray-400">{t('ui:PlatformAdminPage.documents')}</span>
                 <span className="text-gray-900 dark:text-white">{detail.document_count}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500 dark:text-gray-400">Invoices</span>
+                <span className="text-gray-500 dark:text-gray-400">{t('ui:PlatformAdminPage.invoices')}</span>
                 <span className="text-gray-900 dark:text-white">{detail.invoice_count}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500 dark:text-gray-400">Activities</span>
+                <span className="text-gray-500 dark:text-gray-400">{t('ui:PlatformAdminPage.activities')}</span>
                 <span className="text-gray-900 dark:text-white">{detail.activity_count}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500 dark:text-gray-400">Joined</span>
+                <span className="text-gray-500 dark:text-gray-400">{t('ui:PlatformAdminPage.joined')}</span>
                 <span className="text-gray-900 dark:text-white">{detail.created_at ? new Date(detail.created_at).toLocaleDateString() : '-'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500 dark:text-gray-400">Last Login</span>
-                <span className="text-gray-900 dark:text-white">{detail.last_login ? timeAgo(detail.last_login) : 'Never'}</span>
+                <span className="text-gray-500 dark:text-gray-400">{t('ui:PlatformAdminPage.lastLogin')}</span>
+                <span className="text-gray-900 dark:text-white">{detail.last_login ? timeAgo(detail.last_login) : t('ui:PlatformAdminPage.never')}</span>
               </div>
             </div>
 
             {detail.recent_activity?.length > 0 && (
               <div className="mt-4 border-t border-gray-200 dark:border-gray-700 pt-3">
-                <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-2">Recent Activity</h4>
+                <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-2">{t('ui:PlatformAdminPage.recentActivity')}</h4>
                 <div className="space-y-1.5 max-h-48 overflow-y-auto">
                   {detail.recent_activity.map((a: any) => (
                     <div key={a.id} className="text-xs text-gray-600 dark:text-gray-400">
@@ -1785,6 +1794,7 @@ function UsersTab() {
 // ── Feature toggles tab ─────────────────────────────────────────────────
 
 function FeatureTogglesTab() {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const { data, isLoading } = useQuery({
     queryKey: ['platform-admin', 'feature-flags'],
@@ -1806,8 +1816,8 @@ function FeatureTogglesTab() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Feature Toggles</h1>
-      <p className="text-sm text-gray-500 dark:text-gray-400">Enable or disable features across the platform.</p>
+      <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('ui:PlatformAdminPage.featureToggles')}</h1>
+      <p className="text-sm text-gray-500 dark:text-gray-400">{t('ui:PlatformAdminPage.enableOrDisableFeaturesAcross')}</p>
 
       {categories.map((cat) => (
         <div key={cat} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -1846,6 +1856,7 @@ function FeatureTogglesTab() {
 // ── Pricing & Limits tab ────────────────────────────────────────────────
 
 function PricingTab() {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const [editingKey, setEditingKey] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
@@ -1861,7 +1872,7 @@ function PricingTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['platform-admin', 'settings'] })
       setEditingKey(null)
-      toast.success('Setting updated')
+      toast.success(t('ui:PlatformAdminPage.settingUpdated'))
     },
   })
 
@@ -1872,8 +1883,8 @@ function PricingTab() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Pricing & Limits</h1>
-      <p className="text-sm text-gray-500 dark:text-gray-400">Manage plan pricing, usage limits, and add-on configuration.</p>
+      <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('ui:PlatformAdminPage.pricingLimits')}</h1>
+      <p className="text-sm text-gray-500 dark:text-gray-400">{t('ui:PlatformAdminPage.managePlanPricingUsageLimits')}</p>
 
       {categories.map((cat) => (
         <div key={cat} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -1954,6 +1965,7 @@ function ApiKeyCard({ integration, fields, configured, onSaved }: {
   configured: boolean
   onSaved: () => void
 }) {
+  const { t } = useTranslation('ui')
   const [editing, setEditing] = useState(false)
   const [values, setValues] = useState<Record<string, string>>({})
   const [showValues, setShowValues] = useState<Record<string, boolean>>({})
@@ -1963,7 +1975,7 @@ function ApiKeyCard({ integration, fields, configured, onSaved }: {
   const saveMut = useMutation({
     mutationFn: () => platformAdminApi.saveApiKeys(integration, values),
     onSuccess: () => {
-      toast.success(`${INTEGRATION_LABELS[integration] || integration} keys saved`)
+      toast.success(t('ui:PlatformAdminPage.v0KeysSaved', { v0: INTEGRATION_LABELS[integration] || integration }))
       setEditing(false)
       setValues({})
       onSaved()
@@ -1974,7 +1986,7 @@ function ApiKeyCard({ integration, fields, configured, onSaved }: {
   const removeMut = useMutation({
     mutationFn: () => platformAdminApi.deleteApiKeys(integration),
     onSuccess: () => {
-      toast.success(`${INTEGRATION_LABELS[integration] || integration} keys removed`)
+      toast.success(t('ui:PlatformAdminPage.v0KeysRemoved', { v0: INTEGRATION_LABELS[integration] || integration }))
       setTestResult(null)
       onSaved()
     },
@@ -2017,11 +2029,11 @@ function ApiKeyCard({ integration, fields, configured, onSaved }: {
         <div className="flex items-center gap-2">
           {configured ? (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
-              <CheckCircle className="w-3 h-3" /> Configured
+              <CheckCircle className="w-3 h-3" /> {t('ui:PlatformAdminPage.configured')}
             </span>
           ) : (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
-              <AlertTriangle className="w-3 h-3" /> Not configured
+              <AlertTriangle className="w-3 h-3" /> {t('ui:PlatformAdminPage.notConfigured')}
             </span>
           )}
         </div>
@@ -2053,7 +2065,7 @@ function ApiKeyCard({ integration, fields, configured, onSaved }: {
               className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/30"
             >
               <Edit3 className="w-3 h-3" />
-              {configured ? 'Update' : 'Configure'}
+              {configured ? t('ui:PlatformAdminPage.update') : t('ui:PlatformAdminPage.configure')}
             </button>
             {configured && (
               <>
@@ -2063,14 +2075,14 @@ function ApiKeyCard({ integration, fields, configured, onSaved }: {
                   className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-purple-50 text-purple-700 hover:bg-purple-100 dark:bg-purple-900/20 dark:text-purple-400 dark:hover:bg-purple-900/30 disabled:opacity-50"
                 >
                   {testing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
-                  Test
+                 {t('ui:PlatformAdminPage.test')}
                 </button>
                 <button
-                  onClick={() => { if (confirm(`Remove all ${INTEGRATION_LABELS[integration] || integration} keys?`)) removeMut.mutate() }}
+                  onClick={() => { if (confirm(t('ui:PlatformAdminPage.removeAllV0Keys', { v0: INTEGRATION_LABELS[integration] || integration }))) removeMut.mutate() }}
                   className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30 ml-auto"
                 >
                   <Trash2 className="w-3 h-3" />
-                  Remove
+                 {t('ui:PlatformAdminPage.remove')}
                 </button>
               </>
             )}
@@ -2085,10 +2097,10 @@ function ApiKeyCard({ integration, fields, configured, onSaved }: {
                 ? 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400'
                 : 'bg-yellow-50 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400'
             }`}>
-              <span className="font-medium">{testResult.status === 'healthy' || testResult.status === 'configured' ? 'Connected' : testResult.status === 'error' ? 'Error' : 'Warning'}:</span>{' '}
+              <span className="font-medium">{testResult.status === 'healthy' || testResult.status === 'configured' ? t('ui:PlatformAdminPage.connected') : testResult.status === 'error' ? t('ui:PlatformAdminPage.error') : t('ui:PlatformAdminPage.warning')}:</span>{' '}
               {testResult.message}
               {testResult.latency_ms !== undefined && (
-                <span className="ml-2 opacity-75">({testResult.latency_ms}ms)</span>
+                <span className="ml-2 opacity-75">({testResult.latency_ms}{t('ui:PlatformAdminPage.ms')}</span>
               )}
             </div>
           )}
@@ -2112,7 +2124,7 @@ function ApiKeyCard({ integration, fields, configured, onSaved }: {
                       type={isSecret && !showing ? 'password' : 'text'}
                       value={values[f.name] || ''}
                       onChange={e => setValues(prev => ({ ...prev, [f.name]: e.target.value }))}
-                      placeholder={f.configured ? 'Leave unchanged or paste new value' : 'Paste value here'}
+                      placeholder={f.configured ? t('ui:PlatformAdminPage.leaveUnchangedOrPasteNew') : t('ui:PlatformAdminPage.pasteValueHere')}
                       className="w-full px-3 py-1.5 text-xs font-mono rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 pr-8"
                     />
                     {isSecret && (
@@ -2137,13 +2149,13 @@ function ApiKeyCard({ integration, fields, configured, onSaved }: {
               className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
             >
               {saveMut.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
-              Save
+             {t('ui:PlatformAdminPage.save')}
             </button>
             <button
               onClick={() => { setEditing(false); setValues({}) }}
               className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
             >
-              Cancel
+             {t('ui:PlatformAdminPage.cancel')}
             </button>
           </div>
         </>
@@ -2153,6 +2165,7 @@ function ApiKeyCard({ integration, fields, configured, onSaved }: {
 }
 
 function ApiKeysTab() {
+  const { t } = useTranslation('ui')
   const qc = useQueryClient()
   const { data, isLoading } = useQuery({
     queryKey: ['platform-admin', 'api-keys'],
@@ -2165,9 +2178,9 @@ function ApiKeysTab() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-gray-900 dark:text-white">API Keys & Integrations</h1>
+        <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('ui:PlatformAdminPage.apiKeysIntegrations')}</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Manage API keys for all integrations. Keys are stored encrypted and never shown in full.
+         {t('ui:PlatformAdminPage.manageApiKeysForAll')}
         </p>
       </div>
 
@@ -2189,6 +2202,7 @@ function ApiKeysTab() {
 // ── Health tab ───────────────────────────────────────────────────────────
 
 function HealthTab() {
+  const { t } = useTranslation('ui')
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['platform-admin', 'health'],
     queryFn: () => platformAdminApi.getHealth(),
@@ -2213,9 +2227,9 @@ function HealthTab() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900 dark:text-white">System Health</h1>
+        <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('ui:PlatformAdminPage.systemHealth')}</h1>
         <button onClick={() => refetch()} className="flex items-center gap-1 px-3 py-1.5 rounded-md text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600">
-          <RefreshCw className="w-3.5 h-3.5" /> Refresh
+          <RefreshCw className="w-3.5 h-3.5" /> {t('ui:PlatformAdminPage.refresh')}
         </button>
       </div>
 
@@ -2223,21 +2237,21 @@ function HealthTab() {
       <div className={`rounded-lg border p-6 text-center ${statusBg(health?.status)}`}>
         <HeartPulse className={`w-8 h-8 mx-auto mb-2 ${statusColor(health?.status)}`} />
         <p className={`text-lg font-semibold capitalize ${statusColor(health?.status)}`}>{health?.status}</p>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Uptime: {formatUptime(health?.uptime_seconds ?? 0)}</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('ui:PlatformAdminPage.uptime')} {formatUptime(health?.uptime_seconds ?? 0)}</p>
       </div>
 
       {/* Core services */}
       <div className="grid grid-cols-3 gap-4">
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 text-center">
-          <p className="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">Database</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">{t('ui:PlatformAdminPage.database')}</p>
           <p className={`text-sm font-medium capitalize ${statusColor(health?.database)}`}>{health?.database}</p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 text-center">
-          <p className="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">Errors (24h)</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">{t('ui:PlatformAdminPage.errors24h')}</p>
           <p className={`text-sm font-medium ${(health?.error_count_24h ?? 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>{health?.error_count_24h ?? 0}</p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 text-center">
-          <p className="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">Warnings (24h)</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">{t('ui:PlatformAdminPage.warnings24h')}</p>
           <p className={`text-sm font-medium ${(health?.warning_count_24h ?? 0) > 0 ? 'text-yellow-600' : 'text-green-600'}`}>{health?.warning_count_24h ?? 0}</p>
         </div>
       </div>
@@ -2245,7 +2259,7 @@ function HealthTab() {
       {/* Integrations */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="px-4 py-3 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
-          <h3 className="text-sm font-medium text-gray-900 dark:text-white">Integration Status</h3>
+          <h3 className="text-sm font-medium text-gray-900 dark:text-white">{t('ui:PlatformAdminPage.integrationStatus')}</h3>
         </div>
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
           {(health?.integrations ?? []).map((intg: any) => (
@@ -2266,6 +2280,7 @@ function HealthTab() {
 // ── Security tab ────────────────────────────────────────────────────────
 
 function SecurityTab() {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const [activityPage, setActivityPage] = useState(1)
 
@@ -2282,7 +2297,7 @@ function SecurityTab() {
   const revokeMut = useMutation({
     mutationFn: (sessionId: string) => platformAdminApi.revokeSession(sessionId),
     onSuccess: () => {
-      toast.success('Session revoked')
+      toast.success(t('ui:PlatformAdminPage.sessionRevoked'))
       queryClient.invalidateQueries({ queryKey: ['platform-admin', 'sessions'] })
     },
   })
@@ -2293,12 +2308,12 @@ function SecurityTab() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Security</h1>
+      <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('ui:PlatformAdminPage.security')}</h1>
 
       {/* Active sessions */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="px-4 py-3 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-          <h3 className="text-sm font-medium text-gray-900 dark:text-white">Active Sessions ({sessions.length})</h3>
+          <h3 className="text-sm font-medium text-gray-900 dark:text-white">{t('ui:PlatformAdminPage.activeSessions')}{sessions.length})</h3>
         </div>
         {sessionsLoading ? (
           <LoadingSpinner />
@@ -2312,13 +2327,13 @@ function SecurityTab() {
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="text-right">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Created: {timeAgo(s.created_at)}</p>
-                    <p className="text-xs text-gray-400">Expires: {s.expires_at ? new Date(s.expires_at).toLocaleDateString() : '-'}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{t('ui:PlatformAdminPage.created_2')} {timeAgo(s.created_at)}</p>
+                    <p className="text-xs text-gray-400">{t('ui:PlatformAdminPage.expires')} {s.expires_at ? new Date(s.expires_at).toLocaleDateString() : '-'}</p>
                   </div>
                   <button
                     onClick={() => revokeMut.mutate(s.id)}
                     className="p-1 rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
-                    title="Revoke session"
+                    title={t('ui:PlatformAdminPage.revokeSession')}
                   >
                     <XCircle className="w-4 h-4" />
                   </button>
@@ -2326,7 +2341,7 @@ function SecurityTab() {
               </div>
             ))}
             {sessions.length === 0 && (
-              <p className="px-4 py-3 text-sm text-gray-400">No active sessions</p>
+              <p className="px-4 py-3 text-sm text-gray-400">{t('ui:PlatformAdminPage.noActiveSessions')}</p>
             )}
           </div>
         )}
@@ -2336,7 +2351,7 @@ function SecurityTab() {
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="px-4 py-3 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <h3 className="text-sm font-medium text-gray-900 dark:text-white">
-            Audit Log {activityMeta?.total ? `(${activityMeta.total})` : ''}
+           {t('ui:PlatformAdminPage.auditLog')} {activityMeta?.total ? `(${activityMeta.total})` : ''}
           </h3>
           <div className="flex items-center gap-2">
             <button
@@ -2344,15 +2359,15 @@ function SecurityTab() {
               disabled={activityPage <= 1}
               className="px-2 py-1 text-xs rounded border border-gray-300 dark:border-gray-600 disabled:opacity-50"
             >
-              Prev
+             {t('ui:PlatformAdminPage.prev')}
             </button>
-            <span className="text-xs text-gray-500">Page {activityPage}</span>
+            <span className="text-xs text-gray-500">{t('ui:PlatformAdminPage.page')} {activityPage}</span>
             <button
               onClick={() => setActivityPage((p) => p + 1)}
               disabled={activities.length < 30}
               className="px-2 py-1 text-xs rounded border border-gray-300 dark:border-gray-600 disabled:opacity-50"
             >
-              Next
+             {t('ui:PlatformAdminPage.next')}
             </button>
           </div>
         </div>
@@ -2370,7 +2385,7 @@ function SecurityTab() {
               </div>
             ))}
             {activities.length === 0 && (
-              <p className="px-4 py-3 text-sm text-gray-400">No activity records</p>
+              <p className="px-4 py-3 text-sm text-gray-400">{t('ui:PlatformAdminPage.noActivityRecords')}</p>
             )}
           </div>
         )}
@@ -2382,6 +2397,7 @@ function SecurityTab() {
 // ── Errors tab ──────────────────────────────────────────────────────────
 
 function ErrorsTab() {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const [resolvedFilter, setResolvedFilter] = useState<'unresolved' | 'resolved' | 'all'>('unresolved')
   const [endpointFilter, setEndpointFilter] = useState('')
@@ -2407,7 +2423,7 @@ function ErrorsTab() {
   const resolveMut = useMutation({
     mutationFn: (errorId: string) => platformAdminApi.resolveError(errorId),
     onSuccess: () => {
-      toast.success('Error resolved')
+      toast.success(t('ui:PlatformAdminPage.errorResolved'))
       queryClient.invalidateQueries({ queryKey: ['platform-admin', 'errors'] })
     },
   })
@@ -2421,7 +2437,7 @@ function ErrorsTab() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-3">
-          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Error Log</h1>
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('ui:PlatformAdminPage.errorLog')}</h1>
           {meta && (
             <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full">
               {meta.total} total
@@ -2430,9 +2446,9 @@ function ErrorsTab() {
         </div>
         <div className="flex items-center gap-2 text-xs text-gray-400">
           <RefreshCw className="w-3 h-3" />
-          Auto-refresh 30s
+         {t('ui:PlatformAdminPage.autoRefresh30s')}
           {dataUpdatedAt > 0 && (
-            <span>· last {timeAgo(new Date(dataUpdatedAt).toISOString())}</span>
+            <span>{t('ui:PlatformAdminPage.last')} {timeAgo(new Date(dataUpdatedAt).toISOString())}</span>
           )}
         </div>
       </div>
@@ -2462,7 +2478,7 @@ function ErrorsTab() {
             type="text"
             value={endpointFilter}
             onChange={(e) => { setEndpointFilter(e.target.value); setPage(1) }}
-            placeholder="Filter by endpoint..."
+            placeholder={t('ui:PlatformAdminPage.filterByEndpoint')}
             className="pl-8 pr-3 py-1.5 text-xs border dark:border-gray-600 rounded-lg dark:bg-gray-900 dark:text-gray-100 w-48"
           />
         </div>
@@ -2486,7 +2502,7 @@ function ErrorsTab() {
             onClick={() => { setEndpointFilter(''); setDateFrom(''); setDateTo(''); setResolvedFilter('unresolved'); setPage(1) }}
             className="px-2.5 py-1.5 text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 border dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
           >
-            Clear filters
+           {t('ui:PlatformAdminPage.clearFilters')}
           </button>
         )}
       </div>
@@ -2497,7 +2513,7 @@ function ErrorsTab() {
       ) : errors.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
           <CheckCircle className="w-8 h-8 mx-auto mb-2 text-green-500" />
-          <p className="text-sm text-gray-500 dark:text-gray-400">No errors found</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{t('ui:PlatformAdminPage.noErrorsFound')}</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -2533,12 +2549,12 @@ function ErrorsTab() {
                     )}
                     {err.user_id && (
                       <span className="text-[10px] text-gray-400" title={err.user_id}>
-                        user: {err.user_id.slice(0, 8)}...
+                       {t('ui:PlatformAdminPage.user_2')} {err.user_id.slice(0, 8)}...
                       </span>
                     )}
                     {err.resolved && (
                       <span className="text-[10px] font-medium text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-1.5 py-0.5 rounded">
-                        RESOLVED
+                       {t('ui:PlatformAdminPage.resolved')}
                       </span>
                     )}
                   </div>
@@ -2546,7 +2562,7 @@ function ErrorsTab() {
                   {err.traceback && (
                     <details className="mt-2">
                       <summary className="text-xs text-gray-500 cursor-pointer hover:text-gray-700 dark:hover:text-gray-300 select-none">
-                        Traceback ({err.traceback.split('\n').length} lines)
+                       {t('ui:PlatformAdminPage.traceback')}{err.traceback.split('\n').length} {t('ui:PlatformAdminPage.lines')}
                       </summary>
                       <pre className="mt-1 text-[11px] leading-relaxed text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900 p-3 rounded overflow-x-auto max-h-60 whitespace-pre-wrap break-words">
                         {err.traceback}
@@ -2565,9 +2581,9 @@ function ErrorsTab() {
                     onClick={() => resolveMut.mutate(err.id)}
                     disabled={resolveMut.isPending}
                     className="px-3 py-1.5 text-xs font-medium text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/40 shrink-0"
-                    title="Mark as resolved"
+                    title={t('ui:PlatformAdminPage.markAsResolved')}
                   >
-                    Resolve
+                   {t('ui:PlatformAdminPage.resolve')}
                   </button>
                 )}
               </div>
@@ -2584,17 +2600,17 @@ function ErrorsTab() {
             disabled={page <= 1}
             className="px-3 py-1 text-xs border dark:border-gray-600 rounded-lg disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-300"
           >
-            Prev
+           {t('ui:PlatformAdminPage.prev')}
           </button>
           <span className="text-xs text-gray-500 dark:text-gray-400">
-            Page {page} of {totalPages}
+           {t('ui:PlatformAdminPage.page')} {page} of {totalPages}
           </span>
           <button
             onClick={() => setPage(p => Math.min(totalPages, p + 1))}
             disabled={page >= totalPages}
             className="px-3 py-1 text-xs border dark:border-gray-600 rounded-lg disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-300"
           >
-            Next
+           {t('ui:PlatformAdminPage.next')}
           </button>
         </div>
       )}

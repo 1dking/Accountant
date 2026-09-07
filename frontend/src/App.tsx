@@ -117,6 +117,7 @@ import PlatformAdminPage from '@/pages/PlatformAdminPage'
 import IntelligencePage from '@/pages/IntelligencePage'
 import ReschedulePage from '@/pages/ReschedulePage'
 import CancelBookingPage from '@/pages/CancelBookingPage'
+import { useTranslation } from 'react-i18next'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -128,12 +129,13 @@ const queryClient = new QueryClient({
 })
 
 function RootGate() {
+  const { t } = useTranslation('ui')
   const { isAuthenticated, isLoading } = useAuthStore()
 
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-500">Loading...</p>
+        <p className="text-gray-500">{t('ui:App.loading')}</p>
       </div>
     )
   }
@@ -150,6 +152,7 @@ function RootGate() {
 }
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { t } = useTranslation('ui')
   const { isAuthenticated, isLoading, user } = useAuthStore()
   const location = useLocation()
 
@@ -158,7 +161,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-500">Loading...</p>
+        <p className="text-gray-500">{t('ui:App.loading')}</p>
       </div>
     )
   }
@@ -179,20 +182,21 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function ModuleNotEnabled({ feature }: { feature: string }) {
+  const { t } = useTranslation('ui')
   return (
     <div className="min-h-screen flex items-center justify-center px-6">
       <div className="text-center max-w-sm">
         <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-          {FEATURE_LABELS[feature] ?? feature} isn&apos;t enabled for your account
+          {FEATURE_LABELS[feature] ?? feature} {t('ui:App.isnTEnabledForYour')}
         </h1>
         <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-          Ask an admin to switch this section on for you.
+         {t('ui:App.askAnAdminToSwitch')}
         </p>
         <Link
           to="/"
           className="inline-block mt-4 text-sm text-blue-600 dark:text-blue-400 hover:underline"
         >
-          Back to dashboard
+         {t('ui:App.backToDashboard')}
         </Link>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react'
 import { Zap, Play, GitBranch, Clock } from 'lucide-react'
 import { actionLabel, triggerLabel, type GraphNode } from './graph'
+import { useTranslation } from 'react-i18next'
 
 type FlowNodeType = Node<{ node: GraphNode }, string>
 type FlowNode = NodeProps<FlowNodeType>
@@ -9,6 +10,7 @@ const baseCard =
   'min-w-[200px] rounded-lg border shadow-sm px-3 py-2.5 text-sm bg-white dark:bg-gray-900'
 
 export function TriggerNode({ data, selected }: FlowNode) {
+  const { t } = useTranslation('ui')
   const node = data.node
   return (
     <div
@@ -16,10 +18,10 @@ export function TriggerNode({ data, selected }: FlowNode) {
     >
       <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 font-medium">
         <Zap className="h-4 w-4" />
-        Trigger
+       {t('ui:nodes.trigger')}
       </div>
       <p className="mt-1 text-gray-700 dark:text-gray-300 text-xs">
-        {node.trigger_type ? triggerLabel(node.trigger_type) : 'Select a trigger…'}
+        {node.trigger_type ? triggerLabel(node.trigger_type) : t('ui:nodes.selectATrigger')}
       </p>
       <Handle type="source" position={Position.Bottom} className="!bg-amber-500" />
     </div>
@@ -27,6 +29,7 @@ export function TriggerNode({ data, selected }: FlowNode) {
 }
 
 export function ActionNode({ data, selected }: FlowNode) {
+  const { t } = useTranslation('ui')
   const node = data.node
   return (
     <div
@@ -35,10 +38,10 @@ export function ActionNode({ data, selected }: FlowNode) {
       <Handle type="target" position={Position.Top} className="!bg-blue-500" />
       <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400 font-medium">
         <Play className="h-4 w-4" />
-        Action
+       {t('ui:nodes.action')}
       </div>
       <p className="mt-1 text-gray-700 dark:text-gray-300 text-xs">
-        {node.action_type ? actionLabel(node.action_type) : 'Select an action…'}
+        {node.action_type ? actionLabel(node.action_type) : t('ui:nodes.selectAnAction')}
       </p>
       <Handle type="source" position={Position.Bottom} className="!bg-blue-500" />
     </div>
@@ -46,6 +49,7 @@ export function ActionNode({ data, selected }: FlowNode) {
 }
 
 export function ConditionNode({ data, selected }: FlowNode) {
+  const { t } = useTranslation('ui')
   const node = data.node
   const condition = node.condition
   return (
@@ -55,10 +59,10 @@ export function ConditionNode({ data, selected }: FlowNode) {
       <Handle type="target" position={Position.Top} className="!bg-purple-500" />
       <div className="flex items-center gap-2 text-purple-700 dark:text-purple-400 font-medium">
         <GitBranch className="h-4 w-4" />
-        Condition
+       {t('ui:nodes.condition')}
       </div>
       <p className="mt-1 text-gray-700 dark:text-gray-300 text-xs">
-        {condition?.field ? `${condition.field} ${condition.operator} ${condition.value ?? ''}` : 'Configure condition…'}
+        {condition?.field ? `${condition.field} ${condition.operator} ${condition.value ?? ''}` : t('ui:nodes.configureCondition')}
       </p>
       <div className="flex justify-between mt-2 text-[10px] font-medium">
         <span className="text-red-500">false</span>
@@ -83,6 +87,7 @@ export function ConditionNode({ data, selected }: FlowNode) {
 }
 
 export function DelayNode({ data, selected }: FlowNode) {
+  const { t } = useTranslation('ui')
   const node = data.node
   const seconds = node.wait_duration_seconds ?? 0
   return (
@@ -92,10 +97,10 @@ export function DelayNode({ data, selected }: FlowNode) {
       <Handle type="target" position={Position.Top} className="!bg-gray-500" />
       <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300 font-medium">
         <Clock className="h-4 w-4" />
-        Delay
+       {t('ui:nodes.delay')}
       </div>
       <p className="mt-1 text-gray-700 dark:text-gray-300 text-xs">
-        Wait {formatDuration(seconds)}
+       {t('ui:nodes.wait')} {formatDuration(seconds)}
       </p>
       <Handle type="source" position={Position.Bottom} className="!bg-gray-500" />
     </div>

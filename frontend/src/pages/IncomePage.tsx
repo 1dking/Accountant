@@ -5,11 +5,12 @@ import { Plus, Search, ChevronLeft, ChevronRight, DollarSign, Hash } from 'lucid
 import { listIncome, getIncomeSummary } from '@/api/income';
 import { useAuthStore } from '@/stores/authStore';
 import { INCOME_CATEGORIES } from '@/lib/constants';
-import { formatDate } from '@/lib/utils';
+import { formatDate, uiLocale } from '@/lib/utils';
 import type { IncomeFilters } from '@/api/income';
+import { useTranslation } from 'react-i18next'
 
 const formatCurrency = (amount: number, currency = 'USD') =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
+  new Intl.NumberFormat(uiLocale(), { style: 'currency', currency }).format(amount);
 
 const categoryColorMap: Record<string, string> = {
   invoice_payment: 'bg-blue-50 dark:bg-blue-900/30 text-blue-700',
@@ -24,6 +25,7 @@ const getCategoryLabel = (value: string) =>
   INCOME_CATEGORIES.find((c) => c.value === value)?.label ?? value;
 
 export default function IncomePage() {
+  const { t } = useTranslation('ui')
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const canEdit = user?.role === 'admin' || user?.role === 'accountant';
@@ -76,8 +78,8 @@ export default function IncomePage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Income</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Track and manage your income entries</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('ui:IncomePage.income')}</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('ui:IncomePage.trackAndManageYourIncome')}</p>
         </div>
         {canEdit && (
           <button
@@ -85,7 +87,7 @@ export default function IncomePage() {
             className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
           >
             <Plus className="w-4 h-4" />
-            New Income
+           {t('ui:IncomePage.newIncome')}
           </button>
         )}
       </div>
@@ -98,7 +100,7 @@ export default function IncomePage() {
               <DollarSign className="w-5 h-5 text-green-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Total Income</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('ui:IncomePage.totalIncome')}</p>
               <p className="text-xl font-semibold text-gray-900 dark:text-gray-100">
                 {summary ? formatCurrency(summary.total_amount) : '--'}
               </p>
@@ -111,7 +113,7 @@ export default function IncomePage() {
               <Hash className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             </div>
             <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Income Count</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('ui:IncomePage.incomeCount')}</p>
               <p className="text-xl font-semibold text-gray-900 dark:text-gray-100">
                 {summary ? summary.income_count : '--'}
               </p>
@@ -130,7 +132,7 @@ export default function IncomePage() {
               : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
           }`}
         >
-          All
+         {t('ui:IncomePage.all')}
         </button>
         {INCOME_CATEGORIES.map((cat) => (
           <button
@@ -153,7 +155,7 @@ export default function IncomePage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
           <input
             type="text"
-            placeholder="Search income..."
+            placeholder={t('ui:IncomePage.searchIncome')}
             value={search}
             onChange={(e) => handleSearch(e.target.value)}
             className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-gray-100"
@@ -167,7 +169,7 @@ export default function IncomePage() {
             setPage(1);
           }}
           className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-gray-100"
-          placeholder="From"
+          placeholder={t('ui:IncomePage.from')}
         />
         <input
           type="date"
@@ -177,7 +179,7 @@ export default function IncomePage() {
             setPage(1);
           }}
           className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-gray-100"
-          placeholder="To"
+          placeholder={t('ui:IncomePage.to')}
         />
       </div>
 
@@ -188,19 +190,19 @@ export default function IncomePage() {
             <thead>
               <tr className="border-b border-gray-100 dark:border-gray-700">
                 <th className="text-left px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Date
+                 {t('ui:IncomePage.date')}
                 </th>
                 <th className="text-left px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Description
+                 {t('ui:IncomePage.description')}
                 </th>
                 <th className="text-left px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Category
+                 {t('ui:IncomePage.category')}
                 </th>
                 <th className="text-right px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Amount
+                 {t('ui:IncomePage.amount')}
                 </th>
                 <th className="text-left px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Payment Method
+                 {t('ui:IncomePage.paymentMethod')}
                 </th>
               </tr>
             </thead>
@@ -208,13 +210,13 @@ export default function IncomePage() {
               {isLoading ? (
                 <tr>
                   <td colSpan={5} className="px-5 py-10 text-center text-gray-400 dark:text-gray-500">
-                    Loading...
+                   {t('ui:IncomePage.loading')}
                   </td>
                 </tr>
               ) : entries.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-5 py-10 text-center text-gray-400 dark:text-gray-500">
-                    No income entries found.
+                   {t('ui:IncomePage.noIncomeEntriesFound')}
                   </td>
                 </tr>
               ) : (
@@ -252,7 +254,7 @@ export default function IncomePage() {
         {meta && meta.total_pages > 1 && (
           <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 dark:border-gray-700">
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Page {meta.page} of {meta.total_pages}
+             {t('ui:IncomePage.page')} {meta.page} of {meta.total_pages}
             </p>
             <div className="flex gap-2">
               <button
@@ -261,14 +263,14 @@ export default function IncomePage() {
                 className="inline-flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors dark:text-gray-300"
               >
                 <ChevronLeft className="w-4 h-4" />
-                Previous
+               {t('ui:IncomePage.previous')}
               </button>
               <button
                 onClick={() => setPage((p) => p + 1)}
                 disabled={meta.page >= meta.total_pages}
                 className="inline-flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors dark:text-gray-300"
               >
-                Next
+               {t('ui:IncomePage.next')}
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>

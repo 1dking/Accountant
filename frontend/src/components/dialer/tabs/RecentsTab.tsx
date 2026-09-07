@@ -10,6 +10,7 @@ import { cn, formatRelativeTime } from '@/lib/utils'
 import { listCalls } from '@/api/communication'
 import { listContacts } from '@/api/contacts'
 import type { CallLogEntry, Contact } from '@/types/models'
+import { useTranslation } from 'react-i18next'
 
 function initialsFor(name: string | null | undefined, fallback: string): string {
   if (name) {
@@ -35,6 +36,7 @@ interface Props {
 }
 
 export default function RecentsTab({ onDial }: Props) {
+  const { t } = useTranslation('ui')
   const callsQuery = useQuery({
     queryKey: ['dialer-recents'],
     queryFn: () => listCalls({ page_size: 50 }),
@@ -71,7 +73,7 @@ export default function RecentsTab({ onDial }: Props) {
   if (callsQuery.isLoading || contactsQuery.isLoading) {
     return (
       <div className="px-6 py-8 text-sm text-[color:var(--lg-text-muted)]">
-        Loading recent calls…
+       {t('ui:RecentsTab.loadingRecentCalls')}
       </div>
     )
   }
@@ -80,9 +82,9 @@ export default function RecentsTab({ onDial }: Props) {
     return (
       <div className="px-6 py-12 text-center">
         <Phone className="h-8 w-8 mx-auto text-[color:var(--lg-text-muted)] mb-3" />
-        <p className="text-sm text-[color:var(--lg-text-secondary)]">No recent calls</p>
+        <p className="text-sm text-[color:var(--lg-text-secondary)]">{t('ui:RecentsTab.noRecentCalls')}</p>
         <p className="text-xs text-[color:var(--lg-text-muted)] mt-1">
-          Use the Keypad to make your first call.
+         {t('ui:RecentsTab.useTheKeypadToMake')}
         </p>
       </div>
     )

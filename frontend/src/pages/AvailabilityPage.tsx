@@ -22,6 +22,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { CalendarDays, ChevronDown, ChevronRight, Save, Trash2 } from 'lucide-react'
 import { schedulingApi } from '@/api/scheduling'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 
 interface CalendarItem {
   id: string
@@ -95,6 +96,7 @@ const INPUT =
   'px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100'
 
 export default function AvailabilityPage() {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [showAdvanced, setShowAdvanced] = useState(false)
@@ -140,7 +142,7 @@ export default function AvailabilityPage() {
       queryClient.invalidateQueries({ queryKey: ['scheduling-calendars'] })
       const created = (res as { data?: { id?: string } })?.data
       if (created?.id) setSelectedId(created.id)
-      toast.success('Booking calendar created')
+      toast.success(t('ui:AvailabilityPage.bookingCalendarCreated'))
     },
   })
 
@@ -156,9 +158,9 @@ export default function AvailabilityPage() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['scheduling-calendar', activeId] })
-      toast.success('Availability saved')
+      toast.success(t('ui:AvailabilityPage.availabilitySaved'))
     },
-    onError: () => toast.error('Failed to save availability'),
+    onError: () => toast.error(t('ui:AvailabilityPage.failedToSaveAvailability')),
   })
 
   const deleteMutation = useMutation({
@@ -166,12 +168,12 @@ export default function AvailabilityPage() {
     onSuccess: () => {
       setSelectedId(null)
       queryClient.invalidateQueries({ queryKey: ['scheduling-calendars'] })
-      toast.success('Calendar deleted')
+      toast.success(t('ui:AvailabilityPage.calendarDeleted'))
     },
   })
 
   if (isLoading) {
-    return <div className="p-6 text-gray-500">Loading availability…</div>
+    return <div className="p-6 text-gray-500">{t('ui:AvailabilityPage.loadingAvailability')}</div>
   }
 
   if (calendars.length === 0) {
@@ -180,10 +182,10 @@ export default function AvailabilityPage() {
         <div className="text-center py-16 bg-white dark:bg-gray-900 border rounded-lg">
           <CalendarDays className="w-10 h-10 text-gray-300 mx-auto mb-3" />
           <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-1">
-            Set up your booking calendar
+           {t('ui:AvailabilityPage.setUpYourBookingCalendar')}
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4 max-w-sm mx-auto">
-            Create a calendar to share a public booking link where clients pick a time that works.
+           {t('ui:AvailabilityPage.createACalendarToShare')}
           </p>
           <button
             onClick={() => createMutation.mutate()}
@@ -191,7 +193,7 @@ export default function AvailabilityPage() {
             className="px-4 py-2 text-sm text-white rounded-lg disabled:opacity-50 hover:opacity-90"
             style={{ background: 'var(--brand-primary)' }}
           >
-            {createMutation.isPending ? 'Creating…' : 'Create booking calendar'}
+            {createMutation.isPending ? t('ui:AvailabilityPage.creating') : t('ui:AvailabilityPage.createBookingCalendar')}
           </button>
         </div>
       </div>
@@ -202,9 +204,9 @@ export default function AvailabilityPage() {
     <div className="p-6 max-w-2xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Availability</h1>
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">{t('ui:AvailabilityPage.availability')}</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Set your weekly hours and meeting preferences.
+           {t('ui:AvailabilityPage.setYourWeeklyHoursAnd')}
           </p>
         </div>
         <button
@@ -214,13 +216,13 @@ export default function AvailabilityPage() {
           style={{ background: 'var(--brand-primary)' }}
         >
           <Save className="w-4 h-4" />
-          {saveMutation.isPending ? 'Saving…' : 'Save'}
+          {saveMutation.isPending ? t('ui:AvailabilityPage.saving') : t('ui:AvailabilityPage.save')}
         </button>
       </div>
 
       {calendars.length > 1 && (
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Calendar</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:AvailabilityPage.calendar')}</label>
           <select value={activeId ?? ''} onChange={(e) => setSelectedId(e.target.value)} className={INPUT}>
             {calendars.map((c) => (
               <option key={c.id} value={c.id}>
@@ -233,7 +235,7 @@ export default function AvailabilityPage() {
 
       {/* Weekly hours grid */}
       <section className="bg-white dark:bg-gray-900 border rounded-lg p-5 mb-4">
-        <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Weekly hours</h2>
+        <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">{t('ui:AvailabilityPage.weeklyHours')}</h2>
         <div className="space-y-2">
           {DAYS.map((d) => (
             <div key={d} className="flex items-center gap-3">
@@ -262,7 +264,7 @@ export default function AvailabilityPage() {
                   />
                 </div>
               ) : (
-                <span className="text-sm text-gray-400">Unavailable</span>
+                <span className="text-sm text-gray-400">{t('ui:AvailabilityPage.unavailable')}</span>
               )}
             </div>
           ))}
@@ -271,10 +273,10 @@ export default function AvailabilityPage() {
 
       {/* Meeting preferences */}
       <section className="bg-white dark:bg-gray-900 border rounded-lg p-5 mb-4">
-        <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Meeting preferences</h2>
+        <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">{t('ui:AvailabilityPage.meetingPreferences')}</h2>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Duration</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:AvailabilityPage.duration')}</label>
             <select value={duration} onChange={(e) => setDuration(Number(e.target.value))} className={`${INPUT} w-full`}>
               {[15, 20, 30, 45, 60, 90].map((m) => (
                 <option key={m} value={m}>{m} minutes</option>
@@ -282,31 +284,31 @@ export default function AvailabilityPage() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Buffer between meetings</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:AvailabilityPage.bufferBetweenMeetings')}</label>
             <select value={buffer} onChange={(e) => setBuffer(Number(e.target.value))} className={`${INPUT} w-full`}>
               {[0, 5, 10, 15, 30].map((m) => (
-                <option key={m} value={m}>{m === 0 ? 'None' : `${m} minutes`}</option>
+                <option key={m} value={m}>{m === 0 ? t('ui:AvailabilityPage.none') : t('ui:AvailabilityPage.mMinutes', { m })}</option>
               ))}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Minimum notice</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:AvailabilityPage.minimumNotice')}</label>
             <select value={minNotice} onChange={(e) => setMinNotice(Number(e.target.value))} className={`${INPUT} w-full`}>
               {[0, 1, 2, 4, 12, 24, 48].map((h) => (
-                <option key={h} value={h}>{h === 0 ? 'None' : `${h} hour${h === 1 ? '' : 's'}`}</option>
+                <option key={h} value={h}>{h === 0 ? t('ui:AvailabilityPage.none') : t('ui:AvailabilityPage.hHourV1', { h, v1: h === 1 ? '' : 's' })}</option>
               ))}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Book up to</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:AvailabilityPage.bookUpTo')}</label>
             <select value={maxAdvance} onChange={(e) => setMaxAdvance(Number(e.target.value))} className={`${INPUT} w-full`}>
               {[14, 30, 60, 90, 180].map((d) => (
-                <option key={d} value={d}>{d} days ahead</option>
+                <option key={d} value={d}>{d} {t('ui:AvailabilityPage.daysAhead')}</option>
               ))}
             </select>
           </div>
           <div className="col-span-2">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Timezone</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:AvailabilityPage.timezone')}</label>
             <select value={tz} onChange={(e) => setTz(e.target.value)} className={`${INPUT} w-full`}>
               {(TIMEZONES.includes(tz) ? TIMEZONES : [tz, ...TIMEZONES]).map((z) => (
                 <option key={z} value={z}>{z}</option>
@@ -323,12 +325,12 @@ export default function AvailabilityPage() {
           className="flex items-center gap-1.5 text-sm font-semibold text-gray-900 dark:text-gray-100"
         >
           {showAdvanced ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-          Advanced — calendars & teams
+         {t('ui:AvailabilityPage.advancedCalendarsTeams')}
         </button>
         {showAdvanced && (
           <div className="mt-4 space-y-3">
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Multiple calendars support team and round-robin booking. Each has its own public link.
+             {t('ui:AvailabilityPage.multipleCalendarsSupportTeamAnd')}
             </p>
             {calendars.map((c) => (
               <div key={c.id} className="flex items-center justify-between border rounded-lg p-3">
@@ -341,7 +343,7 @@ export default function AvailabilityPage() {
                 </div>
                 <button
                   onClick={() => {
-                    if (confirm(`Delete calendar "${c.name}"? Its public link will stop working.`)) {
+                    if (confirm(t('ui:AvailabilityPage.deleteCalendarNameItsPublic', { name: c.name }))) {
                       deleteMutation.mutate(c.id)
                     }
                   }}
@@ -356,7 +358,7 @@ export default function AvailabilityPage() {
               disabled={createMutation.isPending}
               className="text-sm text-[var(--brand-primary)] hover:underline disabled:opacity-50"
             >
-              + New calendar
+             {t('ui:AvailabilityPage.newCalendar')}
             </button>
           </div>
         )}

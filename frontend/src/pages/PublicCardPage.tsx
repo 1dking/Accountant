@@ -15,8 +15,10 @@ import { cardsApi } from '@/api/cards'
 import ClassicCard from '@/components/cards/templates/ClassicCard'
 import { CARD_TEMPLATES as TEMPLATES } from '@/components/cards/templates'
 import QrShareOverlay from '@/components/cards/QrShareOverlay'
+import { useTranslation } from 'react-i18next'
 
 export default function PublicCardPage() {
+  const { t } = useTranslation('ui')
   const { slug } = useParams<{ slug: string }>()
   const [showQr, setShowQr] = useState(false)
 
@@ -47,13 +49,13 @@ export default function PublicCardPage() {
   }, [card])
 
   if (isLoading) {
-    return <div className="min-h-screen flex items-center justify-center text-gray-400">Loading…</div>
+    return <div className="min-h-screen flex items-center justify-center text-gray-400">{t('ui:PublicCardPage.loading')}</div>
   }
 
   if (isError || !card) {
     return (
       <div className="min-h-screen flex items-center justify-center px-6">
-        <p className="text-sm text-gray-500">This card doesn't exist or isn't published.</p>
+        <p className="text-sm text-gray-500">{t('ui:PublicCardPage.thisCardDoesnTExist')}</p>
       </div>
     )
   }

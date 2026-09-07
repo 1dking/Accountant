@@ -31,16 +31,18 @@ import type {
   Expense,
   CashbookEntry,
 } from '@/types/models'
+import { useTranslation } from 'react-i18next'
+import { uiLocale } from '@/lib/utils'
 
 function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat(uiLocale(), {
     style: 'currency',
     currency: 'USD',
   }).format(amount)
 }
 
 function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('en-US', {
+  return new Date(dateStr).toLocaleDateString(uiLocale(), {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
@@ -50,6 +52,7 @@ function formatDate(dateStr: string): string {
 type TabKey = 'matches' | 'unmatched-receipts' | 'unmatched-transactions'
 
 export default function ReconciliationPage() {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
 
   const [activeTab, setActiveTab] = useState<TabKey>('matches')
@@ -135,7 +138,7 @@ export default function ReconciliationPage() {
     mutationFn: () => findMatches(dateFrom || undefined, dateTo || undefined),
     onSuccess: (data) => {
       const count = data?.data?.length ?? 0
-      toast.success(`Found ${count} potential match${count !== 1 ? 'es' : ''}`)
+      toast.success(t('ui:ReconciliationPage.foundCountPotentialMatchV1', { count, v1: count !== 1 ? 'es' : '' }))
       invalidateAll()
     },
     onError: (err: Error) => {
@@ -147,7 +150,7 @@ export default function ReconciliationPage() {
   const confirmMutation = useMutation({
     mutationFn: (matchId: string) => confirmMatch(matchId),
     onSuccess: () => {
-      toast.success('Match confirmed')
+      toast.success(t('ui:ReconciliationPage.matchConfirmed'))
       invalidateAll()
     },
     onError: (err: Error) => {
@@ -159,7 +162,7 @@ export default function ReconciliationPage() {
   const rejectMutation = useMutation({
     mutationFn: (matchId: string) => rejectMatch(matchId),
     onSuccess: () => {
-      toast.success('Match rejected')
+      toast.success(t('ui:ReconciliationPage.matchRejected'))
       invalidateAll()
     },
     onError: (err: Error) => {
@@ -177,7 +180,7 @@ export default function ReconciliationPage() {
       transactionId: string
     }) => createManualMatch(receiptId, transactionId),
     onSuccess: () => {
-      toast.success('Manual match created')
+      toast.success(t('ui:ReconciliationPage.manualMatchCreated'))
       setMatchReceiptModal({ open: false, receipt: null })
       setMatchTransactionModal({ open: false, transaction: null })
       invalidateAll()
@@ -215,36 +218,36 @@ export default function ReconciliationPage() {
         return (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
             <CheckCircle className="h-3 w-3" />
-            Confirmed
+           {t('ui:ReconciliationPage.confirmed')}
           </span>
         )
       case 'rejected':
         return (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
             <XCircle className="h-3 w-3" />
-            Rejected
+           {t('ui:ReconciliationPage.rejected')}
           </span>
         )
       default:
         return (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
             <Clock className="h-3 w-3" />
-            Pending
+           {t('ui:ReconciliationPage.pending')}
           </span>
         )
     }
   }
 
   const tabs: { key: TabKey; label: string; count?: number }[] = [
-    { key: 'matches', label: 'Matches', count: matchesMeta?.total_count },
+    { key: 'matches', label: t('ui:ReconciliationPage.matches'), count: matchesMeta?.total_count },
     {
       key: 'unmatched-receipts',
-      label: 'Unmatched Receipts',
+      label: t('ui:ReconciliationPage.unmatchedReceipts'),
       count: receiptsMeta?.total_count,
     },
     {
       key: 'unmatched-transactions',
-      label: 'Unmatched Transactions',
+      label: t('ui:ReconciliationPage.unmatchedTransactions'),
       count: transactionsMeta?.total_count,
     },
   ]
@@ -256,11 +259,11 @@ export default function ReconciliationPage() {
         <div className="flex items-center gap-3">
           <Scale className="h-7 w-7 text-blue-600" />
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            Reconciliation
+           {t('ui:ReconciliationPage.reconciliation')}
           </h1>
         </div>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 ml-10">
-          Match receipts to bank transactions
+         {t('ui:ReconciliationPage.matchReceiptsToBankTransactions')}
         </p>
       </div>
 
@@ -269,7 +272,7 @@ export default function ReconciliationPage() {
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
           <div className="flex items-center gap-2 text-sm text-amber-600 mb-1">
             <Clock className="h-4 w-4" />
-            Pending Matches
+           {t('ui:ReconciliationPage.pendingMatches')}
           </div>
           <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             {summary?.pending_matches ?? 0}
@@ -278,7 +281,7 @@ export default function ReconciliationPage() {
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
           <div className="flex items-center gap-2 text-sm text-green-600 mb-1">
             <CheckCircle className="h-4 w-4" />
-            Confirmed Matches
+           {t('ui:ReconciliationPage.confirmedMatches')}
           </div>
           <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             {summary?.confirmed_matches ?? 0}
@@ -287,7 +290,7 @@ export default function ReconciliationPage() {
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
           <div className="flex items-center gap-2 text-sm text-red-600 mb-1">
             <FileText className="h-4 w-4" />
-            Unmatched Receipts
+           {t('ui:ReconciliationPage.unmatchedReceipts')}
           </div>
           <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             {summary?.unmatched_receipts ?? 0}
@@ -296,7 +299,7 @@ export default function ReconciliationPage() {
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
           <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-1">
             <ArrowRightLeft className="h-4 w-4" />
-            Unmatched Transactions
+           {t('ui:ReconciliationPage.unmatchedTransactions')}
           </div>
           <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             {summary?.unmatched_transactions ?? 0}
@@ -308,7 +311,7 @@ export default function ReconciliationPage() {
       <div className="flex flex-wrap items-end gap-3">
         <div>
           <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-            From
+           {t('ui:ReconciliationPage.from')}
           </label>
           <input
             type="date"
@@ -319,7 +322,7 @@ export default function ReconciliationPage() {
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-            To
+           {t('ui:ReconciliationPage.to')}
           </label>
           <input
             type="date"
@@ -338,7 +341,7 @@ export default function ReconciliationPage() {
           ) : (
             <Search className="h-4 w-4" />
           )}
-          {findMatchesMutation.isPending ? 'Finding...' : 'Find Matches'}
+          {findMatchesMutation.isPending ? t('ui:ReconciliationPage.finding') : t('ui:ReconciliationPage.findMatches')}
         </button>
       </div>
 
@@ -371,25 +374,25 @@ export default function ReconciliationPage() {
             <thead className="bg-gray-50 dark:bg-gray-950 border-b dark:border-gray-700">
               <tr>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                  Receipt
+                 {t('ui:ReconciliationPage.receipt')}
                 </th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                  Receipt Amt
+                 {t('ui:ReconciliationPage.receiptAmt')}
                 </th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                  Transaction
+                 {t('ui:ReconciliationPage.transaction')}
                 </th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                  Trans Amt
+                 {t('ui:ReconciliationPage.transAmt')}
                 </th>
                 <th className="text-center px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                  Confidence
+                 {t('ui:ReconciliationPage.confidence')}
                 </th>
                 <th className="text-center px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                  Status
+                 {t('ui:ReconciliationPage.status')}
                 </th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                  Actions
+                 {t('ui:ReconciliationPage.actions')}
                 </th>
               </tr>
             </thead>
@@ -407,11 +410,10 @@ export default function ReconciliationPage() {
                   <td colSpan={7} className="px-4 py-12 text-center">
                     <Scale className="h-12 w-12 text-gray-300 mx-auto mb-3" />
                     <p className="text-gray-500 dark:text-gray-400 font-medium">
-                      No matches found
+                     {t('ui:ReconciliationPage.noMatchesFound')}
                     </p>
                     <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
-                      Use "Find Matches" to automatically match receipts with
-                      transactions.
+                     {t('ui:ReconciliationPage.useFindMatchesToAutomatically')}
                     </p>
                   </td>
                 </tr>
@@ -423,7 +425,7 @@ export default function ReconciliationPage() {
                   >
                     <td className="px-4 py-3">
                       <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {match.receipt_vendor || 'Unknown vendor'}
+                        {match.receipt_vendor || t('ui:ReconciliationPage.unknownVendor')}
                       </p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
                         {formatDate(match.receipt_date)}
@@ -456,19 +458,19 @@ export default function ReconciliationPage() {
                             onClick={() => confirmMutation.mutate(match.id)}
                             disabled={confirmMutation.isPending}
                             className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-green-700 bg-green-50 dark:bg-green-900/20 dark:text-green-400 rounded-md hover:bg-green-100 dark:hover:bg-green-900/40 disabled:opacity-50"
-                            title="Confirm match"
+                            title={t('ui:ReconciliationPage.confirmMatch')}
                           >
                             <Check className="h-3.5 w-3.5" />
-                            Confirm
+                           {t('ui:ReconciliationPage.confirm')}
                           </button>
                           <button
                             onClick={() => rejectMutation.mutate(match.id)}
                             disabled={rejectMutation.isPending}
                             className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-red-700 bg-red-50 dark:bg-red-900/20 dark:text-red-400 rounded-md hover:bg-red-100 dark:hover:bg-red-900/40 disabled:opacity-50"
-                            title="Reject match"
+                            title={t('ui:ReconciliationPage.rejectMatch')}
                           >
                             <X className="h-3.5 w-3.5" />
-                            Reject
+                           {t('ui:ReconciliationPage.reject')}
                           </button>
                         </div>
                       )}
@@ -483,8 +485,8 @@ export default function ReconciliationPage() {
           {(matchesMeta?.total_pages ?? 1) > 1 && (
             <div className="flex items-center justify-between px-4 py-3 border-t dark:border-gray-700">
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Page {matchesMeta?.page ?? 1} of {matchesMeta?.total_pages ?? 1}{' '}
-                ({matchesMeta?.total_count} total)
+               {t('ui:ReconciliationPage.page')} {matchesMeta?.page ?? 1} of {matchesMeta?.total_pages ?? 1}{' '}
+                ({matchesMeta?.total_count} {t('ui:ReconciliationPage.total')}
               </p>
               <div className="flex gap-1">
                 <button
@@ -492,7 +494,7 @@ export default function ReconciliationPage() {
                   onClick={() => setMatchesPage((p) => p - 1)}
                   className="px-3 py-1 text-sm border dark:border-gray-600 rounded-md disabled:opacity-50 hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-300"
                 >
-                  Previous
+                 {t('ui:ReconciliationPage.previous')}
                 </button>
                 <button
                   disabled={
@@ -501,7 +503,7 @@ export default function ReconciliationPage() {
                   onClick={() => setMatchesPage((p) => p + 1)}
                   className="px-3 py-1 text-sm border dark:border-gray-600 rounded-md disabled:opacity-50 hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-300"
                 >
-                  Next
+                 {t('ui:ReconciliationPage.next')}
                 </button>
               </div>
             </div>
@@ -516,16 +518,16 @@ export default function ReconciliationPage() {
             <thead className="bg-gray-50 dark:bg-gray-950 border-b dark:border-gray-700">
               <tr>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                  Vendor
+                 {t('ui:ReconciliationPage.vendor')}
                 </th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                  Amount
+                 {t('ui:ReconciliationPage.amount')}
                 </th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                  Date
+                 {t('ui:ReconciliationPage.date')}
                 </th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                  Actions
+                 {t('ui:ReconciliationPage.actions')}
                 </th>
               </tr>
             </thead>
@@ -543,7 +545,7 @@ export default function ReconciliationPage() {
                   <td colSpan={4} className="px-4 py-12 text-center">
                     <CheckCircle className="h-12 w-12 text-green-300 mx-auto mb-3" />
                     <p className="text-gray-500 dark:text-gray-400 font-medium">
-                      All receipts are matched
+                     {t('ui:ReconciliationPage.allReceiptsAreMatched')}
                     </p>
                   </td>
                 </tr>
@@ -555,7 +557,7 @@ export default function ReconciliationPage() {
                   >
                     <td className="px-4 py-3">
                       <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {receipt.vendor_name || 'Unknown vendor'}
+                        {receipt.vendor_name || t('ui:ReconciliationPage.unknownVendor')}
                       </p>
                       {receipt.description && (
                         <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[250px]">
@@ -577,7 +579,7 @@ export default function ReconciliationPage() {
                         className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/40"
                       >
                         <Link className="h-3.5 w-3.5" />
-                        Match
+                       {t('ui:ReconciliationPage.match')}
                       </button>
                     </td>
                   </tr>
@@ -590,9 +592,9 @@ export default function ReconciliationPage() {
           {(receiptsMeta?.total_pages ?? 1) > 1 && (
             <div className="flex items-center justify-between px-4 py-3 border-t dark:border-gray-700">
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Page {receiptsMeta?.page ?? 1} of{' '}
+               {t('ui:ReconciliationPage.page')} {receiptsMeta?.page ?? 1} of{' '}
                 {receiptsMeta?.total_pages ?? 1} ({receiptsMeta?.total_count}{' '}
-                total)
+               {t('ui:ReconciliationPage.total')}
               </p>
               <div className="flex gap-1">
                 <button
@@ -600,7 +602,7 @@ export default function ReconciliationPage() {
                   onClick={() => setReceiptsPage((p) => p - 1)}
                   className="px-3 py-1 text-sm border dark:border-gray-600 rounded-md disabled:opacity-50 hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-300"
                 >
-                  Previous
+                 {t('ui:ReconciliationPage.previous')}
                 </button>
                 <button
                   disabled={
@@ -610,7 +612,7 @@ export default function ReconciliationPage() {
                   onClick={() => setReceiptsPage((p) => p + 1)}
                   className="px-3 py-1 text-sm border dark:border-gray-600 rounded-md disabled:opacity-50 hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-300"
                 >
-                  Next
+                 {t('ui:ReconciliationPage.next')}
                 </button>
               </div>
             </div>
@@ -625,16 +627,16 @@ export default function ReconciliationPage() {
             <thead className="bg-gray-50 dark:bg-gray-950 border-b dark:border-gray-700">
               <tr>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                  Description
+                 {t('ui:ReconciliationPage.description')}
                 </th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                  Amount
+                 {t('ui:ReconciliationPage.amount')}
                 </th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                  Date
+                 {t('ui:ReconciliationPage.date')}
                 </th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                  Actions
+                 {t('ui:ReconciliationPage.actions')}
                 </th>
               </tr>
             </thead>
@@ -652,7 +654,7 @@ export default function ReconciliationPage() {
                   <td colSpan={4} className="px-4 py-12 text-center">
                     <CheckCircle className="h-12 w-12 text-green-300 mx-auto mb-3" />
                     <p className="text-gray-500 dark:text-gray-400 font-medium">
-                      All transactions are matched
+                     {t('ui:ReconciliationPage.allTransactionsAreMatched')}
                     </p>
                   </td>
                 </tr>
@@ -689,7 +691,7 @@ export default function ReconciliationPage() {
                         className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/40"
                       >
                         <Link className="h-3.5 w-3.5" />
-                        Match
+                       {t('ui:ReconciliationPage.match')}
                       </button>
                     </td>
                   </tr>
@@ -702,9 +704,9 @@ export default function ReconciliationPage() {
           {(transactionsMeta?.total_pages ?? 1) > 1 && (
             <div className="flex items-center justify-between px-4 py-3 border-t dark:border-gray-700">
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Page {transactionsMeta?.page ?? 1} of{' '}
+               {t('ui:ReconciliationPage.page')} {transactionsMeta?.page ?? 1} of{' '}
                 {transactionsMeta?.total_pages ?? 1} (
-                {transactionsMeta?.total_count} total)
+                {transactionsMeta?.total_count} {t('ui:ReconciliationPage.total')}
               </p>
               <div className="flex gap-1">
                 <button
@@ -712,7 +714,7 @@ export default function ReconciliationPage() {
                   onClick={() => setTransactionsPage((p) => p - 1)}
                   className="px-3 py-1 text-sm border dark:border-gray-600 rounded-md disabled:opacity-50 hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-300"
                 >
-                  Previous
+                 {t('ui:ReconciliationPage.previous')}
                 </button>
                 <button
                   disabled={
@@ -722,7 +724,7 @@ export default function ReconciliationPage() {
                   onClick={() => setTransactionsPage((p) => p + 1)}
                   className="px-3 py-1 text-sm border dark:border-gray-600 rounded-md disabled:opacity-50 hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-300"
                 >
-                  Next
+                 {t('ui:ReconciliationPage.next')}
                 </button>
               </div>
             </div>
@@ -742,15 +744,14 @@ export default function ReconciliationPage() {
           <div className="relative bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-lg max-h-[80vh] flex flex-col">
             <div className="px-5 py-4 border-b dark:border-gray-700">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                Select a Transaction
+               {t('ui:ReconciliationPage.selectATransaction')}
               </h3>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                Match receipt from{' '}
+               {t('ui:ReconciliationPage.matchReceiptFrom')}{' '}
                 <span className="font-medium text-gray-700 dark:text-gray-300">
-                  {matchReceiptModal.receipt.vendor_name || 'Unknown vendor'}
+                  {matchReceiptModal.receipt.vendor_name || t('ui:ReconciliationPage.unknownVendor')}
                 </span>{' '}
-                ({formatCurrency(matchReceiptModal.receipt.amount)}) to a
-                transaction
+                ({formatCurrency(matchReceiptModal.receipt.amount)}{t('ui:ReconciliationPage.toATransaction')}
               </p>
             </div>
             <div className="flex-1 overflow-y-auto p-2">
@@ -758,7 +759,7 @@ export default function ReconciliationPage() {
                 <div className="py-8 text-center">
                   <AlertTriangle className="h-8 w-8 text-gray-300 mx-auto mb-2" />
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    No unmatched transactions available
+                   {t('ui:ReconciliationPage.noUnmatchedTransactionsAvailable')}
                   </p>
                 </div>
               ) : (
@@ -796,7 +797,7 @@ export default function ReconciliationPage() {
                 }
                 className="px-4 py-2 text-sm border dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-300"
               >
-                Cancel
+               {t('ui:ReconciliationPage.cancel')}
               </button>
             </div>
           </div>
@@ -815,10 +816,10 @@ export default function ReconciliationPage() {
           <div className="relative bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-lg max-h-[80vh] flex flex-col">
             <div className="px-5 py-4 border-b dark:border-gray-700">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                Select a Receipt
+               {t('ui:ReconciliationPage.selectAReceipt')}
               </h3>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                Match transaction{' '}
+               {t('ui:ReconciliationPage.matchTransaction')}{' '}
                 <span className="font-medium text-gray-700 dark:text-gray-300">
                   {matchTransactionModal.transaction.description}
                 </span>{' '}
@@ -826,7 +827,7 @@ export default function ReconciliationPage() {
                 {formatCurrency(
                   matchTransactionModal.transaction.total_amount
                 )}
-                ) to a receipt
+               {t('ui:ReconciliationPage.toAReceipt')}
               </p>
             </div>
             <div className="flex-1 overflow-y-auto p-2">
@@ -834,7 +835,7 @@ export default function ReconciliationPage() {
                 <div className="py-8 text-center">
                   <AlertTriangle className="h-8 w-8 text-gray-300 mx-auto mb-2" />
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    No unmatched receipts available
+                   {t('ui:ReconciliationPage.noUnmatchedReceiptsAvailable')}
                   </p>
                 </div>
               ) : (
@@ -853,7 +854,7 @@ export default function ReconciliationPage() {
                   >
                     <div>
                       <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {receipt.vendor_name || 'Unknown vendor'}
+                        {receipt.vendor_name || t('ui:ReconciliationPage.unknownVendor')}
                       </p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
                         {formatDate(receipt.date)}
@@ -873,7 +874,7 @@ export default function ReconciliationPage() {
                 }
                 className="px-4 py-2 text-sm border dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-300"
               >
-                Cancel
+               {t('ui:ReconciliationPage.cancel')}
               </button>
             </div>
           </div>

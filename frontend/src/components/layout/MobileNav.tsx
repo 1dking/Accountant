@@ -6,6 +6,7 @@ import { hasFeature } from '@/lib/features'
 import { cn } from '@/lib/utils'
 
 import type { LucideIcon } from 'lucide-react'
+import i18n from '@/i18n'
 
 interface MobileTab {
   path: string
@@ -17,11 +18,11 @@ interface MobileTab {
 }
 
 const MOBILE_TABS: MobileTab[] = [
-  { path: '/', label: 'Home', icon: LayoutDashboard },
-  { path: '/documents', label: 'Docs', icon: FileText, featureKey: 'drive' },
-  { path: '/capture', label: 'Capture', icon: Camera, highlight: true, featureKey: 'expenses' },
-  { path: '/expenses', label: 'Expenses', icon: Receipt, featureKey: 'expenses' },
-  { path: '/_menu', label: 'More', icon: Menu },
+  { path: '/', label: i18n.t('ui:MobileNav.home'), icon: LayoutDashboard },
+  { path: '/documents', label: i18n.t('ui:MobileNav.docs'), icon: FileText, featureKey: 'drive' },
+  { path: '/capture', label: i18n.t('ui:MobileNav.capture'), icon: Camera, highlight: true, featureKey: 'expenses' },
+  { path: '/expenses', label: i18n.t('ui:MobileNav.expenses'), icon: Receipt, featureKey: 'expenses' },
+  { path: '/_menu', label: i18n.t('ui:MobileNav.more'), icon: Menu },
 ]
 
 export default function MobileNav() {

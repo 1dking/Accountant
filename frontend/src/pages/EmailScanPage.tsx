@@ -24,6 +24,7 @@ import { listAccounts as listCashbookAccounts, createAccount } from '@/api/cashb
 import { ACCOUNT_TYPES } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
 import type { GmailScanResult, EmailParsedData, ExpenseCategory, PaymentAccount } from '@/types/models'
+import { useTranslation } from 'react-i18next'
 
 // ---------------------------------------------------------------------------
 // Import Confirmation Modal
@@ -71,6 +72,7 @@ function ImportModal({
   onCancel: () => void
   isPending: boolean
 }) {
+  const { t } = useTranslation('ui')
   const [recordType, setRecordType] = useState<'expense' | 'income'>(
     parsedData?.record_type || 'expense'
   )
@@ -135,7 +137,7 @@ function ImportModal({
       setAccountId(created.id)
       setShowCreateAccount(false)
       resetNewAccountForm()
-      toast.success(`Account "${created.name}" created`)
+      toast.success(t('ui:EmailScanPage.accountNameCreated', { name: created.name }))
     },
     onError: (err: unknown) => {
       const msg = err instanceof Error ? err.message : 'Failed to create account'
@@ -243,8 +245,8 @@ function ImportModal({
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b dark:border-gray-700 shrink-0">
           <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">{result.subject || 'Import Email'}</h2>
-            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">From: {result.sender}</p>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">{result.subject || t('ui:EmailScanPage.importEmail')}</h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{t('ui:EmailScanPage.from')} {result.sender}</p>
           </div>
           <button onClick={onCancel} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded ml-3">
             <X className="w-5 h-5" />
@@ -263,7 +265,7 @@ function ImportModal({
                   previewTab === 'email' ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-gray-100' : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
-                <Eye className="w-3.5 h-3.5" /> Email
+                <Eye className="w-3.5 h-3.5" /> {t('ui:EmailScanPage.email')}
               </button>
               {attachments.map((att, i) => (
                 <button
@@ -276,9 +278,9 @@ function ImportModal({
                   {att.mimeType === 'application/pdf' ? <FileText className="w-3.5 h-3.5" /> : att.mimeType.startsWith('image/') ? <Eye className="w-3.5 h-3.5" /> : <Paperclip className="w-3.5 h-3.5" />}
                   <span className="truncate max-w-[120px]">{att.filename}</span>
                   {att.size > 0 ? (
-                    <span className="text-gray-400">({att.size > 1024 ? `${(att.size / 1024).toFixed(0)}KB` : `${att.size}B`})</span>
+                    <span className="text-gray-400">({att.size > 1024 ? t('ui:EmailScanPage.v0Kb', { v0: (att.size / 1024).toFixed(0) }) : t('ui:EmailScanPage.sizeB', { size: att.size })})</span>
                   ) : (
-                    <span className="text-amber-500 text-[10px]">needs fetch</span>
+                    <span className="text-amber-500 text-[10px]">{t('ui:EmailScanPage.needsFetch')}</span>
                   )}
                 </button>
               ))}
@@ -291,7 +293,7 @@ function ImportModal({
                   <iframe
                     ref={iframeRef}
                     sandbox="allow-same-origin"
-                    title="Email preview"
+                    title={t('ui:EmailScanPage.emailPreview')}
                     className="w-full h-full border-0"
                   />
                 ) : parsedData?.body_text ? (
@@ -300,8 +302,8 @@ function ImportModal({
                   <div className="flex items-center justify-center h-full text-gray-400 text-sm">
                     <div className="text-center">
                       <Eye className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                      <p>No email preview available</p>
-                      <p className="text-xs mt-1">Re-scan to capture email content</p>
+                      <p>{t('ui:EmailScanPage.noEmailPreviewAvailable')}</p>
+                      <p className="text-xs mt-1">{t('ui:EmailScanPage.reScanToCaptureEmail')}</p>
                     </div>
                   </div>
                 )
@@ -318,7 +320,7 @@ function ImportModal({
                         <div className="text-center">
                           <Paperclip className="w-8 h-8 mx-auto mb-2 opacity-30" />
                           <p className="font-medium">{att.filename}</p>
-                          <p className="text-xs mt-1">{att.mimeType} — not yet downloaded</p>
+                          <p className="text-xs mt-1">{att.mimeType} {t('ui:EmailScanPage.notYetDownloaded')}</p>
                           {fetchError && previewTab === (fetchingIndex ?? -1) ? null : fetchError ? (
                             <p className="text-xs text-red-500 mt-2">{fetchError}</p>
                           ) : null}
@@ -328,9 +330,9 @@ function ImportModal({
                             className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                           >
                             {fetchingIndex === previewTab ? (
-                              <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Fetching from Gmail...</>
+                              <><Loader2 className="w-3.5 h-3.5 animate-spin" /> {t('ui:EmailScanPage.fetchingFromGmail')}</>
                             ) : (
-                              <><RefreshCw className="w-3.5 h-3.5" /> Load Preview</>
+                              <><RefreshCw className="w-3.5 h-3.5" /> {t('ui:EmailScanPage.loadPreview')}</>
                             )}
                           </button>
                           {fetchError && (
@@ -367,8 +369,8 @@ function ImportModal({
                       <div className="text-center">
                         <FileText className="w-8 h-8 mx-auto mb-2 opacity-30" />
                         <p className="font-medium">{att.filename}</p>
-                        <p className="text-xs mt-1">{att.mimeType} — {att.size > 1024 ? `${(att.size / 1024).toFixed(0)} KB` : `${att.size} bytes`}</p>
-                        <p className="mt-3 text-xs text-gray-500">Preview not available for this file type</p>
+                        <p className="text-xs mt-1">{att.mimeType} — {att.size > 1024 ? t('ui:EmailScanPage.v0Kb_2', { v0: (att.size / 1024).toFixed(0) }) : t('ui:EmailScanPage.sizeBytes', { size: att.size })}</p>
+                        <p className="mt-3 text-xs text-gray-500">{t('ui:EmailScanPage.previewNotAvailableForThis')}</p>
                       </div>
                     </div>
                   )
@@ -382,7 +384,7 @@ function ImportModal({
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {/* Record type */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:EmailScanPage.type')}</label>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setRecordType('expense')}
@@ -392,7 +394,7 @@ function ImportModal({
                         : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
                     }`}
                   >
-                    Expense
+                   {t('ui:EmailScanPage.expense')}
                   </button>
                   <button
                     onClick={() => setRecordType('income')}
@@ -402,7 +404,7 @@ function ImportModal({
                         : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
                     }`}
                   >
-                    Income
+                   {t('ui:EmailScanPage.income')}
                   </button>
                 </div>
               </div>
@@ -411,7 +413,7 @@ function ImportModal({
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Account <span className="text-red-500">*</span>
+                   {t('ui:EmailScanPage.account')} <span className="text-red-500">*</span>
                   </label>
                   {!showCreateAccount && (
                     <button
@@ -422,24 +424,24 @@ function ImportModal({
                       }}
                       className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium"
                     >
-                      <Plus className="h-3 w-3" /> New account
+                      <Plus className="h-3 w-3" /> {t('ui:EmailScanPage.newAccount')}
                     </button>
                   )}
                 </div>
                 {cashbookAccounts.length === 0 && !showCreateAccount ? (
                   <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
-                    <span className="text-sm text-amber-700 dark:text-amber-400">No accounts yet.</span>
+                    <span className="text-sm text-amber-700 dark:text-amber-400">{t('ui:EmailScanPage.noAccountsYet')}</span>
                     <button
                       type="button"
                       onClick={() => { resetNewAccountForm(); setShowCreateAccount(true) }}
                       className="text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium"
                     >
-                      Create one here
+                     {t('ui:EmailScanPage.createOneHere')}
                     </button>
                   </div>
                 ) : cashbookAccounts.length > 0 ? (
                   <select value={accountId} onChange={e => setAccountId(e.target.value)} className={inputCls}>
-                    <option value="">Select account...</option>
+                    <option value="">{t('ui:EmailScanPage.selectAccount')}</option>
                     {cashbookAccounts.map(acc => (
                       <option key={acc.id} value={acc.id}>{acc.name} ({acc.currency})</option>
                     ))}
@@ -453,13 +455,13 @@ function ImportModal({
                 {showCreateAccount && (
                   <div className="mt-2 p-3 border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20 rounded-lg space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-blue-700 dark:text-blue-300">New account</span>
+                      <span className="text-xs font-medium text-blue-700 dark:text-blue-300">{t('ui:EmailScanPage.newAccount')}</span>
                       <button
                         type="button"
                         onClick={() => { setShowCreateAccount(false); resetNewAccountForm() }}
                         className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                       >
-                        Cancel
+                       {t('ui:EmailScanPage.cancel')}
                       </button>
                     </div>
                     <input
@@ -467,7 +469,7 @@ function ImportModal({
                       value={newAccName}
                       onChange={e => setNewAccName(e.target.value)}
                       className={inputCls}
-                      placeholder="Account name (e.g. Amex Business)"
+                      placeholder={t('ui:EmailScanPage.accountNameEGAmex')}
                       autoFocus
                     />
                     <div className="grid grid-cols-2 gap-2">
@@ -490,7 +492,7 @@ function ImportModal({
                         value={newAccOpeningBalance}
                         onChange={e => setNewAccOpeningBalance(e.target.value)}
                         className={inputCls}
-                        placeholder="Opening balance"
+                        placeholder={t('ui:EmailScanPage.openingBalance')}
                       />
                       <input
                         type="date"
@@ -506,9 +508,9 @@ function ImportModal({
                       className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
                     >
                       {createAccountMutation.isPending ? (
-                        <><Loader2 className="h-4 w-4 animate-spin" /> Creating…</>
+                        <><Loader2 className="h-4 w-4 animate-spin" /> {t('ui:EmailScanPage.creating')}</>
                       ) : (
-                        <><Plus className="h-4 w-4" /> Create account</>
+                        <><Plus className="h-4 w-4" /> {t('ui:EmailScanPage.createAccount')}</>
                       )}
                     </button>
                   </div>
@@ -518,22 +520,22 @@ function ImportModal({
               {/* Vendor */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  {recordType === 'expense' ? 'Vendor' : 'Source'}
+                  {recordType === 'expense' ? t('ui:EmailScanPage.vendor') : t('ui:EmailScanPage.source')}
                 </label>
-                <input type="text" value={vendorName} onChange={e => setVendorName(e.target.value)} className={inputCls} placeholder={parsedData?.vendor_name || 'Enter vendor name...'} />
+                <input type="text" value={vendorName} onChange={e => setVendorName(e.target.value)} className={inputCls} placeholder={parsedData?.vendor_name || t('ui:EmailScanPage.enterVendorName')} />
                 {suggestedCat && (
-                  <p className="text-xs text-gray-400 mt-1">Suggested category: <span className="text-blue-500">{suggestedCat}</span></p>
+                  <p className="text-xs text-gray-400 mt-1">{t('ui:EmailScanPage.suggestedCategory')} <span className="text-blue-500">{suggestedCat}</span></p>
                 )}
               </div>
 
               {/* Amount + Currency */}
               <div className="grid grid-cols-3 gap-3">
                 <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Amount</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:EmailScanPage.amount')}</label>
                   <input type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} className={inputCls} placeholder="0.00" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Currency</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:EmailScanPage.currency')}</label>
                   <select value={currency} onChange={e => setCurrency(e.target.value)} className={inputCls}>
                     <option value="CAD">CAD</option>
                     <option value="USD">USD</option>
@@ -545,36 +547,36 @@ function ImportModal({
 
               {/* Date */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:EmailScanPage.date')}</label>
                 <input type="date" value={date} onChange={e => setDate(e.target.value)} className={inputCls} />
               </div>
 
               {/* Description */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:EmailScanPage.description')}</label>
                 <input type="text" value={description} onChange={e => setDescription(e.target.value)} className={inputCls} />
               </div>
 
               {/* Business / Personal */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">This is a…</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:EmailScanPage.thisIsA')}</label>
                 <div className="flex gap-2">
                   <button type="button" onClick={() => setScope('business')}
-                    className={`flex-1 px-3 py-2 text-sm rounded-lg border ${scope === 'business' ? 'border-blue-300 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'}`}>Business</button>
+                    className={`flex-1 px-3 py-2 text-sm rounded-lg border ${scope === 'business' ? 'border-blue-300 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'}`}>{t('ui:EmailScanPage.business')}</button>
                   <button type="button" onClick={() => setScope('personal')}
-                    className={`flex-1 px-3 py-2 text-sm rounded-lg border ${scope === 'personal' ? 'border-purple-300 bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'}`}>Personal</button>
+                    className={`flex-1 px-3 py-2 text-sm rounded-lg border ${scope === 'personal' ? 'border-purple-300 bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'}`}>{t('ui:EmailScanPage.personal')}</button>
                 </div>
                 {scope === 'personal' && (
-                  <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">Posts as Owner's Draw and copies to your Personal ledger — kept in reconciliation, out of P&amp;L/tax.</p>
+                  <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">{t('ui:EmailScanPage.postsAsOwnerSDraw')}</p>
                 )}
               </div>
 
               {/* Category */}
               {scope === 'personal' ? (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Personal category</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:EmailScanPage.personalCategory')}</label>
                   <select value={personalCategoryId} onChange={e => setPersonalCategoryId(e.target.value)} className={inputCls}>
-                    <option value="">Uncategorized</option>
+                    <option value="">{t('ui:EmailScanPage.uncategorized')}</option>
                     {personalCategories.map((cat: { id: string; name: string }) => (
                       <option key={cat.id} value={cat.id}>{cat.name}</option>
                     ))}
@@ -582,9 +584,9 @@ function ImportModal({
                 </div>
               ) : recordType === 'expense' ? (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Category</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:EmailScanPage.category')}</label>
                   <select value={categoryId} onChange={e => setCategoryId(e.target.value)} className={inputCls}>
-                    <option value="">Uncategorized</option>
+                    <option value="">{t('ui:EmailScanPage.uncategorized')}</option>
                     {categories.map(cat => (
                       <option key={cat.id} value={cat.id}>{cat.name}</option>
                     ))}
@@ -592,14 +594,14 @@ function ImportModal({
                 </div>
               ) : (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Income Category</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:EmailScanPage.incomeCategory')}</label>
                   <select value={incomeCategory} onChange={e => setIncomeCategory(e.target.value)} className={inputCls}>
-                    <option value="service">Service</option>
-                    <option value="product">Product</option>
-                    <option value="invoice_payment">Invoice Payment</option>
-                    <option value="interest">Interest</option>
-                    <option value="refund">Refund</option>
-                    <option value="other">Other</option>
+                    <option value="service">{t('ui:EmailScanPage.service')}</option>
+                    <option value="product">{t('ui:EmailScanPage.product')}</option>
+                    <option value="invoice_payment">{t('ui:EmailScanPage.invoicePayment')}</option>
+                    <option value="interest">{t('ui:EmailScanPage.interest')}</option>
+                    <option value="refund">{t('ui:EmailScanPage.refund')}</option>
+                    <option value="other">{t('ui:EmailScanPage.other')}</option>
                   </select>
                 </div>
               )}
@@ -609,7 +611,7 @@ function ImportModal({
                 <label className="flex items-center justify-between cursor-pointer">
                   <div className="flex items-center gap-2">
                     <Repeat className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Recurring bill?</span>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('ui:EmailScanPage.recurringBill')}</span>
                   </div>
                   <button
                     type="button"
@@ -628,16 +630,16 @@ function ImportModal({
                 {isRecurring && (
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Frequency</label>
+                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('ui:EmailScanPage.frequency')}</label>
                       <select value={recurringFrequency} onChange={e => handleFrequencyChange(e.target.value)} className={inputCls}>
-                        <option value="weekly">Weekly</option>
-                        <option value="monthly">Monthly</option>
-                        <option value="quarterly">Quarterly</option>
-                        <option value="yearly">Yearly</option>
+                        <option value="weekly">{t('ui:EmailScanPage.weekly')}</option>
+                        <option value="monthly">{t('ui:EmailScanPage.monthly')}</option>
+                        <option value="quarterly">{t('ui:EmailScanPage.quarterly')}</option>
+                        <option value="yearly">{t('ui:EmailScanPage.yearly')}</option>
                       </select>
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Next Due Date</label>
+                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('ui:EmailScanPage.nextDueDate')}</label>
                       <input type="date" value={recurringNextDate} onChange={e => setRecurringNextDate(e.target.value)} className={inputCls} />
                     </div>
                   </div>
@@ -646,15 +648,15 @@ function ImportModal({
 
               {/* Notes */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
-                <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} className={inputCls + ' resize-none'} placeholder="Optional notes..." />
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:EmailScanPage.notes')}</label>
+                <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} className={inputCls + ' resize-none'} placeholder={t('ui:EmailScanPage.optionalNotes')} />
               </div>
             </div>
 
             {/* Footer */}
             <div className="flex justify-end gap-2 p-4 border-t dark:border-gray-700 shrink-0">
               <button onClick={onCancel} className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
-                Cancel
+               {t('ui:EmailScanPage.cancel')}
               </button>
               <button
                 onClick={() => onConfirm({
@@ -678,7 +680,7 @@ function ImportModal({
                 className="flex items-center gap-1.5 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <ArrowRight className="w-4 h-4" />
-                {isPending ? 'Importing...' : 'Import'}
+                {isPending ? t('ui:EmailScanPage.importing') : t('ui:EmailScanPage.import')}
               </button>
             </div>
           </div>
@@ -703,6 +705,7 @@ function DeleteConfirmModal({
   onCancel: () => void
   isPending: boolean
 }) {
+  const { t } = useTranslation('ui')
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onCancel}>
       <div
@@ -711,10 +714,10 @@ function DeleteConfirmModal({
       >
         <div className="p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-            Remove {count === 1 ? 'email' : `${count} emails`} from inbox?
+           {t('ui:EmailScanPage.remove')} {count === 1 ? 'email' : t('ui:EmailScanPage.countEmails', { count })} {t('ui:EmailScanPage.fromInbox')}
           </h3>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            This only removes {count === 1 ? 'it' : 'them'} from the accounting inbox, not from Gmail.
+           {t('ui:EmailScanPage.thisOnlyRemoves')} {count === 1 ? 'it' : 'them'} {t('ui:EmailScanPage.fromTheAccountingInboxNot')}
           </p>
         </div>
         <div className="flex justify-end gap-2 p-4 border-t dark:border-gray-700">
@@ -722,14 +725,14 @@ function DeleteConfirmModal({
             onClick={onCancel}
             className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
           >
-            Cancel
+           {t('ui:EmailScanPage.cancel')}
           </button>
           <button
             onClick={onConfirm}
             disabled={isPending}
             className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
           >
-            {isPending ? 'Removing...' : 'Remove'}
+            {isPending ? t('ui:EmailScanPage.removing') : t('ui:EmailScanPage.remove')}
           </button>
         </div>
       </div>
@@ -742,6 +745,7 @@ function DeleteConfirmModal({
 // ---------------------------------------------------------------------------
 
 export default function EmailScanPage() {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const navigate = useNavigate()
 
@@ -820,9 +824,9 @@ export default function EmailScanPage() {
       setScanPageToken(nextToken)
       queryClient.invalidateQueries({ queryKey: ['gmail-results'] })
       if (newCount > 0) {
-        toast.success(`Found ${newCount} new emails`)
+        toast.success(t('ui:EmailScanPage.foundNewcountNewEmails', { newCount }))
       } else {
-        toast.info('No new emails found')
+        toast.info(t('ui:EmailScanPage.noNewEmailsFound'))
       }
     },
     onError: (err: any) => {
@@ -866,23 +870,23 @@ export default function EmailScanPage() {
 
       // Surface partial errors from backend
       if (result.cashbook_error) {
-        toast.warning(`Imported but cashbook entry failed: ${result.cashbook_error}`)
+        toast.warning(t('ui:EmailScanPage.importedButCashbookEntryFailed', { cashbook_error: result.cashbook_error }))
       }
       if (result.recurring_error) {
-        toast.warning(`Imported but recurring rule failed: ${result.recurring_error}`)
+        toast.warning(t('ui:EmailScanPage.importedButRecurringRuleFailed', { recurring_error: result.recurring_error }))
       }
 
       if (result.expense_id) {
-        toast.success(`${label} as expense`, {
+        toast.success(t('ui:EmailScanPage.labelAsExpense', { label }), {
           action: {
-            label: 'View',
+            label: t('ui:EmailScanPage.view'),
             onClick: () => navigate(`/expenses/${result.expense_id}`),
           },
         })
       } else if (result.income_id) {
-        toast.success(`${label} as income`, {
+        toast.success(t('ui:EmailScanPage.labelAsIncome', { label }), {
           action: {
-            label: 'View',
+            label: t('ui:EmailScanPage.view'),
             onClick: () => navigate('/income'),
           },
         })
@@ -899,7 +903,7 @@ export default function EmailScanPage() {
     onSuccess: () => {
       setDeleteTarget(null)
       queryClient.invalidateQueries({ queryKey: ['gmail-results'] })
-      toast.success('Email removed from inbox')
+      toast.success(t('ui:EmailScanPage.emailRemovedFromInbox'))
     },
   })
 
@@ -909,7 +913,7 @@ export default function EmailScanPage() {
       setDeleteTarget(null)
       setSelectedIds(new Set())
       queryClient.invalidateQueries({ queryKey: ['gmail-results'] })
-      toast.success(`Removed ${data.data.deleted} emails from inbox`)
+      toast.success(t('ui:EmailScanPage.removedDeletedEmailsFromInbox', { deleted: data.data.deleted }))
     },
   })
 
@@ -967,9 +971,9 @@ export default function EmailScanPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Email Inbox</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('ui:EmailScanPage.emailInbox')}</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm">
-            Scan Gmail for invoices, receipts, and attachments — import directly as expenses or income
+           {t('ui:EmailScanPage.scanGmailForInvoicesReceipts')}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -979,7 +983,7 @@ export default function EmailScanPage() {
               className="flex items-center gap-1.5 px-3 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700"
             >
               <Trash2 className="w-4 h-4" />
-              Delete {selectedIds.size}
+             {t('ui:EmailScanPage.delete')} {selectedIds.size}
             </button>
           )}
           <button
@@ -991,7 +995,7 @@ export default function EmailScanPage() {
             }`}
           >
             <Filter className="w-4 h-4" />
-            Filters
+           {t('ui:EmailScanPage.filters')}
           </button>
         </div>
       </div>
@@ -1004,7 +1008,7 @@ export default function EmailScanPage() {
             onChange={(e) => { setSelectedAccount(e.target.value); setPage(1) }}
             className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
           >
-            <option value="">All accounts</option>
+            <option value="">{t('ui:EmailScanPage.allAccounts')}</option>
             {accounts.map((a) => (
               <option key={a.id} value={a.id}>{a.email}</option>
             ))}
@@ -1013,7 +1017,7 @@ export default function EmailScanPage() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Gmail search query..."
+            placeholder={t('ui:EmailScanPage.gmailSearchQuery')}
             className="flex-1 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
           />
           <button
@@ -1022,7 +1026,7 @@ export default function EmailScanPage() {
             className="flex items-center gap-1.5 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
           >
             <RefreshCw className={`w-4 h-4 ${scanMutation.isPending ? 'animate-spin' : ''}`} />
-            {scanMutation.isPending ? 'Scanning...' : 'Scan Now'}
+            {scanMutation.isPending ? t('ui:EmailScanPage.scanning') : t('ui:EmailScanPage.scanNow')}
           </button>
         </div>
 
@@ -1036,7 +1040,7 @@ export default function EmailScanPage() {
                 value={afterDate}
                 onChange={e => setAfterDate(e.target.value)}
                 className="px-2 py-1.5 border rounded text-sm dark:bg-gray-800 dark:border-gray-700"
-                placeholder="From"
+                placeholder={t('ui:EmailScanPage.from_2')}
               />
               <span className="text-gray-400 text-sm">to</span>
               <input
@@ -1044,7 +1048,7 @@ export default function EmailScanPage() {
                 value={beforeDate}
                 onChange={e => setBeforeDate(e.target.value)}
                 className="px-2 py-1.5 border rounded text-sm dark:bg-gray-800 dark:border-gray-700"
-                placeholder="To"
+                placeholder={t('ui:EmailScanPage.to')}
               />
             </div>
             <div className="flex items-center gap-2 ml-auto">
@@ -1054,7 +1058,7 @@ export default function EmailScanPage() {
                   type="text"
                   value={searchFilter}
                   onChange={e => { setSearchFilter(e.target.value); setPage(1) }}
-                  placeholder="Filter results..."
+                  placeholder={t('ui:EmailScanPage.filterResults')}
                   className="pl-8 pr-3 py-1.5 border rounded text-sm w-48 dark:bg-gray-800 dark:border-gray-700"
                 />
               </div>
@@ -1063,21 +1067,21 @@ export default function EmailScanPage() {
                 onChange={e => { setStatusFilter(e.target.value as any); setPage(1) }}
                 className="px-2 py-1.5 border rounded text-sm dark:bg-gray-800 dark:border-gray-700"
               >
-                <option value="all">All status</option>
-                <option value="pending">Pending</option>
-                <option value="imported">Imported</option>
-                <option value="skipped">Skipped</option>
+                <option value="all">{t('ui:EmailScanPage.allStatus')}</option>
+                <option value="pending">{t('ui:EmailScanPage.pending')}</option>
+                <option value="imported">{t('ui:EmailScanPage.imported')}</option>
+                <option value="skipped">{t('ui:EmailScanPage.skipped')}</option>
               </select>
             </div>
           </div>
         )}
 
         {!selectedAccount && accounts.length > 0 && (
-          <p className="text-xs text-gray-400 dark:text-gray-500">Select a Gmail account to start scanning.</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500">{t('ui:EmailScanPage.selectAGmailAccountTo')}</p>
         )}
         {accounts.length === 0 && (
           <p className="text-xs text-amber-600">
-            No Gmail accounts connected. Go to Settings &gt; Gmail to connect one.
+           {t('ui:EmailScanPage.noGmailAccountsConnectedGo')}
           </p>
         )}
 
@@ -1085,17 +1089,17 @@ export default function EmailScanPage() {
         {scanMutation.isPending && (
           <div className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400">
             <RefreshCw className="w-4 h-4 animate-spin" />
-            Scanning... found {scanCount} emails so far
+           {t('ui:EmailScanPage.scanningFound')} {scanCount} {t('ui:EmailScanPage.emailsSoFar')}
           </div>
         )}
         {scanPageToken && !scanMutation.isPending && (
           <div className="flex items-center gap-3">
-            <p className="text-sm text-gray-500">Found {scanCount} new emails. More results available.</p>
+            <p className="text-sm text-gray-500">{t('ui:EmailScanPage.found')} {scanCount} {t('ui:EmailScanPage.newEmailsMoreResultsAvailable')}</p>
             <button
               onClick={handleLoadMore}
               className="flex items-center gap-1 px-3 py-1.5 text-sm text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950"
             >
-              Load More <ArrowRight className="w-3.5 h-3.5" />
+             {t('ui:EmailScanPage.loadMore')} <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
         )}
@@ -1103,7 +1107,7 @@ export default function EmailScanPage() {
 
       {/* Results */}
       {resultsLoading ? (
-        <p className="text-gray-400 dark:text-gray-500 py-8 text-center text-sm">Loading results...</p>
+        <p className="text-gray-400 dark:text-gray-500 py-8 text-center text-sm">{t('ui:EmailScanPage.loadingResults')}</p>
       ) : results.length > 0 ? (
         <>
           <div className="bg-white dark:bg-gray-900 border rounded-lg overflow-hidden">
@@ -1118,12 +1122,12 @@ export default function EmailScanPage() {
                       className="rounded border-gray-300"
                     />
                   </th>
-                  <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Subject</th>
-                  <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">From</th>
-                  <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Date</th>
-                  <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Attachments</th>
-                  <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Status</th>
-                  <th className="text-right px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Actions</th>
+                  <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">{t('ui:EmailScanPage.subject')}</th>
+                  <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">{t('ui:EmailScanPage.from_2')}</th>
+                  <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">{t('ui:EmailScanPage.date')}</th>
+                  <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">{t('ui:EmailScanPage.attachments')}</th>
+                  <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">{t('ui:EmailScanPage.status')}</th>
+                  <th className="text-right px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">{t('ui:EmailScanPage.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -1144,7 +1148,7 @@ export default function EmailScanPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="font-medium text-gray-900 dark:text-gray-100 truncate max-w-xs">
-                        {result.subject || '(No subject)'}
+                        {result.subject || t('ui:EmailScanPage.noSubject')}
                       </div>
                       {result.snippet && (
                         <div className="text-xs text-gray-400 dark:text-gray-500 truncate max-w-xs mt-0.5">
@@ -1161,23 +1165,23 @@ export default function EmailScanPage() {
                     <td className="px-4 py-3">
                       {result.has_attachments ? (
                         <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400 text-xs">
-                          <FileText className="w-3.5 h-3.5" /> Yes
+                          <FileText className="w-3.5 h-3.5" /> {t('ui:EmailScanPage.yes')}
                         </span>
                       ) : (
-                        <span className="text-gray-400 dark:text-gray-500 text-xs">No</span>
+                        <span className="text-gray-400 dark:text-gray-500 text-xs">{t('ui:EmailScanPage.no')}</span>
                       )}
                     </td>
                     <td className="px-4 py-3">
                       {result.is_processed ? (
                         <span className="flex items-center gap-1 text-xs text-green-600">
-                          <CheckCircle className="w-3.5 h-3.5" /> Imported
+                          <CheckCircle className="w-3.5 h-3.5" /> {t('ui:EmailScanPage.imported')}
                         </span>
                       ) : result.is_skipped ? (
                         <span className="flex items-center gap-1 text-xs text-amber-600">
-                          <SkipForward className="w-3.5 h-3.5" /> Skipped
+                          <SkipForward className="w-3.5 h-3.5" /> {t('ui:EmailScanPage.skipped')}
                         </span>
                       ) : (
-                        <span className="text-xs text-gray-400 dark:text-gray-500">Pending</span>
+                        <span className="text-xs text-gray-400 dark:text-gray-500">{t('ui:EmailScanPage.pending')}</span>
                       )}
                     </td>
                     <td className="px-4 py-3">
@@ -1187,10 +1191,10 @@ export default function EmailScanPage() {
                             onClick={() => handleImportClick(result)}
                             disabled={parseMutation.isPending}
                             className="flex items-center gap-1 px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-                            title="Import as expense or income"
+                            title={t('ui:EmailScanPage.importAsExpenseOrIncome')}
                           >
                             <ArrowRight className="w-3 h-3" />
-                            Import
+                           {t('ui:EmailScanPage.import')}
                           </button>
                         )}
                         {result.is_processed && (result.matched_expense_id || result.matched_income_id) && (
@@ -1202,7 +1206,7 @@ export default function EmailScanPage() {
                             className="flex items-center gap-1 px-2 py-1 text-xs text-green-600 border border-green-300 rounded hover:bg-green-50 dark:hover:bg-green-950"
                           >
                             <ArrowRight className="w-3 h-3" />
-                            View
+                           {t('ui:EmailScanPage.view')}
                           </button>
                         )}
                         {!result.is_processed && (
@@ -1214,16 +1218,16 @@ export default function EmailScanPage() {
                                 ? 'text-blue-600 border-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950'
                                 : 'text-amber-600 border-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950'
                             } disabled:opacity-50`}
-                            title={result.is_skipped ? 'Restore to pending' : 'Skip this email'}
+                            title={result.is_skipped ? t('ui:EmailScanPage.restoreToPending') : t('ui:EmailScanPage.skipThisEmail')}
                           >
                             <SkipForward className="w-3 h-3" />
-                            {result.is_skipped ? 'Unskip' : 'Skip'}
+                            {result.is_skipped ? t('ui:EmailScanPage.unskip') : t('ui:EmailScanPage.skip')}
                           </button>
                         )}
                         <button
                           onClick={() => { setDeleteId(result.id); setDeleteTarget('single') }}
                           className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950 rounded"
-                          title="Remove from inbox"
+                          title={t('ui:EmailScanPage.removeFromInbox')}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -1239,7 +1243,7 @@ export default function EmailScanPage() {
           {meta.total_pages > 1 && (
             <div className="flex items-center justify-between text-sm text-gray-500">
               <p>
-                Showing {(meta.page - 1) * meta.page_size + 1}–{Math.min(meta.page * meta.page_size, meta.total)} of {meta.total}
+               {t('ui:EmailScanPage.showing')} {(meta.page - 1) * meta.page_size + 1}–{Math.min(meta.page * meta.page_size, meta.total)} of {meta.total}
               </p>
               <div className="flex items-center gap-1">
                 <button
@@ -1249,7 +1253,7 @@ export default function EmailScanPage() {
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
-                <span className="px-2">Page {meta.page} of {meta.total_pages}</span>
+                <span className="px-2">{t('ui:EmailScanPage.page')} {meta.page} of {meta.total_pages}</span>
                 <button
                   onClick={() => setPage(p => Math.min(meta.total_pages, p + 1))}
                   disabled={page >= meta.total_pages}
@@ -1264,9 +1268,9 @@ export default function EmailScanPage() {
       ) : (
         <div className="text-center py-16 bg-white dark:bg-gray-900 border rounded-lg">
           <Inbox className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500 dark:text-gray-400">No scan results yet.</p>
+          <p className="text-gray-500 dark:text-gray-400">{t('ui:EmailScanPage.noScanResultsYet')}</p>
           <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">
-            Select a Gmail account and click "Scan Now" to search for invoices and receipts.
+           {t('ui:EmailScanPage.selectAGmailAccountAnd')}
           </p>
         </div>
       )}

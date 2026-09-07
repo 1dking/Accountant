@@ -10,18 +10,21 @@ import {
   type VoicemailMode,
 } from '@/api/auth'
 import { useAuthStore } from '@/stores/authStore'
+import { useTranslation } from 'react-i18next'
+import i18n from '@/i18n'
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 const MAX_RECORD_SECONDS = 30
 const WARN_AT_SECONDS = 25
 
 const MODE_OPTIONS: { value: VoicemailMode; label: string; note?: string }[] = [
-  { value: 'cell_then_voicemail', label: 'Cell phone, then voicemail', note: 'Recommended' },
-  { value: 'voicemail_only', label: 'Voicemail only (skip cell)' },
-  { value: 'cell_only', label: 'Cell phone only (no voicemail)' },
+  { value: 'cell_then_voicemail', label: i18n.t('ui:VoicemailGreetingEditor.cellPhoneThenVoicemail'), note: 'Recommended' },
+  { value: 'voicemail_only', label: i18n.t('ui:VoicemailGreetingEditor.voicemailOnlySkipCell') },
+  { value: 'cell_only', label: i18n.t('ui:VoicemailGreetingEditor.cellPhoneOnlyNoVoicemail') },
 ]
 
 export default function VoicemailGreetingEditor() {
+  const { t } = useTranslation('ui')
   const { user, fetchMe } = useAuthStore()
   const queryClient = useQueryClient()
   const [mode, setMode] = useState<VoicemailMode>(
@@ -44,10 +47,10 @@ export default function VoicemailGreetingEditor() {
   const modeMutation = useMutation({
     mutationFn: updateVoicemailMode,
     onSuccess: () => {
-      toast.success('Voicemail mode updated')
+      toast.success(t('ui:VoicemailGreetingEditor.voicemailModeUpdated'))
       fetchMe()
     },
-    onError: (e: any) => toast.error(`Failed to update mode: ${e.message}`),
+    onError: (e: any) => toast.error(t('ui:VoicemailGreetingEditor.failedToUpdateModeMessage', { message: e.message })),
   })
 
   const handleModeChange = (newMode: VoicemailMode) => {
@@ -106,7 +109,7 @@ export default function VoicemailGreetingEditor() {
         })
       }, 1000)
     } catch (e: any) {
-      toast.error('Microphone access denied or unavailable')
+      toast.error(t('ui:VoicemailGreetingEditor.microphoneAccessDeniedOrUnavailable'))
     }
   }
 
@@ -126,13 +129,13 @@ export default function VoicemailGreetingEditor() {
   const uploadMutation = useMutation({
     mutationFn: uploadVoicemailGreeting,
     onSuccess: () => {
-      toast.success('Greeting saved')
+      toast.success(t('ui:VoicemailGreetingEditor.greetingSaved'))
       setRecordedBlob(null)
       setSelectedFile(null)
       queryClient.invalidateQueries({ queryKey: ['voicemail-greeting'] })
       fetchMe()
     },
-    onError: (e: any) => toast.error(`Save failed: ${e.message}`),
+    onError: (e: any) => toast.error(t('ui:VoicemailGreetingEditor.saveFailedMessage', { message: e.message })),
   })
 
   const saveRecording = () => {
@@ -164,7 +167,7 @@ export default function VoicemailGreetingEditor() {
   const saveUpload = () => {
     if (!selectedFile) return
     if (selectedFile.size > MAX_UPLOAD_BYTES) {
-      toast.error('File exceeds 5MB limit')
+      toast.error(t('ui:VoicemailGreetingEditor.fileExceeds5mbLimit'))
       return
     }
     const fd = new FormData()
@@ -176,11 +179,11 @@ export default function VoicemailGreetingEditor() {
   const deleteMutation = useMutation({
     mutationFn: deleteVoicemailGreeting,
     onSuccess: () => {
-      toast.success('Greeting removed — using default')
+      toast.success(t('ui:VoicemailGreetingEditor.greetingRemovedUsingDefault'))
       queryClient.invalidateQueries({ queryKey: ['voicemail-greeting'] })
       fetchMe()
     },
-    onError: (e: any) => toast.error(`Delete failed: ${e.message}`),
+    onError: (e: any) => toast.error(t('ui:VoicemailGreetingEditor.deleteFailedMessage', { message: e.message })),
   })
 
   const handleDelete = () => deleteMutation.mutate()
@@ -189,13 +192,13 @@ export default function VoicemailGreetingEditor() {
     <section className="bg-white dark:bg-gray-900 border rounded-lg p-6 space-y-6">
       <div>
         <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-3">
-          Voicemail
+         {t('ui:VoicemailGreetingEditor.voicemail')}
         </h2>
 
         {/* Mode radio group */}
         <div className="space-y-2 mb-6">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Call routing
+           {t('ui:VoicemailGreetingEditor.callRouting')}
           </label>
           {MODE_OPTIONS.map((opt) => (
             <label key={opt.value} className="flex items-start gap-2 cursor-pointer">
@@ -220,14 +223,14 @@ export default function VoicemailGreetingEditor() {
         {mode !== 'cell_only' && (
           <>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Greeting
+             {t('ui:VoicemailGreetingEditor.greeting')}
             </label>
             <div className="mb-4 text-xs text-gray-500 dark:text-gray-400">
               {greetingLoading ? (
-                'Loading…'
+                t('ui:VoicemailGreetingEditor.loading')
               ) : greeting?.data?.type === 'audio' ? (
                 <span className="flex items-center gap-2 flex-wrap">
-                  Custom audio greeting
+                 {t('ui:VoicemailGreetingEditor.customAudioGreeting')}
                   <audio
                     controls
                     src={`/api/communication/voicemail-greeting/${user?.id}.mp3?cb=${
@@ -240,23 +243,23 @@ export default function VoicemailGreetingEditor() {
                     onClick={handleDelete}
                     className="text-red-600 hover:underline text-xs flex items-center gap-1"
                   >
-                    <Trash2 className="h-3 w-3" /> Reset to default
+                    <Trash2 className="h-3 w-3" /> {t('ui:VoicemailGreetingEditor.resetToDefault')}
                   </button>
                 </span>
               ) : greeting?.data?.type === 'text' ? (
                 <span>
-                  Custom text greeting:&nbsp;
+                 {t('ui:VoicemailGreetingEditor.customTextGreeting')}
                   <span className="italic">"{greeting.data.text}"</span>
                   <button
                     type="button"
                     onClick={handleDelete}
                     className="ml-2 text-red-600 hover:underline text-xs"
                   >
-                    <Trash2 className="h-3 w-3 inline" /> Reset to default
+                    <Trash2 className="h-3 w-3 inline" /> {t('ui:VoicemailGreetingEditor.resetToDefault')}
                   </button>
                 </span>
               ) : (
-                <span>Using default Polly.Joanna greeting</span>
+                <span>{t('ui:VoicemailGreetingEditor.usingDefaultPollyJoannaGreeting')}</span>
               )}
             </div>
 
@@ -292,7 +295,7 @@ export default function VoicemailGreetingEditor() {
                     onClick={startRecording}
                     className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded flex items-center gap-2 text-sm"
                   >
-                    <Mic className="h-4 w-4" /> Record
+                    <Mic className="h-4 w-4" /> {t('ui:VoicemailGreetingEditor.record')}
                   </button>
                 )}
                 {isRecording && (
@@ -302,7 +305,7 @@ export default function VoicemailGreetingEditor() {
                       onClick={stopRecording}
                       className="px-4 py-2 bg-gray-700 hover:bg-gray-800 text-white rounded flex items-center gap-2 text-sm"
                     >
-                      <Square className="h-4 w-4" /> Stop
+                      <Square className="h-4 w-4" /> {t('ui:VoicemailGreetingEditor.stop')}
                     </button>
                     <span
                       className={`font-mono text-sm ${
@@ -313,7 +316,7 @@ export default function VoicemailGreetingEditor() {
                     >
                       {recordingSeconds}s / {MAX_RECORD_SECONDS}s
                       {recordingSeconds >= WARN_AT_SECONDS && (
-                        <span className="ml-2 text-xs">⚠ approaching limit</span>
+                        <span className="ml-2 text-xs">{t('ui:VoicemailGreetingEditor.approachingLimit')}</span>
                       )}
                     </span>
                   </div>
@@ -332,7 +335,7 @@ export default function VoicemailGreetingEditor() {
                         disabled={uploadMutation.isPending}
                         className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm disabled:opacity-50"
                       >
-                        {uploadMutation.isPending ? 'Saving…' : 'Save'}
+                        {uploadMutation.isPending ? t('ui:VoicemailGreetingEditor.saving') : t('ui:VoicemailGreetingEditor.save')}
                       </button>
                       <button
                         type="button"
@@ -342,14 +345,14 @@ export default function VoicemailGreetingEditor() {
                         }}
                         className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm"
                       >
-                        Re-record
+                       {t('ui:VoicemailGreetingEditor.reRecord')}
                       </button>
                       <button
                         type="button"
                         onClick={() => setRecordedBlob(null)}
                         className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm"
                       >
-                        Cancel
+                       {t('ui:VoicemailGreetingEditor.cancel')}
                       </button>
                     </div>
                   </div>
@@ -362,14 +365,13 @@ export default function VoicemailGreetingEditor() {
                 <textarea
                   value={textGreeting}
                   onChange={(e) => setTextGreeting(e.target.value.slice(0, 500))}
-                  placeholder="Hi, this is [your name], I'm not available right now…"
+                  placeholder={t('ui:VoicemailGreetingEditor.hiThisIsYourName')}
                   rows={3}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded resize-none text-sm bg-white dark:bg-gray-900"
                 />
                 <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
                   <span>
-                    Spoken in Polly.Joanna voice. We'll append "Please leave a message
-                    after the beep…"
+                   {t('ui:VoicemailGreetingEditor.spokenInPollyJoannaVoice')}
                   </span>
                   <span>{textGreeting.length}/500</span>
                 </div>
@@ -379,7 +381,7 @@ export default function VoicemailGreetingEditor() {
                   disabled={!textGreeting.trim() || uploadMutation.isPending}
                   className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm disabled:opacity-50"
                 >
-                  {uploadMutation.isPending ? 'Saving…' : 'Save'}
+                  {uploadMutation.isPending ? t('ui:VoicemailGreetingEditor.saving') : t('ui:VoicemailGreetingEditor.save')}
                 </button>
               </div>
             )}
@@ -393,7 +395,7 @@ export default function VoicemailGreetingEditor() {
                   className="text-sm"
                 />
                 <div className="text-xs text-gray-500 dark:text-gray-400">
-                  Max 5 MB. .mp3, .m4a, .wav supported.
+                 {t('ui:VoicemailGreetingEditor.max5MbMp3M4a')}
                 </div>
                 {selectedFile && (
                   <div className="space-y-2">
@@ -409,14 +411,14 @@ export default function VoicemailGreetingEditor() {
                         disabled={uploadMutation.isPending}
                         className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm disabled:opacity-50"
                       >
-                        {uploadMutation.isPending ? 'Saving…' : 'Confirm'}
+                        {uploadMutation.isPending ? t('ui:VoicemailGreetingEditor.saving') : t('ui:VoicemailGreetingEditor.confirm')}
                       </button>
                       <button
                         type="button"
                         onClick={() => setSelectedFile(null)}
                         className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm"
                       >
-                        Cancel
+                       {t('ui:VoicemailGreetingEditor.cancel')}
                       </button>
                     </div>
                   </div>

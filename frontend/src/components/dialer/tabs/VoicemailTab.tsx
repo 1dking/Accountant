@@ -12,6 +12,7 @@ import { formatRelativeTime } from '@/lib/utils'
 import { listCalls } from '@/api/communication'
 import { listContacts } from '@/api/contacts'
 import type { CallLogEntry, Contact } from '@/types/models'
+import { useTranslation } from 'react-i18next'
 
 function formatPhone(raw: string): string {
   const digits = raw.replace(/\D/g, '')
@@ -36,6 +37,7 @@ interface Props {
 }
 
 export default function VoicemailTab({ onDial }: Props) {
+  const { t } = useTranslation('ui')
   const voicemailsQuery = useQuery({
     queryKey: ['dialer-voicemails'],
     queryFn: () => listCalls({ kind: 'voicemail', page_size: 50 }),
@@ -74,7 +76,7 @@ export default function VoicemailTab({ onDial }: Props) {
     return (
       <div className="px-6 py-12 text-center">
         <p className="text-sm text-[color:var(--lg-text-secondary)]">
-          Couldn't load voicemails. Try again in a moment.
+         {t('ui:VoicemailTab.couldnTLoadVoicemailsTry')}
         </p>
       </div>
     )
@@ -95,11 +97,10 @@ export default function VoicemailTab({ onDial }: Props) {
         </div>
         <div>
           <h3 className="text-sm font-semibold text-[color:var(--lg-text-primary)]">
-            No voicemails
+           {t('ui:VoicemailTab.noVoicemails')}
           </h3>
           <p className="text-xs text-[color:var(--lg-text-secondary)] mt-2 max-w-[300px] mx-auto leading-relaxed">
-            When someone leaves you a message it shows up here, with a
-            transcript and playback.
+           {t('ui:VoicemailTab.whenSomeoneLeavesYouA')}
           </p>
         </div>
       </div>
@@ -129,7 +130,7 @@ export default function VoicemailTab({ onDial }: Props) {
               </div>
               <button
                 onClick={() => onDial(vm.from_number)}
-                aria-label={`Call ${label} back`}
+                aria-label={t('ui:VoicemailTab.callLabelBack', { label })}
                 className="shrink-0 p-2 rounded-full hover:bg-white/5 text-[color:var(--lg-text-secondary)] hover:text-[color:var(--lg-text-primary)] transition-colors"
               >
                 <Phone className="h-4 w-4" />
@@ -151,11 +152,11 @@ export default function VoicemailTab({ onDial }: Props) {
               </p>
             ) : status === 'pending' ? (
               <p className="text-xs italic text-[color:var(--lg-text-secondary)]">
-                Transcribing…
+               {t('ui:VoicemailTab.transcribing')}
               </p>
             ) : status === 'failed' ? (
               <p className="text-xs italic text-[color:var(--lg-text-secondary)]">
-                Transcript unavailable — play the recording above.
+               {t('ui:VoicemailTab.transcriptUnavailablePlayTheRecording')}
               </p>
             ) : null}
           </li>

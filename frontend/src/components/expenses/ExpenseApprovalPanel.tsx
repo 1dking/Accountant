@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { formatDate } from '@/lib/utils'
 import { ShieldCheck, ShieldX, Clock, Send } from 'lucide-react'
 import type { Expense, ExpenseApproval } from '@/types/models'
+import { useTranslation } from 'react-i18next'
 
 interface ExpenseApprovalPanelProps {
   expense: Expense
@@ -13,6 +14,7 @@ interface ExpenseApprovalPanelProps {
 }
 
 export default function ExpenseApprovalPanel({ expense, approval }: ExpenseApprovalPanelProps) {
+  const { t } = useTranslation('ui')
   const { user } = useAuthStore()
   const queryClient = useQueryClient()
   const canManage = user?.role === 'admin' || user?.role === 'accountant'
@@ -57,7 +59,7 @@ export default function ExpenseApprovalPanel({ expense, approval }: ExpenseAppro
   if (approval && approval.status !== 'pending') {
     return (
       <div className="bg-white dark:bg-gray-900 rounded-lg border p-4">
-        <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm mb-3">Approval</h3>
+        <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm mb-3">{t('ui:ExpenseApprovalPanel.approval')}</h3>
         <div className="flex items-center gap-2">
           {approval.status === 'approved' ? (
             <ShieldCheck className="h-5 w-5 text-green-600" />
@@ -66,7 +68,7 @@ export default function ExpenseApprovalPanel({ expense, approval }: ExpenseAppro
           )}
           <div>
             <p className={`text-sm font-medium ${approval.status === 'approved' ? 'text-green-700' : 'text-red-700'}`}>
-              {approval.status === 'approved' ? 'Approved' : 'Rejected'}
+              {approval.status === 'approved' ? t('ui:ExpenseApprovalPanel.approved') : t('ui:ExpenseApprovalPanel.rejected')}
             </p>
             {approval.resolved_at && (
               <p className="text-xs text-gray-500 dark:text-gray-400">{formatDate(approval.resolved_at)}</p>
@@ -86,16 +88,16 @@ export default function ExpenseApprovalPanel({ expense, approval }: ExpenseAppro
       <div className="bg-amber-50 rounded-lg border border-amber-200 p-4">
         <h3 className="font-semibold text-amber-900 text-sm mb-3 flex items-center gap-1.5">
           <Clock className="h-4 w-4" />
-          Pending Approval
+         {t('ui:ExpenseApprovalPanel.pendingApproval')}
         </h3>
         <p className="text-sm text-amber-800 mb-3">
           {isAssignee
-            ? 'This expense is waiting for your review.'
+            ? t('ui:ExpenseApprovalPanel.thisExpenseIsWaitingFor')
             : isAdmin
-              ? 'You can approve or reject this expense as an admin.'
+              ? t('ui:ExpenseApprovalPanel.youCanApproveOrReject')
               : isRequester
-                ? 'You submitted this for approval.'
-                : 'This expense is pending approval.'}
+                ? t('ui:ExpenseApprovalPanel.youSubmittedThisForApproval')
+                : t('ui:ExpenseApprovalPanel.thisExpenseIsPendingApproval')}
         </p>
 
         {canResolve && (
@@ -106,7 +108,7 @@ export default function ExpenseApprovalPanel({ expense, approval }: ExpenseAppro
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
                   rows={2}
-                  placeholder="Reason for rejection..."
+                  placeholder={t('ui:ExpenseApprovalPanel.reasonForRejection')}
                   className="w-full px-3 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-red-400"
                 />
                 <div className="flex gap-2">
@@ -115,13 +117,13 @@ export default function ExpenseApprovalPanel({ expense, approval }: ExpenseAppro
                     disabled={rejectMutation.isPending}
                     className="flex-1 px-3 py-1.5 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50"
                   >
-                    {rejectMutation.isPending ? 'Rejecting...' : 'Confirm Reject'}
+                    {rejectMutation.isPending ? t('ui:ExpenseApprovalPanel.rejecting') : t('ui:ExpenseApprovalPanel.confirmReject')}
                   </button>
                   <button
                     onClick={() => { setShowReject(false); setComment('') }}
                     className="px-3 py-1.5 text-sm border rounded-md hover:bg-white dark:bg-gray-900"
                   >
-                    Cancel
+                   {t('ui:ExpenseApprovalPanel.cancel')}
                   </button>
                 </div>
               </div>
@@ -131,7 +133,7 @@ export default function ExpenseApprovalPanel({ expense, approval }: ExpenseAppro
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
                   rows={2}
-                  placeholder="Optional comment..."
+                  placeholder={t('ui:ExpenseApprovalPanel.optionalComment')}
                   className="w-full px-3 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400"
                 />
                 <div className="flex gap-2">
@@ -141,14 +143,14 @@ export default function ExpenseApprovalPanel({ expense, approval }: ExpenseAppro
                     className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50"
                   >
                     <ShieldCheck className="h-4 w-4" />
-                    {approveMutation.isPending ? 'Approving...' : 'Approve'}
+                    {approveMutation.isPending ? t('ui:ExpenseApprovalPanel.approving') : t('ui:ExpenseApprovalPanel.approve')}
                   </button>
                   <button
                     onClick={() => setShowReject(true)}
                     className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-700 border border-red-300 rounded-md hover:bg-red-50"
                   >
                     <ShieldX className="h-4 w-4" />
-                    Reject
+                   {t('ui:ExpenseApprovalPanel.reject')}
                   </button>
                 </div>
               </div>
@@ -158,7 +160,7 @@ export default function ExpenseApprovalPanel({ expense, approval }: ExpenseAppro
 
         {(approveMutation.isError || rejectMutation.isError) && (
           <p className="mt-2 text-xs text-red-600">
-            {((approveMutation.error || rejectMutation.error) as Error)?.message || 'Action failed'}
+            {((approveMutation.error || rejectMutation.error) as Error)?.message || t('ui:ExpenseApprovalPanel.actionFailed')}
           </p>
         )}
       </div>
@@ -177,7 +179,7 @@ export default function ExpenseApprovalPanel({ expense, approval }: ExpenseAppro
 
   return (
     <div className="bg-white dark:bg-gray-900 rounded-lg border p-4">
-      <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm mb-3">Approval</h3>
+      <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm mb-3">{t('ui:ExpenseApprovalPanel.approval')}</h3>
       <div className="space-y-3">
         {isAdmin && (
           <button
@@ -185,17 +187,17 @@ export default function ExpenseApprovalPanel({ expense, approval }: ExpenseAppro
             className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
           >
             <ShieldCheck className="h-4 w-4" />
-            Approve (Admin)
+           {t('ui:ExpenseApprovalPanel.approveAdmin')}
           </button>
         )}
         <div>
-          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Or assign to a reviewer</label>
+          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('ui:ExpenseApprovalPanel.orAssignToAReviewer')}</label>
           <select
             value={assignedTo}
             onChange={(e) => setAssignedTo(e.target.value)}
             className="w-full mt-1 px-3 py-1.5 text-sm border rounded-md bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="">Select a reviewer...</option>
+            <option value="">{t('ui:ExpenseApprovalPanel.selectAReviewer')}</option>
             {users.map((u) => (
               <option key={u.id} value={u.id}>
                 {u.full_name} ({u.role})
@@ -209,11 +211,11 @@ export default function ExpenseApprovalPanel({ expense, approval }: ExpenseAppro
           className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
         >
           <Send className="h-4 w-4" />
-          {requestMutation.isPending ? 'Submitting...' : 'Submit for Approval'}
+          {requestMutation.isPending ? t('ui:ExpenseApprovalPanel.submitting') : t('ui:ExpenseApprovalPanel.submitForApproval')}
         </button>
         {requestMutation.isError && (
           <p className="text-xs text-red-600">
-            {(requestMutation.error as Error)?.message || 'Failed to request approval'}
+            {(requestMutation.error as Error)?.message || t('ui:ExpenseApprovalPanel.failedToRequestApproval')}
           </p>
         )}
       </div>

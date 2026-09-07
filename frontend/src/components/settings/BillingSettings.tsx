@@ -8,6 +8,8 @@ import { platformAdminApi } from '@/api/platformAdmin'
 import { billingApi } from '@/api/billing'
 import { ApiClientError } from '@/api/client'
 import TelephonyCreditSettings from '@/components/settings/TelephonyCreditSettings'
+import { useTranslation } from 'react-i18next'
+import i18n from '@/i18n'
 
 const PLAN_LABELS: Record<string, string> = {
   starter: 'Starter',
@@ -42,6 +44,7 @@ function UsageBar({
   format?: (n: number) => string
   suffix?: string
 }) {
+  const { t } = useTranslation('ui')
   const unlimited = limit === null
   const pct = unlimited || limit === 0 ? 0 : Math.min(100, (used / limit) * 100)
   const atCap = !unlimited && used >= (limit ?? 0)
@@ -76,7 +79,7 @@ function UsageBar({
       )}
       {atCap && (
         <p className="mt-1 text-[10px] text-red-600 dark:text-red-400">
-          Limit reached — upgrade to continue.
+         {t('ui:BillingSettings.limitReachedUpgradeToContinue')}
         </p>
       )}
     </div>
@@ -91,7 +94,7 @@ const PLAN_TIERS = [
     color: 'blue',
     monthlyKey: 'plan_starter_price',
     annualKey: 'plan_starter_annual_price',
-    features: ['1 GB storage', '3 pages', '50 O-Brain messages/mo', 'Basic accounting'],
+    features: [i18n.t('ui:BillingSettings.n1GbStorage'), i18n.t('ui:BillingSettings.n3Pages'), i18n.t('ui:BillingSettings.n50OBrainMessagesMo'), i18n.t('ui:BillingSettings.basicAccounting')],
   },
   {
     key: 'pro',
@@ -101,7 +104,7 @@ const PLAN_TIERS = [
     monthlyKey: 'plan_pro_price',
     annualKey: 'plan_pro_annual_price',
     popular: true,
-    features: ['10 GB storage', '25 pages', '500 O-Brain messages/mo', 'CRM + Invoicing', 'Email + SMS'],
+    features: [i18n.t('ui:BillingSettings.n10GbStorage'), i18n.t('ui:BillingSettings.n25Pages'), i18n.t('ui:BillingSettings.n500OBrainMessagesMo'), i18n.t('ui:BillingSettings.crmInvoicing'), i18n.t('ui:BillingSettings.emailSms')],
   },
   {
     key: 'business',
@@ -110,7 +113,7 @@ const PLAN_TIERS = [
     color: 'orange',
     monthlyKey: 'plan_business_price',
     annualKey: 'plan_business_annual_price',
-    features: ['50 GB storage', '100 pages', 'Unlimited O-Brain', 'Custom domain', 'White-label'],
+    features: [i18n.t('ui:BillingSettings.n50GbStorage'), i18n.t('ui:BillingSettings.n100Pages'), i18n.t('ui:BillingSettings.unlimitedOBrain'), i18n.t('ui:BillingSettings.customDomain'), i18n.t('ui:BillingSettings.whiteLabel')],
   },
   {
     key: 'enterprise',
@@ -119,7 +122,7 @@ const PLAN_TIERS = [
     color: 'emerald',
     monthlyKey: 'plan_enterprise_price',
     annualKey: 'plan_enterprise_annual_price',
-    features: ['Unlimited storage', 'Unlimited pages', 'O-Brain Coach', 'Priority support', 'API access'],
+    features: [i18n.t('ui:BillingSettings.unlimitedStorage'), i18n.t('ui:BillingSettings.unlimitedPages'), i18n.t('ui:BillingSettings.oBrainCoach'), i18n.t('ui:BillingSettings.prioritySupport'), i18n.t('ui:BillingSettings.apiAccess')],
   },
 ]
 
@@ -148,6 +151,7 @@ const OBRAIN_TIERS = [
 ]
 
 export default function BillingSettings() {
+  const { t } = useTranslation('ui')
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('monthly')
   const [checkoutKey, setCheckoutKey] = useState<string | null>(null)
   const queryClient = useQueryClient()
@@ -189,9 +193,9 @@ export default function BillingSettings() {
           queryClient.invalidateQueries({ queryKey: ['billing-subscription'] })
           queryClient.invalidateQueries({ queryKey: ['billing-usage'] })
         })
-        .catch(() => toast.error('We could not confirm your subscription. If you were charged, contact support.'))
+        .catch(() => toast.error(t('ui:BillingSettings.weCouldNotConfirmYour')))
     } else if (subStatus === 'cancelled') {
-      toast('Checkout cancelled — no changes made.')
+      toast(t('ui:BillingSettings.checkoutCancelledNoChangesMade'))
     }
     // Strip the billing query params so a refresh doesn't re-verify
     const next = new URLSearchParams(searchParams)
@@ -210,7 +214,7 @@ export default function BillingSettings() {
         return
       }
       // Free tier: plan switched server-side, no Stripe redirect
-      toast.success('You\'re on the Starter plan.')
+      toast.success(t('ui:BillingSettings.youReOnTheStarter'))
       queryClient.invalidateQueries({ queryKey: ['billing-subscription'] })
       queryClient.invalidateQueries({ queryKey: ['billing-usage'] })
       setCheckoutKey(null)
@@ -229,7 +233,7 @@ export default function BillingSettings() {
     onSuccess: (res) => {
       const url = res?.data?.url
       if (url) window.location.href = url
-      else toast.error('Billing portal is unavailable right now.')
+      else toast.error(t('ui:BillingSettings.billingPortalIsUnavailableRight'))
     },
     onError: (err) => {
       const msg = err instanceof ApiClientError ? err.error?.message : null
@@ -249,9 +253,9 @@ export default function BillingSettings() {
     <div className="space-y-8">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Plan & Billing</h2>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{t('ui:BillingSettings.planBilling')}</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            You're currently on the{' '}
+           {t('ui:BillingSettings.youReCurrentlyOnThe')}{' '}
             <span className="font-semibold text-gray-900 dark:text-white">{PLAN_LABELS[currentPlan] ?? currentPlan}</span>{' '}
             plan{subscription?.billing_period ? ` (${subscription.billing_period})` : ''}.
           </p>
@@ -263,7 +267,7 @@ export default function BillingSettings() {
             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-60"
           >
             {portalMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
-            Manage billing
+           {t('ui:BillingSettings.manageBilling')}
           </button>
         )}
       </div>
@@ -272,18 +276,18 @@ export default function BillingSettings() {
       {usage && (
         <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-5">
           <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">
-            Your usage this billing period
+           {t('ui:BillingSettings.yourUsageThisBillingPeriod')}
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            <UsageBar label="Published pages" used={usage.pages.used} limit={usage.pages.limit} />
+            <UsageBar label={t('ui:BillingSettings.publishedPages')} used={usage.pages.used} limit={usage.pages.limit} />
             <UsageBar
-              label="Storage"
+              label={t('ui:BillingSettings.storage')}
               used={usage.storage.used}
               limit={usage.storage.limit}
               format={formatBytes}
             />
             <UsageBar
-              label="O-Brain messages"
+              label={t('ui:BillingSettings.oBrainMessages')}
               used={usage.ai_messages.used}
               limit={usage.ai_messages.limit}
               suffix="/mo"
@@ -295,7 +299,7 @@ export default function BillingSettings() {
       {/* Monthly / Annual toggle */}
       <div className="flex items-center justify-center gap-3">
         <span className={cn('text-sm font-medium', billingPeriod === 'monthly' ? 'text-gray-900 dark:text-white' : 'text-gray-400')}>
-          Monthly
+         {t('ui:BillingSettings.monthly')}
         </span>
         <button
           onClick={() => setBillingPeriod(billingPeriod === 'monthly' ? 'annual' : 'monthly')}
@@ -310,11 +314,11 @@ export default function BillingSettings() {
           )} />
         </button>
         <span className={cn('text-sm font-medium', billingPeriod === 'annual' ? 'text-gray-900 dark:text-white' : 'text-gray-400')}>
-          Annual
+         {t('ui:BillingSettings.annual')}
         </span>
         {billingPeriod === 'annual' && (
           <span className="ml-1 text-[10px] font-bold bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full">
-            2 MONTHS FREE
+           {t('ui:BillingSettings.n2MonthsFree')}
           </span>
         )}
       </div>
@@ -340,7 +344,7 @@ export default function BillingSettings() {
             >
               {tier.popular && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-purple-600 text-white text-[10px] font-bold px-3 py-0.5 rounded-full">
-                  MOST POPULAR
+                 {t('ui:BillingSettings.mostPopular')}
                 </div>
               )}
               <div className="flex items-center gap-2 mb-3">
@@ -354,12 +358,12 @@ export default function BillingSettings() {
                 <span className="text-sm text-gray-500 dark:text-gray-400">/mo</span>
                 {billingPeriod === 'annual' && (
                   <span className="block text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                    billed yearly (${annual * 12}/yr)
+                   {t('ui:BillingSettings.billedYearly')}{annual * 12}/yr)
                   </span>
                 )}
                 {billingPeriod === 'annual' && savings > 0 && (
                   <span className="inline-block mt-1 text-[10px] font-bold bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 px-1.5 py-0.5 rounded">
-                    Save {savings}%
+                   {t('ui:BillingSettings.save')} {savings}%
                   </span>
                 )}
               </div>
@@ -389,7 +393,7 @@ export default function BillingSettings() {
                     )}
                   >
                     {isBusy && <Loader2 className="w-4 h-4 animate-spin" />}
-                    {isCurrent ? 'Current Plan' : tier.key === 'starter' ? 'Downgrade to free' : 'Choose plan'}
+                    {isCurrent ? t('ui:BillingSettings.currentPlan') : tier.key === 'starter' ? t('ui:BillingSettings.downgradeToFree') : t('ui:BillingSettings.choosePlan')}
                   </button>
                 )
               })()}
@@ -402,7 +406,7 @@ export default function BillingSettings() {
       <div>
         <div className="flex items-center gap-2 mb-4">
           <Brain className="w-5 h-5 text-purple-600" />
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">O-Brain Add-ons</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{t('ui:BillingSettings.oBrainAddOns')}</h3>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {OBRAIN_TIERS.map((tier) => {
@@ -420,12 +424,12 @@ export default function BillingSettings() {
                   <span className="text-sm text-gray-500 dark:text-gray-400">/mo</span>
                   {billingPeriod === 'annual' && savings > 0 && (
                     <span className="ml-2 text-[10px] font-bold bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 px-1.5 py-0.5 rounded">
-                      Save {savings}%
+                     {t('ui:BillingSettings.save')} {savings}%
                     </span>
                   )}
                 </div>
                 <button className="w-full py-2 rounded-lg text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
-                  Add to Plan
+                 {t('ui:BillingSettings.addToPlan')}
                 </button>
               </div>
             )

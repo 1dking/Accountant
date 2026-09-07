@@ -30,6 +30,7 @@ import RecentsTab from './tabs/RecentsTab'
 import VoicemailTab from './tabs/VoicemailTab'
 
 import './liquid-glass.css'
+import { useTranslation } from 'react-i18next'
 
 interface Props {
   isOpen: boolean
@@ -39,6 +40,7 @@ interface Props {
 }
 
 export default function DialerDrawer({ isOpen, onClose, device, callingFrom }: Props) {
+  const { t } = useTranslation('ui')
   const {
     mode, errorMsg, durationSeconds, isMuted, incomingNumber,
     dial, hangup, acceptIncoming, rejectIncoming, toggleMute, sendDigits, retryInit,
@@ -181,7 +183,7 @@ export default function DialerDrawer({ isOpen, onClose, device, callingFrom }: P
         ref={drawerRef}
         role="dialog"
         aria-modal="true"
-        aria-label="Dialer"
+        aria-label={t('ui:DialerDrawer.dialer')}
         className={cn(
           'lg-drawer lg-drawer-surface',
           'absolute right-0 top-0 h-full',

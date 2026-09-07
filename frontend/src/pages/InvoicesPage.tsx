@@ -5,12 +5,14 @@ import { Plus, Search, DollarSign, AlertTriangle, CheckCircle, FileText } from '
 import { listInvoices, getInvoiceStats } from '@/api/invoices';
 import { useAuthStore } from '@/stores/authStore';
 import { INVOICE_STATUSES } from '@/lib/constants';
-import { formatDate } from '@/lib/utils';
+import { formatDate, uiLocale } from '@/lib/utils';
+import { useTranslation } from 'react-i18next'
 
 const formatCurrency = (amount: number, currency = 'USD') =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
+  new Intl.NumberFormat(uiLocale(), { style: 'currency', currency }).format(amount);
 
 export default function InvoicesPage() {
+  const { t } = useTranslation('ui')
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const canEdit = user?.role === 'admin' || user?.role === 'accountant';
@@ -41,45 +43,45 @@ export default function InvoicesPage() {
 
   const statCards = [
     {
-      label: 'Total Outstanding',
+      label: t('ui:InvoicesPage.totalOutstanding'),
       value: stats ? formatCurrency(stats.data.total_outstanding) : '—',
       icon: DollarSign,
       color: 'text-blue-600 dark:text-blue-400 bg-blue-50',
     },
     {
-      label: 'Total Overdue',
+      label: t('ui:InvoicesPage.totalOverdue'),
       value: stats ? formatCurrency(stats.data.total_overdue) : '—',
       icon: AlertTriangle,
       color: 'text-red-600 bg-red-50',
     },
     {
-      label: 'Paid This Month',
+      label: t('ui:InvoicesPage.paidThisMonth'),
       value: stats ? formatCurrency(stats.data.total_paid_this_month) : '—',
       icon: CheckCircle,
       color: 'text-green-600 bg-green-50',
     },
     {
-      label: 'Invoice Count',
+      label: t('ui:InvoicesPage.invoiceCount'),
       value: stats ? stats.data.invoice_count.toLocaleString() : '—',
       icon: FileText,
       color: 'text-purple-600 bg-purple-50',
     },
   ];
 
-  const statusTabs = [{ value: '', label: 'All' }, ...INVOICE_STATUSES];
+  const statusTabs = [{ value: '', label: t('ui:InvoicesPage.all') }, ...INVOICE_STATUSES];
 
   return (
     <div className="p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Invoices</h1>
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">{t('ui:InvoicesPage.invoices')}</h1>
         {canEdit && (
           <button
             onClick={() => navigate('/invoices/new')}
             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
           >
             <Plus className="w-4 h-4" />
-            New Invoice
+           {t('ui:InvoicesPage.newInvoice')}
           </button>
         )}
       </div>
@@ -129,7 +131,7 @@ export default function InvoicesPage() {
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
         <input
           type="text"
-          placeholder="Search invoices..."
+          placeholder={t('ui:InvoicesPage.searchInvoices')}
           value={search}
           onChange={(e) => {
             setSearch(e.target.value);
@@ -144,25 +146,25 @@ export default function InvoicesPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-100 dark:border-gray-700">
-              <th className="text-left px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Invoice #</th>
-              <th className="text-left px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Client</th>
-              <th className="text-left px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Issue Date</th>
-              <th className="text-left px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Due Date</th>
-              <th className="text-right px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Amount</th>
-              <th className="text-left px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Status</th>
+              <th className="text-left px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">{t('ui:InvoicesPage.invoice')}</th>
+              <th className="text-left px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">{t('ui:InvoicesPage.client')}</th>
+              <th className="text-left px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">{t('ui:InvoicesPage.issueDate')}</th>
+              <th className="text-left px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">{t('ui:InvoicesPage.dueDate')}</th>
+              <th className="text-right px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">{t('ui:InvoicesPage.amount')}</th>
+              <th className="text-left px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">{t('ui:InvoicesPage.status')}</th>
             </tr>
           </thead>
           <tbody>
             {invoicesQuery.isLoading ? (
               <tr>
                 <td colSpan={6} className="px-5 py-8 text-center text-gray-400 dark:text-gray-500">
-                  Loading invoices...
+                 {t('ui:InvoicesPage.loadingInvoices')}
                 </td>
               </tr>
             ) : invoices.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-5 py-8 text-center text-gray-400 dark:text-gray-500">
-                  No invoices found.
+                 {t('ui:InvoicesPage.noInvoicesFound')}
                 </td>
               </tr>
             ) : (
@@ -202,7 +204,7 @@ export default function InvoicesPage() {
       {meta && meta.total_pages > 1 && (
         <div className="flex items-center justify-between mt-4">
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Page {meta.page} of {meta.total_pages}
+           {t('ui:InvoicesPage.page')} {meta.page} of {meta.total_pages}
           </p>
           <div className="flex items-center gap-2">
             <button
@@ -210,14 +212,14 @@ export default function InvoicesPage() {
               disabled={page <= 1}
               className="px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Previous
+             {t('ui:InvoicesPage.previous')}
             </button>
             <button
               onClick={() => setPage((p) => p + 1)}
               disabled={page >= meta.total_pages}
               className="px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Next
+             {t('ui:InvoicesPage.next')}
             </button>
           </div>
         </div>

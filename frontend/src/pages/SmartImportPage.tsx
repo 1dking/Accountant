@@ -7,7 +7,7 @@ import {
   Pencil, Trash2, X, Check, AlertTriangle,
   Eye, Scissors, RotateCcw,
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, uiLocale } from '@/lib/utils'
 import { toast } from 'sonner'
 import {
   uploadForImport,
@@ -25,9 +25,10 @@ import {
 } from '@/api/smartImport'
 import { listAccounts, listCategories } from '@/api/cashbook'
 import type { PaymentAccount } from '@/types/models'
+import { useTranslation } from 'react-i18next'
 
 function formatCurrency(amount: number): string {
-  return '$' + Math.abs(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return '$' + Math.abs(amount).toLocaleString(uiLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 function ConfidenceBadge({ value }: { value: number }) {
@@ -49,6 +50,7 @@ function PreviewModal({ importId, filename, mimeType, onClose }: {
   mimeType?: string
   onClose: () => void
 }) {
+  const { t } = useTranslation('ui')
   const url = getImportPreviewUrl(importId)
   const isPdf = mimeType?.includes('pdf') || filename.toLowerCase().endsWith('.pdf')
   const isImage = mimeType?.startsWith('image/') || /\.(png|jpe?g|webp|gif)$/i.test(filename)
@@ -67,11 +69,11 @@ function PreviewModal({ importId, filename, mimeType, onClose }: {
         </div>
         <div className="flex-1 overflow-auto flex items-center justify-center bg-gray-100 dark:bg-gray-950 p-4">
           {isPdf ? (
-            <iframe src={url} className="w-full h-full rounded border dark:border-gray-700" title="Preview" />
+            <iframe src={url} className="w-full h-full rounded border dark:border-gray-700" title={t('ui:SmartImportPage.preview')} />
           ) : isImage ? (
             <img src={url} alt={filename} className="max-w-full max-h-full object-contain rounded" />
           ) : (
-            <p className="text-gray-500 dark:text-gray-400">Preview not available for this file type.</p>
+            <p className="text-gray-500 dark:text-gray-400">{t('ui:SmartImportPage.previewNotAvailableForThis')}</p>
           )}
         </div>
       </div>
@@ -90,6 +92,7 @@ function EditPreviewModal({ importId, filename, mimeType, item, overrides, categ
   onClose: () => void
   onSave: (itemId: string, updates: Partial<SmartImportItem>) => void
 }) {
+  const { t: tr } = useTranslation('ui')
   const url = getImportPreviewUrl(importId)
   const isPdf = mimeType?.includes('pdf') || filename.toLowerCase().endsWith('.pdf')
   const isImage = mimeType?.startsWith('image/') || /\.(png|jpe?g|webp|gif)$/i.test(filename)
@@ -136,20 +139,20 @@ function EditPreviewModal({ importId, filename, mimeType, item, overrides, categ
           {/* Left: Document preview (60%) */}
           <div className="w-[60%] bg-gray-100 dark:bg-gray-950 p-4 overflow-auto flex items-center justify-center border-r dark:border-gray-700">
             {isPdf ? (
-              <iframe src={url} className="w-full h-full rounded border dark:border-gray-700" title="Preview" />
+              <iframe src={url} className="w-full h-full rounded border dark:border-gray-700" title={tr('ui:SmartImportPage.preview')} />
             ) : isImage ? (
               <img src={url} alt={filename} className="max-w-full max-h-full object-contain rounded" />
             ) : (
-              <p className="text-gray-500 dark:text-gray-400">Preview not available for this file type.</p>
+              <p className="text-gray-500 dark:text-gray-400">{tr('ui:SmartImportPage.previewNotAvailableForThis')}</p>
             )}
           </div>
 
           {/* Right: Edit form (40%) */}
           <div className="w-[40%] p-6 overflow-y-auto">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Edit Transaction</h3>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">{tr('ui:SmartImportPage.editTransaction')}</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr('ui:SmartImportPage.type')}</label>
                 <div className="flex gap-2">
                   {(['expense', 'income'] as const).map(t => (
                     <button
@@ -163,14 +166,14 @@ function EditPreviewModal({ importId, filename, mimeType, item, overrides, categ
                           : 'bg-white dark:bg-gray-800 text-gray-500 border-gray-200 dark:border-gray-600 hover:border-gray-400',
                       )}
                     >
-                      {t === 'income' ? 'Income' : 'Expense'}
+                      {t === 'income' ? tr('ui:SmartImportPage.income') : tr('ui:SmartImportPage.expense')}
                     </button>
                   ))}
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr('ui:SmartImportPage.date')}</label>
                 <input
                   type="date"
                   value={draft.date}
@@ -180,7 +183,7 @@ function EditPreviewModal({ importId, filename, mimeType, item, overrides, categ
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr('ui:SmartImportPage.description')}</label>
                 <input
                   type="text"
                   value={draft.description}
@@ -190,7 +193,7 @@ function EditPreviewModal({ importId, filename, mimeType, item, overrides, categ
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Amount</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr('ui:SmartImportPage.amount')}</label>
                 <input
                   type="number"
                   step="0.01"
@@ -202,13 +205,13 @@ function EditPreviewModal({ importId, filename, mimeType, item, overrides, categ
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Category</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr('ui:SmartImportPage.category')}</label>
                 <select
                   value={draft.category_suggestion}
                   onChange={(e) => setDraft(d => ({ ...d, category_suggestion: e.target.value }))}
                   className="w-full px-3 py-2 text-sm border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="">No category</option>
+                  <option value="">{tr('ui:SmartImportPage.noCategory')}</option>
                   {categories.map((cat) => (
                     <option key={cat.id} value={cat.name}>{cat.name}</option>
                   ))}
@@ -216,7 +219,7 @@ function EditPreviewModal({ importId, filename, mimeType, item, overrides, categ
               </div>
 
               <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
-                <span>AI Confidence:</span>
+                <span>{tr('ui:SmartImportPage.aiConfidence')}</span>
                 <ConfidenceBadge value={item.confidence} />
               </div>
             </div>
@@ -226,13 +229,13 @@ function EditPreviewModal({ importId, filename, mimeType, item, overrides, categ
                 onClick={onClose}
                 className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 border dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
               >
-                Cancel
+               {tr('ui:SmartImportPage.cancel')}
               </button>
               <button
                 onClick={handleSave}
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
               >
-                Save Changes
+               {tr('ui:SmartImportPage.saveChanges')}
               </button>
             </div>
           </div>
@@ -248,6 +251,7 @@ function SplitModal({ item, onClose, onSplit }: {
   onClose: () => void
   onSplit: (months: number) => void
 }) {
+  const { t } = useTranslation('ui')
   const [months, setMonths] = useState(12)
   const amount = item.overrides?.amount ?? item.amount
   const perMonth = amount / months
@@ -259,10 +263,10 @@ function SplitModal({ item, onClose, onSplit }: {
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-          Split Into Monthly Entries
+         {t('ui:SmartImportPage.splitIntoMonthlyEntries')}
         </h3>
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          Split "{item.overrides?.description ?? item.description}" ({formatCurrency(amount)}) into equal monthly entries.
+         {t('ui:SmartImportPage.split')}{item.overrides?.description ?? item.description}" ({formatCurrency(amount)}{t('ui:SmartImportPage.intoEqualMonthlyEntries')}
         </p>
 
         <div className="grid grid-cols-5 gap-2">
@@ -288,7 +292,7 @@ function SplitModal({ item, onClose, onSplit }: {
           </p>
           {amount !== perMonth * months && (
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Rounding difference of {formatCurrency(Math.abs(amount - perMonth * months))} added to first entry.
+             {t('ui:SmartImportPage.roundingDifferenceOf')} {formatCurrency(Math.abs(amount - perMonth * months))} {t('ui:SmartImportPage.addedToFirstEntry')}
             </p>
           )}
         </div>
@@ -298,13 +302,13 @@ function SplitModal({ item, onClose, onSplit }: {
             onClick={onClose}
             className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 border dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
           >
-            Cancel
+           {t('ui:SmartImportPage.cancel')}
           </button>
           <button
             onClick={() => onSplit(months)}
             className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
           >
-            Split into {months} Entries
+           {t('ui:SmartImportPage.splitInto')} {months} {t('ui:SmartImportPage.entries')}
           </button>
         </div>
       </div>
@@ -313,6 +317,7 @@ function SplitModal({ item, onClose, onSplit }: {
 }
 
 export default function SmartImportPage() {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -374,7 +379,7 @@ export default function SmartImportPage() {
           const resp = await uploadForImport(files[i])
           results.push(resp.data)
         } catch (err: any) {
-          toast.error(`Failed: ${files[i].name} — ${err?.message || 'Unknown error'}`)
+          toast.error(t('ui:SmartImportPage.failedNameV1', { name: files[i].name, v1: err?.message || 'Unknown error' }))
         }
       }
       setBatchProgress(null)
@@ -387,7 +392,7 @@ export default function SmartImportPage() {
         setSelectedItems(new Set())
         setItemOverrides({})
       } else if (results.length > 1) {
-        toast.success(`Processed ${results.length} files. Check recent imports below.`)
+        toast.success(t('ui:SmartImportPage.processedLengthFilesCheckRecent', { length: results.length }))
       }
     },
   })
@@ -413,9 +418,9 @@ export default function SmartImportPage() {
       queryClient.invalidateQueries({ queryKey: ['cashbook-summary'] })
 
       if (data?.errors?.length > 0) {
-        toast.warning(`Imported ${data.imported_count} of ${data.total_items} items. ${data.errors.length} failed.`)
+        toast.warning(t('ui:SmartImportPage.importedImportedCountOfTotal', { imported_count: data.imported_count, total_items: data.total_items, length: data.errors.length }))
       } else {
-        toast.success(`Imported ${data?.imported_count ?? 0} entries into your cashbook.`)
+        toast.success(t('ui:SmartImportPage.importedV0EntriesIntoYour', { v0: data?.imported_count ?? 0 }))
         setActiveImport(null)
         setSelectedItems(new Set())
         setItemOverrides({})
@@ -432,7 +437,7 @@ export default function SmartImportPage() {
       queryClient.invalidateQueries({ queryKey: ['smart-imports'] })
       queryClient.invalidateQueries({ queryKey: ['cashbook-entries'] })
       queryClient.invalidateQueries({ queryKey: ['cashbook-summary'] })
-      toast.success('Import batch deleted.')
+      toast.success(t('ui:SmartImportPage.importBatchDeleted'))
     },
   })
 
@@ -444,7 +449,7 @@ export default function SmartImportPage() {
       queryClient.invalidateQueries({ queryKey: ['cashbook-entries'] })
       queryClient.invalidateQueries({ queryKey: ['cashbook-summary'] })
       setSelectedImportIds(new Set())
-      toast.success(`Deleted ${n} import${n !== 1 ? 's' : ''}.`)
+      toast.success(t('ui:SmartImportPage.deletedNImportV1', { n, v1: n !== 1 ? 's' : '' }))
     },
     onError: (err: any) => toast.error(err?.message || 'Bulk delete failed.'),
   })
@@ -458,7 +463,7 @@ export default function SmartImportPage() {
         setActiveImport(data)
         setSelectedItems(new Set())
         setItemOverrides({})
-        toast.success('Re-read successfully — review the items.')
+        toast.success(t('ui:SmartImportPage.reReadSuccessfullyReviewThe'))
       } else {
         toast.error(data?.error_message || 'Retry did not produce any rows.')
       }
@@ -511,7 +516,7 @@ export default function SmartImportPage() {
       const { [itemId]: _, ...rest } = itemOverrides
       setItemOverrides(rest)
     } catch {
-      toast.error('Failed to delete item')
+      toast.error(t('ui:SmartImportPage.failedToDeleteItem'))
     }
   }
 
@@ -573,14 +578,14 @@ export default function SmartImportPage() {
     })
 
     setSplitItem(null)
-    toast.success(`Split into ${months} monthly entries.`)
+    toast.success(t('ui:SmartImportPage.splitIntoMonthsMonthlyEntries', { months }))
   }
 
   const saveEditing = () => {
     if (!editingItemId) return
     const amount = parseFloat(editDraft.amount)
     if (isNaN(amount) || amount <= 0) {
-      toast.error('Amount must be a positive number')
+      toast.error(t('ui:SmartImportPage.amountMustBeAPositive'))
       return
     }
     setItemOverrides((prev) => ({
@@ -624,16 +629,16 @@ export default function SmartImportPage() {
             <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
             <div className="min-w-0">
               <h3 className="font-semibold text-red-800 dark:text-red-300 break-words">
-                Couldn't read "{activeImport.original_filename}"
+               {t('ui:SmartImportPage.couldnTRead')}{activeImport.original_filename}"
               </h3>
               <p className="text-sm text-red-700 dark:text-red-400 mt-1">
-                {activeImport.error_message || 'No transactions could be extracted from this file.'}
+                {activeImport.error_message || t('ui:SmartImportPage.noTransactionsCouldBeExtracted')}
               </p>
               <button
                 onClick={() => setActiveImport(null)}
                 className="mt-3 px-3 py-1.5 text-sm border border-red-300 dark:border-red-800 text-red-700 dark:text-red-300 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40"
               >
-                Try another file
+               {t('ui:SmartImportPage.tryAnotherFile')}
               </button>
             </div>
           </div>
@@ -693,7 +698,7 @@ export default function SmartImportPage() {
 
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Review Import</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('ui:SmartImportPage.reviewImport')}</h1>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
               {activeImport.original_filename} · {activeImport.ai_summary}
             </p>
@@ -702,16 +707,16 @@ export default function SmartImportPage() {
             <button
               onClick={() => setShowPreview(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 border dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
-              title="Preview source document"
+              title={t('ui:SmartImportPage.previewSourceDocument')}
             >
               <Eye className="h-4 w-4" />
-              Preview
+             {t('ui:SmartImportPage.preview')}
             </button>
             <button
               onClick={() => { setActiveImport(null); setSelectedItems(new Set()); setEditingItemId(null) }}
               className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 border dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
             >
-              Back
+             {t('ui:SmartImportPage.back')}
             </button>
           </div>
         </div>
@@ -720,16 +725,16 @@ export default function SmartImportPage() {
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-4">
           <div className="flex-1 w-full">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Import to Cashbook account <span className="text-red-500">*</span>
+             {t('ui:SmartImportPage.importToCashbookAccount')} <span className="text-red-500">*</span>
             </label>
             {accounts.length === 0 ? (
               <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-500 dark:text-gray-400">No accounts yet.</span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">{t('ui:SmartImportPage.noAccountsYet')}</span>
                 <button
                   onClick={() => navigate('/cashbook')}
                   className="text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium"
                 >
-                  Create an account first
+                 {t('ui:SmartImportPage.createAnAccountFirst')}
                 </button>
               </div>
             ) : (
@@ -738,7 +743,7 @@ export default function SmartImportPage() {
                 onChange={(e) => setSelectedAccountId(e.target.value)}
                 className="w-full max-w-xs px-3 py-2 text-sm border dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
               >
-                <option value="">Select account...</option>
+                <option value="">{t('ui:SmartImportPage.selectAccount')}</option>
                 {accounts.map((a) => (
                   <option key={a.id} value={a.id}>{a.name} ({a.currency})</option>
                 ))}
@@ -746,13 +751,13 @@ export default function SmartImportPage() {
             )}
             {accounts.length > 0 && (
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                These entries post to your Cashbook under this account.
+               {t('ui:SmartImportPage.theseEntriesPostToYour')}
               </p>
             )}
           </div>
           <div className="text-right shrink-0">
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-              {selectedItems.size} of {importableItems.length} selected · {formatCurrency(selectedTotal)}
+              {selectedItems.size} of {importableItems.length} {t('ui:SmartImportPage.selected')} {formatCurrency(selectedTotal)}
             </p>
             <button
               onClick={() => confirmMutation.mutate()}
@@ -764,10 +769,10 @@ export default function SmartImportPage() {
               ) : (
                 <ArrowRight className="h-4 w-4" />
               )}
-              Import {selectedItems.size} Item{selectedItems.size !== 1 ? 's' : ''}
+             {t('ui:SmartImportPage.import')} {selectedItems.size} {t('ui:SmartImportPage.item')}{selectedItems.size !== 1 ? 's' : ''}
             </button>
             {selectedItems.size === 0 && accounts.length > 0 && (
-              <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">Select at least one row to import.</p>
+              <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">{t('ui:SmartImportPage.selectAtLeastOneRow')}</p>
             )}
           </div>
         </div>
@@ -786,14 +791,14 @@ export default function SmartImportPage() {
                   <>
                     <AlertTriangle className="h-5 w-5 text-orange-600 dark:text-orange-400" />
                     <span className="text-orange-700 dark:text-orange-400">
-                      Imported {confirmData.imported_count} of {confirmData.total_items} items.
+                     {t('ui:SmartImportPage.imported')} {confirmData.imported_count} of {confirmData.total_items} {t('ui:SmartImportPage.items')}
                     </span>
                   </>
                 ) : (
                   <>
                     <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
                     <span className="text-green-700 dark:text-green-400">
-                      Imported {confirmData.imported_count} entries into {accounts.find(a => a.id === selectedAccountId)?.name || 'your cashbook'}.
+                     {t('ui:SmartImportPage.imported')} {confirmData.imported_count} {t('ui:SmartImportPage.entriesInto')} {accounts.find(a => a.id === selectedAccountId)?.name || t('ui:SmartImportPage.yourCashbook')}.
                     </span>
                   </>
                 )}
@@ -802,12 +807,12 @@ export default function SmartImportPage() {
                 onClick={() => navigate('/cashbook')}
                 className="px-3 py-1.5 text-sm font-medium text-blue-700 dark:text-blue-400 border border-blue-300 dark:border-blue-700 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/40"
               >
-                View in Cashbook
+               {t('ui:SmartImportPage.viewInCashbook')}
               </button>
             </div>
             {confirmData.errors?.length > 0 && (
               <div className="mt-2 space-y-1">
-                <p className="text-xs font-medium text-orange-700 dark:text-orange-400">Skipped items:</p>
+                <p className="text-xs font-medium text-orange-700 dark:text-orange-400">{t('ui:SmartImportPage.skippedItems')}</p>
                 {confirmData.errors.map((err: string, i: number) => (
                   <p key={i} className="text-xs text-orange-600 dark:text-orange-500 pl-2">- {err}</p>
                 ))}
@@ -820,8 +825,7 @@ export default function SmartImportPage() {
         {importedItems.length > 0 && importableItems.length > 0 && (
           <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2">
             <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
-            {importedItems.length} item{importedItems.length !== 1 ? 's' : ''} already imported.
-            Showing {importableItems.length} remaining.
+            {importedItems.length} item{importedItems.length !== 1 ? 's' : ''} {t('ui:SmartImportPage.alreadyImportedShowing')} {importableItems.length} {t('ui:SmartImportPage.remaining')}
           </div>
         )}
 
@@ -838,12 +842,12 @@ export default function SmartImportPage() {
                     className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
                   />
                 </th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Type</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Date</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Description</th>
-                <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Amount</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Category</th>
-                <th className="text-center px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Confidence</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('ui:SmartImportPage.type')}</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('ui:SmartImportPage.date')}</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('ui:SmartImportPage.description')}</th>
+                <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('ui:SmartImportPage.amount')}</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('ui:SmartImportPage.category')}</th>
+                <th className="text-center px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('ui:SmartImportPage.confidence')}</th>
                 <th className="px-4 py-3 w-24"></th>
               </tr>
             </thead>
@@ -914,7 +918,7 @@ export default function SmartImportPage() {
                           }}
                           className="text-xs bg-transparent border border-gray-200 dark:border-gray-600 rounded px-1.5 py-0.5 text-gray-700 dark:text-gray-300 max-w-[140px]"
                         >
-                          <option value="">No category</option>
+                          <option value="">{t('ui:SmartImportPage.noCategory')}</option>
                           {categories.map((cat) => (
                             <option key={cat.id} value={cat.name}>{cat.name}</option>
                           ))}
@@ -926,14 +930,14 @@ export default function SmartImportPage() {
                           <button
                             onClick={saveEditing}
                             className="p-1 text-green-600 hover:text-green-700 dark:text-green-400"
-                            title="Save"
+                            title={t('ui:SmartImportPage.save')}
                           >
                             <Check className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => setEditingItemId(null)}
                             className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                            title="Cancel"
+                            title={t('ui:SmartImportPage.cancel')}
                           >
                             <X className="h-4 w-4" />
                           </button>
@@ -999,7 +1003,7 @@ export default function SmartImportPage() {
                       {itemOverrides[item.id]?.description ?? item.description}
                       {item.is_duplicate && (
                         <span className="ml-2 text-[10px] bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 px-1.5 py-0.5 rounded">
-                          possible duplicate
+                         {t('ui:SmartImportPage.possibleDuplicate')}
                         </span>
                       )}
                     </td>
@@ -1020,7 +1024,7 @@ export default function SmartImportPage() {
                         disabled={isImported}
                         className="text-xs bg-transparent border border-gray-200 dark:border-gray-600 rounded px-1.5 py-0.5 text-gray-700 dark:text-gray-300 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 max-w-[140px]"
                       >
-                        <option value="">No category</option>
+                        <option value="">{t('ui:SmartImportPage.noCategory')}</option>
                         {categories.map((cat) => (
                           <option key={cat.id} value={cat.name}>{cat.name}</option>
                         ))}
@@ -1035,21 +1039,21 @@ export default function SmartImportPage() {
                           <button
                             onClick={(e) => { e.stopPropagation(); setEditPreviewItem(item) }}
                             className="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
-                            title="Edit with preview"
+                            title={t('ui:SmartImportPage.editWithPreview')}
                           >
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
                           <button
                             onClick={(e) => { e.stopPropagation(); setSplitItem(item) }}
                             className="p-1 text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
-                            title="Split into monthly entries"
+                            title={t('ui:SmartImportPage.splitIntoMonthlyEntries_2')}
                           >
                             <Scissors className="h-3.5 w-3.5" />
                           </button>
                           <button
                             onClick={(e) => { e.stopPropagation(); handleDeleteItem(item.id) }}
                             className="p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400"
-                            title="Remove"
+                            title={t('ui:SmartImportPage.remove')}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
@@ -1072,9 +1076,9 @@ export default function SmartImportPage() {
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Smart Import</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('ui:SmartImportPage.smartImport')}</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Upload receipts, invoices, or bank statements. AI extracts the transactions for you.
+         {t('ui:SmartImportPage.uploadReceiptsInvoicesOrBank')}
         </p>
       </div>
 
@@ -1094,10 +1098,10 @@ export default function SmartImportPage() {
             <div>
               <p className="text-lg font-medium text-gray-900 dark:text-gray-100">
                 {batchProgress
-                  ? `Processing file ${batchProgress.current} of ${batchProgress.total}...`
-                  : 'Analyzing document...'}
+                  ? t('ui:SmartImportPage.processingFileCurrentOfTotal', { current: batchProgress.current, total: batchProgress.total })
+                  : t('ui:SmartImportPage.analyzingDocument')}
               </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">AI is extracting transactions. This may take a moment.</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('ui:SmartImportPage.aiIsExtractingTransactionsThis')}</p>
             </div>
           </div>
         ) : (
@@ -1107,10 +1111,10 @@ export default function SmartImportPage() {
             </div>
             <div>
               <p className="text-lg font-medium text-gray-900 dark:text-gray-100">
-                Drop files here or click to browse
+               {t('ui:SmartImportPage.dropFilesHereOrClick')}
               </p>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                Supports images (PNG, JPEG, WebP), PDF, and CSV exports up to 20MB. CSV statements (Meta/Facebook Ads, Stripe, bank exports) are read exactly and split into one row per payment. Select multiple files for batch upload.
+               {t('ui:SmartImportPage.supportsImagesPngJpegWebp')}
               </p>
             </div>
             <label className="cursor-pointer">
@@ -1128,7 +1132,7 @@ export default function SmartImportPage() {
               />
               <span className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition">
                 <FileImage className="h-4 w-4" />
-                Choose Files
+               {t('ui:SmartImportPage.chooseFiles')}
               </span>
             </label>
           </div>
@@ -1136,7 +1140,7 @@ export default function SmartImportPage() {
 
         {uploadMutation.isError && (
           <p className="text-sm text-red-600 mt-4">
-            {(uploadMutation.error as Error).message || 'Upload failed. Please try again.'}
+            {(uploadMutation.error as Error).message || t('ui:SmartImportPage.uploadFailedPleaseTryAgain')}
           </p>
         )}
       </div>
@@ -1145,20 +1149,20 @@ export default function SmartImportPage() {
       {imports.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Recent Imports</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('ui:SmartImportPage.recentImports')}</h2>
             <div className="flex items-center gap-2">
               {imports.some((i) => i.status === 'failed') && (
                 <button
                   onClick={() => setSelectedImportIds(new Set(imports.filter((i) => i.status === 'failed').map((i) => i.id)))}
                   className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
                 >
-                  Select failed
+                 {t('ui:SmartImportPage.selectFailed')}
                 </button>
               )}
               {selectedImportIds.size > 0 && (
                 <button
                   onClick={() => {
-                    if (confirm(`Delete ${selectedImportIds.size} selected import(s)? Any already-imported ones will also remove their cashbook entries.`)) {
+                    if (confirm(t('ui:SmartImportPage.deleteSizeSelectedImportS', { size: selectedImportIds.size }))) {
                       bulkDeleteMutation.mutate(Array.from(selectedImportIds))
                     }
                   }}
@@ -1166,7 +1170,7 @@ export default function SmartImportPage() {
                   className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50"
                 >
                   <Trash2 className="h-4 w-4" />
-                  Delete {selectedImportIds.size} selected
+                 {t('ui:SmartImportPage.delete')} {selectedImportIds.size} selected
                 </button>
               )}
             </div>
@@ -1179,7 +1183,7 @@ export default function SmartImportPage() {
                 onChange={(e) => setSelectedImportIds(e.target.checked ? new Set(imports.map((i) => i.id)) : new Set())}
                 className="h-4 w-4 rounded border-gray-300 dark:border-gray-600"
               />
-              <span>Select all ({imports.length})</span>
+              <span>{t('ui:SmartImportPage.selectAll')}{imports.length})</span>
             </div>
             {imports.map((imp) => {
               const isFailed = imp.status === 'failed'
@@ -1210,11 +1214,11 @@ export default function SmartImportPage() {
                     </p>
                     {isFailed ? (
                       <p className="text-xs text-red-600 dark:text-red-400 truncate">
-                        {imp.error_message || 'Failed to read this file.'}
+                        {imp.error_message || t('ui:SmartImportPage.failedToReadThisFile')}
                       </p>
                     ) : (
                       <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {imp.ai_summary || imp.document_type || (imp.status === 'processing' ? 'Processing…' : 'Ready')}
+                        {imp.ai_summary || imp.document_type || (imp.status === 'processing' ? t('ui:SmartImportPage.processing') : t('ui:SmartImportPage.ready'))}
                         {' · '}{imp.item_count} item{imp.item_count !== 1 ? 's' : ''}
                         {' · '}{new Date(imp.created_at).toLocaleDateString()}
                       </p>
@@ -1236,7 +1240,7 @@ export default function SmartImportPage() {
                     onClick={() => retryMutation.mutate(imp.id)}
                     disabled={retryMutation.isPending}
                     className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded shrink-0 disabled:opacity-50"
-                    title="Retry"
+                    title={t('ui:SmartImportPage.retry')}
                   >
                     <RotateCcw className={cn('h-4 w-4', retryMutation.isPending && retryMutation.variables === imp.id && 'animate-spin')} />
                   </button>
@@ -1248,7 +1252,7 @@ export default function SmartImportPage() {
                     }
                   }}
                   className="p-1.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400 shrink-0"
-                  title="Delete import"
+                  title={t('ui:SmartImportPage.deleteImport')}
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>

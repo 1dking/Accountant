@@ -3,6 +3,7 @@ import { useParams } from 'react-router'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { getPublicForm, submitPublicForm } from '@/api/forms'
 import { CheckCircle, Loader2, AlertCircle } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 interface FormField {
   name: string
@@ -35,6 +36,7 @@ function parseThankYouConfig(json: string | undefined | null): ThankYouConfig {
 }
 
 export default function PublicFormPage() {
+  const { t } = useTranslation('ui')
   const { formId } = useParams<{ formId: string }>()
   const [values, setValues] = useState<Record<string, string>>({})
   const [validationError, setValidationError] = useState<string | null>(null)
@@ -75,10 +77,10 @@ export default function PublicFormPage() {
         <div className="text-center">
           <AlertCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
           <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
-            Form not found
+           {t('ui:PublicFormPage.formNotFound')}
           </h1>
           <p className="text-gray-500 dark:text-gray-400">
-            This link may have expired or is no longer valid.
+           {t('ui:PublicFormPage.thisLinkMayHaveExpired')}
           </p>
         </div>
       </div>
@@ -95,7 +97,7 @@ export default function PublicFormPage() {
         <div className="max-w-md w-full bg-white dark:bg-gray-900 rounded-xl shadow-sm border p-8 text-center">
           <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
           <p className="text-gray-900 dark:text-gray-100 font-medium">
-            {thankYou.message || 'Thank you for your submission!'}
+            {thankYou.message || t('ui:PublicFormPage.thankYouForYourSubmission')}
           </p>
         </div>
       </div>
@@ -152,7 +154,7 @@ export default function PublicFormPage() {
             <p className="text-sm text-red-600">{validationError}</p>
           )}
           {submitMutation.isError && (
-            <p className="text-sm text-red-600">Submission failed. Please try again.</p>
+            <p className="text-sm text-red-600">{t('ui:PublicFormPage.submissionFailedPleaseTryAgain')}</p>
           )}
 
           <button
@@ -160,7 +162,7 @@ export default function PublicFormPage() {
             disabled={submitMutation.isPending}
             className="w-full px-6 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
           >
-            {submitMutation.isPending ? 'Submitting...' : 'Submit'}
+            {submitMutation.isPending ? t('ui:PublicFormPage.submitting') : t('ui:PublicFormPage.submit')}
           </button>
         </form>
       </div>

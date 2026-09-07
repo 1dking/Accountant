@@ -1,6 +1,7 @@
 import { X, Trash2 } from 'lucide-react'
 import StepConfigForm from '@/components/workflows/StepConfigForm'
 import { ACTION_LIBRARY, TRIGGER_LIBRARY, type GraphNode } from './graph'
+import { useTranslation } from 'react-i18next'
 
 interface NodeConfigDrawerProps {
   node: GraphNode
@@ -10,6 +11,7 @@ interface NodeConfigDrawerProps {
 }
 
 export default function NodeConfigDrawer({ node, onChange, onDelete, onClose }: NodeConfigDrawerProps) {
+  const { t } = useTranslation('ui')
   return (
     <div className="w-80 shrink-0 border-l border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 h-full overflow-y-auto p-4">
       <div className="flex items-center justify-between mb-4">
@@ -24,20 +26,20 @@ export default function NodeConfigDrawer({ node, onChange, onDelete, onClose }: 
       {node.kind === 'trigger' && (
         <div className="space-y-3">
           <div>
-            <label className="block text-xs text-gray-500 dark:text-gray-400 mb-0.5">Trigger Type</label>
+            <label className="block text-xs text-gray-500 dark:text-gray-400 mb-0.5">{t('ui:NodeConfigDrawer.triggerType')}</label>
             <select
               value={node.trigger_type ?? ''}
               onChange={(e) => onChange({ ...node, trigger_type: e.target.value })}
               className="w-full px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100"
             >
-              <option value="" disabled>Select a trigger…</option>
+              <option value="" disabled>{t('ui:NodeConfigDrawer.selectATrigger')}</option>
               {TRIGGER_LIBRARY.map((t) => (
                 <option key={t.value} value={t.value}>{t.label}</option>
               ))}
             </select>
           </div>
           <StepConfigForm
-            label="Trigger Config (JSON)"
+            label={t('ui:NodeConfigDrawer.triggerConfigJson')}
             value={node.trigger_config ? JSON.stringify(node.trigger_config, null, 2) : ''}
             onChange={(value) => {
               try {
@@ -53,13 +55,13 @@ export default function NodeConfigDrawer({ node, onChange, onDelete, onClose }: 
       {node.kind === 'action' && (
         <div className="space-y-3">
           <div>
-            <label className="block text-xs text-gray-500 dark:text-gray-400 mb-0.5">Action Type</label>
+            <label className="block text-xs text-gray-500 dark:text-gray-400 mb-0.5">{t('ui:NodeConfigDrawer.actionType')}</label>
             <select
               value={node.action_type ?? ''}
               onChange={(e) => onChange({ ...node, action_type: e.target.value })}
               className="w-full px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100"
             >
-              <option value="" disabled>Select an action…</option>
+              <option value="" disabled>{t('ui:NodeConfigDrawer.selectAnAction')}</option>
               {ACTION_LIBRARY.map((a) => (
                 <option key={a.value} value={a.value}>{a.label}</option>
               ))}
@@ -82,19 +84,19 @@ export default function NodeConfigDrawer({ node, onChange, onDelete, onClose }: 
       {node.kind === 'condition' && (
         <div className="space-y-3">
           <div>
-            <label className="block text-xs text-gray-500 dark:text-gray-400 mb-0.5">Field</label>
+            <label className="block text-xs text-gray-500 dark:text-gray-400 mb-0.5">{t('ui:NodeConfigDrawer.field')}</label>
             <input
               type="text"
               value={node.condition?.field ?? ''}
               onChange={(e) =>
                 onChange({ ...node, condition: { ...(node.condition ?? { operator: 'eq' }), field: e.target.value } })
               }
-              placeholder="e.g. amount"
+              placeholder={t('ui:NodeConfigDrawer.eGAmount')}
               className="w-full px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100"
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-500 dark:text-gray-400 mb-0.5">Operator</label>
+            <label className="block text-xs text-gray-500 dark:text-gray-400 mb-0.5">{t('ui:NodeConfigDrawer.operator')}</label>
             <select
               value={node.condition?.operator ?? 'eq'}
               onChange={(e) =>
@@ -109,14 +111,14 @@ export default function NodeConfigDrawer({ node, onChange, onDelete, onClose }: 
               className="w-full px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100"
             >
               <option value="eq">equals</option>
-              <option value="neq">not equals</option>
+              <option value="neq">{t('ui:NodeConfigDrawer.notEquals')}</option>
               <option value="contains">contains</option>
               <option value="exists">exists</option>
             </select>
           </div>
           {node.condition?.operator !== 'exists' && (
             <div>
-              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-0.5">Value</label>
+              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-0.5">{t('ui:NodeConfigDrawer.value')}</label>
               <input
                 type="text"
                 value={node.condition?.value ?? ''}
@@ -128,14 +130,14 @@ export default function NodeConfigDrawer({ node, onChange, onDelete, onClose }: 
             </div>
           )}
           <p className="text-[11px] text-gray-400 dark:text-gray-500">
-            Green (true) and red (false) handles on the node connect to whatever runs next for each outcome.
+           {t('ui:NodeConfigDrawer.greenTrueAndRedFalse')}
           </p>
         </div>
       )}
 
       {node.kind === 'delay' && (
         <div>
-          <label className="block text-xs text-gray-500 dark:text-gray-400 mb-0.5">Wait (seconds)</label>
+          <label className="block text-xs text-gray-500 dark:text-gray-400 mb-0.5">{t('ui:NodeConfigDrawer.waitSeconds')}</label>
           <input
             type="number"
             min={0}
@@ -152,7 +154,7 @@ export default function NodeConfigDrawer({ node, onChange, onDelete, onClose }: 
           className="mt-6 flex items-center gap-1.5 text-xs text-red-500 hover:text-red-600"
         >
           <Trash2 className="h-3.5 w-3.5" />
-          Delete node
+         {t('ui:NodeConfigDrawer.deleteNode')}
         </button>
       )}
     </div>

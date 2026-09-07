@@ -1,8 +1,10 @@
 import { Mail, Phone, Globe, CalendarDays, QrCode, UserPlus } from 'lucide-react'
 import type { CardTemplateProps } from '../types'
+import { useTranslation } from 'react-i18next'
 
 /** Bold — oversized poster typography with a thick accent rule. */
 export default function BoldCard({ card, onSaveContact, onShowQr }: CardTemplateProps) {
+  const { t } = useTranslation('ui')
   const [firstName, ...rest] = card.display_name.split(' ')
   const lastName = rest.join(' ')
 
@@ -48,7 +50,7 @@ export default function BoldCard({ card, onSaveContact, onShowQr }: CardTemplate
             className="w-full flex items-center justify-center gap-2 px-4 py-4 text-sm font-bold uppercase tracking-wider"
             style={{ background: card.button_color, color: card.button_text_color }}
           >
-            <UserPlus className="w-4 h-4" /> Save Contact
+            <UserPlus className="w-4 h-4" /> {t('ui:BoldCard.saveContact')}
           </button>
           {card.booking_url && (
             <a
@@ -56,7 +58,7 @@ export default function BoldCard({ card, onSaveContact, onShowQr }: CardTemplate
               className="w-full flex items-center justify-center gap-2 px-4 py-4 text-sm font-bold uppercase tracking-wider border-2"
               style={{ borderColor: card.text_color, color: card.text_color }}
             >
-              <CalendarDays className="w-4 h-4" /> Book a meeting
+              <CalendarDays className="w-4 h-4" /> {t('ui:BoldCard.bookAMeeting')}
             </a>
           )}
         </div>
@@ -97,7 +99,7 @@ export default function BoldCard({ card, onSaveContact, onShowQr }: CardTemplate
         )}
 
         <button onClick={onShowQr} className="mt-10 inline-flex items-center gap-1.5 text-xs opacity-50 hover:opacity-90">
-          <QrCode className="w-3.5 h-3.5" /> Share this card
+          <QrCode className="w-3.5 h-3.5" /> {t('ui:BoldCard.shareThisCard')}
         </button>
       </div>
     </div>

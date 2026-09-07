@@ -12,18 +12,21 @@ import {
   type ChartAccountInput,
   type CoaAccountType,
 } from '@/api/accounting'
+import { useTranslation } from 'react-i18next'
+import i18n from '@/i18n'
 
 const ACCOUNT_TYPES: { value: CoaAccountType; label: string; plural: string; normal: 'debit' | 'credit'; color: string }[] = [
-  { value: 'asset', label: 'Asset', plural: 'Assets', normal: 'debit', color: 'text-blue-600 dark:text-blue-400' },
-  { value: 'liability', label: 'Liability', plural: 'Liabilities', normal: 'credit', color: 'text-amber-600 dark:text-amber-400' },
-  { value: 'equity', label: 'Equity', plural: 'Equity', normal: 'credit', color: 'text-purple-600 dark:text-purple-400' },
-  { value: 'income', label: 'Income', plural: 'Income', normal: 'credit', color: 'text-green-600 dark:text-green-400' },
-  { value: 'expense', label: 'Expense', plural: 'Expenses', normal: 'debit', color: 'text-red-600 dark:text-red-400' },
+  { value: 'asset', label: i18n.t('ui:ChartOfAccountsPage.asset'), plural: 'Assets', normal: 'debit', color: 'text-blue-600 dark:text-blue-400' },
+  { value: 'liability', label: i18n.t('ui:ChartOfAccountsPage.liability'), plural: 'Liabilities', normal: 'credit', color: 'text-amber-600 dark:text-amber-400' },
+  { value: 'equity', label: i18n.t('ui:ChartOfAccountsPage.equity'), plural: 'Equity', normal: 'credit', color: 'text-purple-600 dark:text-purple-400' },
+  { value: 'income', label: i18n.t('ui:ChartOfAccountsPage.income'), plural: 'Income', normal: 'credit', color: 'text-green-600 dark:text-green-400' },
+  { value: 'expense', label: i18n.t('ui:ChartOfAccountsPage.expense'), plural: 'Expenses', normal: 'debit', color: 'text-red-600 dark:text-red-400' },
 ]
 
 const TYPE_ORDER: CoaAccountType[] = ['asset', 'liability', 'equity', 'income', 'expense']
 
 export default function ChartOfAccountsPage() {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const [editing, setEditing] = useState<ChartAccount | null>(null)
   const [creating, setCreating] = useState(false)
@@ -41,7 +44,7 @@ export default function ChartOfAccountsPage() {
       queryClient.invalidateQueries({ queryKey: ['coa-accounts'] })
       const d = res.data
       if (d.already_seeded && d.accounts_created === 0) {
-        toast.success('Chart of Accounts is already set up')
+        toast.success(t('ui:ChartOfAccountsPage.chartOfAccountsIsAlready'))
       } else {
         toast.success(
           `Set up ${d.accounts_created} accounts` +
@@ -65,11 +68,10 @@ export default function ChartOfAccountsPage() {
         <div>
           <div className="flex items-center gap-2">
             <ListTree className="w-6 h-6 text-gray-700 dark:text-gray-300" />
-            <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Chart of Accounts</h1>
+            <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">{t('ui:ChartOfAccountsPage.chartOfAccounts')}</h1>
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            The numbered accounts every journal entry, bill, and report posts to. Assets and expenses
-            carry a debit balance; liabilities, equity, and income carry a credit balance.
+           {t('ui:ChartOfAccountsPage.theNumberedAccountsEveryJournal')}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -80,7 +82,7 @@ export default function ChartOfAccountsPage() {
               className="flex items-center gap-1.5 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
             >
               {seedMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              Set up standard chart
+             {t('ui:ChartOfAccountsPage.setUpStandardChart')}
             </button>
           )}
           <button
@@ -88,7 +90,7 @@ export default function ChartOfAccountsPage() {
             className="flex items-center gap-1.5 px-4 py-2 text-sm border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
           >
             <Plus className="w-4 h-4" />
-            New account
+           {t('ui:ChartOfAccountsPage.newAccount')}
           </button>
         </div>
       </div>
@@ -100,7 +102,7 @@ export default function ChartOfAccountsPage() {
           onChange={(e) => setIncludeInactive(e.target.checked)}
           className="rounded border-gray-300"
         />
-        Show deactivated accounts
+       {t('ui:ChartOfAccountsPage.showDeactivatedAccounts')}
       </label>
 
       {isLoading ? (
@@ -110,10 +112,9 @@ export default function ChartOfAccountsPage() {
       ) : accounts.length === 0 ? (
         <div className="text-center py-16 border border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
           <ListTree className="w-10 h-10 mx-auto text-gray-300 dark:text-gray-600" />
-          <p className="mt-3 text-gray-600 dark:text-gray-300 font-medium">No accounts yet</p>
+          <p className="mt-3 text-gray-600 dark:text-gray-300 font-medium">{t('ui:ChartOfAccountsPage.noAccountsYet')}</p>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Set up the standard chart to get numbered accounts and link your existing bank accounts and
-            categories automatically.
+           {t('ui:ChartOfAccountsPage.setUpTheStandardChart')}
           </p>
         </div>
       ) : (
@@ -124,7 +125,7 @@ export default function ChartOfAccountsPage() {
                 <h2 className={`text-sm font-semibold uppercase tracking-wide ${g.meta.color}`}>
                   {g.meta.plural}
                 </h2>
-                <span className="text-xs text-gray-400">normal balance: {g.meta.normal}</span>
+                <span className="text-xs text-gray-400">{t('ui:ChartOfAccountsPage.normalBalance')} {g.meta.normal}</span>
               </div>
               <div className="border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden">
                 {g.rows.map((a) => (
@@ -137,7 +138,7 @@ export default function ChartOfAccountsPage() {
                     <span className="font-mono text-sm text-gray-500 dark:text-gray-400 w-16 shrink-0">{a.code}</span>
                     <span className="text-sm text-gray-900 dark:text-gray-100 flex-1 truncate">{a.name}</span>
                     {a.is_system && (
-                      <span className="inline-flex items-center gap-1 text-[11px] text-gray-400" title="System account">
+                      <span className="inline-flex items-center gap-1 text-[11px] text-gray-400" title={t('ui:ChartOfAccountsPage.systemAccount')}>
                         <Lock className="w-3 h-3" /> system
                       </span>
                     )}
@@ -145,7 +146,7 @@ export default function ChartOfAccountsPage() {
                     <button
                       onClick={() => setEditing(a)}
                       className="p-1.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
-                      title="Edit"
+                      title={t('ui:ChartOfAccountsPage.edit')}
                     >
                       <Pencil className="w-4 h-4" />
                     </button>
@@ -171,6 +172,7 @@ export default function ChartOfAccountsPage() {
 }
 
 function AccountModal({ account, onClose }: { account: ChartAccount | null; onClose: () => void }) {
+  const { t: tr } = useTranslation('ui')
   const queryClient = useQueryClient()
   const isEdit = account !== null
   const [code, setCode] = useState(account?.code ?? '')
@@ -204,7 +206,7 @@ function AccountModal({ account, onClose }: { account: ChartAccount | null; onCl
     mutationFn: () => deactivateChartAccount(account!.id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['coa-accounts'] })
-      toast.success('Account deactivated')
+      toast.success(tr('ui:ChartOfAccountsPage.accountDeactivated'))
       onClose()
     },
     onError: (err: any) => toast.error(err?.message || 'Failed to deactivate'),
@@ -218,7 +220,7 @@ function AccountModal({ account, onClose }: { account: ChartAccount | null; onCl
       >
         <div className="flex items-center justify-between p-4 border-b dark:border-gray-700">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            {isEdit ? 'Edit Account' : 'New Account'}
+            {isEdit ? tr('ui:ChartOfAccountsPage.editAccount') : tr('ui:ChartOfAccountsPage.newAccount_2')}
           </h2>
           <button onClick={onClose} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded">
             <X className="w-5 h-5" />
@@ -228,7 +230,7 @@ function AccountModal({ account, onClose }: { account: ChartAccount | null; onCl
         <div className="p-4 space-y-4">
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Code</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr('ui:ChartOfAccountsPage.code')}</label>
               <input
                 type="text"
                 value={code}
@@ -239,19 +241,19 @@ function AccountModal({ account, onClose }: { account: ChartAccount | null; onCl
               />
             </div>
             <div className="col-span-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr('ui:ChartOfAccountsPage.name')}</label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Office Supplies"
+                placeholder={tr('ui:ChartOfAccountsPage.officeSupplies')}
                 className="w-full px-3 py-2 border rounded-lg text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr('ui:ChartOfAccountsPage.type')}</label>
             <select
               value={accountType}
               onChange={(e) => setAccountType(e.target.value as CoaAccountType)}
@@ -260,19 +262,19 @@ function AccountModal({ account, onClose }: { account: ChartAccount | null; onCl
             >
               {ACCOUNT_TYPES.map((t) => (
                 <option key={t.value} value={t.value}>
-                  {t.label} (normal balance: {t.normal})
+                  {t.label} {tr('ui:ChartOfAccountsPage.normalBalance_2')} {t.normal})
                 </option>
               ))}
             </select>
             {isEdit && (
               <p className="text-xs text-gray-400 mt-1">
-                Type can't change once an account exists — it would flip the account's normal balance.
+               {tr('ui:ChartOfAccountsPage.typeCanTChangeOnce')}
               </p>
             )}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr('ui:ChartOfAccountsPage.description')}</label>
             <input
               type="text"
               value={description}
@@ -289,7 +291,7 @@ function AccountModal({ account, onClose }: { account: ChartAccount | null; onCl
                 onChange={(e) => setIsActive(e.target.checked)}
                 className="rounded border-gray-300"
               />
-              Active
+             {tr('ui:ChartOfAccountsPage.active')}
             </label>
           )}
         </div>
@@ -302,7 +304,7 @@ function AccountModal({ account, onClose }: { account: ChartAccount | null; onCl
                 disabled={deactivate.isPending}
                 className="px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-950 rounded-lg disabled:opacity-50"
               >
-                Deactivate
+               {tr('ui:ChartOfAccountsPage.deactivate')}
               </button>
             )}
           </div>
@@ -311,7 +313,7 @@ function AccountModal({ account, onClose }: { account: ChartAccount | null; onCl
               onClick={onClose}
               className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
             >
-              Cancel
+             {tr('ui:ChartOfAccountsPage.cancel')}
             </button>
             <button
               onClick={() => mutation.mutate()}
@@ -319,7 +321,7 @@ function AccountModal({ account, onClose }: { account: ChartAccount | null; onCl
               className="flex items-center gap-1.5 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
             >
               {mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-              {isEdit ? 'Save' : 'Create'}
+              {isEdit ? tr('ui:ChartOfAccountsPage.save') : tr('ui:ChartOfAccountsPage.create')}
             </button>
           </div>
         </div>

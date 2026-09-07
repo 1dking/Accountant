@@ -15,6 +15,8 @@ import { toast } from 'sonner'
 import { X, Check, ChevronDown, ChevronUp, RotateCcw, RotateCw } from 'lucide-react'
 import { pagesApi } from '@/api/pages'
 import './animation-picker.css'
+import { useTranslation } from 'react-i18next'
+import i18n from '@/i18n'
 
 interface PresetRow {
   id: string
@@ -50,18 +52,19 @@ interface Props {
 }
 
 const EASE_OPTIONS = [
-  { value: 'power2.out', label: 'Smooth out (default)' },
-  { value: 'power2.in', label: 'Smooth in' },
-  { value: 'power2.inOut', label: 'Smooth in-out' },
-  { value: 'power3.out', label: 'Snappy out' },
-  { value: 'elastic.out(1, 0.5)', label: 'Elastic bounce' },
-  { value: 'back.out(1.7)', label: 'Overshoot' },
-  { value: 'none', label: 'Linear (no easing)' },
+  { value: 'power2.out', label: i18n.t('ui:AnimationPickerModal.smoothOutDefault') },
+  { value: 'power2.in', label: i18n.t('ui:AnimationPickerModal.smoothIn') },
+  { value: 'power2.inOut', label: i18n.t('ui:AnimationPickerModal.smoothInOut') },
+  { value: 'power3.out', label: i18n.t('ui:AnimationPickerModal.snappyOut') },
+  { value: 'elastic.out(1, 0.5)', label: i18n.t('ui:AnimationPickerModal.elasticBounce') },
+  { value: 'back.out(1.7)', label: i18n.t('ui:AnimationPickerModal.overshoot') },
+  { value: 'none', label: i18n.t('ui:AnimationPickerModal.linearNoEasing') },
 ]
 
 export default function AnimationPickerModal({
   open, pageId, sectionIndex, current, onClose, onApplied, onReplay,
 }: Props) {
+  const { t } = useTranslation('ui')
   const [selectedId, setSelectedId] = useState<string | null>(current?.preset ?? null)
   const [config, setConfig] = useState<Record<string, unknown>>(current?.config ?? {})
   const [entryOpen, setEntryOpen] = useState(true)
@@ -107,11 +110,11 @@ export default function AnimationPickerModal({
       pagesApi.setSectionAnimation(pageId, sectionIndex, data),
     onSuccess: (_d, vars) => {
       const p = presets.find(x => x.id === vars.preset)
-      toast.success(`Animation: ${p?.display_name || vars.preset}`)
+      toast.success(t('ui:AnimationPickerModal.animationV0', { v0: p?.display_name || vars.preset }))
       onApplied()
       onClose()
     },
-    onError: (e: any) => toast.error(`Apply failed: ${e?.message || 'unknown'}`),
+    onError: (e: any) => toast.error(t('ui:AnimationPickerModal.applyFailedV0', { v0: e?.message || 'unknown' })),
   })
 
   const handleSelect = (preset: PresetRow) => {
@@ -163,9 +166,9 @@ export default function AnimationPickerModal({
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
           <div>
-            <h2 className="text-base font-semibold">Animation</h2>
+            <h2 className="text-base font-semibold">{t('ui:AnimationPickerModal.animation')}</h2>
             <p className="text-xs text-white/50 mt-0.5">
-              Pick a motion preset for this section.
+             {t('ui:AnimationPickerModal.pickAMotionPresetFor')}
             </p>
           </div>
           <button
@@ -179,12 +182,12 @@ export default function AnimationPickerModal({
         {/* Body — scrollable */}
         <div className="flex-1 overflow-y-auto px-4 pb-4">
           {presetsQuery.isLoading ? (
-            <div className="text-center text-white/50 py-10 text-sm">Loading…</div>
+            <div className="text-center text-white/50 py-10 text-sm">{t('ui:AnimationPickerModal.loading')}</div>
           ) : (
             <>
               {/* Tier 1 — Entry */}
               <TierAccordion
-                title="Entry — fade in on scroll"
+                title={t('ui:AnimationPickerModal.entryFadeInOnScroll')}
                 count={entryPresets.length}
                 open={entryOpen}
                 onToggle={() => setEntryOpen(v => !v)}
@@ -203,7 +206,7 @@ export default function AnimationPickerModal({
 
               {/* Tier 2 — Scroll-driven */}
               <TierAccordion
-                title="Scroll-driven — animates with scroll"
+                title={t('ui:AnimationPickerModal.scrollDrivenAnimatesWithScroll')}
                 count={scrubPresets.length}
                 open={scrubOpen}
                 onToggle={() => setScrubOpen(v => !v)}
@@ -222,7 +225,7 @@ export default function AnimationPickerModal({
 
               {/* Tier 4 — Hover effects */}
               <TierAccordion
-                title="Hover effects — pointer-driven micro-interactions"
+                title={t('ui:AnimationPickerModal.hoverEffectsPointerDrivenMicro')}
                 count={hoverPresets.length}
                 open={hoverOpen}
                 onToggle={() => setHoverOpen(v => !v)}
@@ -259,14 +262,14 @@ export default function AnimationPickerModal({
               disabled={applyMut.isPending}
               className="ap-reset-button"
             >
-              <RotateCcw className="h-3.5 w-3.5" /> Reset to variant default
+              <RotateCcw className="h-3.5 w-3.5" /> {t('ui:AnimationPickerModal.resetToVariantDefault')}
             </button>
             <button
               onClick={handleNone}
               disabled={applyMut.isPending}
               className="ap-reset-button"
             >
-              No animation
+             {t('ui:AnimationPickerModal.noAnimation')}
             </button>
           </div>
           {/* Replay button — visible when a real preset is selected.
@@ -277,9 +280,9 @@ export default function AnimationPickerModal({
             <button
               onClick={onReplay}
               className="ap-reset-button"
-              title="Play the animation again in the editor"
+              title={t('ui:AnimationPickerModal.playTheAnimationAgainIn')}
             >
-              <RotateCw className="h-3.5 w-3.5" /> Replay
+              <RotateCw className="h-3.5 w-3.5" /> {t('ui:AnimationPickerModal.replay')}
             </button>
           )}
         </div>
@@ -356,6 +359,7 @@ function ConfigPanel({
   config: Record<string, unknown>
   onChange: (c: Record<string, unknown>) => void
 }) {
+  const { t } = useTranslation('ui')
   const update = (key: string, value: unknown) =>
     onChange({ ...config, [key]: value })
 
@@ -365,30 +369,30 @@ function ConfigPanel({
   return (
     <div className="ap-config-panel">
       <div className="text-xs font-semibold uppercase tracking-wider text-white/50 mb-1">
-        Fine-tune
+       {t('ui:AnimationPickerModal.fineTune')}
       </div>
       {!isScrub && !isHover && (
         <>
           <ConfigSlider
-            label="Duration"
+            label={t('ui:AnimationPickerModal.duration')}
             value={Number(config.duration ?? preset.defaults.duration ?? 0.8)}
             min={0.2} max={2} step={0.1} unit="s"
             onChange={(v) => update('duration', v)}
           />
           <ConfigSlider
-            label="Delay"
+            label={t('ui:AnimationPickerModal.delay')}
             value={Number(config.delay ?? preset.defaults.delay ?? 0)}
             min={0} max={1} step={0.05} unit="s"
             onChange={(v) => update('delay', v)}
           />
           <ConfigSlider
-            label="Stagger"
+            label={t('ui:AnimationPickerModal.stagger')}
             value={Number(config.stagger ?? preset.defaults.stagger ?? 0)}
             min={0} max={0.5} step={0.02} unit="s"
             onChange={(v) => update('stagger', v)}
           />
           <div className="ap-config-row">
-            <span className="ap-config-label">Ease</span>
+            <span className="ap-config-label">{t('ui:AnimationPickerModal.ease')}</span>
             <select
               value={String(config.ease ?? preset.defaults.ease ?? 'power2.out')}
               onChange={(e) => update('ease', e.target.value)}
@@ -404,7 +408,7 @@ function ConfigPanel({
       {isScrub && (
         <>
           <ConfigSlider
-            label="Intensity"
+            label={t('ui:AnimationPickerModal.intensity')}
             value={Number(config.intensity ?? preset.defaults.intensity ?? 1)}
             min={0.1} max={2} step={0.1} unit="×"
             onChange={(v) => update('intensity', v)}
@@ -417,7 +421,7 @@ function ConfigPanel({
               onChange={(e) => update('mobile_mode', e.target.checked ? 'auto' : 'disable')}
             />
             <label htmlFor="ap-mobile-mode">
-              Reduce on mobile <span className="text-white/40">(auto-degrade scrub on &lt;768px)</span>
+             {t('ui:AnimationPickerModal.reduceOnMobile')} <span className="text-white/40">{t('ui:AnimationPickerModal.autoDegradeScrubOn768px')}</span>
             </label>
           </div>
         </>
@@ -428,13 +432,13 @@ function ConfigPanel({
           {preset.id === 'hover_lift' && (
             <>
               <ConfigSlider
-                label="Lift distance"
+                label={t('ui:AnimationPickerModal.liftDistance')}
                 value={Number(config.translate_y ?? preset.defaults.translate_y ?? 4)}
                 min={1} max={16} step={1} unit="px"
                 onChange={(v) => update('translate_y', v)}
               />
               <ConfigSlider
-                label="Transition"
+                label={t('ui:AnimationPickerModal.transition')}
                 value={Number(config.duration_ms ?? preset.defaults.duration_ms ?? 200)}
                 min={80} max={500} step={20} unit="ms"
                 onChange={(v) => update('duration_ms', v)}
@@ -444,13 +448,13 @@ function ConfigPanel({
           {preset.id === 'hover_tilt' && (
             <>
               <ConfigSlider
-                label="Max rotation"
+                label={t('ui:AnimationPickerModal.maxRotation')}
                 value={Number(config.max_rotate ?? preset.defaults.max_rotate ?? 8)}
                 min={2} max={20} step={1} unit="°"
                 onChange={(v) => update('max_rotate', v)}
               />
               <ConfigSlider
-                label="Ease"
+                label={t('ui:AnimationPickerModal.ease')}
                 value={Number(config.ease ?? preset.defaults.ease ?? 0.15)}
                 min={0.05} max={0.5} step={0.05} unit=""
                 onChange={(v) => update('ease', v)}
@@ -460,13 +464,13 @@ function ConfigPanel({
           {preset.id === 'hover_magnetic' && (
             <>
               <ConfigSlider
-                label="Radius"
+                label={t('ui:AnimationPickerModal.radius')}
                 value={Number(config.radius ?? preset.defaults.radius ?? 120)}
                 min={40} max={300} step={10} unit="px"
                 onChange={(v) => update('radius', v)}
               />
               <ConfigSlider
-                label="Max travel"
+                label={t('ui:AnimationPickerModal.maxTravel')}
                 value={Number(config.max_translate ?? preset.defaults.max_translate ?? 12)}
                 min={2} max={40} step={1} unit="px"
                 onChange={(v) => update('max_translate', v)}
@@ -475,14 +479,14 @@ function ConfigPanel({
           )}
           {preset.id === 'hover_underline_draw' && (
             <ConfigSlider
-              label="Draw duration"
+              label={t('ui:AnimationPickerModal.drawDuration')}
               value={Number(config.duration_ms ?? preset.defaults.duration_ms ?? 300)}
               min={100} max={800} step={50} unit="ms"
               onChange={(v) => update('duration_ms', v)}
             />
           )}
           <div className="text-[11px] text-white/40 mt-2 pt-2 border-t border-white/5">
-            Hover effects only fire on devices with a fine pointer (no touch).
+           {t('ui:AnimationPickerModal.hoverEffectsOnlyFireOn')}
           </div>
         </>
       )}

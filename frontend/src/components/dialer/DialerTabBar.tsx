@@ -5,6 +5,8 @@
  */
 import { Clock, Grid3x3, List, Mail, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
+import i18n from '@/i18n'
 
 export type DialerTabKey = 'recents' | 'contacts' | 'keypad' | 'voicemail' | 'queue'
 
@@ -13,11 +15,11 @@ const TABS: {
   label: string
   icon: React.ElementType
 }[] = [
-  { key: 'recents', label: 'Recents', icon: Clock },
-  { key: 'contacts', label: 'Contacts', icon: Users },
-  { key: 'keypad', label: 'Keypad', icon: Grid3x3 },
-  { key: 'voicemail', label: 'Voicemail', icon: Mail },
-  { key: 'queue', label: 'Queue', icon: List },
+  { key: 'recents', label: i18n.t('ui:DialerTabBar.recents'), icon: Clock },
+  { key: 'contacts', label: i18n.t('ui:DialerTabBar.contacts'), icon: Users },
+  { key: 'keypad', label: i18n.t('ui:DialerTabBar.keypad'), icon: Grid3x3 },
+  { key: 'voicemail', label: i18n.t('ui:DialerTabBar.voicemail'), icon: Mail },
+  { key: 'queue', label: i18n.t('ui:DialerTabBar.queue'), icon: List },
 ]
 
 export default function DialerTabBar({
@@ -29,10 +31,11 @@ export default function DialerTabBar({
   onChange: (key: DialerTabKey) => void
   badges?: Partial<Record<DialerTabKey, number>>
 }) {
+  const { t } = useTranslation('ui')
   return (
     <nav
       className="grid grid-cols-5 border-b border-white/10 shrink-0"
-      aria-label="Dialer sections"
+      aria-label={t('ui:DialerTabBar.dialerSections')}
     >
       {TABS.map(({ key, label, icon: Icon }) => {
         const isActive = key === active

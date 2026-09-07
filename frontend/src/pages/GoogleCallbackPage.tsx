@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import { useAuthStore } from '@/stores/authStore'
+import { useTranslation } from 'react-i18next'
 
 export default function GoogleCallbackPage() {
+  const { t } = useTranslation('ui')
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const { fetchMe } = useAuthStore()
@@ -11,7 +13,7 @@ export default function GoogleCallbackPage() {
   useEffect(() => {
     const code = searchParams.get('code')
     if (!code) {
-      setError('No authorization code received from Google.')
+      setError(t('ui:GoogleCallbackPage.noAuthorizationCodeReceivedFrom'))
       return
     }
 
@@ -50,7 +52,7 @@ export default function GoogleCallbackPage() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
         <div className="w-full max-w-md p-8 bg-white dark:bg-gray-900 rounded-lg shadow-md text-center">
           <div className="text-red-600 dark:text-red-400 mb-4">{error}</div>
-          <a href="/login" className="text-blue-600 hover:underline">Back to login</a>
+          <a href="/login" className="text-blue-600 hover:underline">{t('ui:GoogleCallbackPage.backToLogin')}</a>
         </div>
       </div>
     )
@@ -60,7 +62,7 @@ export default function GoogleCallbackPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
       <div className="w-full max-w-md p-8 bg-white dark:bg-gray-900 rounded-lg shadow-md text-center">
         <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4" />
-        <p className="text-gray-600 dark:text-gray-400">Signing in with Google...</p>
+        <p className="text-gray-600 dark:text-gray-400">{t('ui:GoogleCallbackPage.signingInWithGoogle')}</p>
       </div>
     </div>
   )

@@ -6,14 +6,16 @@ import OfficeDocCard from '@/components/office/OfficeDocCard'
 import { useDebounce } from '@/hooks/useDebounce'
 import { FileText, Plus, Search, FileEdit, ClipboardList, Mail } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
+import i18n from '@/i18n'
 
 type ViewTab = 'owned' | 'shared' | 'starred' | 'trash'
 
 const TEMPLATES = [
-  { title: 'Blank', icon: Plus, description: 'Start from scratch' },
-  { title: 'Meeting Notes', icon: ClipboardList, description: 'Meeting agenda and notes' },
-  { title: 'Project Proposal', icon: FileEdit, description: 'Project plan template' },
-  { title: 'Letter', icon: Mail, description: 'Professional letter' },
+  { title: i18n.t('ui:DocsHomePage.blank'), icon: Plus, description: i18n.t('ui:DocsHomePage.startFromScratch') },
+  { title: i18n.t('ui:DocsHomePage.meetingNotes'), icon: ClipboardList, description: i18n.t('ui:DocsHomePage.meetingAgendaAndNotes') },
+  { title: i18n.t('ui:DocsHomePage.projectProposal'), icon: FileEdit, description: i18n.t('ui:DocsHomePage.projectPlanTemplate') },
+  { title: i18n.t('ui:DocsHomePage.letter'), icon: Mail, description: i18n.t('ui:DocsHomePage.professionalLetter') },
 ]
 
 // Real starter content per template — plain Tiptap/ProseMirror JSON built
@@ -84,6 +86,7 @@ const TEMPLATE_CONTENT: Record<string, Record<string, unknown>> = {
 }
 
 export default function DocsHomePage() {
+  const { t } = useTranslation('ui')
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<ViewTab>('owned')
@@ -117,10 +120,10 @@ export default function DocsHomePage() {
   }
 
   const tabs: { key: ViewTab; label: string }[] = [
-    { key: 'owned', label: 'Owned by me' },
-    { key: 'shared', label: 'Shared with me' },
-    { key: 'starred', label: 'Starred' },
-    { key: 'trash', label: 'Trash' },
+    { key: 'owned', label: t('ui:DocsHomePage.ownedByMe') },
+    { key: 'shared', label: t('ui:DocsHomePage.sharedWithMe') },
+    { key: 'starred', label: t('ui:DocsHomePage.starred') },
+    { key: 'trash', label: t('ui:DocsHomePage.trash') },
   ]
 
   return (
@@ -131,21 +134,21 @@ export default function DocsHomePage() {
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
               <FileText className="h-7 w-7 text-blue-600 dark:text-blue-400" />
-              Docs
+             {t('ui:DocsHomePage.docs')}
             </h1>
             <button
-              onClick={() => createMutation.mutate({ title: 'Untitled document' })}
+              onClick={() => createMutation.mutate({ title: t('ui:DocsHomePage.untitledDocument') })}
               disabled={createMutation.isPending}
               className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
             >
               <Plus className="h-4 w-4" />
-              Blank Document
+             {t('ui:DocsHomePage.blankDocument')}
             </button>
           </div>
 
           {/* Templates */}
           <div>
-            <h2 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-3">Start a new document</h2>
+            <h2 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-3">{t('ui:DocsHomePage.startANewDocument')}</h2>
             <div className="flex gap-4">
               {TEMPLATES.map((template) => {
                 const Icon = template.icon
@@ -178,7 +181,7 @@ export default function DocsHomePage() {
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search documents..."
+              placeholder={t('ui:DocsHomePage.searchDocuments')}
               className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100"
             />
           </div>
@@ -211,14 +214,14 @@ export default function DocsHomePage() {
           <div className="text-center py-16">
             <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
             <h3 className="text-gray-900 dark:text-gray-100 font-medium mb-1">
-              {search ? 'No documents found' : activeTab === 'trash' ? 'Trash is empty' : 'No documents yet'}
+              {search ? t('ui:DocsHomePage.noDocumentsFound') : activeTab === 'trash' ? t('ui:DocsHomePage.trashIsEmpty') : t('ui:DocsHomePage.noDocumentsYet')}
             </h3>
             <p className="text-sm text-gray-500 dark:text-gray-400">
               {search
-                ? 'Try a different search term'
+                ? t('ui:DocsHomePage.tryADifferentSearchTerm')
                 : activeTab === 'trash'
-                ? 'Documents you move to trash will appear here'
-                : 'Create a new document to get started'}
+                ? t('ui:DocsHomePage.documentsYouMoveToTrash')
+                : t('ui:DocsHomePage.createANewDocumentTo')}
             </p>
           </div>
         ) : (

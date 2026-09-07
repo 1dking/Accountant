@@ -12,6 +12,7 @@ import {
 } from '@/api/inbox'
 import type { ThreadItem } from '@/api/inbox'
 import type { UnifiedMessage } from '@/types/models'
+import { useTranslation } from 'react-i18next'
 
 type FilterType = 'all' | 'email' | 'sms'
 
@@ -30,6 +31,7 @@ function timeAgo(dateStr: string): string {
 }
 
 export default function InboxPage() {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null)
   const [filter, setFilter] = useState<FilterType>('all')
@@ -66,7 +68,7 @@ export default function InboxPage() {
       queryClient.invalidateQueries({ queryKey: ['inbox'] })
     },
     onError: () => {
-      toast.error('Failed to sync messages')
+      toast.error(t('ui:InboxPage.failedToSyncMessages'))
     },
   })
 
@@ -78,10 +80,10 @@ export default function InboxPage() {
       setReplyText('')
       queryClient.invalidateQueries({ queryKey: ['inbox', 'thread-messages', selectedThreadId] })
       queryClient.invalidateQueries({ queryKey: ['inbox', 'threads'] })
-      toast.success('Reply sent')
+      toast.success(t('ui:InboxPage.replySent'))
     },
     onError: () => {
-      toast.error('Failed to send reply')
+      toast.error(t('ui:InboxPage.failedToSendReply'))
     },
   })
 
@@ -157,7 +159,7 @@ export default function InboxPage() {
         <div className="p-4 border-b border-gray-100 dark:border-gray-700 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Inbox</h1>
+              <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">{t('ui:InboxPage.inbox')}</h1>
               {unreadCount && unreadCount.total > 0 && (
                 <span className="bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 text-xs font-medium px-2 py-0.5 rounded-full">
                   {unreadCount.total}
@@ -168,7 +170,7 @@ export default function InboxPage() {
               onClick={() => syncMutation.mutate()}
               disabled={syncMutation.isPending}
               className="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
-              title="Sync messages"
+              title={t('ui:InboxPage.syncMessages')}
             >
               <RefreshCw className={`w-4 h-4 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
             </button>
@@ -186,7 +188,7 @@ export default function InboxPage() {
                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-800'
                 }`}
               >
-                {f === 'all' ? 'All' : f === 'email' ? 'Email' : 'SMS'}
+                {f === 'all' ? t('ui:InboxPage.all') : f === 'email' ? t('ui:InboxPage.email') : 'SMS'}
                 {f === 'email' && unreadCount && unreadCount.email > 0 && (
                   <span className="ml-1 text-xs opacity-70">({unreadCount.email})</span>
                 )}
@@ -202,7 +204,7 @@ export default function InboxPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Search messages..."
+              placeholder={t('ui:InboxPage.searchMessages')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -213,11 +215,11 @@ export default function InboxPage() {
         {/* Thread list */}
         <div className="flex-1 overflow-y-auto">
           {threadsQuery.isLoading ? (
-            <div className="p-8 text-center text-gray-400">Loading threads...</div>
+            <div className="p-8 text-center text-gray-400">{t('ui:InboxPage.loadingThreads')}</div>
           ) : threads.length === 0 ? (
             <div className="p-8 text-center text-gray-400">
               <Inbox className="w-10 h-10 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">No messages found</p>
+              <p className="text-sm">{t('ui:InboxPage.noMessagesFound')}</p>
             </div>
           ) : (
             threads.map((thread) => {
@@ -257,7 +259,7 @@ export default function InboxPage() {
                               : 'text-gray-700 dark:text-gray-300'
                           }`}
                         >
-                          {msg.subject || msg.body?.slice(0, 50) || 'No subject'}
+                          {msg.subject || msg.body?.slice(0, 50) || t('ui:InboxPage.noSubject')}
                         </p>
                         <span className="text-xs text-gray-400 flex-shrink-0">
                           {timeAgo(msg.created_at)}
@@ -297,8 +299,8 @@ export default function InboxPage() {
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center text-gray-400">
               <Mail className="w-12 h-12 mx-auto mb-3 opacity-40" />
-              <p className="text-lg font-medium">Select a thread to view messages</p>
-              <p className="text-sm mt-1">Choose a conversation from the left panel</p>
+              <p className="text-lg font-medium">{t('ui:InboxPage.selectAThreadToView')}</p>
+              <p className="text-sm mt-1">{t('ui:InboxPage.chooseAConversationFromThe')}</p>
             </div>
           </div>
         ) : (
@@ -306,12 +308,12 @@ export default function InboxPage() {
             {/* Thread header */}
             <div className="px-6 py-4 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-700">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                {selectedThread?.message.subject || 'Conversation'}
+                {selectedThread?.message.subject || t('ui:InboxPage.conversation')}
               </h2>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
                 {selectedThread?.message.direction === 'inbound'
-                  ? `From: ${selectedThread?.message.sender ?? 'Unknown'}`
-                  : `To: ${selectedThread?.message.recipient ?? 'Unknown'}`}
+                  ? t('ui:InboxPage.fromV0', { v0: selectedThread?.message.sender ?? 'Unknown' })
+                  : t('ui:InboxPage.toV0', { v0: selectedThread?.message.recipient ?? 'Unknown' })}
                 {selectedThread && selectedThread.message_count > 1 && (
                   <span className="ml-2">
                     ({selectedThread.message_count} message{selectedThread.message_count !== 1 ? 's' : ''})
@@ -323,9 +325,9 @@ export default function InboxPage() {
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
               {threadMessagesQuery.isLoading ? (
-                <div className="text-center text-gray-400 py-8">Loading messages...</div>
+                <div className="text-center text-gray-400 py-8">{t('ui:InboxPage.loadingMessages')}</div>
               ) : messages.length === 0 ? (
-                <div className="text-center text-gray-400 py-8">No messages in this thread</div>
+                <div className="text-center text-gray-400 py-8">{t('ui:InboxPage.noMessagesInThisThread')}</div>
               ) : (
                 messages.map((msg) => {
                   const isOutbound = msg.direction === 'outbound'
@@ -360,7 +362,7 @@ export default function InboxPage() {
                                 : 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
                             }`}
                           >
-                            {isOutbound ? 'Sent' : 'Received'}
+                            {isOutbound ? t('ui:InboxPage.sent') : t('ui:InboxPage.received')}
                           </span>
                         </div>
                       </div>
@@ -377,7 +379,7 @@ export default function InboxPage() {
                 <textarea
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}
-                  placeholder="Type your reply..."
+                  placeholder={t('ui:InboxPage.typeYourReply')}
                   rows={2}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
@@ -392,10 +394,10 @@ export default function InboxPage() {
                   className="self-end px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
                 >
                   <Send className="w-4 h-4" />
-                  {replyMutation.isPending ? 'Sending...' : 'Send'}
+                  {replyMutation.isPending ? t('ui:InboxPage.sending') : t('ui:InboxPage.send')}
                 </button>
               </div>
-              <p className="text-xs text-gray-400 mt-1">Press Ctrl+Enter to send</p>
+              <p className="text-xs text-gray-400 mt-1">{t('ui:InboxPage.pressCtrlEnterToSend')}</p>
             </div>
           </>
         )}

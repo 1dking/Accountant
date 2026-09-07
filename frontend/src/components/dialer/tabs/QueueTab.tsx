@@ -16,6 +16,7 @@ import { List, Phone, Plus, SkipForward, Trash2, X } from 'lucide-react'
 import { logCall, getMyNumber } from '@/api/communication'
 import { listContacts } from '@/api/contacts'
 import type { Contact } from '@/types/models'
+import { useTranslation } from 'react-i18next'
 
 const STORAGE_KEY = 'dialer.queue.v1'
 
@@ -66,6 +67,7 @@ interface Props {
 }
 
 export default function QueueTab({ onDial }: Props) {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const [items, setItems] = useState<QueueItem[]>(loadQueue)
   const [showAdd, setShowAdd] = useState(false)
@@ -104,9 +106,7 @@ export default function QueueTab({ onDial }: Props) {
     },
     onError: (err) =>
       toast.error(
-        `Call logged locally but not saved: ${
-          err instanceof Error ? err.message : 'Unknown error'
-        }`,
+        t('ui:QueueTab.callLoggedLocallyButNot', { v0: err instanceof Error ? err.message : 'Unknown error' }),
       ),
   })
 
@@ -177,18 +177,18 @@ export default function QueueTab({ onDial }: Props) {
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-[color:var(--lg-text-primary)]">
-            Dial Queue
+           {t('ui:QueueTab.dialQueue')}
           </p>
           <p className="text-xs text-[color:var(--lg-text-secondary)]">
             {items.length === 0
-              ? 'Nothing queued'
-              : `${doneCount} of ${items.length} done · ${progress}%`}
+              ? t('ui:QueueTab.nothingQueued')
+              : t('ui:QueueTab.donecountOfLengthDoneProgress', { doneCount, length: items.length, progress })}
           </p>
         </div>
         <div className="flex items-center gap-1 shrink-0">
           <button
             onClick={() => setShowAdd((v) => !v)}
-            aria-label="Add to queue"
+            aria-label={t('ui:QueueTab.addToQueue')}
             className="p-2 rounded-full hover:bg-white/5 text-[color:var(--lg-text-secondary)] hover:text-[color:var(--lg-text-primary)]"
           >
             {showAdd ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
@@ -196,7 +196,7 @@ export default function QueueTab({ onDial }: Props) {
           {items.length > 0 && (
             <button
               onClick={clearQueue}
-              aria-label="Clear queue"
+              aria-label={t('ui:QueueTab.clearQueue')}
               className="p-2 rounded-full hover:bg-white/5 text-[color:var(--lg-text-secondary)] hover:text-red-400"
             >
               <Trash2 className="h-4 w-4" />
@@ -220,7 +220,7 @@ export default function QueueTab({ onDial }: Props) {
           <textarea
             value={numbersInput}
             onChange={(e) => setNumbersInput(e.target.value)}
-            placeholder="Paste numbers, one per line or comma-separated"
+            placeholder={t('ui:QueueTab.pasteNumbersOnePerLine')}
             rows={2}
             className="w-full px-2 py-1.5 text-xs rounded bg-white/5 border border-white/10 text-[color:var(--lg-text-primary)] placeholder:text-[color:var(--lg-text-secondary)]"
           />
@@ -229,7 +229,7 @@ export default function QueueTab({ onDial }: Props) {
             disabled={parseNumbers(numbersInput).length === 0}
             className="w-full py-1.5 text-xs font-medium rounded bg-white/10 hover:bg-white/15 disabled:opacity-40 disabled:cursor-not-allowed text-[color:var(--lg-text-primary)]"
           >
-            Add {parseNumbers(numbersInput).length || ''} number
+           {t('ui:QueueTab.add')} {parseNumbers(numbersInput).length || ''} number
             {parseNumbers(numbersInput).length === 1 ? '' : 's'}
           </button>
 
@@ -237,7 +237,7 @@ export default function QueueTab({ onDial }: Props) {
             type="text"
             value={contactSearch}
             onChange={(e) => setContactSearch(e.target.value)}
-            placeholder="…or search contacts"
+            placeholder={t('ui:QueueTab.orSearchContacts')}
             className="w-full px-2 py-1.5 text-xs rounded bg-white/5 border border-white/10 text-[color:var(--lg-text-primary)] placeholder:text-[color:var(--lg-text-secondary)]"
           />
           {searchResults.length > 0 && (
@@ -274,8 +274,7 @@ export default function QueueTab({ onDial }: Props) {
             <List className="h-6 w-6 text-[color:var(--lg-text-secondary)]" />
           </div>
           <p className="text-xs text-[color:var(--lg-text-secondary)] max-w-[300px] mx-auto leading-relaxed">
-            Build a queue from your contacts or paste a list of numbers, then
-            work through it call by call.
+           {t('ui:QueueTab.buildAQueueFromYour')}
           </p>
         </div>
       )}
@@ -284,7 +283,7 @@ export default function QueueTab({ onDial }: Props) {
       {current && (
         <div className="p-3 rounded-lg bg-white/[0.05] border border-white/10 space-y-2">
           <p className="text-xs uppercase tracking-wide text-[color:var(--lg-text-secondary)]">
-            Up next
+           {t('ui:QueueTab.upNext')}
           </p>
           <p className="text-sm font-medium text-[color:var(--lg-text-primary)]">
             {current.name || formatPhone(current.number)}
@@ -297,7 +296,7 @@ export default function QueueTab({ onDial }: Props) {
           <textarea
             value={current.note}
             onChange={(e) => setNote(current.id, e.target.value)}
-            placeholder="Wrap-up notes…"
+            placeholder={t('ui:QueueTab.wrapUpNotes')}
             rows={2}
             className="w-full px-2 py-1.5 text-xs rounded bg-white/5 border border-white/10 text-[color:var(--lg-text-primary)] placeholder:text-[color:var(--lg-text-secondary)]"
           />
@@ -306,17 +305,17 @@ export default function QueueTab({ onDial }: Props) {
               onClick={() => onDial(current.number)}
               className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium rounded-lg bg-emerald-500/90 hover:bg-emerald-500 text-white"
             >
-              <Phone className="h-3.5 w-3.5" /> Call
+              <Phone className="h-3.5 w-3.5" /> {t('ui:QueueTab.call')}
             </button>
             <button
               onClick={() => resolve(current.id, 'done')}
               className="flex-1 py-2 text-xs font-medium rounded-lg bg-white/10 hover:bg-white/15 text-[color:var(--lg-text-primary)]"
             >
-              Done
+             {t('ui:QueueTab.done')}
             </button>
             <button
               onClick={() => resolve(current.id, 'skipped')}
-              aria-label="Skip"
+              aria-label={t('ui:QueueTab.skip')}
               className="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-[color:var(--lg-text-secondary)]"
             >
               <SkipForward className="h-3.5 w-3.5" />
@@ -338,7 +337,7 @@ export default function QueueTab({ onDial }: Props) {
               </span>
               <button
                 onClick={() => removeItem(item.id)}
-                aria-label={`Remove ${item.name || item.number}`}
+                aria-label={t('ui:QueueTab.removeV0', { v0: item.name || item.number })}
                 className="shrink-0 p-1 opacity-0 group-hover:opacity-100 text-[color:var(--lg-text-secondary)] hover:text-red-400"
               >
                 <X className="h-3 w-3" />

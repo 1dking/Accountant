@@ -4,16 +4,18 @@ import { useQuery } from '@tanstack/react-query'
 import { listExpenses, listCategories } from '@/api/accounting'
 import CategoryBadge from '@/components/expenses/CategoryBadge'
 import { useAuthStore } from '@/stores/authStore'
-import { formatDate } from '@/lib/utils'
+import { formatDate, uiLocale } from '@/lib/utils'
 import { EXPENSE_STATUSES } from '@/lib/constants'
 import { Plus, Search, Filter, Receipt, TrendingUp } from 'lucide-react'
 import type { ExpenseFilters } from '@/types/models'
+import { useTranslation } from 'react-i18next'
 
 function formatCurrency(amount: number, currency: string = 'USD'): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount)
+  return new Intl.NumberFormat(uiLocale(), { style: 'currency', currency }).format(amount)
 }
 
 export default function ExpensesPage() {
+  const { t } = useTranslation('ui')
   const navigate = useNavigate()
   const { user } = useAuthStore()
   const canEdit = user?.role === 'admin' || user?.role === 'accountant'
@@ -51,9 +53,9 @@ export default function ExpensesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Expenses</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('ui:ExpensesPage.expenses')}</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            {meta?.total_count ?? 0} total expenses
+            {meta?.total_count ?? 0} {t('ui:ExpensesPage.totalExpenses')}
           </p>
         </div>
         <div className="flex gap-2">
@@ -62,7 +64,7 @@ export default function ExpensesPage() {
             className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
           >
             <TrendingUp className="h-4 w-4" />
-            Dashboard
+           {t('ui:ExpensesPage.dashboard')}
           </button>
           {canEdit && (
             <button
@@ -70,7 +72,7 @@ export default function ExpensesPage() {
               className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
             >
               <Plus className="h-4 w-4" />
-              New Expense
+             {t('ui:ExpensesPage.newExpense')}
             </button>
           )}
         </div>
@@ -86,12 +88,12 @@ export default function ExpensesPage() {
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              placeholder="Search expenses..."
+              placeholder={t('ui:ExpensesPage.searchExpenses')}
               className="w-full pl-10 pr-4 py-2 text-sm border dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100"
             />
           </div>
           <button onClick={handleSearch} className="px-4 py-2 text-sm border dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-300">
-            Search
+           {t('ui:ExpensesPage.search')}
           </button>
         </div>
         <button
@@ -99,7 +101,7 @@ export default function ExpensesPage() {
           className="flex items-center gap-2 px-4 py-2 text-sm border dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-300"
         >
           <Filter className="h-4 w-4" />
-          Filters
+         {t('ui:ExpensesPage.filters')}
         </button>
       </div>
 
@@ -107,33 +109,33 @@ export default function ExpensesPage() {
       {showFilters && (
         <div className="bg-gray-50 dark:bg-gray-950 rounded-lg p-4 grid grid-cols-2 md:grid-cols-4 gap-3">
           <div>
-            <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Category</label>
+            <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('ui:ExpensesPage.category')}</label>
             <select
               value={filters.category_id || ''}
               onChange={(e) => setFilters((prev) => ({ ...prev, category_id: e.target.value || undefined, page: 1 }))}
               className="w-full mt-1 px-2 py-1.5 text-sm border dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 dark:text-gray-100"
             >
-              <option value="">All categories</option>
+              <option value="">{t('ui:ExpensesPage.allCategories')}</option>
               {categories.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Status</label>
+            <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('ui:ExpensesPage.status')}</label>
             <select
               value={filters.status || ''}
               onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value || undefined, page: 1 }))}
               className="w-full mt-1 px-2 py-1.5 text-sm border dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 dark:text-gray-100"
             >
-              <option value="">All statuses</option>
+              <option value="">{t('ui:ExpensesPage.allStatuses')}</option>
               {EXPENSE_STATUSES.map((s) => (
                 <option key={s.value} value={s.value}>{s.label}</option>
               ))}
             </select>
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Date From</label>
+            <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('ui:ExpensesPage.dateFrom')}</label>
             <input
               type="date"
               value={filters.date_from || ''}
@@ -142,7 +144,7 @@ export default function ExpensesPage() {
             />
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Date To</label>
+            <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('ui:ExpensesPage.dateTo')}</label>
             <input
               type="date"
               value={filters.date_to || ''}
@@ -158,12 +160,12 @@ export default function ExpensesPage() {
         <table className="w-full">
           <thead className="bg-gray-50 dark:bg-gray-950 border-b dark:border-gray-700">
             <tr>
-              <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Date</th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Vendor</th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Category</th>
-              <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Amount</th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Receipt</th>
+              <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('ui:ExpensesPage.date')}</th>
+              <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('ui:ExpensesPage.vendor')}</th>
+              <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('ui:ExpensesPage.category')}</th>
+              <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('ui:ExpensesPage.amount')}</th>
+              <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('ui:ExpensesPage.status')}</th>
+              <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('ui:ExpensesPage.receipt')}</th>
             </tr>
           </thead>
           <tbody className="divide-y">
@@ -179,9 +181,9 @@ export default function ExpensesPage() {
               <tr>
                 <td colSpan={6} className="px-4 py-12 text-center">
                   <Receipt className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-500 dark:text-gray-400 font-medium">No expenses found</p>
+                  <p className="text-gray-500 dark:text-gray-400 font-medium">{t('ui:ExpensesPage.noExpensesFound')}</p>
                   <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
-                    {canEdit ? 'Upload a receipt and create your first expense' : 'No expenses have been recorded yet'}
+                    {canEdit ? t('ui:ExpensesPage.uploadAReceiptAndCreate') : t('ui:ExpensesPage.noExpensesHaveBeenRecorded')}
                   </p>
                 </td>
               </tr>
@@ -196,7 +198,7 @@ export default function ExpensesPage() {
                   >
                     <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{formatDate(expense.date)}</td>
                     <td className="px-4 py-3">
-                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{expense.vendor_name || 'Unknown vendor'}</p>
+                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{expense.vendor_name || t('ui:ExpensesPage.unknownVendor')}</p>
                       {expense.description && (
                         <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[200px]">{expense.description}</p>
                       )}
@@ -216,9 +218,9 @@ export default function ExpensesPage() {
                     </td>
                     <td className="px-4 py-3">
                       {expense.document_id ? (
-                        <span className="text-xs text-green-600">Attached</span>
+                        <span className="text-xs text-green-600">{t('ui:ExpensesPage.attached')}</span>
                       ) : (
-                        <span className="text-xs text-gray-400 dark:text-gray-500">None</span>
+                        <span className="text-xs text-gray-400 dark:text-gray-500">{t('ui:ExpensesPage.none')}</span>
                       )}
                     </td>
                   </tr>
@@ -233,7 +235,7 @@ export default function ExpensesPage() {
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Page {currentPage} of {totalPages} ({meta?.total_count} total)
+           {t('ui:ExpensesPage.page')} {currentPage} of {totalPages} ({meta?.total_count} {t('ui:ExpensesPage.total')}
           </p>
           <div className="flex gap-1">
             <button
@@ -241,14 +243,14 @@ export default function ExpensesPage() {
               onClick={() => setFilters((prev) => ({ ...prev, page: currentPage - 1 }))}
               className="px-3 py-1 text-sm border dark:border-gray-600 rounded-md disabled:opacity-50 hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-300"
             >
-              Previous
+             {t('ui:ExpensesPage.previous')}
             </button>
             <button
               disabled={currentPage >= totalPages}
               onClick={() => setFilters((prev) => ({ ...prev, page: currentPage + 1 }))}
               className="px-3 py-1 text-sm border dark:border-gray-600 rounded-md disabled:opacity-50 hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-300"
             >
-              Next
+             {t('ui:ExpensesPage.next')}
             </button>
           </div>
         </div>

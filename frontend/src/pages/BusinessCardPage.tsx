@@ -18,6 +18,7 @@ import {
   CARD_TEMPLATE_OPTIONS,
 } from '@/components/cards/templates'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 
 const INPUT =
   'w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100'
@@ -32,6 +33,7 @@ interface SchedCal {
 type Draft = Partial<BusinessCard>
 
 export default function BusinessCardPage() {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const [draft, setDraft] = useState<Draft>({})
   const [syncedId, setSyncedId] = useState<string | null>(null)
@@ -64,7 +66,7 @@ export default function BusinessCardPage() {
     mutationFn: (payload: Draft) => cardsApi.updateMyCard(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['my-card'] })
-      toast.success('Card saved')
+      toast.success(t('ui:BusinessCardPage.cardSaved'))
     },
     onError: (err: unknown) => {
       toast.error(err instanceof Error ? err.message : 'Failed to save card')
@@ -75,13 +77,13 @@ export default function BusinessCardPage() {
     mutationFn: (file: File) => cardsApi.uploadAvatar(file),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['my-card'] })
-      toast.success('Photo uploaded')
+      toast.success(t('ui:BusinessCardPage.photoUploaded'))
     },
-    onError: () => toast.error('Failed to upload photo'),
+    onError: () => toast.error(t('ui:BusinessCardPage.failedToUploadPhoto')),
   })
 
   if (isLoading || !card) {
-    return <div className="p-6 text-gray-500">Loading your card…</div>
+    return <div className="p-6 text-gray-500">{t('ui:BusinessCardPage.loadingYourCard')}</div>
   }
 
   const set = (field: keyof BusinessCard, value: unknown) =>
@@ -121,9 +123,9 @@ export default function BusinessCardPage() {
     <div className="p-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Business Card</h1>
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">{t('ui:BusinessCardPage.businessCard')}</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Your shareable digital card — one link, one QR code, one tap to save your contact.
+           {t('ui:BusinessCardPage.yourShareableDigitalCardOne')}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -133,7 +135,7 @@ export default function BusinessCardPage() {
               checked={!!draft.is_published}
               onChange={(e) => set('is_published', e.target.checked)}
             />
-            Published
+           {t('ui:BusinessCardPage.published')}
           </label>
           <button
             onClick={() => saveMutation.mutate(draft)}
@@ -142,7 +144,7 @@ export default function BusinessCardPage() {
             style={{ background: 'var(--brand-primary)' }}
           >
             <Save className="w-4 h-4" />
-            {saveMutation.isPending ? 'Saving…' : 'Save'}
+            {saveMutation.isPending ? t('ui:BusinessCardPage.saving') : t('ui:BusinessCardPage.save')}
           </button>
         </div>
       </div>
@@ -151,7 +153,7 @@ export default function BusinessCardPage() {
         <div className="space-y-4">
           {/* Template — live mini-previews rendered in the user's own palette */}
           <section className="bg-white dark:bg-gray-900 border rounded-lg p-5">
-            <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Template</h2>
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">{t('ui:BusinessCardPage.template')}</h2>
             <div className="grid grid-cols-3 gap-3">
               {CARD_TEMPLATE_OPTIONS.map(({ id, label }) => {
                 const Thumb = TEMPLATES[id]
@@ -197,20 +199,20 @@ export default function BusinessCardPage() {
 
           {/* Identity */}
           <section className="bg-white dark:bg-gray-900 border rounded-lg p-5 space-y-3">
-            <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Identity</h2>
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{t('ui:BusinessCardPage.identity')}</h2>
             <div className="grid grid-cols-2 gap-3">
-              <input value={draft.display_name ?? ''} onChange={(e) => set('display_name', e.target.value)} placeholder="Full name" className={INPUT} />
-              <input value={draft.job_title ?? ''} onChange={(e) => set('job_title', e.target.value)} placeholder="Job title" className={INPUT} />
-              <input value={draft.company_name ?? ''} onChange={(e) => set('company_name', e.target.value)} placeholder="Company" className={INPUT} />
-              <input value={draft.email ?? ''} onChange={(e) => set('email', e.target.value)} placeholder="Email" className={INPUT} />
-              <input value={draft.phone ?? ''} onChange={(e) => set('phone', e.target.value)} placeholder="Phone" className={INPUT} />
-              <input value={draft.website ?? ''} onChange={(e) => set('website', e.target.value)} placeholder="Website (https://…)" className={INPUT} />
+              <input value={draft.display_name ?? ''} onChange={(e) => set('display_name', e.target.value)} placeholder={t('ui:BusinessCardPage.fullName')} className={INPUT} />
+              <input value={draft.job_title ?? ''} onChange={(e) => set('job_title', e.target.value)} placeholder={t('ui:BusinessCardPage.jobTitle')} className={INPUT} />
+              <input value={draft.company_name ?? ''} onChange={(e) => set('company_name', e.target.value)} placeholder={t('ui:BusinessCardPage.company')} className={INPUT} />
+              <input value={draft.email ?? ''} onChange={(e) => set('email', e.target.value)} placeholder={t('ui:BusinessCardPage.email')} className={INPUT} />
+              <input value={draft.phone ?? ''} onChange={(e) => set('phone', e.target.value)} placeholder={t('ui:BusinessCardPage.phone')} className={INPUT} />
+              <input value={draft.website ?? ''} onChange={(e) => set('website', e.target.value)} placeholder={t('ui:BusinessCardPage.websiteHttps')} className={INPUT} />
             </div>
-            <textarea value={draft.tagline ?? ''} onChange={(e) => set('tagline', e.target.value)} rows={2} placeholder="Short tagline or bio" className={INPUT} />
+            <textarea value={draft.tagline ?? ''} onChange={(e) => set('tagline', e.target.value)} rows={2} placeholder={t('ui:BusinessCardPage.shortTaglineOrBio')} className={INPUT} />
             <div className="flex items-center gap-3">
               <label className="flex items-center gap-2 px-3 py-2 text-sm border rounded-lg cursor-pointer text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">
                 <Upload className="w-4 h-4" />
-                {avatarMutation.isPending ? 'Uploading…' : 'Upload photo'}
+                {avatarMutation.isPending ? t('ui:BusinessCardPage.uploading') : t('ui:BusinessCardPage.uploadPhoto')}
                 <input
                   type="file"
                   accept=".png,.jpg,.jpeg,.webp"
@@ -227,14 +229,14 @@ export default function BusinessCardPage() {
                   checked={!!draft.show_org_logo}
                   onChange={(e) => set('show_org_logo', e.target.checked)}
                 />
-                Show company logo
+               {t('ui:BusinessCardPage.showCompanyLogo')}
               </label>
             </div>
           </section>
 
           {/* Palette */}
           <section className="bg-white dark:bg-gray-900 border rounded-lg p-5">
-            <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Colors & font</h2>
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">{t('ui:BusinessCardPage.colorsFont')}</h2>
             <div className="grid grid-cols-3 gap-3">
               {(
                 [
@@ -256,11 +258,11 @@ export default function BusinessCardPage() {
                 </div>
               ))}
               <div>
-                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Font</label>
+                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">{t('ui:BusinessCardPage.font')}</label>
                 <input
                   value={draft.font ?? ''}
                   onChange={(e) => set('font', e.target.value || null)}
-                  placeholder="Inter"
+                  placeholder={t('ui:BusinessCardPage.inter')}
                   className={INPUT}
                 />
               </div>
@@ -269,14 +271,14 @@ export default function BusinessCardPage() {
 
           {/* Booking */}
           <section className="bg-white dark:bg-gray-900 border rounded-lg p-5 space-y-3">
-            <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Booking</h2>
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{t('ui:BusinessCardPage.booking')}</h2>
             <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
               <input
                 type="checkbox"
                 checked={!!draft.show_booking}
                 onChange={(e) => set('show_booking', e.target.checked)}
               />
-              Show a "Book a meeting" button
+             {t('ui:BusinessCardPage.showABookAMeeting')}
             </label>
             {draft.show_booking && (
               <select
@@ -284,10 +286,10 @@ export default function BusinessCardPage() {
                 onChange={(e) => set('scheduling_calendar_id', e.target.value || null)}
                 className={INPUT}
               >
-                <option value="">Select a booking calendar…</option>
+                <option value="">{t('ui:BusinessCardPage.selectABookingCalendar')}</option>
                 {calendars.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.name} (/book/{c.slug})
+                    {c.name} {t('ui:BusinessCardPage.book')}{c.slug})
                   </option>
                 ))}
               </select>
@@ -297,7 +299,7 @@ export default function BusinessCardPage() {
           {/* Analytics */}
           {analytics && (
             <section className="bg-white dark:bg-gray-900 border rounded-lg p-5">
-              <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Analytics</h2>
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">{t('ui:BusinessCardPage.analytics')}</h2>
               <div className="grid grid-cols-3 gap-3">
                 {(
                   [
@@ -320,7 +322,7 @@ export default function BusinessCardPage() {
 
           {/* Share */}
           <section className="bg-white dark:bg-gray-900 border rounded-lg p-5 space-y-3">
-            <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Share</h2>
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{t('ui:BusinessCardPage.share')}</h2>
             {card.is_published ? (
               <>
                 <div className="flex items-center gap-2">
@@ -328,7 +330,7 @@ export default function BusinessCardPage() {
                   <button
                     onClick={() => {
                       navigator.clipboard?.writeText(cardUrl)
-                      toast.success('Link copied')
+                      toast.success(t('ui:BusinessCardPage.linkCopied'))
                     }}
                     className="p-2 border rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
                   >
@@ -343,21 +345,21 @@ export default function BusinessCardPage() {
                 </div>
               </>
             ) : (
-              <p className="text-sm text-gray-500">Publish your card to get its shareable link and QR code.</p>
+              <p className="text-sm text-gray-500">{t('ui:BusinessCardPage.publishYourCardToGet')}</p>
             )}
           </section>
         </div>
 
         {/* Live preview */}
         <div className="lg:sticky lg:top-4 h-fit">
-          <p className="mb-2 text-[11px] uppercase tracking-wider text-gray-400">Preview</p>
+          <p className="mb-2 text-[11px] uppercase tracking-wider text-gray-400">{t('ui:BusinessCardPage.preview')}</p>
           <div className="mx-auto w-full max-w-[320px] rounded-[2rem] border-4 border-gray-800 dark:border-gray-200 overflow-hidden bg-white">
             <div className="h-[560px] overflow-y-auto [&>div]:min-h-full">
               <PreviewTemplate
                 card={preview}
                 cardUrl={cardUrl}
-                onSaveContact={() => toast('Visitors get a .vcf contact download here')}
-                onShowQr={() => toast('Visitors get the QR share overlay here')}
+                onSaveContact={() => toast(t('ui:BusinessCardPage.visitorsGetAVcfContact'))}
+                onShowQr={() => toast(t('ui:BusinessCardPage.visitorsGetTheQrShare'))}
               />
             </div>
           </div>

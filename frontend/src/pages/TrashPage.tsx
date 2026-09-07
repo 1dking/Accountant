@@ -23,6 +23,7 @@ import {
   Package,
   CreditCard,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000
 
@@ -35,6 +36,7 @@ function daysUntilPermanentDeletion(deletedAt: string | null, updatedAt: string)
 }
 
 export default function TrashPage() {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const [page, setPage] = useState(1)
   const [confirmAction, setConfirmAction] = useState<'empty' | 'delete-entry' | 'delete-account' | null>(null)
@@ -59,25 +61,25 @@ export default function TrashPage() {
 
   const restoreEntryMutation = useMutation({
     mutationFn: (id: string) => restoreEntry(id),
-    onSuccess: () => { toast.success('Entry restored'); invalidateAll() },
+    onSuccess: () => { toast.success(t('ui:TrashPage.entryRestored')); invalidateAll() },
     onError: (e: any) => toast.error(e?.error?.message || 'Failed to restore entry'),
   })
 
   const permanentDeleteEntryMutation = useMutation({
     mutationFn: (id: string) => permanentDeleteEntry(id),
-    onSuccess: () => { toast.success('Entry permanently deleted'); invalidateAll(); setConfirmAction(null); setConfirmId(null) },
+    onSuccess: () => { toast.success(t('ui:TrashPage.entryPermanentlyDeleted')); invalidateAll(); setConfirmAction(null); setConfirmId(null) },
     onError: (e: any) => toast.error(e?.error?.message || 'Failed to delete entry'),
   })
 
   const restoreAccountMutation = useMutation({
     mutationFn: (id: string) => restoreAccount(id),
-    onSuccess: () => { toast.success('Account restored'); invalidateAll() },
+    onSuccess: () => { toast.success(t('ui:TrashPage.accountRestored')); invalidateAll() },
     onError: (e: any) => toast.error(e?.error?.message || 'Failed to restore account'),
   })
 
   const permanentDeleteAccountMutation = useMutation({
     mutationFn: (id: string) => permanentDeleteAccount(id),
-    onSuccess: () => { toast.success('Account permanently deleted'); invalidateAll(); setConfirmAction(null); setConfirmId(null) },
+    onSuccess: () => { toast.success(t('ui:TrashPage.accountPermanentlyDeleted')); invalidateAll(); setConfirmAction(null); setConfirmId(null) },
     onError: (e: any) => toast.error(e?.error?.message || 'Failed to delete account'),
   })
 
@@ -85,7 +87,7 @@ export default function TrashPage() {
     mutationFn: emptyTrash,
     onSuccess: (res) => {
       const d = res.data
-      toast.success(`Emptied trash: ${d.deleted_entries} entries, ${d.deleted_accounts} accounts removed`)
+      toast.success(t('ui:TrashPage.emptiedTrashDeletedEntriesEntries', { deleted_entries: d.deleted_entries, deleted_accounts: d.deleted_accounts }))
       invalidateAll()
       setConfirmAction(null)
     },
@@ -96,7 +98,7 @@ export default function TrashPage() {
     mutationFn: restoreAllTrash,
     onSuccess: (res) => {
       const d = res.data
-      toast.success(`Restored ${d.restored_entries} entries, ${d.restored_accounts} accounts`)
+      toast.success(t('ui:TrashPage.restoredRestoredEntriesEntriesRestored', { restored_entries: d.restored_entries, restored_accounts: d.restored_accounts }))
       invalidateAll()
     },
     onError: (e: any) => toast.error(e?.error?.message || 'Failed to restore all'),
@@ -114,9 +116,9 @@ export default function TrashPage() {
         <div className="flex items-center gap-3">
           <Trash2 className="h-6 w-6 text-gray-400" />
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Trash</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('ui:TrashPage.trash')}</h1>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Items are permanently deleted after 30 days
+             {t('ui:TrashPage.itemsArePermanentlyDeletedAfter')}
             </p>
           </div>
         </div>
@@ -127,7 +129,7 @@ export default function TrashPage() {
             className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <RotateCcw className="h-4 w-4" />
-            Restore All
+           {t('ui:TrashPage.restoreAll')}
           </button>
           <button
             onClick={() => setConfirmAction('empty')}
@@ -135,7 +137,7 @@ export default function TrashPage() {
             className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <XCircle className="h-4 w-4" />
-            Empty Trash
+           {t('ui:TrashPage.emptyTrash')}
           </button>
         </div>
       </div>
@@ -144,8 +146,8 @@ export default function TrashPage() {
       {!isLoading && entries.length === 0 && accounts.length === 0 && (
         <div className="text-center py-16">
           <Trash2 className="h-12 w-12 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-1">Trash is empty</h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Deleted entries and accounts will appear here</p>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-1">{t('ui:TrashPage.trashIsEmpty')}</h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{t('ui:TrashPage.deletedEntriesAndAccountsWill')}</p>
         </div>
       )}
 
@@ -154,7 +156,7 @@ export default function TrashPage() {
         <div className="mb-8">
           <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
             <CreditCard className="h-4 w-4" />
-            Deleted Accounts ({accounts.length})
+           {t('ui:TrashPage.deletedAccounts')}{accounts.length})
           </h2>
           <div className="space-y-2">
             {accounts.map((account) => {
@@ -171,27 +173,27 @@ export default function TrashPage() {
                     <div className="min-w-0">
                       <p className="font-medium text-gray-900 dark:text-gray-100 truncate">{account.name}</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {account.account_type} &middot; {account.currency} &middot; Balance: ${Number(account.opening_balance).toFixed(2)}
+                        {account.account_type} &middot; {account.currency} {t('ui:TrashPage.balance')}{Number(account.opening_balance).toFixed(2)}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
                     <span className={`text-xs flex items-center gap-1 ${daysLeft <= 7 ? 'text-red-500' : 'text-gray-400 dark:text-gray-500'}`}>
                       <Clock className="h-3 w-3" />
-                      {daysLeft}d left
+                      {daysLeft}{t('ui:TrashPage.dLeft')}
                     </span>
                     <button
                       onClick={() => restoreAccountMutation.mutate(account.id)}
                       disabled={restoreAccountMutation.isPending}
                       className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
                     >
-                      <RotateCcw className="h-3 w-3" /> Restore
+                      <RotateCcw className="h-3 w-3" /> {t('ui:TrashPage.restore')}
                     </button>
                     <button
                       onClick={() => { setConfirmAction('delete-account'); setConfirmId(account.id) }}
                       className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 rounded-md hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
                     >
-                      <XCircle className="h-3 w-3" /> Delete
+                      <XCircle className="h-3 w-3" /> {t('ui:TrashPage.delete')}
                     </button>
                   </div>
                 </div>
@@ -206,19 +208,19 @@ export default function TrashPage() {
         <div>
           <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
             <Package className="h-4 w-4" />
-            Deleted Entries ({meta?.total_count ?? entries.length})
+           {t('ui:TrashPage.deletedEntries')}{meta?.total_count ?? entries.length})
           </h2>
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-100 dark:border-gray-700 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  <th className="px-4 py-3">Date</th>
-                  <th className="px-4 py-3">Description</th>
-                  <th className="px-4 py-3">Account</th>
-                  <th className="px-4 py-3">Type</th>
-                  <th className="px-4 py-3 text-right">Amount</th>
-                  <th className="px-4 py-3">Deleted</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
+                  <th className="px-4 py-3">{t('ui:TrashPage.date')}</th>
+                  <th className="px-4 py-3">{t('ui:TrashPage.description')}</th>
+                  <th className="px-4 py-3">{t('ui:TrashPage.account')}</th>
+                  <th className="px-4 py-3">{t('ui:TrashPage.type')}</th>
+                  <th className="px-4 py-3 text-right">{t('ui:TrashPage.amount')}</th>
+                  <th className="px-4 py-3">{t('ui:TrashPage.deleted')}</th>
+                  <th className="px-4 py-3 text-right">{t('ui:TrashPage.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -252,7 +254,7 @@ export default function TrashPage() {
                       <td className="px-4 py-3 whitespace-nowrap">
                         <span className={`text-xs flex items-center gap-1 ${daysLeft <= 7 ? 'text-red-500' : 'text-gray-400 dark:text-gray-500'}`}>
                           <Clock className="h-3 w-3" />
-                          {daysLeft}d left
+                          {daysLeft}{t('ui:TrashPage.dLeft')}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right whitespace-nowrap">
@@ -261,14 +263,14 @@ export default function TrashPage() {
                             onClick={() => restoreEntryMutation.mutate(entry.id)}
                             disabled={restoreEntryMutation.isPending}
                             className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-md transition-colors"
-                            title="Restore"
+                            title={t('ui:TrashPage.restore')}
                           >
                             <RotateCcw className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => { setConfirmAction('delete-entry'); setConfirmId(entry.id) }}
                             className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-md transition-colors"
-                            title="Delete permanently"
+                            title={t('ui:TrashPage.deletePermanently')}
                           >
                             <XCircle className="h-4 w-4" />
                           </button>
@@ -285,7 +287,7 @@ export default function TrashPage() {
           {meta && meta.total_pages > 1 && (
             <div className="flex items-center justify-between mt-4">
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Page {meta.page} of {meta.total_pages} ({meta.total_count} entries)
+               {t('ui:TrashPage.page')} {meta.page} of {meta.total_pages} ({meta.total_count} {t('ui:TrashPage.entries')}
               </p>
               <div className="flex gap-2">
                 <button
@@ -312,7 +314,7 @@ export default function TrashPage() {
       {isLoading && (
         <div className="text-center py-16">
           <div className="animate-spin h-8 w-8 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-4" />
-          <p className="text-sm text-gray-500 dark:text-gray-400">Loading trash...</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{t('ui:TrashPage.loadingTrash')}</p>
         </div>
       )}
 
@@ -326,24 +328,24 @@ export default function TrashPage() {
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                  {confirmAction === 'empty' ? 'Empty Trash?' : 'Delete Permanently?'}
+                  {confirmAction === 'empty' ? t('ui:TrashPage.emptyTrash_2') : t('ui:TrashPage.deletePermanently_2')}
                 </h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  This cannot be undone.
+                 {t('ui:TrashPage.thisCannotBeUndone')}
                 </p>
               </div>
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-300 mb-6">
               {confirmAction === 'empty'
-                ? 'All items in the trash will be permanently deleted. This action cannot be reversed.'
-                : 'This item will be permanently deleted and cannot be recovered.'}
+                ? t('ui:TrashPage.allItemsInTheTrash')
+                : t('ui:TrashPage.thisItemWillBePermanently')}
             </p>
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => { setConfirmAction(null); setConfirmId(null) }}
                 className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
               >
-                Cancel
+               {t('ui:TrashPage.cancel')}
               </button>
               <button
                 onClick={() => {
@@ -353,7 +355,7 @@ export default function TrashPage() {
                 }}
                 className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
               >
-                {confirmAction === 'empty' ? 'Empty Trash' : 'Delete Permanently'}
+                {confirmAction === 'empty' ? t('ui:TrashPage.emptyTrash') : t('ui:TrashPage.deletePermanently_3')}
               </button>
             </div>
           </div>

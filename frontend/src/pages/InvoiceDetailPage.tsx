@@ -29,13 +29,15 @@ import { createPaymentLink } from '@/api/integrations';
 import ShareLinkDialog from '@/components/documents/ShareLinkDialog';
 import { useAuthStore } from '@/stores/authStore';
 import { INVOICE_STATUSES, PAYMENT_METHODS } from '@/lib/constants';
-import { formatDate } from '@/lib/utils';
+import { formatDate, uiLocale } from '@/lib/utils';
 import type { PaymentData } from '@/api/invoices';
+import { useTranslation } from 'react-i18next'
 
 const formatCurrency = (amount: number, currency = 'USD') =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
+  new Intl.NumberFormat(uiLocale(), { style: 'currency', currency }).format(amount);
 
 export default function InvoiceDetailPage() {
+  const { t } = useTranslation('ui')
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -131,7 +133,7 @@ export default function InvoiceDetailPage() {
   if (invoiceQuery.isLoading) {
     return (
       <div className="p-6">
-        <p className="text-gray-400 dark:text-gray-500">Loading invoice...</p>
+        <p className="text-gray-400 dark:text-gray-500">{t('ui:InvoiceDetailPage.loadingInvoice')}</p>
       </div>
     );
   }
@@ -139,12 +141,12 @@ export default function InvoiceDetailPage() {
   if (invoiceQuery.isError || !invoiceQuery.data) {
     return (
       <div className="p-6">
-        <p className="text-red-500">Failed to load invoice.</p>
+        <p className="text-red-500">{t('ui:InvoiceDetailPage.failedToLoadInvoice')}</p>
         <button
           onClick={() => navigate('/invoices')}
           className="mt-2 text-blue-600 dark:text-blue-400 hover:underline"
         >
-          Back to Invoices
+         {t('ui:InvoiceDetailPage.backToInvoices')}
         </button>
       </div>
     );
@@ -199,7 +201,7 @@ export default function InvoiceDetailPage() {
           className="flex items-center gap-1 text-gray-500 dark:text-gray-400 hover:text-gray-700 mb-4 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span className="text-sm">Back to Invoices</span>
+          <span className="text-sm">{t('ui:InvoiceDetailPage.backToInvoices')}</span>
         </button>
 
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -230,7 +232,7 @@ export default function InvoiceDetailPage() {
                 className="flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
               >
                 <Download className="w-4 h-4" />
-                Download PDF
+               {t('ui:InvoiceDetailPage.downloadPdf')}
               </button>
 
               {isDraft && (
@@ -240,7 +242,7 @@ export default function InvoiceDetailPage() {
                   className="flex items-center gap-1.5 px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
                 >
                   <Send className="w-4 h-4" />
-                  {sendMutation.isPending ? 'Sending...' : 'Send Invoice'}
+                  {sendMutation.isPending ? t('ui:InvoiceDetailPage.sending') : t('ui:InvoiceDetailPage.sendInvoice')}
                 </button>
               )}
 
@@ -250,7 +252,7 @@ export default function InvoiceDetailPage() {
                   className="flex items-center gap-1.5 px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                 >
                   <CreditCard className="w-4 h-4" />
-                  Record Payment
+                 {t('ui:InvoiceDetailPage.recordPayment')}
                 </button>
               )}
 
@@ -258,29 +260,29 @@ export default function InvoiceDetailPage() {
                 onClick={() => emailMutation.mutate()}
                 disabled={emailMutation.isPending}
                 className="flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                title="Email invoice with PDF"
+                title={t('ui:InvoiceDetailPage.emailInvoiceWithPdf')}
               >
                 <Mail className="w-4 h-4" />
-                Email
+               {t('ui:InvoiceDetailPage.email')}
               </button>
 
               <button
                 onClick={() => paymentLinkMutation.mutate()}
                 disabled={paymentLinkMutation.isPending}
                 className="flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                title="Create Stripe payment link"
+                title={t('ui:InvoiceDetailPage.createStripePaymentLink')}
               >
                 <Link className="w-4 h-4" />
-                Payment Link
+               {t('ui:InvoiceDetailPage.paymentLink')}
               </button>
 
               <button
                 onClick={() => setShowShareDialog(true)}
                 className="flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                title="Create shareable public link"
+                title={t('ui:InvoiceDetailPage.createShareablePublicLink')}
               >
                 <Link className="w-4 h-4" />
-                Share Link
+               {t('ui:InvoiceDetailPage.shareLink')}
               </button>
 
               {(invoice.status === 'overdue' || invoice.status === 'sent') && (
@@ -288,10 +290,10 @@ export default function InvoiceDetailPage() {
                   onClick={() => reminderMutation.mutate()}
                   disabled={reminderMutation.isPending}
                   className="flex items-center gap-1.5 px-3 py-2 text-sm border border-amber-200 text-amber-700 rounded-lg hover:bg-amber-50 transition-colors"
-                  title="Send payment reminder"
+                  title={t('ui:InvoiceDetailPage.sendPaymentReminder')}
                 >
                   <Bell className="w-4 h-4" />
-                  Remind
+                 {t('ui:InvoiceDetailPage.remind')}
                 </button>
               )}
 
@@ -299,7 +301,7 @@ export default function InvoiceDetailPage() {
                 onClick={() => smsMutation.mutate()}
                 disabled={smsMutation.isPending}
                 className="flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                title="Send invoice via SMS"
+                title={t('ui:InvoiceDetailPage.sendInvoiceViaSms')}
               >
                 <MessageSquare className="w-4 h-4" />
                 SMS
@@ -311,7 +313,7 @@ export default function InvoiceDetailPage() {
                   className="flex items-center gap-1.5 px-3 py-2 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
                 >
                   <Trash2 className="w-4 h-4" />
-                  Delete
+                 {t('ui:InvoiceDetailPage.delete')}
                 </button>
               )}
             </div>
@@ -323,21 +325,21 @@ export default function InvoiceDetailPage() {
       {deleteConfirm && (
         <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 rounded-xl p-4 mb-6 flex items-center justify-between">
           <p className="text-sm text-red-700">
-            Are you sure you want to delete this invoice? This action cannot be undone.
+           {t('ui:InvoiceDetailPage.areYouSureYouWant')}
           </p>
           <div className="flex items-center gap-2 ml-4">
             <button
               onClick={() => setDeleteConfirm(false)}
               className="px-3 py-1.5 text-sm border rounded-lg hover:bg-white dark:bg-gray-900 transition-colors"
             >
-              Cancel
+             {t('ui:InvoiceDetailPage.cancel')}
             </button>
             <button
               onClick={() => deleteMutation.mutate()}
               disabled={deleteMutation.isPending}
               className="px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
             >
-              {deleteMutation.isPending ? 'Deleting...' : 'Confirm Delete'}
+              {deleteMutation.isPending ? t('ui:InvoiceDetailPage.deleting') : t('ui:InvoiceDetailPage.confirmDelete')}
             </button>
           </div>
         </div>
@@ -353,15 +355,15 @@ export default function InvoiceDetailPage() {
       {/* Invoice Details */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
-          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Issue Date</h3>
+          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">{t('ui:InvoiceDetailPage.issueDate')}</h3>
           <p className="text-gray-900 dark:text-gray-100">{formatDate(invoice.issue_date)}</p>
         </div>
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
-          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Due Date</h3>
+          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">{t('ui:InvoiceDetailPage.dueDate')}</h3>
           <p className="text-gray-900 dark:text-gray-100">{formatDate(invoice.due_date)}</p>
         </div>
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
-          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Balance Due</h3>
+          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">{t('ui:InvoiceDetailPage.balanceDue')}</h3>
           <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
             {formatCurrency(balanceDue, currency)}
           </p>
@@ -371,16 +373,16 @@ export default function InvoiceDetailPage() {
       {/* Line Items Table */}
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden mb-6">
         <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
-          <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">Line Items</h2>
+          <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">{t('ui:InvoiceDetailPage.lineItems')}</h2>
         </div>
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-100 dark:border-gray-700">
-              <th className="text-left px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Description</th>
-              <th className="text-right px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Qty</th>
-              <th className="text-right px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Unit Price</th>
-              <th className="text-right px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Tax %</th>
-              <th className="text-right px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Total</th>
+              <th className="text-left px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">{t('ui:InvoiceDetailPage.description')}</th>
+              <th className="text-right px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">{t('ui:InvoiceDetailPage.qty')}</th>
+              <th className="text-right px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">{t('ui:InvoiceDetailPage.unitPrice')}</th>
+              <th className="text-right px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">{t('ui:InvoiceDetailPage.tax')}</th>
+              <th className="text-right px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">{t('ui:InvoiceDetailPage.total')}</th>
             </tr>
           </thead>
           <tbody>
@@ -411,25 +413,25 @@ export default function InvoiceDetailPage() {
         <div className="border-t border-gray-100 dark:border-gray-700 px-5 py-4">
           <div className="flex flex-col items-end gap-1">
             <div className="flex justify-between w-64">
-              <span className="text-sm text-gray-500 dark:text-gray-400">Subtotal</span>
+              <span className="text-sm text-gray-500 dark:text-gray-400">{t('ui:InvoiceDetailPage.subtotal')}</span>
               <span className="text-sm text-gray-900 dark:text-gray-100">{formatCurrency(subtotal, currency)}</span>
             </div>
             {taxTotal > 0 && (
               <div className="flex justify-between w-64">
-                <span className="text-sm text-gray-500 dark:text-gray-400">Tax</span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">{t('ui:InvoiceDetailPage.tax_2')}</span>
                 <span className="text-sm text-gray-900 dark:text-gray-100">{formatCurrency(taxTotal, currency)}</span>
               </div>
             )}
             {discountAmount > 0 && (
               <div className="flex justify-between w-64">
-                <span className="text-sm text-gray-500 dark:text-gray-400">Discount</span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">{t('ui:InvoiceDetailPage.discount')}</span>
                 <span className="text-sm text-red-600">
                   -{formatCurrency(discountAmount, currency)}
                 </span>
               </div>
             )}
             <div className="flex justify-between w-64 pt-2 border-t border-gray-200 dark:border-gray-700 mt-1">
-              <span className="text-sm font-medium text-gray-900 dark:text-gray-100">Total</span>
+              <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{t('ui:InvoiceDetailPage.total')}</span>
               <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                 {formatCurrency(total, currency)}
               </span>
@@ -437,13 +439,13 @@ export default function InvoiceDetailPage() {
             {totalPaid > 0 && (
               <>
                 <div className="flex justify-between w-64">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">Paid</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">{t('ui:InvoiceDetailPage.paid')}</span>
                   <span className="text-sm text-green-600">
                     -{formatCurrency(totalPaid, currency)}
                   </span>
                 </div>
                 <div className="flex justify-between w-64 pt-1 border-t border-gray-200 dark:border-gray-700">
-                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100">Balance Due</span>
+                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{t('ui:InvoiceDetailPage.balanceDue')}</span>
                   <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                     {formatCurrency(balanceDue, currency)}
                   </span>
@@ -459,13 +461,13 @@ export default function InvoiceDetailPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           {invoice.notes && (
             <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
-              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Notes</h3>
+              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">{t('ui:InvoiceDetailPage.notes')}</h3>
               <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{invoice.notes}</p>
             </div>
           )}
           {invoice.payment_terms && (
             <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
-              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Payment Terms</h3>
+              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">{t('ui:InvoiceDetailPage.paymentTerms')}</h3>
               <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{invoice.payment_terms}</p>
             </div>
           )}
@@ -476,15 +478,15 @@ export default function InvoiceDetailPage() {
       {invoice.payments && invoice.payments.length > 0 && (
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden mb-6">
           <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
-            <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">Payment History</h2>
+            <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">{t('ui:InvoiceDetailPage.paymentHistory')}</h2>
           </div>
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 dark:border-gray-700">
-                <th className="text-left px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Date</th>
-                <th className="text-left px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Method</th>
-                <th className="text-left px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Reference</th>
-                <th className="text-right px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Amount</th>
+                <th className="text-left px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">{t('ui:InvoiceDetailPage.date')}</th>
+                <th className="text-left px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">{t('ui:InvoiceDetailPage.method')}</th>
+                <th className="text-left px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">{t('ui:InvoiceDetailPage.reference')}</th>
+                <th className="text-right px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">{t('ui:InvoiceDetailPage.amount')}</th>
               </tr>
             </thead>
             <tbody>
@@ -514,7 +516,7 @@ export default function InvoiceDetailPage() {
       {showPaymentForm && (
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5 mb-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">Record Payment</h2>
+            <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">{t('ui:InvoiceDetailPage.recordPayment')}</h2>
             <button
               onClick={() => setShowPaymentForm(false)}
               className="text-gray-400 dark:text-gray-500 hover:text-gray-600 transition-colors"
@@ -526,7 +528,7 @@ export default function InvoiceDetailPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Amount <span className="text-red-500">*</span>
+                 {t('ui:InvoiceDetailPage.amount')} <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="number"
@@ -539,12 +541,12 @@ export default function InvoiceDetailPage() {
                     setPaymentData({ ...paymentData, amount: parseFloat(e.target.value) || 0 })
                   }
                   className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder={`Max: ${formatCurrency(balanceDue, currency)}`}
+                  placeholder={t('ui:InvoiceDetailPage.maxV0', { v0: formatCurrency(balanceDue, currency) })}
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Date <span className="text-red-500">*</span>
+                 {t('ui:InvoiceDetailPage.date')} <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="date"
@@ -558,7 +560,7 @@ export default function InvoiceDetailPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Payment Method
+                 {t('ui:InvoiceDetailPage.paymentMethod')}
                 </label>
                 <select
                   value={paymentData.payment_method}
@@ -576,7 +578,7 @@ export default function InvoiceDetailPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Reference
+                 {t('ui:InvoiceDetailPage.reference')}
                 </label>
                 <input
                   type="text"
@@ -585,12 +587,12 @@ export default function InvoiceDetailPage() {
                     setPaymentData({ ...paymentData, reference: e.target.value })
                   }
                   className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="e.g., Check #1234"
+                  placeholder={t('ui:InvoiceDetailPage.eGCheck1234')}
                 />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:InvoiceDetailPage.notes')}</label>
               <textarea
                 value={paymentData.notes}
                 onChange={(e) =>
@@ -598,7 +600,7 @@ export default function InvoiceDetailPage() {
                 }
                 rows={2}
                 className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                placeholder="Optional payment notes..."
+                placeholder={t('ui:InvoiceDetailPage.optionalPaymentNotes')}
               />
             </div>
             <div className="flex items-center gap-2">
@@ -607,19 +609,19 @@ export default function InvoiceDetailPage() {
                 disabled={paymentMutation.isPending || paymentData.amount <= 0}
                 className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors text-sm"
               >
-                {paymentMutation.isPending ? 'Recording...' : 'Record Payment'}
+                {paymentMutation.isPending ? t('ui:InvoiceDetailPage.recording') : t('ui:InvoiceDetailPage.recordPayment')}
               </button>
               <button
                 type="button"
                 onClick={() => setShowPaymentForm(false)}
                 className="px-4 py-2 text-sm border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
               >
-                Cancel
+               {t('ui:InvoiceDetailPage.cancel')}
               </button>
             </div>
             {paymentMutation.isError && (
               <p className="text-sm text-red-500">
-                Failed to record payment. Please try again.
+               {t('ui:InvoiceDetailPage.failedToRecordPaymentPlease')}
               </p>
             )}
           </form>

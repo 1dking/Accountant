@@ -3,6 +3,8 @@ import { useMutation } from '@tanstack/react-query'
 import { importExcelPreview, importExcelConfirm } from '@/api/cashbook'
 import { Upload } from 'lucide-react'
 import type { PaymentAccount, ImportPreview } from '@/types/models'
+import { useTranslation } from 'react-i18next'
+import { uiLocale } from '@/lib/utils'
 
 interface ExcelImportDialogProps {
   isOpen: boolean
@@ -17,6 +19,7 @@ export default function ExcelImportDialog({
   accounts,
   onImported,
 }: ExcelImportDialogProps) {
+  const { t } = useTranslation('ui')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<ImportPreview | null>(null)
@@ -36,7 +39,7 @@ export default function ExcelImportDialog({
   // Confirm mutation
   const confirmMutation = useMutation({
     mutationFn: () => {
-      if (!preview) throw new Error('No preview data')
+      if (!preview) throw new Error(t('ui:ExcelImportDialog.noPreviewData'))
       return importExcelConfirm({
         account_id: accountId,
         rows: preview.rows.filter((r) => r.errors.length === 0),
@@ -118,7 +121,7 @@ export default function ExcelImportDialog({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            Import Excel File
+           {t('ui:ExcelImportDialog.importExcelFile')}
           </h2>
           <button
             onClick={handleClose}
@@ -133,7 +136,7 @@ export default function ExcelImportDialog({
           {/* Account Selector */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Import into Account
+             {t('ui:ExcelImportDialog.importIntoAccount')}
             </label>
             <select
               value={accountId}
@@ -165,10 +168,10 @@ export default function ExcelImportDialog({
               <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 {selectedFile
                   ? selectedFile.name
-                  : 'Drop your Excel file here or click to browse'}
+                  : t('ui:ExcelImportDialog.dropYourExcelFileHere')}
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Accepts .xlsx and .xls files
+               {t('ui:ExcelImportDialog.acceptsXlsxAndXlsFiles')}
               </p>
               <input
                 ref={fileInputRef}
@@ -184,7 +187,7 @@ export default function ExcelImportDialog({
           {previewMutation.isPending && (
             <div className="text-center py-8">
               <div className="animate-spin h-8 w-8 border-2 border-blue-600 border-t-transparent rounded-full mx-auto mb-3" />
-              <p className="text-sm text-gray-500 dark:text-gray-400">Processing file...</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('ui:ExcelImportDialog.processingFile')}</p>
             </div>
           )}
 
@@ -193,7 +196,7 @@ export default function ExcelImportDialog({
             <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 rounded-lg p-4">
               <p className="text-sm text-red-700">
                 {(previewMutation.error as Error).message ||
-                  'Failed to parse file'}
+                  t('ui:ExcelImportDialog.failedToParseFile')}
               </p>
               <button
                 onClick={() => {
@@ -203,7 +206,7 @@ export default function ExcelImportDialog({
                 }}
                 className="mt-2 text-sm text-red-600 underline"
               >
-                Try another file
+               {t('ui:ExcelImportDialog.tryAnotherFile')}
               </button>
             </div>
           )}
@@ -213,22 +216,22 @@ export default function ExcelImportDialog({
             <>
               <div className="flex items-center gap-4 text-sm">
                 <span className="text-gray-600 dark:text-gray-400">
-                  Total rows:{' '}
+                 {t('ui:ExcelImportDialog.totalRows')}{' '}
                   <span className="font-medium">{preview.total_rows}</span>
                 </span>
                 <span className="text-green-600">
-                  Valid:{' '}
+                 {t('ui:ExcelImportDialog.valid')}{' '}
                   <span className="font-medium">{validRows}</span>
                 </span>
                 {errorRows > 0 && (
                   <span className="text-red-600">
-                    Errors:{' '}
+                   {t('ui:ExcelImportDialog.errors')}{' '}
                     <span className="font-medium">{errorRows}</span>
                   </span>
                 )}
                 {preview.sheets_found.length > 1 && (
                   <span className="text-gray-500 dark:text-gray-400">
-                    Sheets: {preview.sheets_found.join(', ')}
+                   {t('ui:ExcelImportDialog.sheets')} {preview.sheets_found.join(', ')}
                   </span>
                 )}
               </div>
@@ -238,28 +241,28 @@ export default function ExcelImportDialog({
                   <thead className="bg-gray-50 dark:bg-gray-950 border-b">
                     <tr>
                       <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                        Row
+                       {t('ui:ExcelImportDialog.row')}
                       </th>
                       <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                        Date
+                       {t('ui:ExcelImportDialog.date')}
                       </th>
                       <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                        Description
+                       {t('ui:ExcelImportDialog.description')}
                       </th>
                       <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                        Type
+                       {t('ui:ExcelImportDialog.type')}
                       </th>
                       <th className="text-right px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                        Amount
+                       {t('ui:ExcelImportDialog.amount')}
                       </th>
                       <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                        Category
+                       {t('ui:ExcelImportDialog.category')}
                       </th>
                       <th className="text-right px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                        Tax
+                       {t('ui:ExcelImportDialog.tax')}
                       </th>
                       <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                        Status
+                       {t('ui:ExcelImportDialog.status')}
                       </th>
                     </tr>
                   </thead>
@@ -294,7 +297,7 @@ export default function ExcelImportDialog({
                           <td className="px-3 py-2 text-right font-medium">
                             $
                             {Math.abs(row.total_amount).toLocaleString(
-                              'en-US',
+                              uiLocale(),
                               {
                                 minimumFractionDigits: 2,
                                 maximumFractionDigits: 2,
@@ -306,7 +309,7 @@ export default function ExcelImportDialog({
                           </td>
                           <td className="px-3 py-2 text-right text-gray-600 dark:text-gray-400">
                             {row.tax_amount != null
-                              ? `$${Math.abs(row.tax_amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                              ? `$${Math.abs(row.tax_amount).toLocaleString(uiLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                               : '-'}
                           </td>
                           <td className="px-3 py-2">
@@ -336,7 +339,7 @@ export default function ExcelImportDialog({
           {confirmMutation.isError && (
             <p className="text-sm text-red-600">
               {(confirmMutation.error as Error).message ||
-                'Failed to import entries'}
+                t('ui:ExcelImportDialog.failedToImportEntries')}
             </p>
           )}
         </div>
@@ -347,7 +350,7 @@ export default function ExcelImportDialog({
             onClick={handleClose}
             className="px-4 py-2 text-sm border rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
           >
-            Close
+           {t('ui:ExcelImportDialog.close')}
           </button>
           {preview && validRows > 0 && (
             <button
@@ -356,8 +359,8 @@ export default function ExcelImportDialog({
               className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
             >
               {confirmMutation.isPending
-                ? 'Importing...'
-                : `Confirm Import (${validRows} rows)`}
+                ? t('ui:ExcelImportDialog.importing')
+                : t('ui:ExcelImportDialog.confirmImportValidrowsRows', { validRows })}
             </button>
           )}
         </div>

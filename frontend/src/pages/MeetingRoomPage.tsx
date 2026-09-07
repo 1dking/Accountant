@@ -28,12 +28,14 @@ import PreJoinGate from '@/components/meetings/PreJoinGate'
 import CopyMeetingLink, { buildMeetingShareUrl, copyMeetingShareUrl } from '@/components/meetings/CopyMeetingLink'
 import { useBranding } from '@/hooks/useBranding'
 import type { LocalUserChoices } from '@livekit/components-react'
+import { useTranslation } from 'react-i18next'
 
 const LIVEKIT_URL =
   import.meta.env.VITE_LIVEKIT_URL ||
   `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/api/meetings/livekit-proxy`
 
 function RecordingControls({ meetingId }: { meetingId: string }) {
+  const { t } = useTranslation('ui')
   const room = useRoomContext()
   const queryClient = useQueryClient()
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -63,7 +65,7 @@ function RecordingControls({ meetingId }: { meetingId: string }) {
       }
 
       if (tracks.length === 0) {
-        alert('No media tracks available to record.')
+        alert(t('ui:MeetingRoomPage.noMediaTracksAvailableTo'))
         return
       }
 
@@ -108,7 +110,7 @@ function RecordingControls({ meetingId }: { meetingId: string }) {
       mediaRecorderRef.current = recorder
       setIsRecording(true)
     } catch (err: any) {
-      alert(`Failed to start recording: ${err?.message || 'Unknown error'}`)
+      alert(t('ui:MeetingRoomPage.failedToStartRecordingV0', { v0: err?.message || 'Unknown error' }))
     }
   }, [room, meetingId, queryClient])
 
@@ -135,20 +137,20 @@ function RecordingControls({ meetingId }: { meetingId: string }) {
           onClick={handleStartRecording}
           disabled={isUploading}
           className="lk-button"
-          title="Start recording"
+          title={t('ui:MeetingRoomPage.startRecording')}
         >
           <Circle className="h-4 w-4 text-red-400" />
-          Record
+         {t('ui:MeetingRoomPage.record')}
         </button>
       ) : (
         <button
           onClick={handleStopRecording}
           className="lk-button"
-          title="Stop recording"
+          title={t('ui:MeetingRoomPage.stopRecording')}
           style={{ background: '#dc2626' }}
         >
           <Square className="h-4 w-4" />
-          Stop
+         {t('ui:MeetingRoomPage.stop')}
         </button>
       )}
 
@@ -222,6 +224,7 @@ function ForceEnableMediaOnConnect() {
  *  mute / unmute events fired by the LiveKit room.
  */
 function MicToggleButton() {
+  const { t } = useTranslation('ui')
   const { localParticipant, isMicrophoneEnabled } = useLocalParticipant()
   const [pending, setPending] = useState(false)
   const onClick = async () => {
@@ -240,8 +243,8 @@ function MicToggleButton() {
       onClick={onClick}
       disabled={pending}
       style={mrpToggleStyle(isMicrophoneEnabled)}
-      title={isMicrophoneEnabled ? 'Mute microphone' : 'Unmute microphone'}
-      aria-label={isMicrophoneEnabled ? 'Mute microphone' : 'Unmute microphone'}
+      title={isMicrophoneEnabled ? t('ui:MeetingRoomPage.muteMicrophone') : t('ui:MeetingRoomPage.unmuteMicrophone')}
+      aria-label={isMicrophoneEnabled ? t('ui:MeetingRoomPage.muteMicrophone') : t('ui:MeetingRoomPage.unmuteMicrophone')}
     >
       {isMicrophoneEnabled ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
     </button>
@@ -249,6 +252,7 @@ function MicToggleButton() {
 }
 
 function CamToggleButton() {
+  const { t } = useTranslation('ui')
   const { localParticipant, isCameraEnabled } = useLocalParticipant()
   const [pending, setPending] = useState(false)
   const onClick = async () => {
@@ -267,8 +271,8 @@ function CamToggleButton() {
       onClick={onClick}
       disabled={pending}
       style={mrpToggleStyle(isCameraEnabled)}
-      title={isCameraEnabled ? 'Stop camera' : 'Start camera'}
-      aria-label={isCameraEnabled ? 'Stop camera' : 'Start camera'}
+      title={isCameraEnabled ? t('ui:MeetingRoomPage.stopCamera') : t('ui:MeetingRoomPage.startCamera')}
+      aria-label={isCameraEnabled ? t('ui:MeetingRoomPage.stopCamera') : t('ui:MeetingRoomPage.startCamera')}
     >
       {isCameraEnabled ? <VideoIcon className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
     </button>
@@ -276,6 +280,7 @@ function CamToggleButton() {
 }
 
 function ScreenShareToggleButton() {
+  const { t } = useTranslation('ui')
   const { localParticipant, isScreenShareEnabled } = useLocalParticipant()
   const [pending, setPending] = useState(false)
   const onClick = async () => {
@@ -294,8 +299,8 @@ function ScreenShareToggleButton() {
       onClick={onClick}
       disabled={pending}
       style={mrpToggleStyle(isScreenShareEnabled, !isScreenShareEnabled)}
-      title={isScreenShareEnabled ? 'Stop sharing' : 'Share screen'}
-      aria-label={isScreenShareEnabled ? 'Stop sharing' : 'Share screen'}
+      title={isScreenShareEnabled ? t('ui:MeetingRoomPage.stopSharing') : t('ui:MeetingRoomPage.shareScreen')}
+      aria-label={isScreenShareEnabled ? t('ui:MeetingRoomPage.stopSharing') : t('ui:MeetingRoomPage.shareScreen')}
     >
       <ScreenShare className="h-4 w-4" />
     </button>
@@ -327,12 +332,13 @@ function mrpToggleStyle(enabled: boolean, neutral = false): React.CSSProperties 
 
 
 function ServerRecordingIndicator() {
+  const { t } = useTranslation('ui')
   // Commit 7 — when meeting.record_meeting=true, the backend started
   // a LiveKit Egress on start_meeting. The client doesn't need to do
   // anything; this indicator just tells the user recording is on.
   return (
     <span
-      title="Server-side recording is active for this meeting"
+      title={t('ui:MeetingRoomPage.serverSideRecordingIsActive')}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -354,7 +360,7 @@ function ServerRecordingIndicator() {
           animation: 'mrp-rec-pulse 1.6s ease-in-out infinite',
         }}
       />
-      Recording
+     {t('ui:MeetingRoomPage.recording')}
       {/* Keyframes injected inline so we don't need a global CSS file
           change for one-off pulse animation. */}
       <style>{`@keyframes mrp-rec-pulse {
@@ -374,6 +380,7 @@ function ServerRecordingIndicator() {
  * Pulses on the panel border when someone is newly waiting so the host
  * notices even if their attention is on the video stage. */
 function LobbyPanel({ meetingId }: { meetingId: string }) {
+  const { t } = useTranslation('ui')
   const qc = useQueryClient()
   const [hasWaiting, setHasWaiting] = useState(false)
 
@@ -429,14 +436,14 @@ function LobbyPanel({ meetingId }: { meetingId: string }) {
           textTransform: 'uppercase', color: 'rgba(199, 210, 254, 0.9)',
         }}>
           <Bell className="h-3.5 w-3.5" />
-          Waiting · {waiting.length}
+         {t('ui:MeetingRoomPage.waiting')} {waiting.length}
         </div>
         {/* Commit 19 — Admit-all CTA only when 2+ are waiting */}
         {waiting.length >= 2 && (
           <button
             onClick={() => admitAllMut.mutate(waiting.map((p: any) => p.id))}
             disabled={admitAllMut.isPending}
-            title="Admit everyone waiting"
+            title={t('ui:MeetingRoomPage.admitEveryoneWaiting')}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 3,
               padding: '3px 8px', fontSize: 10.5, fontWeight: 600,
@@ -446,7 +453,7 @@ function LobbyPanel({ meetingId }: { meetingId: string }) {
               textTransform: 'uppercase', letterSpacing: '0.04em',
             }}
           >
-            <UserPlus className="h-3 w-3" /> Admit all
+            <UserPlus className="h-3 w-3" /> {t('ui:MeetingRoomPage.admitAll')}
           </button>
         )}
       </div>
@@ -466,7 +473,7 @@ function LobbyPanel({ meetingId }: { meetingId: string }) {
           }}>
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ fontSize: 13, fontWeight: 500, color: 'white', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {p.guest_name || 'Guest'}
+                {p.guest_name || t('ui:MeetingRoomPage.guest')}
               </div>
               <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.50)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {p.guest_email}
@@ -476,7 +483,7 @@ function LobbyPanel({ meetingId }: { meetingId: string }) {
               <button
                 onClick={() => admitMut.mutate(p.id)}
                 disabled={admitMut.isPending}
-                title="Admit"
+                title={t('ui:MeetingRoomPage.admit')}
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 3,
                   padding: '5px 9px', fontSize: 11, fontWeight: 500,
@@ -485,12 +492,12 @@ function LobbyPanel({ meetingId }: { meetingId: string }) {
                   borderRadius: 6, color: '#a7f3d0', cursor: 'pointer',
                 }}
               >
-                <UserPlus className="h-3 w-3" /> Admit
+                <UserPlus className="h-3 w-3" /> {t('ui:MeetingRoomPage.admit')}
               </button>
               <button
                 onClick={() => denyMut.mutate(p.id)}
                 disabled={denyMut.isPending}
-                title="Deny"
+                title={t('ui:MeetingRoomPage.deny')}
                 style={{
                   display: 'inline-flex', alignItems: 'center',
                   padding: '5px 7px', fontSize: 11,
@@ -518,6 +525,7 @@ function LobbyPanel({ meetingId }: { meetingId: string }) {
  *  Reuses CopyMeetingLink so behavior matches the auto-toast and the
  *  MeetingDetailPage share card. */
 function ShareLinkButton({ slug }: { slug: string }) {
+  const { t } = useTranslation('ui')
   const [open, setOpen] = useState(false)
   return (
     <div style={{ position: 'relative' }}>
@@ -529,10 +537,10 @@ function ShareLinkButton({ slug }: { slug: string }) {
           display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
           fontSize: 13, fontWeight: 500, cursor: 'pointer',
         }}
-        title="Share meeting link"
+        title={t('ui:MeetingRoomPage.shareMeetingLink')}
       >
         <LinkIcon className="h-4 w-4" />
-        Share
+       {t('ui:MeetingRoomPage.share')}
       </button>
       {open && (
         <div
@@ -545,10 +553,10 @@ function ShareLinkButton({ slug }: { slug: string }) {
           }}
         >
           <div style={{ fontSize: 12, fontWeight: 600, color: 'white', marginBottom: 6 }}>
-            Anyone with this link can knock
+           {t('ui:MeetingRoomPage.anyoneWithThisLinkCan')}
           </div>
           <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', marginBottom: 10 }}>
-            They'll wait in the lobby until you admit them.
+           {t('ui:MeetingRoomPage.theyLlWaitInThe')}
           </div>
           <CopyMeetingLink slug={slug} variant="compact" />
         </div>
@@ -564,6 +572,7 @@ function MeetingStage({ meetingId, slug, onEndMeeting, endingMeeting, recordMeet
   endingMeeting: boolean
   recordMeeting: boolean
 }) {
+  const { t } = useTranslation('ui')
   const tracks = useTracks(
     [
       { source: Track.Source.Camera, withPlaceholder: true },
@@ -633,7 +642,7 @@ function MeetingStage({ meetingId, slug, onEndMeeting, endingMeeting, recordMeet
           }}
         >
           <PhoneOff className="h-4 w-4" />
-          {endingMeeting ? 'Ending...' : 'End Meeting'}
+          {endingMeeting ? t('ui:MeetingRoomPage.ending') : t('ui:MeetingRoomPage.endMeeting')}
         </button>
       </div>
     </div>
@@ -641,6 +650,7 @@ function MeetingStage({ meetingId, slug, onEndMeeting, endingMeeting, recordMeet
 }
 
 export default function MeetingRoomPage() {
+  const { t } = useTranslation('ui')
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -705,14 +715,14 @@ export default function MeetingRoomPage() {
     if (!slug || !userChoices) return
     toastFiredRef.current = true
     const url = buildMeetingShareUrl(slug)
-    toast.message('Share this meeting', {
+    toast.message(t('ui:MeetingRoomPage.shareThisMeeting'), {
       description: url,
       duration: Infinity,
       action: {
-        label: 'Copy link',
+        label: t('ui:MeetingRoomPage.copyLink'),
         onClick: () => {
           void copyMeetingShareUrl(slug)
-          toast.success('Meeting link copied')
+          toast.success(t('ui:MeetingRoomPage.meetingLinkCopied'))
         },
       },
     })
@@ -732,7 +742,7 @@ export default function MeetingRoomPage() {
   }, [navigate, id])
 
   const handleEndMeeting = () => {
-    if (confirm('End this meeting for all participants?')) {
+    if (confirm(t('ui:MeetingRoomPage.endThisMeetingForAll'))) {
       endMut.mutate()
     } else {
       navigate(`/meetings/${id}`)
@@ -744,7 +754,7 @@ export default function MeetingRoomPage() {
       <div className="h-screen bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin text-white mx-auto mb-4" />
-          <p className="text-white text-sm">Connecting to meeting...</p>
+          <p className="text-white text-sm">{t('ui:MeetingRoomPage.connectingToMeeting')}</p>
         </div>
       </div>
     )
@@ -759,7 +769,7 @@ export default function MeetingRoomPage() {
             onClick={() => navigate(`/meetings/${id}`)}
             className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
           >
-            Back to Meeting
+           {t('ui:MeetingRoomPage.backToMeeting')}
           </button>
         </div>
       </div>
@@ -769,7 +779,7 @@ export default function MeetingRoomPage() {
   if (!token || !roomName) {
     return (
       <div className="h-screen bg-gray-900 flex items-center justify-center">
-        <p className="text-gray-400 text-sm">Unable to join meeting</p>
+        <p className="text-gray-400 text-sm">{t('ui:MeetingRoomPage.unableToJoinMeeting')}</p>
       </div>
     )
   }

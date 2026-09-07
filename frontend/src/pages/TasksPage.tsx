@@ -11,6 +11,7 @@ import {
   type Task,
   type TaskPriority,
 } from '@/api/tasks'
+import { useTranslation } from 'react-i18next'
 
 const PRIORITY_STYLES: Record<TaskPriority, string> = {
   high: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
@@ -39,6 +40,7 @@ function isOverdue(task: Task): boolean {
  * one place, with quick-add, complete, and delete.
  */
 export default function TasksPage() {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const [title, setTitle] = useState('')
   const [priority, setPriority] = useState<TaskPriority>('medium')
@@ -68,7 +70,7 @@ export default function TasksPage() {
     },
     onError: (err) =>
       toast.error(
-        `Couldn't create the task: ${err instanceof Error ? err.message : 'Unknown error'}`,
+        t('ui:TasksPage.couldnTCreateTheTask', { v0: err instanceof Error ? err.message : 'Unknown error' }),
       ),
   })
 
@@ -78,7 +80,7 @@ export default function TasksPage() {
     onSuccess: invalidate,
     onError: (err) =>
       toast.error(
-        `Couldn't update the task: ${err instanceof Error ? err.message : 'Unknown error'}`,
+        t('ui:TasksPage.couldnTUpdateTheTask', { v0: err instanceof Error ? err.message : 'Unknown error' }),
       ),
   })
 
@@ -87,7 +89,7 @@ export default function TasksPage() {
     onSuccess: invalidate,
     onError: (err) =>
       toast.error(
-        `Couldn't delete the task: ${err instanceof Error ? err.message : 'Unknown error'}`,
+        t('ui:TasksPage.couldnTDeleteTheTask', { v0: err instanceof Error ? err.message : 'Unknown error' }),
       ),
   })
 
@@ -107,7 +109,7 @@ export default function TasksPage() {
           type="checkbox"
           checked={done}
           onChange={() => toggleMutation.mutate(task)}
-          aria-label={done ? `Reopen ${task.title}` : `Complete ${task.title}`}
+          aria-label={done ? t('ui:TasksPage.reopenTitle', { title: task.title }) : t('ui:TasksPage.completeTitle', { title: task.title })}
           className="shrink-0"
         />
         <div className="min-w-0 flex-1">
@@ -129,8 +131,8 @@ export default function TasksPage() {
                     : 'text-gray-500 dark:text-gray-500'
                 }`}
               >
-                Due {formatDate(task.due_date)}
-                {isOverdue(task) && ' · overdue'}
+               {t('ui:TasksPage.due')} {formatDate(task.due_date)}
+                {isOverdue(task) && t('ui:TasksPage.overdue')}
               </p>
             )}
             {task.contact_id && (
@@ -139,7 +141,7 @@ export default function TasksPage() {
                 className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
               >
                 <UserIcon className="h-3 w-3" />
-                Contact
+               {t('ui:TasksPage.contact')}
               </Link>
             )}
           </div>
@@ -151,7 +153,7 @@ export default function TasksPage() {
         </span>
         <button
           onClick={() => deleteMutation.mutate(task.id)}
-          aria-label={`Delete ${task.title}`}
+          aria-label={t('ui:TasksPage.deleteTitle', { title: task.title })}
           className="shrink-0 p-1 text-gray-400 opacity-0 group-hover:opacity-100 hover:text-red-600 rounded transition-opacity"
         >
           <Trash2 className="h-4 w-4" />
@@ -163,9 +165,9 @@ export default function TasksPage() {
   return (
     <div className="max-w-3xl mx-auto p-4 sm:p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Tasks</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('ui:TasksPage.tasks')}</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          Everything on your plate, across every contact.
+         {t('ui:TasksPage.everythingOnYourPlateAcross')}
         </p>
       </div>
 
@@ -180,24 +182,24 @@ export default function TasksPage() {
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="Add a task..."
+          placeholder={t('ui:TasksPage.addATask')}
           className="flex-1 min-w-[12rem] px-3 py-2 text-sm border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
         />
         <select
           value={priority}
           onChange={(e) => setPriority(e.target.value as TaskPriority)}
-          aria-label="Priority"
+          aria-label={t('ui:TasksPage.priority')}
           className="px-2 py-2 text-sm border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
         >
-          <option value="low">Low</option>
-          <option value="medium">Medium</option>
-          <option value="high">High</option>
+          <option value="low">{t('ui:TasksPage.low')}</option>
+          <option value="medium">{t('ui:TasksPage.medium')}</option>
+          <option value="high">{t('ui:TasksPage.high')}</option>
         </select>
         <input
           type="date"
           value={dueDate}
           onChange={(e) => setDueDate(e.target.value)}
-          aria-label="Due date"
+          aria-label={t('ui:TasksPage.dueDate')}
           className="px-2 py-2 text-sm border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
         />
         <button
@@ -210,7 +212,7 @@ export default function TasksPage() {
           ) : (
             <Plus className="h-3.5 w-3.5" />
           )}
-          Add
+         {t('ui:TasksPage.add')}
         </button>
       </form>
 
@@ -221,9 +223,9 @@ export default function TasksPage() {
       ) : tasks.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <CheckSquare className="h-10 w-10 text-gray-300 dark:text-gray-600 mb-3" />
-          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">No tasks yet</p>
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('ui:TasksPage.noTasksYet')}</p>
           <p className="text-sm text-gray-500 dark:text-gray-500">
-            Add one above to start tracking your follow-up work.
+           {t('ui:TasksPage.addOneAboveToStart')}
           </p>
         </div>
       ) : (
@@ -232,7 +234,7 @@ export default function TasksPage() {
           {closed.length > 0 && (
             <div>
               <p className="px-3 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-500 uppercase tracking-wide bg-gray-50 dark:bg-gray-800/50">
-                Completed ({closed.length})
+               {t('ui:TasksPage.completed')}{closed.length})
               </p>
               <ul>{closed.map(renderRow)}</ul>
             </div>

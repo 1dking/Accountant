@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'react-router'
 import { schedulingApi } from '@/api/scheduling'
 import { CalendarDays, Clock, ArrowRight, Check, AlertCircle } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 export default function ReschedulePage() {
+  const { t } = useTranslation('ui')
   const { token } = useParams<{ token: string }>()
   const [booking, setBooking] = useState<any>(null)
   const [calendarName, setCalendarName] = useState('')
@@ -26,7 +28,7 @@ export default function ReschedulePage() {
         setCalendarName(data.calendar_name)
         setDurationMinutes(data.duration_minutes || 30)
       })
-      .catch(() => setError('This reschedule link is invalid or has expired.'))
+      .catch(() => setError(t('ui:ReschedulePage.thisRescheduleLinkIsInvalid')))
       .finally(() => setLoading(false))
   }, [token])
 
@@ -51,7 +53,7 @@ export default function ReschedulePage() {
       await schedulingApi.rescheduleBooking(token, selectedSlot)
       setSuccess(true)
     } catch {
-      setError('Failed to reschedule. Please try again.')
+      setError(t('ui:ReschedulePage.failedToReschedulePleaseTry'))
     } finally {
       setSubmitting(false)
     }
@@ -60,7 +62,7 @@ export default function ReschedulePage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
-        <div className="animate-pulse text-gray-500 dark:text-gray-400">Loading...</div>
+        <div className="animate-pulse text-gray-500 dark:text-gray-400">{t('ui:ReschedulePage.loading')}</div>
       </div>
     )
   }
@@ -70,7 +72,7 @@ export default function ReschedulePage() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg p-8 max-w-md text-center">
           <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">Link Invalid</h1>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">{t('ui:ReschedulePage.linkInvalid')}</h1>
           <p className="text-gray-600 dark:text-gray-400">{error}</p>
         </div>
       </div>
@@ -84,12 +86,12 @@ export default function ReschedulePage() {
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Check className="w-8 h-8 text-green-600" />
           </div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">Rescheduled!</h1>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">{t('ui:ReschedulePage.rescheduled')}</h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Your appointment has been rescheduled to{' '}
+           {t('ui:ReschedulePage.yourAppointmentHasBeenRescheduled')}{' '}
             <strong>{new Date(selectedSlot).toLocaleString()}</strong>.
           </p>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">You will receive a confirmation email shortly.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">{t('ui:ReschedulePage.youWillReceiveAConfirmation')}</p>
         </div>
       </div>
     )
@@ -110,13 +112,13 @@ export default function ReschedulePage() {
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg overflow-hidden">
           {/* Header */}
           <div className="bg-blue-600 text-white p-6">
-            <h1 className="text-xl font-bold">Reschedule Appointment</h1>
+            <h1 className="text-xl font-bold">{t('ui:ReschedulePage.rescheduleAppointment')}</h1>
             <p className="text-blue-100 mt-1">{calendarName}</p>
           </div>
 
           {/* Current booking info */}
           <div className="p-6 border-b">
-            <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase mb-3">Current Appointment</h2>
+            <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase mb-3">{t('ui:ReschedulePage.currentAppointment')}</h2>
             <div className="flex items-center gap-3 text-gray-700 dark:text-gray-300">
               <CalendarDays className="w-5 h-5 text-gray-400 dark:text-gray-500" />
               <span>{booking?.start_time ? new Date(booking.start_time).toLocaleString() : 'N/A'}</span>
@@ -129,7 +131,7 @@ export default function ReschedulePage() {
 
           {/* Date picker */}
           <div className="p-6 border-b">
-            <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase mb-3">Select New Date</h2>
+            <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase mb-3">{t('ui:ReschedulePage.selectNewDate')}</h2>
             <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto">
               {dates.map((date) => {
                 const d = new Date(date + 'T12:00:00')
@@ -156,11 +158,11 @@ export default function ReschedulePage() {
           {/* Time slots */}
           {selectedDate && (
             <div className="p-6 border-b">
-              <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase mb-3">Select Time</h2>
+              <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase mb-3">{t('ui:ReschedulePage.selectTime')}</h2>
               {loadingSlots ? (
-                <p className="text-sm text-gray-500 dark:text-gray-400">Loading available times...</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{t('ui:ReschedulePage.loadingAvailableTimes')}</p>
               ) : slots.length === 0 ? (
-                <p className="text-sm text-gray-500 dark:text-gray-400">No available slots on this date.</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{t('ui:ReschedulePage.noAvailableSlotsOnThis')}</p>
               ) : (
                 <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto">
                   {slots.map((slot: any) => {
@@ -192,8 +194,8 @@ export default function ReschedulePage() {
               className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white py-3 rounded-lg font-medium
                          hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {submitting ? 'Rescheduling...' : (
-                <>Reschedule <ArrowRight className="w-4 h-4" /></>
+              {submitting ? t('ui:ReschedulePage.rescheduling') : (
+                <>{t('ui:ReschedulePage.reschedule')} <ArrowRight className="w-4 h-4" /></>
               )}
             </button>
           </div>

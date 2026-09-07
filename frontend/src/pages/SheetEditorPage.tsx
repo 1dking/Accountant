@@ -15,6 +15,7 @@ import { evaluateFormula } from '@/lib/spreadsheet/formulaEngine'
 import { formatCellValue, isNumeric, parseNumeric } from '@/lib/spreadsheet/cellFormatting'
 import * as Y from 'yjs'
 import { HocuspocusProvider, WebSocketStatus } from '@hocuspocus/provider'
+import { useTranslation } from 'react-i18next'
 
 // ---------------------------------------------------------------------------
 // Selection range type
@@ -162,6 +163,7 @@ function writeSheetsToY(ydoc: Y.Doc, next: SheetData[], origin: symbol): void {
 // Main component
 // ---------------------------------------------------------------------------
 export default function SheetEditorPage() {
+  const { t } = useTranslation('ui')
   const { id } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
   const { user } = useAuthStore()
@@ -1962,7 +1964,7 @@ export default function SheetEditorPage() {
       <EditorTopBar
         docType="spreadsheet"
         docId={id}
-        title={doc?.title || 'Untitled spreadsheet'}
+        title={doc?.title || t('ui:SheetEditorPage.untitledSpreadsheet')}
         isStarred={doc?.is_starred ?? false}
         onTitleChange={handleTitleChange}
         onStar={() => starMutation.mutate()}
@@ -2020,7 +2022,7 @@ export default function SheetEditorPage() {
               pushHistory(sheets)
             }
           }}
-          placeholder="Enter value or formula..."
+          placeholder={t('ui:SheetEditorPage.enterValueOrFormula')}
           className="flex-1 text-sm px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-green-500 dark:focus:ring-green-600"
         />
       </div>
@@ -2349,7 +2351,7 @@ export default function SheetEditorPage() {
         <button
           onClick={addSheet}
           className="p-1 rounded text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-gray-200"
-          title="Add sheet"
+          title={t('ui:SheetEditorPage.addSheet')}
         >
           <Plus className="h-4 w-4" />
         </button>
@@ -2389,7 +2391,7 @@ export default function SheetEditorPage() {
           style={{ left: filterDropdown.x, top: filterDropdown.y }}
         >
           <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1 px-1">
-            Filter column {colLabel(filterDropdown.col)}
+           {t('ui:SheetEditorPage.filterColumn')} {colLabel(filterDropdown.col)}
           </div>
           <button
             onClick={() => {
@@ -2402,7 +2404,7 @@ export default function SheetEditorPage() {
             }}
             className="w-full text-left text-xs px-2 py-1 text-blue-600 dark:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded mb-1"
           >
-            Clear filter
+           {t('ui:SheetEditorPage.clearFilter')}
           </button>
           <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
           {getUniqueColumnValues(filterDropdown.col).map((val) => {
@@ -2418,7 +2420,7 @@ export default function SheetEditorPage() {
                   onChange={() => handleFilterToggleValue(filterDropdown.col, val)}
                   className="rounded"
                 />
-                <span className="truncate">{val || '(empty)'}</span>
+                <span className="truncate">{val || t('ui:SheetEditorPage.empty')}</span>
               </label>
             )
           })}

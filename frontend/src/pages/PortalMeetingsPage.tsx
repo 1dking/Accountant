@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { getPortalMeetings } from '../api/portal'
+import { useTranslation } from 'react-i18next'
 
 function statusBadge(status: string) {
   const colors: Record<string, string> = {
@@ -25,6 +26,7 @@ function formatDateTime(dateStr: string | null): string {
 }
 
 export default function PortalMeetingsPage() {
+  const { t } = useTranslation('ui')
   const { data, isLoading } = useQuery({
     queryKey: ['portal', 'meetings'],
     queryFn: getPortalMeetings,
@@ -43,29 +45,29 @@ export default function PortalMeetingsPage() {
     <div className="min-h-screen bg-background">
       <header className="border-b px-6 py-4">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Meetings</h1>
+          <h1 className="text-2xl font-bold">{t('ui:PortalMeetingsPage.meetings')}</h1>
           <nav className="flex gap-4 text-sm">
-            <Link to="/portal" className="text-muted-foreground hover:text-foreground">Dashboard</Link>
-            <Link to="/portal/invoices" className="text-muted-foreground hover:text-foreground">Invoices</Link>
-            <Link to="/portal/proposals" className="text-muted-foreground hover:text-foreground">Proposals</Link>
-            <Link to="/portal/files" className="text-muted-foreground hover:text-foreground">Files</Link>
-            <Link to="/portal/meetings" className="font-medium text-foreground">Meetings</Link>
+            <Link to="/portal" className="text-muted-foreground hover:text-foreground">{t('ui:PortalMeetingsPage.dashboard')}</Link>
+            <Link to="/portal/invoices" className="text-muted-foreground hover:text-foreground">{t('ui:PortalMeetingsPage.invoices')}</Link>
+            <Link to="/portal/proposals" className="text-muted-foreground hover:text-foreground">{t('ui:PortalMeetingsPage.proposals')}</Link>
+            <Link to="/portal/files" className="text-muted-foreground hover:text-foreground">{t('ui:PortalMeetingsPage.files')}</Link>
+            <Link to="/portal/meetings" className="font-medium text-foreground">{t('ui:PortalMeetingsPage.meetings')}</Link>
           </nav>
         </div>
       </header>
 
       <main className="p-6 max-w-5xl mx-auto">
         {isLoading ? (
-          <p className="text-muted-foreground">Loading meetings...</p>
+          <p className="text-muted-foreground">{t('ui:PortalMeetingsPage.loadingMeetings')}</p>
         ) : meetings.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-muted-foreground">No meetings found.</p>
+            <p className="text-muted-foreground">{t('ui:PortalMeetingsPage.noMeetingsFound')}</p>
           </div>
         ) : (
           <div className="space-y-8">
             {upcoming.length > 0 && (
               <section>
-                <h2 className="text-lg font-semibold mb-3">Upcoming</h2>
+                <h2 className="text-lg font-semibold mb-3">{t('ui:PortalMeetingsPage.upcoming')}</h2>
                 <div className="space-y-3">
                   {upcoming.map((meeting) => (
                     <div key={meeting.id} className="border rounded-lg p-4 hover:bg-muted/30 transition-colors">
@@ -91,7 +93,7 @@ export default function PortalMeetingsPage() {
 
             {past.length > 0 && (
               <section>
-                <h2 className="text-lg font-semibold mb-3">Past</h2>
+                <h2 className="text-lg font-semibold mb-3">{t('ui:PortalMeetingsPage.past')}</h2>
                 <div className="space-y-3">
                   {past.map((meeting) => (
                     <div key={meeting.id} className="border rounded-lg p-4 opacity-70">

@@ -3,8 +3,10 @@ import { Link } from 'react-router'
 import { getPortalDashboard } from '../api/portal'
 import { usePublicBranding } from '@/hooks/useBranding'
 import LegalFooter from '@/components/LegalFooter'
+import { useTranslation } from 'react-i18next'
 
 export default function PortalDashboardPage() {
+  const { t } = useTranslation('ui')
   const { data, isLoading } = useQuery({
     queryKey: ['portal', 'dashboard'],
     queryFn: getPortalDashboard,
@@ -16,7 +18,7 @@ export default function PortalDashboardPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-muted-foreground">Loading...</p>
+        <p className="text-muted-foreground">{t('ui:PortalDashboardPage.loading')}</p>
       </div>
     )
   }
@@ -33,17 +35,17 @@ export default function PortalDashboardPage() {
             )}
             <div className="border-l pl-4">
               <h1 className="text-lg font-semibold">
-                Welcome{dashboard?.contact_name ? `, ${dashboard.contact_name}` : ''}
+               {t('ui:PortalDashboardPage.welcome')}{dashboard?.contact_name ? `, ${dashboard.contact_name}` : ''}
               </h1>
               <p className="text-sm text-muted-foreground">{dashboard?.company_name}</p>
             </div>
           </div>
           <nav className="flex gap-4 text-sm">
-            <Link to="/portal" className="font-medium text-foreground">Dashboard</Link>
-            <Link to="/portal/invoices" className="text-muted-foreground hover:text-foreground">Invoices</Link>
-            <Link to="/portal/proposals" className="text-muted-foreground hover:text-foreground">Proposals</Link>
-            <Link to="/portal/files" className="text-muted-foreground hover:text-foreground">Files</Link>
-            <Link to="/portal/meetings" className="text-muted-foreground hover:text-foreground">Meetings</Link>
+            <Link to="/portal" className="font-medium text-foreground">{t('ui:PortalDashboardPage.dashboard')}</Link>
+            <Link to="/portal/invoices" className="text-muted-foreground hover:text-foreground">{t('ui:PortalDashboardPage.invoices')}</Link>
+            <Link to="/portal/proposals" className="text-muted-foreground hover:text-foreground">{t('ui:PortalDashboardPage.proposals')}</Link>
+            <Link to="/portal/files" className="text-muted-foreground hover:text-foreground">{t('ui:PortalDashboardPage.files')}</Link>
+            <Link to="/portal/meetings" className="text-muted-foreground hover:text-foreground">{t('ui:PortalDashboardPage.meetings')}</Link>
           </nav>
         </div>
       </header>
@@ -51,7 +53,7 @@ export default function PortalDashboardPage() {
       <main className="p-6 max-w-5xl mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <Link to="/portal/invoices" className="border rounded-lg p-4 hover:bg-accent transition-colors">
-            <div className="text-sm text-muted-foreground">Pending Invoices</div>
+            <div className="text-sm text-muted-foreground">{t('ui:PortalDashboardPage.pendingInvoices')}</div>
             <div className="text-2xl font-bold mt-1">{dashboard?.pending_invoices ?? 0}</div>
             <div className="text-sm text-muted-foreground mt-1">
               ${(dashboard?.total_outstanding ?? 0).toLocaleString()} outstanding
@@ -59,33 +61,33 @@ export default function PortalDashboardPage() {
           </Link>
 
           <Link to="/portal/proposals" className="border rounded-lg p-4 hover:bg-accent transition-colors">
-            <div className="text-sm text-muted-foreground">Proposals</div>
+            <div className="text-sm text-muted-foreground">{t('ui:PortalDashboardPage.proposals')}</div>
             <div className="text-2xl font-bold mt-1">{dashboard?.pending_proposals ?? 0}</div>
-            <div className="text-sm text-muted-foreground mt-1">awaiting response</div>
+            <div className="text-sm text-muted-foreground mt-1">{t('ui:PortalDashboardPage.awaitingResponse')}</div>
           </Link>
 
           <Link to="/portal/files" className="border rounded-lg p-4 hover:bg-accent transition-colors">
-            <div className="text-sm text-muted-foreground">Shared Files</div>
+            <div className="text-sm text-muted-foreground">{t('ui:PortalDashboardPage.sharedFiles')}</div>
             <div className="text-2xl font-bold mt-1">{dashboard?.shared_files ?? 0}</div>
           </Link>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="border rounded-lg p-4">
-            <div className="text-sm text-muted-foreground">Upcoming Meetings</div>
+            <div className="text-sm text-muted-foreground">{t('ui:PortalDashboardPage.upcomingMeetings')}</div>
             <div className="text-2xl font-bold mt-1">{dashboard?.upcoming_meetings ?? 0}</div>
             <Link to="/portal/meetings" className="text-sm text-primary hover:underline mt-2 inline-block">
-              View all meetings
+             {t('ui:PortalDashboardPage.viewAllMeetings')}
             </Link>
           </div>
 
           <div className="border rounded-lg p-4">
-            <div className="text-sm text-muted-foreground">Total Outstanding</div>
+            <div className="text-sm text-muted-foreground">{t('ui:PortalDashboardPage.totalOutstanding')}</div>
             <div className="text-2xl font-bold mt-1">
               ${(dashboard?.total_outstanding ?? 0).toLocaleString()}
             </div>
             <Link to="/portal/invoices" className="text-sm text-primary hover:underline mt-2 inline-block">
-              View invoices
+             {t('ui:PortalDashboardPage.viewInvoices')}
             </Link>
           </div>
         </div>

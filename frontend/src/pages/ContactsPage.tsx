@@ -5,15 +5,18 @@ import { Users, Plus, Search } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { listContacts, type ContactFilters } from '@/api/contacts'
 import type { ContactListItem } from '@/types/models'
+import { useTranslation } from 'react-i18next'
+import i18n from '@/i18n'
 
 const TYPE_TABS = [
-  { value: '', label: 'All' },
-  { value: 'client', label: 'Clients' },
-  { value: 'vendor', label: 'Vendors' },
-  { value: 'both', label: 'Both' },
+  { value: '', label: i18n.t('ui:ContactsPage.all') },
+  { value: 'client', label: i18n.t('ui:ContactsPage.clients') },
+  { value: 'vendor', label: i18n.t('ui:ContactsPage.vendors') },
+  { value: 'both', label: i18n.t('ui:ContactsPage.both') },
 ]
 
 export default function ContactsPage() {
+  const { t } = useTranslation('ui')
   const navigate = useNavigate()
   const { user } = useAuthStore()
   const canEdit = user?.role === 'admin' || user?.role === 'accountant'
@@ -33,14 +36,14 @@ export default function ContactsPage() {
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Contacts</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('ui:ContactsPage.contacts')}</h1>
         {canEdit && (
           <button
             onClick={() => navigate('/contacts/new')}
             className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
           >
             <Plus className="h-4 w-4" />
-            New Contact
+           {t('ui:ContactsPage.newContact')}
           </button>
         )}
       </div>
@@ -53,7 +56,7 @@ export default function ContactsPage() {
             type="text"
             value={search}
             onChange={(e) => { setSearch(e.target.value); setFilters(f => ({ ...f, page: 1 })) }}
-            placeholder="Search contacts..."
+            placeholder={t('ui:ContactsPage.searchContacts')}
             className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100"
           />
         </div>
@@ -79,11 +82,11 @@ export default function ContactsPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-100 dark:border-gray-700 text-left">
-              <th className="px-5 py-3 font-medium text-gray-500 dark:text-gray-400">Contact</th>
-              <th className="px-5 py-3 font-medium text-gray-500 dark:text-gray-400">Type</th>
-              <th className="px-5 py-3 font-medium text-gray-500 dark:text-gray-400">Email</th>
-              <th className="px-5 py-3 font-medium text-gray-500 dark:text-gray-400">Phone</th>
-              <th className="px-5 py-3 font-medium text-gray-500 dark:text-gray-400">Location</th>
+              <th className="px-5 py-3 font-medium text-gray-500 dark:text-gray-400">{t('ui:ContactsPage.contact')}</th>
+              <th className="px-5 py-3 font-medium text-gray-500 dark:text-gray-400">{t('ui:ContactsPage.type')}</th>
+              <th className="px-5 py-3 font-medium text-gray-500 dark:text-gray-400">{t('ui:ContactsPage.email')}</th>
+              <th className="px-5 py-3 font-medium text-gray-500 dark:text-gray-400">{t('ui:ContactsPage.phone')}</th>
+              <th className="px-5 py-3 font-medium text-gray-500 dark:text-gray-400">{t('ui:ContactsPage.location')}</th>
             </tr>
           </thead>
           <tbody>
@@ -91,7 +94,7 @@ export default function ContactsPage() {
               <tr>
                 <td colSpan={5} className="px-5 py-12 text-center text-gray-400 dark:text-gray-500">
                   <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  No contacts found
+                 {t('ui:ContactsPage.noContactsFound')}
                 </td>
               </tr>
             ) : (
@@ -125,7 +128,7 @@ export default function ContactsPage() {
                         c.type === 'vendor' ? 'bg-purple-100 text-purple-700' :
                         'bg-emerald-100 text-emerald-700'
                       }`}>
-                        {c.type === 'both' ? 'Client & Vendor' : c.type.charAt(0).toUpperCase() + c.type.slice(1)}
+                        {c.type === 'both' ? t('ui:ContactsPage.clientVendor') : c.type.charAt(0).toUpperCase() + c.type.slice(1)}
                       </span>
                     </td>
                     <td className="px-5 py-3 text-gray-600 dark:text-gray-400">{c.email || '—'}</td>
@@ -145,7 +148,7 @@ export default function ContactsPage() {
       {meta && meta.total_pages > 1 && (
         <div className="flex items-center justify-between mt-4">
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Page {meta.page} of {meta.total_pages} ({meta.total_count} contacts)
+           {t('ui:ContactsPage.page')} {meta.page} of {meta.total_pages} ({meta.total_count} {t('ui:ContactsPage.contacts_2')}
           </p>
           <div className="flex gap-2">
             <button
@@ -153,14 +156,14 @@ export default function ContactsPage() {
               onClick={() => setFilters(f => ({ ...f, page: (f.page ?? 1) - 1 }))}
               className="px-3 py-1.5 text-sm border dark:border-gray-600 rounded-lg disabled:opacity-50 hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-300"
             >
-              Previous
+             {t('ui:ContactsPage.previous')}
             </button>
             <button
               disabled={meta.page >= meta.total_pages}
               onClick={() => setFilters(f => ({ ...f, page: (f.page ?? 1) + 1 }))}
               className="px-3 py-1.5 text-sm border dark:border-gray-600 rounded-lg disabled:opacity-50 hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-300"
             >
-              Next
+             {t('ui:ContactsPage.next')}
             </button>
           </div>
         </div>

@@ -15,6 +15,7 @@ import {
 import { listContacts } from '@/api/contacts'
 import { createInvitation, listInvitations, resendInvitation } from '@/api/contacts'
 import type { ContactListItem } from '@/types/models'
+import { useTranslation } from 'react-i18next'
 
 interface Invitation {
   id: string
@@ -27,6 +28,7 @@ interface Invitation {
 }
 
 export default function PortalAdminPage() {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [showInviteModal, setShowInviteModal] = useState(false)
@@ -47,21 +49,21 @@ export default function PortalAdminPage() {
     mutationFn: (data: { contact_id: string; email: string }) => createInvitation({ email: data.email, role: 'client', contact_id: data.contact_id }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['portal-invitations'] })
-      toast.success('Invitation sent')
+      toast.success(t('ui:PortalAdminPage.invitationSent'))
       setShowInviteModal(false)
       setInviteEmail('')
       setInviteContactId('')
     },
-    onError: () => toast.error('Failed to send invitation'),
+    onError: () => toast.error(t('ui:PortalAdminPage.failedToSendInvitation')),
   })
 
   const resendMutation = useMutation({
     mutationFn: (invitationId: string) => resendInvitation(invitationId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['portal-invitations'] })
-      toast.success('Invitation resent')
+      toast.success(t('ui:PortalAdminPage.invitationResent'))
     },
-    onError: () => toast.error('Failed to resend invitation'),
+    onError: () => toast.error(t('ui:PortalAdminPage.failedToResendInvitation')),
   })
 
   const invitations: Invitation[] = (invitationsData as any)?.data ?? []
@@ -113,31 +115,31 @@ export default function PortalAdminPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
             <UserCog className="h-6 w-6" />
-            Portal Administration
+           {t('ui:PortalAdminPage.portalAdministration')}
           </h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">Manage client portal accounts and invitations</p>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">{t('ui:PortalAdminPage.manageClientPortalAccountsAnd')}</p>
         </div>
         <button
           onClick={() => setShowInviteModal(true)}
           className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
         >
           <Plus className="h-4 w-4" />
-          Invite Client
+         {t('ui:PortalAdminPage.inviteClient')}
         </button>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4 mb-6">
         <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 p-4">
-          <p className="text-sm text-gray-500 dark:text-gray-400">Total Invitations</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{t('ui:PortalAdminPage.totalInvitations')}</p>
           <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{invitations.length}</p>
         </div>
         <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 p-4">
-          <p className="text-sm text-gray-500 dark:text-gray-400">Active Portal Users</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{t('ui:PortalAdminPage.activePortalUsers')}</p>
           <p className="text-2xl font-bold text-green-600">{acceptedCount}</p>
         </div>
         <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 p-4">
-          <p className="text-sm text-gray-500 dark:text-gray-400">Pending Invitations</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{t('ui:PortalAdminPage.pendingInvitations')}</p>
           <p className="text-2xl font-bold text-amber-600">{pendingCount}</p>
         </div>
       </div>
@@ -149,27 +151,27 @@ export default function PortalAdminPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full pl-9 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm"
-          placeholder="Search invitations..."
+          placeholder={t('ui:PortalAdminPage.searchInvitations')}
         />
       </div>
 
       {/* Invitations table */}
       <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
         {loadingInvitations ? (
-          <div className="p-8 text-center text-gray-400">Loading invitations...</div>
+          <div className="p-8 text-center text-gray-400">{t('ui:PortalAdminPage.loadingInvitations')}</div>
         ) : filtered.length === 0 ? (
           <div className="p-8 text-center text-gray-400">
-            {invitations.length === 0 ? 'No invitations yet. Invite your first client!' : 'No results found.'}
+            {invitations.length === 0 ? t('ui:PortalAdminPage.noInvitationsYetInviteYour') : t('ui:PortalAdminPage.noResultsFound')}
           </div>
         ) : (
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">Client</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">Email</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">Status</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">Sent</th>
-                <th className="text-right px-4 py-3 font-medium text-gray-500 dark:text-gray-400">Actions</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">{t('ui:PortalAdminPage.client')}</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">{t('ui:PortalAdminPage.email')}</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">{t('ui:PortalAdminPage.status')}</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">{t('ui:PortalAdminPage.sent')}</th>
+                <th className="text-right px-4 py-3 font-medium text-gray-500 dark:text-gray-400">{t('ui:PortalAdminPage.actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
@@ -191,11 +193,11 @@ export default function PortalAdminPage() {
                         className="text-blue-600 dark:text-blue-400 hover:underline text-xs flex items-center gap-1 ml-auto"
                       >
                         <RefreshCw className="h-3 w-3" />
-                        Resend
+                       {t('ui:PortalAdminPage.resend')}
                       </button>
                     )}
                     {inv.status === 'accepted' && (
-                      <span className="text-xs text-green-600 dark:text-green-400">Active</span>
+                      <span className="text-xs text-green-600 dark:text-green-400">{t('ui:PortalAdminPage.active')}</span>
                     )}
                   </td>
                 </tr>
@@ -211,12 +213,12 @@ export default function PortalAdminPage() {
           <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-md p-6">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
               <Send className="h-5 w-5" />
-              Invite Client to Portal
+             {t('ui:PortalAdminPage.inviteClientToPortal')}
             </h2>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contact</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:PortalAdminPage.contact')}</label>
                 <select
                   value={inviteContactId}
                   onChange={(e) => {
@@ -226,7 +228,7 @@ export default function PortalAdminPage() {
                   }}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
                 >
-                  <option value="">Select a contact...</option>
+                  <option value="">{t('ui:PortalAdminPage.selectAContact')}</option>
                   {contacts.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.company_name}{c.contact_name ? ` (${c.contact_name})` : ''}
@@ -236,14 +238,14 @@ export default function PortalAdminPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email Address</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:PortalAdminPage.emailAddress')}</label>
                 <div className="flex items-center gap-2">
                   <Mail className="h-4 w-4 text-gray-400" />
                   <input
                     value={inviteEmail}
                     onChange={(e) => setInviteEmail(e.target.value)}
                     className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
-                    placeholder="client@example.com"
+                    placeholder={t('ui:PortalAdminPage.clientExampleCom')}
                     type="email"
                   />
                 </div>
@@ -259,12 +261,12 @@ export default function PortalAdminPage() {
                 }}
                 className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition"
               >
-                Cancel
+               {t('ui:PortalAdminPage.cancel')}
               </button>
               <button
                 onClick={() => {
                   if (!inviteContactId || !inviteEmail) {
-                    toast.error('Select a contact and enter an email')
+                    toast.error(t('ui:PortalAdminPage.selectAContactAndEnter'))
                     return
                   }
                   inviteMutation.mutate({ contact_id: inviteContactId, email: inviteEmail })
@@ -273,7 +275,7 @@ export default function PortalAdminPage() {
                 className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
               >
                 <Send className="h-4 w-4" />
-                {inviteMutation.isPending ? 'Sending...' : 'Send Invitation'}
+                {inviteMutation.isPending ? t('ui:PortalAdminPage.sending') : t('ui:PortalAdminPage.sendInvitation')}
               </button>
             </div>
           </div>

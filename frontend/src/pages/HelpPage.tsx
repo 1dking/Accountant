@@ -18,6 +18,8 @@ import {
   Settings,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
+import i18n from '@/i18n'
 
 interface FeatureSection {
   id: string
@@ -31,261 +33,261 @@ interface FeatureSection {
 const sections: FeatureSection[] = [
   {
     id: 'dashboard',
-    title: 'Dashboard',
+    title: i18n.t('ui:HelpPage.dashboard'),
     icon: LayoutDashboard,
     description:
-      'The Dashboard provides a high-level overview of your business finances, recent activity, and items that need your attention. It is the first page you see after logging in.',
+      i18n.t('ui:HelpPage.theDashboardProvidesAHigh'),
     features: [
-      'View key financial stats such as total revenue, expenses, and outstanding invoices at a glance.',
-      'Activity feed showing recent document uploads, invoice creations, and payment recordings.',
-      'Pending approvals section for invoices, estimates, and expenses awaiting action.',
-      'Upcoming deadlines widget highlighting invoices due soon and recurring transactions.',
-      'Quick-action buttons to create new invoices, record expenses, or upload documents.',
+      i18n.t('ui:HelpPage.viewKeyFinancialStatsSuch'),
+      i18n.t('ui:HelpPage.activityFeedShowingRecentDocument'),
+      i18n.t('ui:HelpPage.pendingApprovalsSectionForInvoices'),
+      i18n.t('ui:HelpPage.upcomingDeadlinesWidgetHighlightingInvoi'),
+      i18n.t('ui:HelpPage.quickActionButtonsToCreate'),
     ],
     gettingStarted:
       'Your dashboard populates automatically as you add invoices, expenses, and documents. Start by creating your first invoice or uploading a receipt to see your stats come to life.',
   },
   {
     id: 'documents',
-    title: 'Documents',
+    title: i18n.t('ui:HelpPage.documents'),
     icon: FileText,
     description:
-      'The Documents vault lets you upload, organize, and manage all your business files in one place. It supports PDFs, images, and other common file types up to 50MB each.',
+      i18n.t('ui:HelpPage.theDocumentsVaultLetsYou'),
     features: [
-      'Upload PDFs, images (JPG, PNG), and other documents up to 50MB per file.',
-      'Organize documents into folders for easy browsing and retrieval.',
-      'Tag documents with custom labels for powerful filtering and search.',
-      'AI-powered data extraction automatically pulls key information from uploaded invoices and receipts.',
-      'Preview documents directly in the browser without downloading.',
-      'Link documents to invoices, expenses, or contacts for full traceability.',
+      i18n.t('ui:HelpPage.uploadPdfsImagesJpgPng'),
+      i18n.t('ui:HelpPage.organizeDocumentsIntoFoldersFor'),
+      i18n.t('ui:HelpPage.tagDocumentsWithCustomLabels'),
+      i18n.t('ui:HelpPage.aiPoweredDataExtractionAutomatically'),
+      i18n.t('ui:HelpPage.previewDocumentsDirectlyInThe'),
+      i18n.t('ui:HelpPage.linkDocumentsToInvoicesExpenses'),
     ],
     gettingStarted:
       'Navigate to the Documents page and click "Upload" to add your first file. The AI extraction engine will automatically attempt to identify amounts, dates, and vendor information.',
   },
   {
     id: 'contacts',
-    title: 'Contacts',
+    title: i18n.t('ui:HelpPage.contacts'),
     icon: Users,
     description:
-      'Contacts serves as your customer and vendor directory, storing all the details you need to create invoices, track expenses, and communicate with your business relationships.',
+      i18n.t('ui:HelpPage.contactsServesAsYourCustomer'),
     features: [
-      'Store contact details including name, email, phone number, and company.',
-      'Categorize contacts as customers, vendors, or both.',
-      'View all invoices and expenses linked to a specific contact.',
-      'Search and filter contacts by name, company, or category.',
-      'Import contacts or add them manually with a quick-entry form.',
+      i18n.t('ui:HelpPage.storeContactDetailsIncludingName'),
+      i18n.t('ui:HelpPage.categorizeContactsAsCustomersVendors'),
+      i18n.t('ui:HelpPage.viewAllInvoicesAndExpenses'),
+      i18n.t('ui:HelpPage.searchAndFilterContactsBy'),
+      i18n.t('ui:HelpPage.importContactsOrAddThem'),
     ],
     gettingStarted:
       'Add your first contact by clicking "New Contact" and filling in their details. Once created, you can select them when creating invoices or recording expenses.',
   },
   {
     id: 'invoices',
-    title: 'Invoices',
+    title: i18n.t('ui:HelpPage.invoices'),
     icon: FileOutput,
     description:
-      'Create professional invoices with line items, tax calculations, and status tracking. Send invoices via email and generate PDF copies for your records.',
+      i18n.t('ui:HelpPage.createProfessionalInvoicesWithLine'),
     features: [
-      'Create invoices with multiple line items, quantities, rates, and descriptions.',
-      'Automatic tax calculation with configurable HST/GST rates.',
-      'Track invoice status: Draft, Sent, Viewed, Paid, Overdue, or Cancelled.',
-      'Send invoices directly to customers via email with a single click.',
-      'Generate and download professional PDF invoices.',
-      'Issue credit notes against existing invoices for refunds or adjustments.',
+      i18n.t('ui:HelpPage.createInvoicesWithMultipleLine'),
+      i18n.t('ui:HelpPage.automaticTaxCalculationWithConfigurable'),
+      i18n.t('ui:HelpPage.trackInvoiceStatusDraftSent'),
+      i18n.t('ui:HelpPage.sendInvoicesDirectlyToCustomers'),
+      i18n.t('ui:HelpPage.generateAndDownloadProfessionalPdf'),
+      i18n.t('ui:HelpPage.issueCreditNotesAgainstExisting'),
     ],
     gettingStarted:
       'Go to Invoices and click "New Invoice." Select a contact, add your line items, and choose whether to save as draft or send immediately.',
   },
   {
     id: 'estimates',
-    title: 'Estimates',
+    title: i18n.t('ui:HelpPage.estimates'),
     icon: ClipboardList,
     description:
-      'Create detailed quotes and estimates for potential work. When a client accepts an estimate, convert it directly into an invoice with one click.',
+      i18n.t('ui:HelpPage.createDetailedQuotesAndEstimates'),
     features: [
-      'Build estimates with itemized line items, quantities, and pricing.',
-      'Track estimate status: Draft, Sent, Accepted, Declined, or Expired.',
-      'Convert accepted estimates into invoices instantly, carrying over all line items.',
-      'Send estimates to clients via email for review and approval.',
-      'Duplicate existing estimates to quickly create similar quotes.',
+      i18n.t('ui:HelpPage.buildEstimatesWithItemizedLine'),
+      i18n.t('ui:HelpPage.trackEstimateStatusDraftSent'),
+      i18n.t('ui:HelpPage.convertAcceptedEstimatesIntoInvoices'),
+      i18n.t('ui:HelpPage.sendEstimatesToClientsVia'),
+      i18n.t('ui:HelpPage.duplicateExistingEstimatesToQuickly'),
     ],
     gettingStarted:
       'Create a new estimate from the Estimates page, add your line items and pricing, then send it to your client. Once accepted, use the "Convert to Invoice" action to generate the invoice.',
   },
   {
     id: 'cashbook',
-    title: 'Cashbook',
+    title: i18n.t('ui:HelpPage.cashbook'),
     icon: BookOpen,
     description:
-      'The Cashbook is your unified ledger for all financial transactions. It supports multiple payment accounts, automatic HST/GST splitting, and provides a running balance view.',
+      i18n.t('ui:HelpPage.theCashbookIsYourUnified'),
     features: [
-      'Unified ledger displaying all income and expense transactions in one place.',
-      'Support for multiple payment accounts (bank, cash, credit card, etc.).',
-      'Automatic HST/GST split calculation on transactions.',
-      'Running balance that updates in real time as entries are added.',
-      'Excel import functionality to bulk-load transactions from bank statements.',
-      'Categorize entries using 31 built-in categories for detailed financial tracking.',
+      i18n.t('ui:HelpPage.unifiedLedgerDisplayingAllIncome'),
+      i18n.t('ui:HelpPage.supportForMultiplePaymentAccounts'),
+      i18n.t('ui:HelpPage.automaticHstGstSplitCalculation'),
+      i18n.t('ui:HelpPage.runningBalanceThatUpdatesIn'),
+      i18n.t('ui:HelpPage.excelImportFunctionalityToBulk'),
+      i18n.t('ui:HelpPage.categorizeEntriesUsing31Built'),
     ],
     gettingStarted:
       'Start by adding your payment accounts, then record your first transaction. You can also import transactions in bulk from an Excel file exported from your bank.',
   },
   {
     id: 'expenses',
-    title: 'Expenses',
+    title: i18n.t('ui:HelpPage.expenses'),
     icon: Receipt,
     description:
-      'Track all business expenses with vendor details, amounts, and categories. Attach receipt images for documentation and view spending analytics on the dashboard.',
+      i18n.t('ui:HelpPage.trackAllBusinessExpensesWith'),
     features: [
-      'Record expenses with vendor, amount, date, and category fields.',
-      'Attach receipt images or PDFs as supporting documentation.',
-      'Categorize expenses for accurate financial reporting.',
-      'Dashboard analytics showing spending trends and category breakdowns.',
-      'Filter and search expenses by date range, vendor, or category.',
+      i18n.t('ui:HelpPage.recordExpensesWithVendorAmount'),
+      i18n.t('ui:HelpPage.attachReceiptImagesOrPdfs'),
+      i18n.t('ui:HelpPage.categorizeExpensesForAccurateFinancial'),
+      i18n.t('ui:HelpPage.dashboardAnalyticsShowingSpendingTrends'),
+      i18n.t('ui:HelpPage.filterAndSearchExpensesBy'),
     ],
     gettingStarted:
       'Click "New Expense" to record a purchase. Fill in the vendor, amount, and category, then optionally attach a photo of the receipt for your records.',
   },
   {
     id: 'income',
-    title: 'Income',
+    title: i18n.t('ui:HelpPage.income'),
     icon: TrendingUp,
     description:
-      'Record all income entries to maintain a complete picture of your revenue. Income records feed directly into Profit & Loss and tax reports.',
+      i18n.t('ui:HelpPage.recordAllIncomeEntriesTo'),
     features: [
-      'Record income entries with source, amount, date, and category.',
-      'Link income to specific contacts or invoices for traceability.',
-      'Income data feeds automatically into P&L and tax summary reports.',
-      'Filter income by date range, source, or category.',
-      'View income trends and totals on the dashboard.',
+      i18n.t('ui:HelpPage.recordIncomeEntriesWithSource'),
+      i18n.t('ui:HelpPage.linkIncomeToSpecificContacts'),
+      i18n.t('ui:HelpPage.incomeDataFeedsAutomaticallyInto'),
+      i18n.t('ui:HelpPage.filterIncomeByDateRange'),
+      i18n.t('ui:HelpPage.viewIncomeTrendsAndTotals'),
     ],
     gettingStarted:
       'Navigate to the Income page and click "New Income" to record a payment received. Link it to an invoice if applicable to keep your records consistent.',
   },
   {
     id: 'recurring',
-    title: 'Recurring',
+    title: i18n.t('ui:HelpPage.recurring'),
     icon: RefreshCw,
     description:
-      'Set up recurring rules to automatically generate transactions on a schedule. Supports daily, weekly, monthly, and yearly frequencies to save time on repetitive entries.',
+      i18n.t('ui:HelpPage.setUpRecurringRulesTo'),
     features: [
-      'Create recurring rules with daily, weekly, monthly, or yearly frequencies.',
-      'Auto-generates income or expense transactions based on your schedule.',
-      'Configure start and optional end dates for each recurring rule.',
-      'Pause or resume recurring rules at any time.',
-      'View upcoming scheduled transactions on the Calendar page.',
+      i18n.t('ui:HelpPage.createRecurringRulesWithDaily'),
+      i18n.t('ui:HelpPage.autoGeneratesIncomeOrExpense'),
+      i18n.t('ui:HelpPage.configureStartAndOptionalEnd'),
+      i18n.t('ui:HelpPage.pauseOrResumeRecurringRules'),
+      i18n.t('ui:HelpPage.viewUpcomingScheduledTransactionsOn'),
     ],
     gettingStarted:
       'Go to the Recurring page and create a new rule. Choose the frequency, set the amount and category, and the system will automatically generate transactions on schedule.',
   },
   {
     id: 'budgets',
-    title: 'Budgets',
+    title: i18n.t('ui:HelpPage.budgets'),
     icon: PiggyBank,
     description:
-      'Set category-level budgets with spending limits and track your actual spending against those targets. Stay on top of your finances with clear progress indicators.',
+      i18n.t('ui:HelpPage.setCategoryLevelBudgetsWith'),
     features: [
-      'Create budgets for specific expense categories with spending limits.',
-      'Track actual spending vs. budgeted amounts in real time.',
-      'Visual progress bars showing how much of each budget has been used.',
-      'Set budget periods (monthly, quarterly, or yearly).',
-      'Receive alerts when spending approaches or exceeds budget thresholds.',
+      i18n.t('ui:HelpPage.createBudgetsForSpecificExpense'),
+      i18n.t('ui:HelpPage.trackActualSpendingVsBudgeted'),
+      i18n.t('ui:HelpPage.visualProgressBarsShowingHow'),
+      i18n.t('ui:HelpPage.setBudgetPeriodsMonthlyQuarterly'),
+      i18n.t('ui:HelpPage.receiveAlertsWhenSpendingApproaches'),
     ],
     gettingStarted:
       'Create your first budget by selecting a category, setting a spending limit, and choosing the budget period. As you record expenses, the budget tracker will update automatically.',
   },
   {
     id: 'reports',
-    title: 'Reports',
+    title: i18n.t('ui:HelpPage.reports'),
     icon: BarChart3,
     description:
-      'Generate comprehensive financial reports including Profit & Loss, Tax Summary, Cash Flow, and more. Export reports to PDF for sharing with your accountant or filing.',
+      i18n.t('ui:HelpPage.generateComprehensiveFinancialReportsInc'),
     features: [
-      'Profit & Loss report showing revenue, expenses, and net income over a period.',
-      'Tax Summary report with HST/GST collected and paid for easy filing.',
-      'Cash Flow report tracking money in and out of your business.',
-      'Accounts Summary with a breakdown of all payment accounts.',
-      'Accounts Receivable and Accounts Payable aging reports.',
-      'Export any report to PDF for printing or sharing.',
+      i18n.t('ui:HelpPage.profitLossReportShowingRevenue'),
+      i18n.t('ui:HelpPage.taxSummaryReportWithHst'),
+      i18n.t('ui:HelpPage.cashFlowReportTrackingMoney'),
+      i18n.t('ui:HelpPage.accountsSummaryWithABreakdown'),
+      i18n.t('ui:HelpPage.accountsReceivableAndAccountsPayable'),
+      i18n.t('ui:HelpPage.exportAnyReportToPdf'),
     ],
     gettingStarted:
       'Visit the Reports page and select the report type you need. Choose a date range and click "Generate" to view your report. Use the PDF export button to download a copy.',
   },
   {
     id: 'email-scan',
-    title: 'Email Scan',
+    title: i18n.t('ui:HelpPage.emailScan'),
     icon: Inbox,
     description:
-      'Connect your Gmail account to automatically scan incoming emails for invoices and receipts. Detected documents are imported into your vault for review and processing.',
+      i18n.t('ui:HelpPage.connectYourGmailAccountTo'),
     features: [
-      'Connect your Gmail account securely via OAuth for email scanning.',
-      'Automatic detection of invoice and receipt attachments in incoming emails.',
-      'Import detected documents directly into the Documents vault.',
-      'Review scanned documents before they are processed or categorized.',
-      'Configure scan frequency and filtering rules to control what gets imported.',
+      i18n.t('ui:HelpPage.connectYourGmailAccountSecurely'),
+      i18n.t('ui:HelpPage.automaticDetectionOfInvoiceAnd'),
+      i18n.t('ui:HelpPage.importDetectedDocumentsDirectlyInto'),
+      i18n.t('ui:HelpPage.reviewScannedDocumentsBeforeThey'),
+      i18n.t('ui:HelpPage.configureScanFrequencyAndFiltering'),
     ],
     gettingStarted:
       'Go to Settings and connect your Gmail account under the Gmail integration section. Once connected, navigate to Email Scan to start scanning your inbox for financial documents.',
   },
   {
     id: 'banking',
-    title: 'Banking',
+    title: i18n.t('ui:HelpPage.banking'),
     icon: Landmark,
     description:
-      'Connect your bank accounts via Plaid to automatically import transactions. Set up auto-categorization rules to streamline your bookkeeping workflow.',
+      i18n.t('ui:HelpPage.connectYourBankAccountsVia'),
     features: [
-      'Connect bank accounts securely through Plaid integration.',
-      'Automatic import of bank transactions into the Cashbook.',
-      'Create auto-categorization rules to classify transactions by description or amount.',
-      'Review and approve imported transactions before they are finalized.',
-      'Support for multiple bank accounts and credit cards.',
+      i18n.t('ui:HelpPage.connectBankAccountsSecurelyThrough'),
+      i18n.t('ui:HelpPage.automaticImportOfBankTransactions'),
+      i18n.t('ui:HelpPage.createAutoCategorizationRulesTo'),
+      i18n.t('ui:HelpPage.reviewAndApproveImportedTransactions'),
+      i18n.t('ui:HelpPage.supportForMultipleBankAccounts'),
     ],
     gettingStarted:
       'Navigate to Banking and click "Connect Account" to link your bank via Plaid. Once connected, transactions will be imported automatically and you can set up rules to categorize them.',
   },
   {
     id: 'capture',
-    title: 'Capture',
+    title: i18n.t('ui:HelpPage.capture'),
     icon: Camera,
     description:
-      'Use the mobile-friendly Capture page to snap photos of receipts on the go. AI extraction automatically reads the receipt details and creates an expense entry for you.',
+      i18n.t('ui:HelpPage.useTheMobileFriendlyCapture'),
     features: [
-      'Mobile-optimized interface for quick receipt photo capture.',
-      'AI-powered extraction reads vendor, amount, date, and tax from receipt images.',
-      'Automatically creates an expense entry from the extracted data.',
-      'Review and edit extracted details before saving the expense.',
-      'Captured images are stored in the Documents vault as attachments.',
+      i18n.t('ui:HelpPage.mobileOptimizedInterfaceForQuick'),
+      i18n.t('ui:HelpPage.aiPoweredExtractionReadsVendor'),
+      i18n.t('ui:HelpPage.automaticallyCreatesAnExpenseEntry'),
+      i18n.t('ui:HelpPage.reviewAndEditExtractedDetails'),
+      i18n.t('ui:HelpPage.capturedImagesAreStoredIn'),
     ],
     gettingStarted:
       'Open the Capture page on your phone, take a photo of a receipt, and the AI will extract the details. Review the information, make any corrections, and save to create an expense automatically.',
   },
   {
     id: 'calendar',
-    title: 'Calendar',
+    title: i18n.t('ui:HelpPage.calendar'),
     icon: Calendar,
     description:
-      'The Calendar gives you a visual timeline of your financial activities. View invoice due dates, recurring transaction dates, and budget period boundaries all in one place.',
+      i18n.t('ui:HelpPage.theCalendarGivesYouA'),
     features: [
-      'Monthly calendar view showing all financial events and deadlines.',
-      'Invoice due dates displayed with status color coding (upcoming, overdue).',
-      'Recurring transaction dates marked on the calendar for visibility.',
-      'Budget period start and end dates for tracking spending windows.',
-      'Click any date to see a detailed list of events for that day.',
+      i18n.t('ui:HelpPage.monthlyCalendarViewShowingAll'),
+      i18n.t('ui:HelpPage.invoiceDueDatesDisplayedWith'),
+      i18n.t('ui:HelpPage.recurringTransactionDatesMarkedOn'),
+      i18n.t('ui:HelpPage.budgetPeriodStartAndEnd'),
+      i18n.t('ui:HelpPage.clickAnyDateToSee'),
     ],
     gettingStarted:
       'Visit the Calendar page to see all your upcoming financial dates. Invoices, recurring transactions, and budget periods are displayed automatically based on your existing data.',
   },
   {
     id: 'settings',
-    title: 'Settings',
+    title: i18n.t('ui:HelpPage.settings'),
     icon: Settings,
     description:
-      'Configure your account and application preferences. Manage users, email templates, integrations, tax rates, payment reminders, and accounting periods.',
+      i18n.t('ui:HelpPage.configureYourAccountAndApplication'),
     features: [
-      'Profile settings for updating your name, email, and password.',
-      'User management for adding team members and assigning roles.',
-      'Email configuration for outgoing invoice and reminder emails.',
-      'Gmail and Banking integration setup (Plaid connection).',
-      'Tax rate configuration for HST/GST and other applicable taxes.',
-      'Payment reminder schedules, SMS notifications, and accounting period settings.',
+      i18n.t('ui:HelpPage.profileSettingsForUpdatingYour'),
+      i18n.t('ui:HelpPage.userManagementForAddingTeam'),
+      i18n.t('ui:HelpPage.emailConfigurationForOutgoingInvoice'),
+      i18n.t('ui:HelpPage.gmailAndBankingIntegrationSetup'),
+      i18n.t('ui:HelpPage.taxRateConfigurationForHst'),
+      i18n.t('ui:HelpPage.paymentReminderSchedulesSmsNotifications'),
     ],
     gettingStarted:
       'Start with the Profile section to ensure your business details are correct, then configure your tax rates under the Tax tab. Connect your email and banking integrations as needed.',
@@ -293,6 +295,7 @@ const sections: FeatureSection[] = [
 ]
 
 export default function HelpPage() {
+  const { t } = useTranslation('ui')
   const [activeSection, setActiveSection] = useState(sections[0].id)
 
   const handleNavClick = (id: string) => {
@@ -302,7 +305,7 @@ export default function HelpPage() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">Help & Documentation</h1>
+      <h1 className="text-2xl font-bold mb-6">{t('ui:HelpPage.helpDocumentation')}</h1>
 
       <div className="flex gap-8">
         {/* Left sidebar navigation */}
@@ -347,7 +350,7 @@ export default function HelpPage() {
                 <p className="text-gray-700 dark:text-gray-300 mb-4">{section.description}</p>
 
                 <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
-                  Key Features
+                 {t('ui:HelpPage.keyFeatures')}
                 </h3>
                 <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 mb-4">
                   {section.features.map((feature, index) => (
@@ -356,7 +359,7 @@ export default function HelpPage() {
                 </ul>
 
                 <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
-                  Getting Started
+                 {t('ui:HelpPage.gettingStarted')}
                 </h3>
                 <p className="text-gray-600 dark:text-gray-400">{section.gettingStarted}</p>
               </section>

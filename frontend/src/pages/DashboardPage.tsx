@@ -26,38 +26,40 @@ import { getInvoiceStats } from '@/api/invoices'
 import { getProposalStats } from '@/api/proposals'
 import { getUnreadCount } from '@/api/inbox'
 import { schedulingApi } from '@/api/scheduling'
-import { formatDate, formatRelativeTime } from '@/lib/utils'
+import { formatDate, formatRelativeTime, uiLocale } from '@/lib/utils'
 import { EVENT_TYPES } from '@/lib/constants'
 import OnboardingChecklist from '@/components/dashboard/OnboardingChecklist'
 import ActivityPanel from '@/components/dashboard/ActivityPanel'
 import type { CalendarEvent, ActivityLogEntry, ExpenseApproval } from '@/types/models'
+import { useTranslation } from 'react-i18next'
 
 function buildChartData(activities: ActivityLogEntry[]) {
   const days: Record<string, number> = {}
   for (let i = 6; i >= 0; i--) {
     const d = new Date()
     d.setDate(d.getDate() - i)
-    const key = d.toLocaleDateString('en-US', { weekday: 'short' })
+    const key = d.toLocaleDateString(uiLocale(), { weekday: 'short' })
     days[key] = 0
   }
   activities.forEach((a) => {
     const d = new Date(a.created_at)
-    const key = d.toLocaleDateString('en-US', { weekday: 'short' })
+    const key = d.toLocaleDateString(uiLocale(), { weekday: 'short' })
     if (key in days) days[key]++
   })
   return Object.entries(days).map(([name, count]) => ({ name, count }))
 }
 
 function formatCurrency(value: number) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value)
+  return new Intl.NumberFormat(uiLocale(), { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value)
 }
 
 export default function DashboardPage() {
+  const { t } = useTranslation('ui')
   const { user } = useAuthStore()
   const navigate = useNavigate()
 
   const firstName = user?.full_name?.split(' ')[0] ?? 'there'
-  const todayStr = new Date().toLocaleDateString('en-US', {
+  const todayStr = new Date().toLocaleDateString(uiLocale(), {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
@@ -110,7 +112,7 @@ export default function DashboardPage() {
 
   const statCards = [
     {
-      label: 'Total Revenue',
+      label: t('ui:DashboardPage.totalRevenue'),
       value: formatCurrency(invoiceStats?.total_paid_this_month ?? 0),
       sublabel: 'Paid this month',
       icon: DollarSign,
@@ -119,7 +121,7 @@ export default function DashboardPage() {
       path: '/invoices',
     },
     {
-      label: 'Outstanding',
+      label: t('ui:DashboardPage.outstanding'),
       value: formatCurrency(invoiceStats?.total_outstanding ?? 0),
       sublabel: `${invoiceStats?.invoice_count ?? 0} invoices`,
       icon: AlertCircle,
@@ -128,7 +130,7 @@ export default function DashboardPage() {
       path: '/invoices',
     },
     {
-      label: 'Proposals Pending',
+      label: t('ui:DashboardPage.proposalsPending'),
       value: (proposalStats?.sent_count ?? 0) + (proposalStats?.viewed_count ?? 0),
       sublabel: `${proposalStats?.signed_count ?? 0} signed`,
       icon: FileSignature,
@@ -137,7 +139,7 @@ export default function DashboardPage() {
       path: '/proposals',
     },
     {
-      label: 'Upcoming Meetings',
+      label: t('ui:DashboardPage.upcomingMeetings'),
       value: bookings.length,
       sublabel: 'confirmed bookings',
       icon: CalendarDays,
@@ -146,7 +148,7 @@ export default function DashboardPage() {
       path: '/scheduling',
     },
     {
-      label: 'Unread Messages',
+      label: t('ui:DashboardPage.unreadMessages'),
       value: unreadCount?.total ?? 0,
       sublabel: `${unreadCount?.email ?? 0} email, ${unreadCount?.sms ?? 0} sms`,
       icon: Inbox,
@@ -155,7 +157,7 @@ export default function DashboardPage() {
       path: '/inbox',
     },
     {
-      label: 'Pending Approvals',
+      label: t('ui:DashboardPage.pendingApprovals'),
       value: pendingApprovals.length,
       sublabel: 'expense approvals',
       icon: ClipboardCheck,
@@ -176,10 +178,10 @@ export default function DashboardPage() {
         <div className="flex items-start justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              Hello, {firstName}
+             {t('ui:DashboardPage.hello')} {firstName}
             </h1>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-              Here's your business at a glance
+             {t('ui:DashboardPage.hereSYourBusinessAt')}
             </p>
           </div>
           <p className="text-sm text-gray-400 dark:text-gray-500 shrink-0">{todayStr}</p>
@@ -213,7 +215,7 @@ export default function DashboardPage() {
         {/* Chart */}
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5 mb-6">
           <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
-            Activity — Last 7 Days
+           {t('ui:DashboardPage.activityLast7Days')}
           </h2>
           <div className="h-48">
             <ResponsiveContainer width="100%" height="100%">
@@ -259,19 +261,19 @@ export default function DashboardPage() {
             <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
                 <CalendarDays className="h-4 w-4 text-purple-500" />
-                Upcoming Bookings
+               {t('ui:DashboardPage.upcomingBookings')}
               </h2>
               <button
                 onClick={() => navigate('/scheduling')}
                 className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-0.5"
               >
-                View All <ChevronRight className="h-3 w-3" />
+               {t('ui:DashboardPage.viewAll')} <ChevronRight className="h-3 w-3" />
               </button>
             </div>
             <div className="divide-y divide-gray-50 dark:divide-gray-800">
               {bookings.length === 0 ? (
                 <p className="p-5 text-sm text-gray-400 dark:text-gray-500 text-center">
-                  No upcoming bookings
+                 {t('ui:DashboardPage.noUpcomingBookings')}
                 </p>
               ) : (
                 bookings.slice(0, 5).map((booking: any) => (
@@ -300,19 +302,19 @@ export default function DashboardPage() {
           <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
             <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                Upcoming Deadlines
+               {t('ui:DashboardPage.upcomingDeadlines')}
               </h2>
               <button
                 onClick={() => navigate('/calendar')}
                 className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-0.5"
               >
-                View Calendar <ChevronRight className="h-3 w-3" />
+               {t('ui:DashboardPage.viewCalendar')} <ChevronRight className="h-3 w-3" />
               </button>
             </div>
             <div className="divide-y divide-gray-50 dark:divide-gray-800">
               {upcoming.length === 0 ? (
                 <p className="p-5 text-sm text-gray-400 dark:text-gray-500 text-center">
-                  No upcoming deadlines
+                 {t('ui:DashboardPage.noUpcomingDeadlines')}
                 </p>
               ) : (
                 upcoming.map((evt) => {
@@ -358,7 +360,7 @@ export default function DashboardPage() {
             <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
                 <ClipboardCheck className="h-4 w-4 text-amber-500" />
-                Pending Expense Approvals
+               {t('ui:DashboardPage.pendingExpenseApprovals')}
                 <span className="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-amber-100 text-amber-700">
                   {pendingApprovals.length}
                 </span>
@@ -367,7 +369,7 @@ export default function DashboardPage() {
                 onClick={() => navigate('/expenses')}
                 className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-0.5"
               >
-                View Expenses <ChevronRight className="h-3 w-3" />
+               {t('ui:DashboardPage.viewExpenses')} <ChevronRight className="h-3 w-3" />
               </button>
             </div>
             <div className="divide-y divide-gray-50 dark:divide-gray-800">
@@ -380,7 +382,7 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-2.5 min-w-0">
                     <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
                     <span className="text-sm text-gray-700 dark:text-gray-300">
-                      Expense #{approval.expense_id.slice(0, 8)}
+                     {t('ui:DashboardPage.expense')}{approval.expense_id.slice(0, 8)}
                     </span>
                   </div>
                   <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0 ml-3">

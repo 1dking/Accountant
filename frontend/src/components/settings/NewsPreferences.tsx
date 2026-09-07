@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Check, Loader2, Newspaper } from 'lucide-react'
 import { api } from '@/api/client'
 import { cn } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
 
 const INDUSTRIES = [
   'Marketing', 'Real Estate', 'Finance', 'Healthcare', 'Tech',
@@ -59,6 +60,7 @@ function MultiSelect({
 }
 
 export default function NewsPreferences() {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const [industries, setIndustries] = useState<string[]>([])
   const [topics, setTopics] = useState<string[]>([])
@@ -110,23 +112,23 @@ export default function NewsPreferences() {
       <div>
         <div className="flex items-center gap-2 mb-1">
           <Newspaper className="h-5 w-5 text-blue-600" />
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">News Preferences</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('ui:NewsPreferences.newsPreferences')}</h2>
         </div>
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          Choose your industries and topics to get personalized news in your daily briefing and O-Brain.
+         {t('ui:NewsPreferences.chooseYourIndustriesAndTopics')}
         </p>
       </div>
 
       <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-6 space-y-6">
         <MultiSelect
-          label="Industries"
+          label={t('ui:NewsPreferences.industries')}
           options={INDUSTRIES}
           selected={industries}
           onToggle={toggleIndustry}
         />
 
         <MultiSelect
-          label="Topics"
+          label={t('ui:NewsPreferences.topics')}
           options={TOPICS}
           selected={topics}
           onToggle={toggleTopic}
@@ -143,10 +145,10 @@ export default function NewsPreferences() {
             ) : saved ? (
               <Check className="h-4 w-4" />
             ) : null}
-            {saved ? 'Saved!' : 'Save Preferences'}
+            {saved ? t('ui:NewsPreferences.saved') : t('ui:NewsPreferences.savePreferences')}
           </button>
           {industries.length === 0 && topics.length === 0 && (
-            <p className="text-xs text-gray-400">Select at least one industry or topic to receive news</p>
+            <p className="text-xs text-gray-400">{t('ui:NewsPreferences.selectAtLeastOneIndustry')}</p>
           )}
         </div>
       </div>

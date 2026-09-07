@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Plus, Trash2, Code2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import i18n from '@/i18n'
 
 interface TrackingPixelsSettingsProps {
   value: string
@@ -23,17 +25,17 @@ interface TrackingConfig {
 }
 
 const PIXEL_FIELDS = [
-  { key: 'facebook_pixel', label: 'Facebook Pixel ID', placeholder: '123456789012345' },
-  { key: 'ga4', label: 'Google Analytics 4 ID', placeholder: 'G-XXXXXXXXXX' },
-  { key: 'gtm', label: 'GTM Container ID', placeholder: 'GTM-XXXXXXX' },
-  { key: 'tiktok', label: 'TikTok Pixel ID', placeholder: 'CXXXXXXXXXXXXXXXXX' },
-  { key: 'linkedin', label: 'LinkedIn Insight Tag ID', placeholder: '1234567' },
+  { key: 'facebook_pixel', label: i18n.t('ui:TrackingPixelsSettings.facebookPixelId'), placeholder: '123456789012345' },
+  { key: 'ga4', label: i18n.t('ui:TrackingPixelsSettings.googleAnalytics4Id'), placeholder: i18n.t('ui:TrackingPixelsSettings.gXxxxxxxxxx') },
+  { key: 'gtm', label: i18n.t('ui:TrackingPixelsSettings.gtmContainerId'), placeholder: i18n.t('ui:TrackingPixelsSettings.gtmXxxxxxx') },
+  { key: 'tiktok', label: i18n.t('ui:TrackingPixelsSettings.tiktokPixelId'), placeholder: i18n.t('ui:TrackingPixelsSettings.cxxxxxxxxxxxxxxxxx') },
+  { key: 'linkedin', label: i18n.t('ui:TrackingPixelsSettings.linkedinInsightTagId'), placeholder: '1234567' },
 ] as const
 
 const PLACEMENT_OPTIONS = [
-  { value: 'head', label: 'Head' },
-  { value: 'body_start', label: 'Body Start' },
-  { value: 'body_end', label: 'Body End' },
+  { value: 'head', label: i18n.t('ui:TrackingPixelsSettings.head') },
+  { value: 'body_start', label: i18n.t('ui:TrackingPixelsSettings.bodyStart') },
+  { value: 'body_end', label: i18n.t('ui:TrackingPixelsSettings.bodyEnd') },
 ]
 
 function parseConfig(value: string): TrackingConfig {
@@ -46,6 +48,7 @@ function parseConfig(value: string): TrackingConfig {
 }
 
 export default function TrackingPixelsSettings({ value, onChange }: TrackingPixelsSettingsProps) {
+  const { t } = useTranslation('ui')
   const [config, setConfig] = useState<TrackingConfig>(() => parseConfig(value))
 
   useEffect(() => {
@@ -87,7 +90,7 @@ export default function TrackingPixelsSettings({ value, onChange }: TrackingPixe
     <div className="space-y-6">
       {/* Tracking Pixel IDs */}
       <div>
-        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Tracking Pixels</h3>
+        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">{t('ui:TrackingPixelsSettings.trackingPixels')}</h3>
         <div className="space-y-3">
           {PIXEL_FIELDS.map((field) => (
             <div key={field.key}>
@@ -114,7 +117,7 @@ export default function TrackingPixelsSettings({ value, onChange }: TrackingPixe
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Code2 className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Custom Scripts</h3>
+            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('ui:TrackingPixelsSettings.customScripts')}</h3>
           </div>
           <button
             type="button"
@@ -123,13 +126,13 @@ export default function TrackingPixelsSettings({ value, onChange }: TrackingPixe
               bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />
-            Add Script
+           {t('ui:TrackingPixelsSettings.addScript')}
           </button>
         </div>
 
         {scripts.length === 0 && (
           <p className="text-xs text-gray-400 dark:text-gray-500 italic">
-            No custom scripts added. Click "Add Script" to inject custom tracking code.
+           {t('ui:TrackingPixelsSettings.noCustomScriptsAddedClick')}
           </p>
         )}
 
@@ -149,7 +152,7 @@ export default function TrackingPixelsSettings({ value, onChange }: TrackingPixe
                   type="text"
                   value={script.name}
                   onChange={(e) => updateScript(i, 'name', e.target.value)}
-                  placeholder="Script name"
+                  placeholder={t('ui:TrackingPixelsSettings.scriptName')}
                   className="flex-1 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md
                     bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100
                     placeholder-gray-400 dark:placeholder-gray-500
@@ -178,7 +181,7 @@ export default function TrackingPixelsSettings({ value, onChange }: TrackingPixe
                   className={`relative w-10 h-5 rounded-full transition-colors flex-shrink-0 ${
                     script.active ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
                   }`}
-                  title={script.active ? 'Active' : 'Inactive'}
+                  title={script.active ? t('ui:TrackingPixelsSettings.active') : t('ui:TrackingPixelsSettings.inactive')}
                 >
                   <span
                     className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
@@ -192,7 +195,7 @@ export default function TrackingPixelsSettings({ value, onChange }: TrackingPixe
                   type="button"
                   onClick={() => deleteScript(i)}
                   className="p-1.5 rounded-md text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors flex-shrink-0"
-                  title="Delete script"
+                  title={t('ui:TrackingPixelsSettings.deleteScript')}
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -202,7 +205,7 @@ export default function TrackingPixelsSettings({ value, onChange }: TrackingPixe
               <textarea
                 value={script.code}
                 onChange={(e) => updateScript(i, 'code', e.target.value)}
-                placeholder="<script>&#10;  // Your tracking code here&#10;</script>"
+                placeholder={t('ui:TrackingPixelsSettings.scriptYourTrackingCodeHere')}
                 rows={4}
                 className="w-full px-3 py-2 text-xs font-mono border border-gray-300 dark:border-gray-600 rounded-md
                   bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100

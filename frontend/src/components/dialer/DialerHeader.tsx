@@ -11,6 +11,7 @@
  */
 import { Phone, X } from 'lucide-react'
 import type { DialerMode } from './hooks/useTwilioDevice'
+import { useTranslation } from 'react-i18next'
 
 function formatPhone(raw: string | null | undefined): string {
   if (!raw) return ''
@@ -39,6 +40,7 @@ export default function DialerHeader({
   mode: DialerMode
   onClose: () => void
 }) {
+  const { t } = useTranslation('ui')
   const isActive = mode === 'in-call' || mode === 'incoming-ringing'
 
   return (
@@ -47,11 +49,11 @@ export default function DialerHeader({
         <Phone className="h-4 w-4 text-[color:var(--lg-text-secondary)] shrink-0" />
         <div className="min-w-0">
           <div className="text-[10px] uppercase tracking-wider text-[color:var(--lg-text-muted)] leading-none mb-1">
-            Calling from
+           {t('ui:DialerHeader.callingFrom')}
           </div>
           <div className="flex items-center gap-2">
             <span className="text-sm font-mono tabular-nums text-[color:var(--lg-text-primary)] truncate">
-              {callingFrom ? formatPhone(callingFrom) : 'No number assigned'}
+              {callingFrom ? formatPhone(callingFrom) : t('ui:DialerHeader.noNumberAssigned')}
             </span>
             <WaveBars active={isActive} />
           </div>
@@ -59,7 +61,7 @@ export default function DialerHeader({
       </div>
       <button
         onClick={onClose}
-        aria-label="Close dialer"
+        aria-label={t('ui:DialerHeader.closeDialer')}
         className="p-1.5 rounded-md text-[color:var(--lg-text-secondary)] hover:text-[color:var(--lg-text-primary)] hover:bg-white/8 transition-colors shrink-0"
       >
         <X className="h-4 w-4" />

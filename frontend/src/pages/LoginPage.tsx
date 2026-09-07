@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { usePublicBranding } from '@/hooks/useBranding'
 import { isPasskeySupported } from '@/api/webauthn'
 import LegalFooter from '@/components/LegalFooter'
+import { useTranslation } from 'react-i18next'
 
 function GoogleIcon() {
   return (
@@ -18,6 +19,7 @@ function GoogleIcon() {
 }
 
 export default function LoginPage() {
+  const { t } = useTranslation('ui')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -108,7 +110,7 @@ export default function LoginPage() {
             <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">{orgName}</h1>
           )}
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            {inMfaStep ? 'Two-factor authentication' : 'Sign in to your account'}
+            {inMfaStep ? t('ui:LoginPage.twoFactorAuthentication') : t('ui:LoginPage.signInToYourAccount')}
           </p>
         </div>
 
@@ -122,7 +124,7 @@ export default function LoginPage() {
           /* ---------- Second factor: passkey and/or authenticator code ---------- */
           <div className="space-y-4">
             <p className="text-sm text-gray-600 dark:text-gray-300">
-              Confirm it&apos;s you to finish signing in.
+             {t('ui:LoginPage.confirmItSYouTo')}
             </p>
 
             {mfaMethods.includes('webauthn') && isPasskeySupported() && (
@@ -133,7 +135,7 @@ export default function LoginPage() {
                 className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 font-medium"
               >
                 <Fingerprint className="w-5 h-5" />
-                {isLoading ? 'Waiting for passkey…' : 'Sign in with a passkey'}
+                {isLoading ? t('ui:LoginPage.waitingForPasskey') : t('ui:LoginPage.signInWithAPasskey')}
               </button>
             )}
 
@@ -142,7 +144,7 @@ export default function LoginPage() {
                 {mfaMethods.includes('webauthn') && (
                   <div className="relative my-2">
                     <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-300 dark:border-gray-600" /></div>
-                    <div className="relative flex justify-center text-xs"><span className="px-2 bg-white dark:bg-gray-900 text-gray-500">or use a code</span></div>
+                    <div className="relative flex justify-center text-xs"><span className="px-2 bg-white dark:bg-gray-900 text-gray-500">{t('ui:LoginPage.orUseACode')}</span></div>
                   </div>
                 )}
                 <input
@@ -151,7 +153,7 @@ export default function LoginPage() {
                   autoComplete="one-time-code"
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
-                  placeholder="6-digit code or recovery code"
+                  placeholder={t('ui:LoginPage.n6DigitCodeOrRecovery')}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100 dark:bg-gray-800"
                 />
                 <button
@@ -159,7 +161,7 @@ export default function LoginPage() {
                   disabled={isLoading || !code.trim()}
                   className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 font-medium"
                 >
-                  {isLoading ? 'Verifying…' : 'Verify'}
+                  {isLoading ? t('ui:LoginPage.verifying') : t('ui:LoginPage.verify')}
                 </button>
               </form>
             )}
@@ -169,7 +171,7 @@ export default function LoginPage() {
               onClick={resetToPassword}
               className="w-full text-sm text-gray-500 dark:text-gray-400 hover:underline"
             >
-              ← Back to sign in
+             {t('ui:LoginPage.backToSignIn')}
             </button>
           </div>
         ) : (
@@ -181,7 +183,7 @@ export default function LoginPage() {
               className="w-full flex items-center justify-center gap-3 py-2.5 px-4 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium transition-colors"
             >
               <GoogleIcon />
-              Sign in with Google
+             {t('ui:LoginPage.signInWithGoogle')}
             </button>
 
             <div className="relative my-6">
@@ -196,7 +198,7 @@ export default function LoginPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Email
+                 {t('ui:LoginPage.email')}
                 </label>
                 <input
                   id="email"
@@ -205,17 +207,17 @@ export default function LoginPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100 dark:bg-gray-800"
-                  placeholder="you@example.com"
+                  placeholder={t('ui:LoginPage.youExampleCom')}
                 />
               </div>
 
               <div>
                 <div className="flex items-baseline justify-between mb-1">
                   <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Password
+                   {t('ui:LoginPage.password')}
                   </label>
                   <Link to="/auth/password-reset/request" className="text-xs text-blue-600 hover:text-blue-700">
-                    Forgot password?
+                   {t('ui:LoginPage.forgotPassword')}
                   </Link>
                 </div>
                 <input
@@ -235,14 +237,14 @@ export default function LoginPage() {
                 disabled={isLoading}
                 className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
               >
-                {isLoading ? 'Signing in...' : 'Sign In'}
+                {isLoading ? t('ui:LoginPage.signingIn') : t('ui:LoginPage.signIn')}
               </button>
             </form>
 
             <p className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
-              Don&apos;t have an account?{' '}
+             {t('ui:LoginPage.donTHaveAnAccount')}{' '}
               <Link to="/register" className="text-blue-600 hover:text-blue-700 font-medium">
-                Sign up free
+               {t('ui:LoginPage.signUpFree')}
               </Link>
             </p>
           </>

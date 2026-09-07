@@ -16,6 +16,7 @@ import { QRCodeSVG } from 'qrcode.react'
 import { CalendarDays, Copy, ExternalLink } from 'lucide-react'
 import { schedulingApi } from '@/api/scheduling'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 
 interface CalendarItem {
   id: string
@@ -26,6 +27,7 @@ interface CalendarItem {
 }
 
 export default function CalendarPage() {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
@@ -40,22 +42,22 @@ export default function CalendarPage() {
     mutationFn: () => schedulingApi.createCalendar({ name: 'Meetings' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['scheduling-calendars'] })
-      toast.success('Booking calendar created')
+      toast.success(t('ui:CalendarPage.bookingCalendarCreated'))
     },
   })
 
   if (isLoading) {
-    return <div className="p-6 text-gray-500">Loading calendar…</div>
+    return <div className="p-6 text-gray-500">{t('ui:CalendarPage.loadingCalendar')}</div>
   }
 
   if (!active) {
     return (
       <div className="p-6 max-w-2xl mx-auto">
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Calendar</h1>
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-4">{t('ui:CalendarPage.calendar')}</h1>
         <div className="text-center py-16 bg-white dark:bg-gray-900 border rounded-lg">
           <CalendarDays className="w-10 h-10 text-gray-300 mx-auto mb-3" />
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-            Create a booking calendar to get your shareable link.
+           {t('ui:CalendarPage.createABookingCalendarTo')}
           </p>
           <button
             onClick={() => createMutation.mutate()}
@@ -63,7 +65,7 @@ export default function CalendarPage() {
             className="px-4 py-2 text-sm text-white rounded-lg disabled:opacity-50 hover:opacity-90"
             style={{ background: 'var(--brand-primary)' }}
           >
-            {createMutation.isPending ? 'Creating…' : 'Create booking calendar'}
+            {createMutation.isPending ? t('ui:CalendarPage.creating') : t('ui:CalendarPage.createBookingCalendar')}
           </button>
         </div>
       </div>
@@ -75,7 +77,7 @@ export default function CalendarPage() {
 
   const copy = (text: string, label: string) => {
     navigator.clipboard?.writeText(text)
-    toast.success(`${label} copied`)
+    toast.success(t('ui:CalendarPage.labelCopied', { label }))
   }
 
   return (
@@ -83,9 +85,9 @@ export default function CalendarPage() {
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         <div className="space-y-5">
           <div>
-            <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Calendar</h1>
+            <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">{t('ui:CalendarPage.calendar')}</h1>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              Your booking calendar as a standalone page you can share or embed anywhere.
+             {t('ui:CalendarPage.yourBookingCalendarAsA')}
             </p>
           </div>
 
@@ -103,7 +105,7 @@ export default function CalendarPage() {
 
           <section className="bg-white dark:bg-gray-900 border rounded-lg p-5 space-y-2">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-              Public link
+             {t('ui:CalendarPage.publicLink')}
             </span>
             <div className="flex items-center gap-2">
               <input
@@ -114,7 +116,7 @@ export default function CalendarPage() {
               <button
                 onClick={() => copy(bookUrl, 'Link')}
                 className="p-2 border rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
-                title="Copy link"
+                title={t('ui:CalendarPage.copyLink')}
               >
                 <Copy className="w-3.5 h-3.5" />
               </button>
@@ -123,7 +125,7 @@ export default function CalendarPage() {
                 target="_blank"
                 rel="noreferrer"
                 className="p-2 border rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
-                title="Open in new tab"
+                title={t('ui:CalendarPage.openInNewTab')}
               >
                 <ExternalLink className="w-3.5 h-3.5" />
               </a>
@@ -132,7 +134,7 @@ export default function CalendarPage() {
 
           <section className="bg-white dark:bg-gray-900 border rounded-lg p-5 space-y-2">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-              Embed on your website
+             {t('ui:CalendarPage.embedOnYourWebsite')}
             </span>
             <textarea
               readOnly
@@ -144,43 +146,43 @@ export default function CalendarPage() {
               onClick={() => copy(embed, 'Embed code')}
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm border rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
             >
-              <Copy className="w-3.5 h-3.5" /> Copy embed code
+              <Copy className="w-3.5 h-3.5" /> {t('ui:CalendarPage.copyEmbedCode')}
             </button>
           </section>
 
           <section className="bg-white dark:bg-gray-900 border rounded-lg p-5 space-y-3">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-              QR code
+             {t('ui:CalendarPage.qrCode')}
             </span>
             <div className="bg-white p-3 rounded-lg w-fit border">
               <QRCodeSVG value={bookUrl} size={128} />
             </div>
-            <p className="text-xs text-gray-500">Scan to open your booking page.</p>
+            <p className="text-xs text-gray-500">{t('ui:CalendarPage.scanToOpenYourBooking')}</p>
           </section>
 
           <section className="bg-white dark:bg-gray-900 border rounded-lg p-5 flex items-center gap-3">
             <CalendarDays className="w-5 h-5 shrink-0" style={{ color: 'var(--brand-primary)' }} />
             <div className="flex-1">
               <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                Availability & meeting preferences
+               {t('ui:CalendarPage.availabilityMeetingPreferences')}
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Set your weekly hours, duration, buffer, and timezone.
+               {t('ui:CalendarPage.setYourWeeklyHoursDuration')}
               </p>
             </div>
             <Link
               to="/availability"
               className="px-3 py-1.5 text-sm border rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
             >
-              Configure
+             {t('ui:CalendarPage.configure')}
             </Link>
           </section>
         </div>
 
         <div className="lg:sticky lg:top-4 h-fit">
-          <p className="mb-2 text-[11px] uppercase tracking-wider text-gray-400">Preview</p>
+          <p className="mb-2 text-[11px] uppercase tracking-wider text-gray-400">{t('ui:CalendarPage.preview')}</p>
           <div className="mx-auto w-full max-w-[320px] rounded-[2rem] border-4 border-gray-800 dark:border-gray-200 overflow-hidden bg-white">
-            <iframe src={bookUrl} title="Booking page preview" className="w-full" style={{ height: 560, border: 0 }} />
+            <iframe src={bookUrl} title={t('ui:CalendarPage.bookingPagePreview')} className="w-full" style={{ height: 560, border: 0 }} />
           </div>
         </div>
       </div>

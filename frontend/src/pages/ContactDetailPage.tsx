@@ -27,12 +27,14 @@ import ContactDetailCenterPanel, {
   type TabKey,
 } from '@/components/contacts/ContactDetailCenterPanel'
 import ContactDetailRightPanel from '@/components/contacts/ContactDetailRightPanel'
+import { useTranslation } from 'react-i18next'
 
 type MobileView = 'info' | 'messages' | 'context'
 
 type ComposerKey = 'email' | 'call' | 'note' | 'sms'
 
 export default function ContactDetailPage() {
+  const { t } = useTranslation('ui')
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -240,9 +242,9 @@ export default function ContactDetailPage() {
   if (!contact) {
     return (
       <div className="p-6 text-center">
-        <p className="text-gray-500 dark:text-gray-400">Contact not found</p>
+        <p className="text-gray-500 dark:text-gray-400">{t('ui:ContactDetailPage.contactNotFound')}</p>
         <button onClick={() => navigate('/contacts')} className="text-blue-600 dark:text-blue-400 hover:underline mt-2 text-sm">
-          Back to Contacts
+         {t('ui:ContactDetailPage.backToContacts')}
         </button>
       </div>
     )
@@ -266,7 +268,7 @@ export default function ContactDetailPage() {
     if (!noteText.trim()) return
     addActivityMutation.mutate({
       activity_type: 'note_added',
-      title: 'Note added',
+      title: t('ui:ContactDetailPage.noteAdded'),
       description: noteText.trim(),
     })
     setNoteText('')
@@ -279,8 +281,8 @@ export default function ContactDetailPage() {
     window.location.href = `mailto:${contact.email}?subject=${subject}&body=${body}`
     addActivityMutation.mutate({
       activity_type: 'email_sent',
-      title: 'Email sent',
-      description: `Subject: ${emailSubject}`,
+      title: t('ui:ContactDetailPage.emailSent'),
+      description: t('ui:ContactDetailPage.subjectEmailsubject', { emailSubject }),
     })
     setEmailSubject('')
     setEmailBody('')
@@ -309,7 +311,7 @@ export default function ContactDetailPage() {
     <div className="flex flex-col h-full">
       {savedToast && (
         <div className="fixed top-4 right-4 z-50 flex items-center gap-2 px-3 py-2 bg-green-600 text-white text-sm rounded-lg shadow-lg animate-in fade-in slide-in-from-top-2 duration-200">
-          <Check className="h-4 w-4" /> Saved
+          <Check className="h-4 w-4" /> {t('ui:ContactDetailPage.saved')}
         </div>
       )}
 
@@ -345,16 +347,16 @@ export default function ContactDetailPage() {
               onClick={() => setShowShareDialog(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
             >
-              <Share2 className="h-3.5 w-3.5" /> Share
+              <Share2 className="h-3.5 w-3.5" /> {t('ui:ContactDetailPage.share')}
             </button>
             {canEdit && (
               <button
                 onClick={() => {
-                  if (confirm('Delete this contact? This action cannot be undone.')) deleteMutation.mutate()
+                  if (confirm(t('ui:ContactDetailPage.deleteThisContactThisAction'))) deleteMutation.mutate()
                 }}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
               >
-                <Trash2 className="h-3.5 w-3.5" /> Delete
+                <Trash2 className="h-3.5 w-3.5" /> {t('ui:ContactDetailPage.delete')}
               </button>
             )}
           </div>
@@ -371,7 +373,7 @@ export default function ContactDetailPage() {
                 : 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40',
             )}
           >
-            <Mail className="h-4 w-4" /> Email
+            <Mail className="h-4 w-4" /> {t('ui:ContactDetailPage.email')}
           </button>
           <a
             href={contact.phone ? `tel:${contact.phone}` : undefined}
@@ -383,7 +385,7 @@ export default function ContactDetailPage() {
                 : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed',
             )}
           >
-            <Phone className="h-4 w-4" /> Call
+            <Phone className="h-4 w-4" /> {t('ui:ContactDetailPage.call')}
           </a>
           <button
             onClick={() => toggleComposer('note')}
@@ -394,7 +396,7 @@ export default function ContactDetailPage() {
                 : 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-100 dark:hover:bg-yellow-900/40',
             )}
           >
-            <StickyNote className="h-4 w-4" /> Note
+            <StickyNote className="h-4 w-4" /> {t('ui:ContactDetailPage.note')}
           </button>
           <button
             onClick={goToMessages}
@@ -414,14 +416,14 @@ export default function ContactDetailPage() {
       {activeComposer === 'email' && (
         <div className="mx-6 mt-4 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-400">Compose Email</h3>
+            <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-400">{t('ui:ContactDetailPage.composeEmail')}</h3>
             <button onClick={() => setActiveComposer(null)} className="text-blue-400 hover:text-blue-600">
               <X className="h-4 w-4" />
             </button>
           </div>
           <div className="space-y-2">
             <div>
-              <label className="text-xs text-blue-600 dark:text-blue-400">To</label>
+              <label className="text-xs text-blue-600 dark:text-blue-400">{t('ui:ContactDetailPage.to')}</label>
               <input
                 type="email"
                 value={contact.email || ''}
@@ -430,21 +432,21 @@ export default function ContactDetailPage() {
               />
             </div>
             <div>
-              <label className="text-xs text-blue-600 dark:text-blue-400">Subject</label>
+              <label className="text-xs text-blue-600 dark:text-blue-400">{t('ui:ContactDetailPage.subject')}</label>
               <input
                 type="text"
                 value={emailSubject}
                 onChange={(e) => setEmailSubject(e.target.value)}
-                placeholder="Email subject..."
+                placeholder={t('ui:ContactDetailPage.emailSubject')}
                 className="w-full px-3 py-1.5 text-sm rounded border border-blue-200 dark:border-blue-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <div>
-              <label className="text-xs text-blue-600 dark:text-blue-400">Body</label>
+              <label className="text-xs text-blue-600 dark:text-blue-400">{t('ui:ContactDetailPage.body')}</label>
               <textarea
                 value={emailBody}
                 onChange={(e) => setEmailBody(e.target.value)}
-                placeholder="Write your message..."
+                placeholder={t('ui:ContactDetailPage.writeYourMessage')}
                 rows={4}
                 className="w-full px-3 py-2 text-sm rounded border border-blue-200 dark:border-blue-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
               />
@@ -454,14 +456,14 @@ export default function ContactDetailPage() {
                 onClick={() => setActiveComposer(null)}
                 className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
               >
-                Cancel
+               {t('ui:ContactDetailPage.cancel')}
               </button>
               <button
                 onClick={handleSendEmail}
                 disabled={!contact.email}
                 className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
               >
-                <Send className="h-3.5 w-3.5" /> Send
+                <Send className="h-3.5 w-3.5" /> {t('ui:ContactDetailPage.send')}
               </button>
             </div>
           </div>
@@ -471,7 +473,7 @@ export default function ContactDetailPage() {
       {activeComposer === 'note' && (
         <div className="mx-6 mt-4 bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-yellow-700 dark:text-yellow-400">Add Note</h3>
+            <h3 className="text-sm font-semibold text-yellow-700 dark:text-yellow-400">{t('ui:ContactDetailPage.addNote')}</h3>
             <button onClick={() => setActiveComposer(null)} className="text-yellow-400 hover:text-yellow-600">
               <X className="h-4 w-4" />
             </button>
@@ -479,7 +481,7 @@ export default function ContactDetailPage() {
           <textarea
             value={noteText}
             onChange={(e) => setNoteText(e.target.value)}
-            placeholder="Write a note about this contact..."
+            placeholder={t('ui:ContactDetailPage.writeANoteAboutThis')}
             rows={3}
             className="w-full px-3 py-2 text-sm rounded border border-yellow-200 dark:border-yellow-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-yellow-500 resize-none"
             autoFocus
@@ -489,14 +491,14 @@ export default function ContactDetailPage() {
               onClick={() => setActiveComposer(null)}
               className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
             >
-              Cancel
+             {t('ui:ContactDetailPage.cancel')}
             </button>
             <button
               onClick={handleSendNote}
               disabled={!noteText.trim() || addActivityMutation.isPending}
               className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium text-white bg-yellow-600 rounded-lg hover:bg-yellow-700 disabled:opacity-50 transition-colors"
             >
-              <Check className="h-3.5 w-3.5" /> Save Note
+              <Check className="h-3.5 w-3.5" /> {t('ui:ContactDetailPage.saveNote')}
             </button>
           </div>
         </div>
@@ -507,12 +509,12 @@ export default function ContactDetailPage() {
           grid simultaneously. */}
       <nav
         className="lg:hidden flex shrink-0 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900"
-        aria-label="Panel selector"
+        aria-label={t('ui:ContactDetailPage.panelSelector')}
       >
         {([
-          { key: 'messages' as const, label: 'Messages' },
-          { key: 'info' as const, label: 'Info' },
-          { key: 'context' as const, label: 'Context' },
+          { key: 'messages' as const, label: t('ui:ContactDetailPage.messages') },
+          { key: 'info' as const, label: t('ui:ContactDetailPage.info') },
+          { key: 'context' as const, label: t('ui:ContactDetailPage.context') },
         ]).map(({ key, label }) => (
           <button
             key={key}
@@ -641,16 +643,15 @@ export default function ContactDetailPage() {
             className="bg-white dark:bg-gray-900 rounded-lg p-5 max-w-lg w-full"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-lg font-medium mb-3">Add memory</h2>
+            <h2 className="text-lg font-medium mb-3">{t('ui:ContactDetailPage.addMemory')}</h2>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-              Paste a meeting note, call summary, or any conversation snippet.
-              AI will extract structured fields.
+             {t('ui:ContactDetailPage.pasteAMeetingNoteCall')}
             </p>
             <textarea
               value={memoryDraft}
               onChange={(e) => setMemoryDraft(e.target.value.slice(0, 10000))}
               rows={6}
-              placeholder="What was discussed?"
+              placeholder={t('ui:ContactDetailPage.whatWasDiscussed')}
               className="w-full px-3 py-2 border rounded-md text-sm resize-none dark:bg-gray-900 dark:border-gray-600"
             />
             <div className="flex justify-between items-center mt-3">
@@ -660,14 +661,14 @@ export default function ContactDetailPage() {
                   onClick={() => setShowMemoryModal(false)}
                   className="px-3 py-1.5 border rounded-md text-sm"
                 >
-                  Cancel
+                 {t('ui:ContactDetailPage.cancel')}
                 </button>
                 <button
                   onClick={() => memoryDraft.trim() && createMemoryMut.mutate(memoryDraft.trim())}
                   disabled={!memoryDraft.trim() || createMemoryMut.isPending}
                   className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm disabled:opacity-50"
                 >
-                  {createMemoryMut.isPending ? 'Extracting…' : 'Save'}
+                  {createMemoryMut.isPending ? t('ui:ContactDetailPage.extracting') : t('ui:ContactDetailPage.save')}
                 </button>
               </div>
             </div>

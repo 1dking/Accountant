@@ -4,6 +4,7 @@ import { ArrowLeft, Star, Share2, FileText, Table2, Presentation, BookOpen } fro
 import CollaboratorAvatars from './CollaboratorAvatars'
 import ShareDialog from './ShareDialog'
 import type { DocType } from '@/types/models'
+import { useTranslation } from 'react-i18next'
 
 interface AwarenessUser {
   name: string
@@ -51,6 +52,7 @@ export default function EditorTopBar({
   connectionStatus = 'connecting',
   onReadView,
 }: EditorTopBarProps) {
+  const { t } = useTranslation('ui')
   const navigate = useNavigate()
   const [editingTitle, setEditingTitle] = useState(false)
   const [localTitle, setLocalTitle] = useState(title)
@@ -95,7 +97,7 @@ export default function EditorTopBar({
         <button
           onClick={() => navigate(BACK_ROUTES[docType])}
           className="p-1.5 rounded-md text-gray-500 dark:text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700"
-          title={`Back to ${docType === 'document' ? 'Docs' : docType === 'spreadsheet' ? 'Sheets' : 'Slides'}`}
+          title={t('ui:EditorTopBar.backToV0', { v0: docType === 'document' ? 'Docs' : docType === 'spreadsheet' ? 'Sheets' : 'Slides' })}
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
@@ -118,9 +120,9 @@ export default function EditorTopBar({
           <button
             onClick={() => setEditingTitle(true)}
             className="text-lg font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 px-1 py-0 rounded min-w-0 truncate"
-            title="Click to rename"
+            title={t('ui:EditorTopBar.clickToRename')}
           >
-            {title || 'Untitled'}
+            {title || t('ui:EditorTopBar.untitled')}
           </button>
         )}
 
@@ -132,7 +134,7 @@ export default function EditorTopBar({
               ? 'text-yellow-500 hover:bg-yellow-50'
               : 'text-gray-400 dark:text-gray-500 hover:text-yellow-500 hover:bg-gray-100'
           }`}
-          title={isStarred ? 'Remove star' : 'Add star'}
+          title={isStarred ? t('ui:EditorTopBar.removeStar') : t('ui:EditorTopBar.addStar')}
         >
           <Star className="h-5 w-5" fill={isStarred ? 'currentColor' : 'none'} />
         </button>
@@ -161,7 +163,7 @@ export default function EditorTopBar({
           <button
             onClick={onReadView}
             className="p-1.5 rounded-md text-gray-500 dark:text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            title="Read view"
+            title={t('ui:EditorTopBar.readView')}
           >
             <BookOpen className="h-5 w-5" />
           </button>
@@ -173,7 +175,7 @@ export default function EditorTopBar({
           className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 rounded-full hover:bg-blue-100 transition-colors"
         >
           <Share2 className="h-4 w-4" />
-          Share
+         {t('ui:EditorTopBar.share')}
         </button>
       </div>
 

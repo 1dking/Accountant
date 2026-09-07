@@ -6,9 +6,11 @@ import { createInvoice } from '@/api/invoices';
 import { getCompanySettings } from '@/api/settings';
 import ContactSelector from '@/components/shared/ContactSelector';
 import type { InvoiceLineItemData, InvoiceCreateData } from '@/api/invoices';
+import { useTranslation } from 'react-i18next'
+import { uiLocale } from '@/lib/utils'
 
 const formatCurrency = (amount: number, currency = 'USD') =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
+  new Intl.NumberFormat(uiLocale(), { style: 'currency', currency }).format(amount);
 
 const emptyLineItem = (): InvoiceLineItemData => ({
   description: '',
@@ -18,6 +20,7 @@ const emptyLineItem = (): InvoiceLineItemData => ({
 });
 
 export default function NewInvoicePage() {
+  const { t } = useTranslation('ui')
   const navigate = useNavigate();
 
   const [contactId, setContactId] = useState<string | null>(null);
@@ -131,22 +134,22 @@ export default function NewInvoicePage() {
         className="flex items-center gap-1 text-gray-500 dark:text-gray-400 hover:text-gray-700 mb-4 transition-colors"
       >
         <ArrowLeft className="w-4 h-4" />
-        <span className="text-sm">Back to Invoices</span>
+        <span className="text-sm">{t('ui:NewInvoicePage.backToInvoices')}</span>
       </button>
 
-      <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-6">New Invoice</h1>
+      <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-6">{t('ui:NewInvoicePage.newInvoice')}</h1>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Contact & Dates */}
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5 space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Client <span className="text-red-500">*</span>
+             {t('ui:NewInvoicePage.client')} <span className="text-red-500">*</span>
             </label>
             <ContactSelector
               value={contactId}
               onChange={(id) => setContactId(id)}
-              placeholder="Select a client..."
+              placeholder={t('ui:NewInvoicePage.selectAClient')}
               filterType="client"
             />
           </div>
@@ -154,7 +157,7 @@ export default function NewInvoicePage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Issue Date <span className="text-red-500">*</span>
+               {t('ui:NewInvoicePage.issueDate')} <span className="text-red-500">*</span>
               </label>
               <input
                 type="date"
@@ -166,7 +169,7 @@ export default function NewInvoicePage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Due Date <span className="text-red-500">*</span>
+               {t('ui:NewInvoicePage.dueDate')} <span className="text-red-500">*</span>
               </label>
               <input
                 type="date"
@@ -181,7 +184,7 @@ export default function NewInvoicePage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Currency
+               {t('ui:NewInvoicePage.currency')}
               </label>
               <select
                 value={currency}
@@ -197,7 +200,7 @@ export default function NewInvoicePage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Global Tax Rate (%)
+               {t('ui:NewInvoicePage.globalTaxRate')}
               </label>
               <input
                 type="number"
@@ -211,7 +214,7 @@ export default function NewInvoicePage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Discount Amount
+               {t('ui:NewInvoicePage.discountAmount')}
               </label>
               <input
                 type="number"
@@ -229,24 +232,24 @@ export default function NewInvoicePage() {
         {/* Line Items */}
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">Line Items</h2>
+            <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">{t('ui:NewInvoicePage.lineItems')}</h2>
             <button
               type="button"
               onClick={addLineItem}
               className="flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 transition-colors"
             >
               <Plus className="w-4 h-4" />
-              Add Item
+             {t('ui:NewInvoicePage.addItem')}
             </button>
           </div>
 
           <div className="space-y-3">
             {/* Header */}
             <div className="hidden sm:grid sm:grid-cols-12 gap-2 text-xs text-gray-500 dark:text-gray-400 font-medium px-1">
-              <div className="col-span-5">Description</div>
-              <div className="col-span-2">Qty</div>
-              <div className="col-span-2">Unit Price</div>
-              <div className="col-span-2">Tax %</div>
+              <div className="col-span-5">{t('ui:NewInvoicePage.description')}</div>
+              <div className="col-span-2">{t('ui:NewInvoicePage.qty')}</div>
+              <div className="col-span-2">{t('ui:NewInvoicePage.unitPrice')}</div>
+              <div className="col-span-2">{t('ui:NewInvoicePage.tax')}</div>
               <div className="col-span-1"></div>
             </div>
 
@@ -264,7 +267,7 @@ export default function NewInvoicePage() {
                       updateLineItem(index, 'description', e.target.value)
                     }
                     className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                    placeholder="Description"
+                    placeholder={t('ui:NewInvoicePage.description')}
                   />
                 </div>
                 <div className="sm:col-span-2">
@@ -278,7 +281,7 @@ export default function NewInvoicePage() {
                       updateLineItem(index, 'quantity', parseInt(e.target.value) || 0)
                     }
                     className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                    placeholder="Qty"
+                    placeholder={t('ui:NewInvoicePage.qty')}
                   />
                 </div>
                 <div className="sm:col-span-2">
@@ -334,14 +337,14 @@ export default function NewInvoicePage() {
           <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700">
             <div className="flex flex-col items-end gap-1">
               <div className="flex justify-between w-64">
-                <span className="text-sm text-gray-500 dark:text-gray-400">Subtotal</span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">{t('ui:NewInvoicePage.subtotal')}</span>
                 <span className="text-sm text-gray-900 dark:text-gray-100">
                   {formatCurrency(totals.subtotal, currency)}
                 </span>
               </div>
               {totals.tax > 0 && (
                 <div className="flex justify-between w-64">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">Tax</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">{t('ui:NewInvoicePage.tax_2')}</span>
                   <span className="text-sm text-gray-900 dark:text-gray-100">
                     {formatCurrency(totals.tax, currency)}
                   </span>
@@ -349,14 +352,14 @@ export default function NewInvoicePage() {
               )}
               {totals.discount > 0 && (
                 <div className="flex justify-between w-64">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">Discount</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">{t('ui:NewInvoicePage.discount')}</span>
                   <span className="text-sm text-red-600">
                     -{formatCurrency(totals.discount, currency)}
                   </span>
                 </div>
               )}
               <div className="flex justify-between w-64 pt-2 border-t border-gray-200 dark:border-gray-700 mt-1">
-                <span className="text-sm font-medium text-gray-900 dark:text-gray-100">Total</span>
+                <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{t('ui:NewInvoicePage.total')}</span>
                 <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                   {formatCurrency(totals.total, currency)}
                 </span>
@@ -369,26 +372,26 @@ export default function NewInvoicePage() {
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5 space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Notes
+             {t('ui:NewInvoicePage.notes')}
             </label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
               className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-              placeholder="Any additional notes for the client..."
+              placeholder={t('ui:NewInvoicePage.anyAdditionalNotesForThe')}
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Payment Terms
+             {t('ui:NewInvoicePage.paymentTerms')}
             </label>
             <textarea
               value={paymentTerms}
               onChange={(e) => setPaymentTerms(e.target.value)}
               rows={2}
               className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-              placeholder="e.g., Net 30, Due on receipt..."
+              placeholder={t('ui:NewInvoicePage.eGNet30Due')}
             />
           </div>
         </div>
@@ -400,20 +403,20 @@ export default function NewInvoicePage() {
             disabled={createMutation.isPending}
             className="bg-blue-600 text-white px-6 py-2.5 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors font-medium"
           >
-            {createMutation.isPending ? 'Creating...' : 'Create Invoice'}
+            {createMutation.isPending ? t('ui:NewInvoicePage.creating') : t('ui:NewInvoicePage.createInvoice')}
           </button>
           <button
             type="button"
             onClick={() => navigate('/invoices')}
             className="px-6 py-2.5 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
           >
-            Cancel
+           {t('ui:NewInvoicePage.cancel')}
           </button>
         </div>
 
         {createMutation.isError && (
           <p className="text-sm text-red-500">
-            Failed to create invoice. Please check all fields and try again.
+           {t('ui:NewInvoicePage.failedToCreateInvoicePlease')}
           </p>
         )}
       </form>

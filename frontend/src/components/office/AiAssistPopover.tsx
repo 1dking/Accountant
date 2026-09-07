@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { streamOfficeAiAssist } from '@/api/office'
 import { Sparkles, X, Loader2, Check, Copy } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 interface AiAssistPopoverProps {
   docId: string
@@ -32,6 +33,7 @@ export default function AiAssistPopover({
   onReplaceSelection,
   onInsert,
 }: AiAssistPopoverProps) {
+  const { t } = useTranslation('ui')
   const [instruction, setInstruction] = useState('')
   const [response, setResponse] = useState('')
   const [streaming, setStreaming] = useState(false)
@@ -77,7 +79,7 @@ export default function AiAssistPopover({
         <div className="flex items-center justify-between px-5 py-4 border-b dark:border-gray-700">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-blue-500" />
-            Ask AI
+           {t('ui:AiAssistPopover.askAi')}
           </h2>
           <button
             onClick={onClose}
@@ -90,7 +92,7 @@ export default function AiAssistPopover({
         <div className="px-5 py-4 space-y-3">
           {selectedText && (
             <div className="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded px-3 py-2 max-h-20 overflow-y-auto">
-              <span className="font-medium">Selected text: </span>
+              <span className="font-medium">{t('ui:AiAssistPopover.selectedText')} </span>
               {selectedText.length > 200 ? `${selectedText.slice(0, 200)}…` : selectedText}
             </div>
           )}
@@ -107,7 +109,7 @@ export default function AiAssistPopover({
                   runAssist(instruction)
                 }
               }}
-              placeholder={selectedText ? 'What should I do with the selection?' : 'Ask a question about this document...'}
+              placeholder={selectedText ? t('ui:AiAssistPopover.whatShouldIDoWith') : t('ui:AiAssistPopover.askAQuestionAboutThis')}
               className="flex-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
               rows={2}
               disabled={streaming}
@@ -117,7 +119,7 @@ export default function AiAssistPopover({
               disabled={!instruction.trim() || streaming}
               className="px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
             >
-              {streaming ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Ask'}
+              {streaming ? <Loader2 className="h-4 w-4 animate-spin" /> : t('ui:AiAssistPopover.ask')}
             </button>
           </div>
 
@@ -160,7 +162,7 @@ export default function AiAssistPopover({
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
             >
               <Copy className="h-3.5 w-3.5" />
-              Copy
+             {t('ui:AiAssistPopover.copy')}
             </button>
             {selectedText && (
               <button
@@ -171,7 +173,7 @@ export default function AiAssistPopover({
                 className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
               >
                 <Check className="h-3.5 w-3.5" />
-                Replace selection
+               {t('ui:AiAssistPopover.replaceSelection')}
               </button>
             )}
             <button
@@ -182,7 +184,7 @@ export default function AiAssistPopover({
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
             >
               <Check className="h-3.5 w-3.5" />
-              Insert at cursor
+             {t('ui:AiAssistPopover.insertAtCursor')}
             </button>
           </div>
         )}

@@ -5,17 +5,19 @@ import { getExpense, updateExpense, deleteExpense, listCategories, getExpenseApp
 import CategoryBadge from '@/components/expenses/CategoryBadge'
 import ExpenseApprovalPanel from '@/components/expenses/ExpenseApprovalPanel'
 import { useAuthStore } from '@/stores/authStore'
-import { formatDate } from '@/lib/utils'
+import { formatDate, uiLocale } from '@/lib/utils'
 import { EXPENSE_STATUSES, PAYMENT_METHODS } from '@/lib/constants'
 import { ArrowLeft, FileText, Pencil, Trash2 } from 'lucide-react'
 import CashbookLink from '@/components/shared/CashbookLink'
 import type { ExpenseStatus, PaymentMethod } from '@/types/models'
+import { useTranslation } from 'react-i18next'
 
 function formatCurrency(amount: number, currency: string = 'USD'): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount)
+  return new Intl.NumberFormat(uiLocale(), { style: 'currency', currency }).format(amount)
 }
 
 export default function ExpenseDetailPage() {
+  const { t } = useTranslation('ui')
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -90,9 +92,9 @@ export default function ExpenseDetailPage() {
   if (!expense) {
     return (
       <div className="p-6 text-center">
-        <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">Expense not found</h2>
+        <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">{t('ui:ExpenseDetailPage.expenseNotFound')}</h2>
         <button onClick={() => navigate('/expenses')} className="mt-2 text-blue-600 dark:text-blue-400 hover:underline">
-          Back to expenses
+         {t('ui:ExpenseDetailPage.backToExpenses')}
         </button>
       </div>
     )
@@ -121,12 +123,12 @@ export default function ExpenseDetailPage() {
           className="flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:underline mb-3"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to expenses
+         {t('ui:ExpenseDetailPage.backToExpenses')}
         </button>
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              {expense.vendor_name || 'Expense'}
+              {expense.vendor_name || t('ui:ExpenseDetailPage.expense')}
             </h1>
             <div className="flex items-center gap-2 mt-1">
               {statusInfo && (
@@ -152,21 +154,21 @@ export default function ExpenseDetailPage() {
           {/* Details card */}
           <div className="bg-white dark:bg-gray-900 rounded-lg border p-5 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100">Details</h3>
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100">{t('ui:ExpenseDetailPage.details')}</h3>
               <div className="flex gap-2">
                 {canEdit && !editing && (
                   <button onClick={startEditing} className="flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700">
                     <Pencil className="h-3.5 w-3.5" />
-                    Edit
+                   {t('ui:ExpenseDetailPage.edit')}
                   </button>
                 )}
                 {user?.role === 'admin' && (
                   <button
-                    onClick={() => { if (confirm('Delete this expense?')) deleteMutation.mutate() }}
+                    onClick={() => { if (confirm(t('ui:ExpenseDetailPage.deleteThisExpense'))) deleteMutation.mutate() }}
                     className="flex items-center gap-1 text-sm text-red-600 hover:text-red-700"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
-                    Delete
+                   {t('ui:ExpenseDetailPage.delete')}
                   </button>
                 )}
               </div>
@@ -176,38 +178,38 @@ export default function ExpenseDetailPage() {
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Vendor</label>
+                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('ui:ExpenseDetailPage.vendor')}</label>
                     <input value={vendorName} onChange={(e) => setVendorName(e.target.value)}
-                      className="w-full mt-1 px-3 py-1.5 text-sm border rounded-md" placeholder="Vendor name" />
+                      className="w-full mt-1 px-3 py-1.5 text-sm border rounded-md" placeholder={t('ui:ExpenseDetailPage.vendorName')} />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Amount</label>
+                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('ui:ExpenseDetailPage.amount')}</label>
                     <input type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)}
                       className="w-full mt-1 px-3 py-1.5 text-sm border rounded-md" />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Date</label>
+                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('ui:ExpenseDetailPage.date')}</label>
                     <input type="date" value={expenseDate} onChange={(e) => setExpenseDate(e.target.value)}
                       className="w-full mt-1 px-3 py-1.5 text-sm border rounded-md" />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Category</label>
+                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('ui:ExpenseDetailPage.category')}</label>
                     <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}
                       className="w-full mt-1 px-3 py-1.5 text-sm border rounded-md bg-white dark:bg-gray-900">
-                      <option value="">Uncategorized</option>
+                      <option value="">{t('ui:ExpenseDetailPage.uncategorized')}</option>
                       {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Payment Method</label>
+                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('ui:ExpenseDetailPage.paymentMethod')}</label>
                     <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}
                       className="w-full mt-1 px-3 py-1.5 text-sm border rounded-md bg-white dark:bg-gray-900">
-                      <option value="">Not specified</option>
+                      <option value="">{t('ui:ExpenseDetailPage.notSpecified')}</option>
                       {PAYMENT_METHODS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Status</label>
+                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('ui:ExpenseDetailPage.status')}</label>
                     <select value={status} onChange={(e) => setStatus(e.target.value)}
                       className="w-full mt-1 px-3 py-1.5 text-sm border rounded-md bg-white dark:bg-gray-900">
                       {EXPENSE_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
@@ -215,59 +217,59 @@ export default function ExpenseDetailPage() {
                   </div>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Description</label>
+                  <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('ui:ExpenseDetailPage.description')}</label>
                   <input value={description} onChange={(e) => setDescription(e.target.value)}
-                    className="w-full mt-1 px-3 py-1.5 text-sm border rounded-md" placeholder="Description" />
+                    className="w-full mt-1 px-3 py-1.5 text-sm border rounded-md" placeholder={t('ui:ExpenseDetailPage.description')} />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Notes</label>
+                  <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('ui:ExpenseDetailPage.notes')}</label>
                   <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3}
-                    className="w-full mt-1 px-3 py-1.5 text-sm border rounded-md" placeholder="Additional notes..." />
+                    className="w-full mt-1 px-3 py-1.5 text-sm border rounded-md" placeholder={t('ui:ExpenseDetailPage.additionalNotes')} />
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => updateMutation.mutate()}
                     className="px-4 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700">
-                    Save
+                   {t('ui:ExpenseDetailPage.save')}
                   </button>
                   <button onClick={() => setEditing(false)}
                     className="px-4 py-1.5 text-sm border rounded-md hover:bg-gray-50 dark:hover:bg-gray-800">
-                    Cancel
+                   {t('ui:ExpenseDetailPage.cancel')}
                   </button>
                 </div>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <span className="text-gray-500 dark:text-gray-400">Vendor</span>
+                  <span className="text-gray-500 dark:text-gray-400">{t('ui:ExpenseDetailPage.vendor')}</span>
                   <p className="text-gray-900 dark:text-gray-100 font-medium">{expense.vendor_name || '-'}</p>
                 </div>
                 <div>
-                  <span className="text-gray-500 dark:text-gray-400">Amount</span>
+                  <span className="text-gray-500 dark:text-gray-400">{t('ui:ExpenseDetailPage.amount')}</span>
                   <p className="text-gray-900 dark:text-gray-100 font-medium">{formatCurrency(expense.amount, expense.currency)}</p>
                 </div>
                 <div>
-                  <span className="text-gray-500 dark:text-gray-400">Date</span>
+                  <span className="text-gray-500 dark:text-gray-400">{t('ui:ExpenseDetailPage.date')}</span>
                   <p className="text-gray-900 dark:text-gray-100">{formatDate(expense.date)}</p>
                 </div>
                 <div>
-                  <span className="text-gray-500 dark:text-gray-400">Payment Method</span>
+                  <span className="text-gray-500 dark:text-gray-400">{t('ui:ExpenseDetailPage.paymentMethod')}</span>
                   <p className="text-gray-900 dark:text-gray-100 capitalize">{expense.payment_method?.replace('_', ' ') || '-'}</p>
                 </div>
                 {expense.tax_amount != null && (
                   <div>
-                    <span className="text-gray-500 dark:text-gray-400">Tax</span>
+                    <span className="text-gray-500 dark:text-gray-400">{t('ui:ExpenseDetailPage.tax')}</span>
                     <p className="text-gray-900 dark:text-gray-100">{formatCurrency(expense.tax_amount, expense.currency)}</p>
                   </div>
                 )}
                 {expense.description && (
                   <div className="col-span-2">
-                    <span className="text-gray-500 dark:text-gray-400">Description</span>
+                    <span className="text-gray-500 dark:text-gray-400">{t('ui:ExpenseDetailPage.description')}</span>
                     <p className="text-gray-900 dark:text-gray-100">{expense.description}</p>
                   </div>
                 )}
                 {expense.notes && (
                   <div className="col-span-2">
-                    <span className="text-gray-500 dark:text-gray-400">Notes</span>
+                    <span className="text-gray-500 dark:text-gray-400">{t('ui:ExpenseDetailPage.notes')}</span>
                     <p className="text-gray-700 dark:text-gray-300">{expense.notes}</p>
                   </div>
                 )}
@@ -278,14 +280,14 @@ export default function ExpenseDetailPage() {
           {/* Line items */}
           {expense.line_items.length > 0 && (
             <div className="bg-white dark:bg-gray-900 rounded-lg border p-5">
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3">Line Items</h3>
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3">{t('ui:ExpenseDetailPage.lineItems')}</h3>
               <table className="w-full text-sm">
                 <thead className="border-b">
                   <tr>
-                    <th className="text-left pb-2 text-gray-500 dark:text-gray-400 font-medium">Item</th>
-                    <th className="text-right pb-2 text-gray-500 dark:text-gray-400 font-medium">Qty</th>
-                    <th className="text-right pb-2 text-gray-500 dark:text-gray-400 font-medium">Unit Price</th>
-                    <th className="text-right pb-2 text-gray-500 dark:text-gray-400 font-medium">Total</th>
+                    <th className="text-left pb-2 text-gray-500 dark:text-gray-400 font-medium">{t('ui:ExpenseDetailPage.item')}</th>
+                    <th className="text-right pb-2 text-gray-500 dark:text-gray-400 font-medium">{t('ui:ExpenseDetailPage.qty')}</th>
+                    <th className="text-right pb-2 text-gray-500 dark:text-gray-400 font-medium">{t('ui:ExpenseDetailPage.unitPrice')}</th>
+                    <th className="text-right pb-2 text-gray-500 dark:text-gray-400 font-medium">{t('ui:ExpenseDetailPage.total')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -312,13 +314,13 @@ export default function ExpenseDetailPage() {
           {/* Linked receipt */}
           {expense.document_id && (
             <div className="bg-white dark:bg-gray-900 rounded-lg border p-4">
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm mb-2">Linked Receipt</h3>
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm mb-2">{t('ui:ExpenseDetailPage.linkedReceipt')}</h3>
               <button
                 onClick={() => navigate(`/documents/${expense.document_id}`)}
                 className="w-full flex items-center gap-2 px-3 py-2 text-sm text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 rounded-md hover:bg-blue-100"
               >
                 <FileText className="h-4 w-4" />
-                View Document
+               {t('ui:ExpenseDetailPage.viewDocument')}
               </button>
             </div>
           )}
@@ -329,7 +331,7 @@ export default function ExpenseDetailPage() {
           {/* AI suggestion */}
           {expense.ai_category_suggestion && (
             <div className="bg-purple-50 rounded-lg border border-purple-200 p-4">
-              <h3 className="font-semibold text-purple-900 text-sm mb-1">AI Suggestion</h3>
+              <h3 className="font-semibold text-purple-900 text-sm mb-1">{t('ui:ExpenseDetailPage.aiSuggestion')}</h3>
               <p className="text-sm text-purple-700 capitalize">
                 {expense.ai_category_suggestion.replace(/_/g, ' ')}
               </p>

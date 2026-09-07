@@ -6,17 +6,20 @@ import OfficeDocCard from '@/components/office/OfficeDocCard'
 import { useDebounce } from '@/hooks/useDebounce'
 import { Presentation, Plus, Search, Target, BarChart3, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
+import i18n from '@/i18n'
 
 type ViewTab = 'owned' | 'shared' | 'starred'
 
 const TEMPLATES = [
-  { title: 'Blank', icon: Plus, description: 'Empty presentation' },
-  { title: 'Client Pitch', icon: Target, description: 'Pitch deck template' },
-  { title: 'Quarterly Report', icon: BarChart3, description: 'Quarterly review' },
-  { title: 'Proposal', icon: FileText, description: 'Business proposal' },
+  { title: i18n.t('ui:SlidesHomePage.blank'), icon: Plus, description: i18n.t('ui:SlidesHomePage.emptyPresentation') },
+  { title: i18n.t('ui:SlidesHomePage.clientPitch'), icon: Target, description: i18n.t('ui:SlidesHomePage.pitchDeckTemplate') },
+  { title: i18n.t('ui:SlidesHomePage.quarterlyReport'), icon: BarChart3, description: i18n.t('ui:SlidesHomePage.quarterlyReview') },
+  { title: i18n.t('ui:SlidesHomePage.proposal'), icon: FileText, description: i18n.t('ui:SlidesHomePage.businessProposal') },
 ]
 
 export default function SlidesHomePage() {
+  const { t } = useTranslation('ui')
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<ViewTab>('owned')
@@ -50,9 +53,9 @@ export default function SlidesHomePage() {
   }
 
   const tabs: { key: ViewTab; label: string }[] = [
-    { key: 'owned', label: 'Owned by me' },
-    { key: 'shared', label: 'Shared with me' },
-    { key: 'starred', label: 'Starred' },
+    { key: 'owned', label: t('ui:SlidesHomePage.ownedByMe') },
+    { key: 'shared', label: t('ui:SlidesHomePage.sharedWithMe') },
+    { key: 'starred', label: t('ui:SlidesHomePage.starred') },
   ]
 
   return (
@@ -63,7 +66,7 @@ export default function SlidesHomePage() {
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
               <Presentation className="h-7 w-7 text-orange-600" />
-              Slides
+             {t('ui:SlidesHomePage.slides')}
             </h1>
             <button
               onClick={() => createMutation.mutate('Untitled presentation')}
@@ -71,13 +74,13 @@ export default function SlidesHomePage() {
               className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-orange-600 rounded-lg hover:bg-orange-700 disabled:opacity-50"
             >
               <Plus className="h-4 w-4" />
-              Blank Presentation
+             {t('ui:SlidesHomePage.blankPresentation')}
             </button>
           </div>
 
           {/* Templates */}
           <div>
-            <h2 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-3">Start a new presentation</h2>
+            <h2 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-3">{t('ui:SlidesHomePage.startANewPresentation')}</h2>
             <div className="flex gap-4">
               {TEMPLATES.map((template) => {
                 const Icon = template.icon
@@ -110,7 +113,7 @@ export default function SlidesHomePage() {
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search presentations..."
+              placeholder={t('ui:SlidesHomePage.searchPresentations')}
               className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 dark:bg-gray-800 dark:text-gray-100"
             />
           </div>
@@ -143,12 +146,12 @@ export default function SlidesHomePage() {
           <div className="text-center py-16">
             <Presentation className="h-12 w-12 text-gray-300 mx-auto mb-4" />
             <h3 className="text-gray-900 dark:text-gray-100 font-medium mb-1">
-              {search ? 'No presentations found' : 'No presentations yet'}
+              {search ? t('ui:SlidesHomePage.noPresentationsFound') : t('ui:SlidesHomePage.noPresentationsYet')}
             </h3>
             <p className="text-sm text-gray-500 dark:text-gray-400">
               {search
-                ? 'Try a different search term'
-                : 'Create a new presentation to get started'}
+                ? t('ui:SlidesHomePage.tryADifferentSearchTerm')
+                : t('ui:SlidesHomePage.createANewPresentationTo')}
             </p>
           </div>
         ) : (

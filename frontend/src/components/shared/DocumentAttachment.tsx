@@ -6,6 +6,7 @@ import { uploadDocuments, listDocuments, getDocument } from '@/api/documents'
 import { useDebounce } from '@/hooks/useDebounce'
 import { formatFileSize } from '@/lib/utils'
 import type { DocumentListItem } from '@/types/models'
+import { useTranslation } from 'react-i18next'
 
 interface DocumentAttachmentProps {
   selectedDocument: DocumentListItem | null
@@ -20,6 +21,7 @@ export default function DocumentAttachment({
   onMetadataExtracted,
   label = 'Linked Document',
 }: DocumentAttachmentProps) {
+  const { t } = useTranslation('ui')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [uploading, setUploading] = useState(false)
@@ -43,7 +45,7 @@ export default function DocumentAttachment({
         const res = await uploadDocuments([file])
         const uploaded = res.data[0]
         if (!uploaded) {
-          toast.error(`Couldn't attach ${file.name}. The upload returned nothing.`)
+          toast.error(t('ui:DocumentAttachment.couldnTAttachNameThe', { name: file.name }))
           return
         }
 
@@ -82,7 +84,7 @@ export default function DocumentAttachment({
         // The upload itself failed. Staying silent here let the spinner stop
         // and the user walk away believing the document was attached.
         const message = err instanceof Error ? err.message : 'Upload failed'
-        toast.error(`Couldn't attach ${file.name}: ${message}`)
+        toast.error(t('ui:DocumentAttachment.couldnTAttachNameMessage', { name: file.name, message }))
       } finally {
         setUploading(false)
       }
@@ -200,19 +202,19 @@ export default function DocumentAttachment({
         {uploading ? (
           <div className="flex flex-col items-center gap-2">
             <Loader2 className="h-6 w-6 text-blue-500 animate-spin" />
-            <p className="text-sm text-gray-500 dark:text-gray-400">Uploading...</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{t('ui:DocumentAttachment.uploading')}</p>
           </div>
         ) : (
           <div className="flex flex-col items-center gap-2">
             <Upload className="h-6 w-6 text-gray-400 dark:text-gray-500" />
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Drag & drop a file or{' '}
+             {t('ui:DocumentAttachment.dragDropAFileOr')}{' '}
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 className="text-blue-600 dark:text-blue-400 hover:text-blue-700 font-medium"
               >
-                Browse
+               {t('ui:DocumentAttachment.browse')}
               </button>
             </p>
           </div>
@@ -232,7 +234,7 @@ export default function DocumentAttachment({
         className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2 text-sm border rounded-md text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
       >
         <FolderOpen className="h-4 w-4" />
-        Choose from Drive
+       {t('ui:DocumentAttachment.chooseFromDrive')}
       </button>
 
       {/* Drive picker */}
@@ -243,14 +245,14 @@ export default function DocumentAttachment({
               type="text"
               value={documentSearch}
               onChange={(e) => setDocumentSearch(e.target.value)}
-              placeholder="Filter documents..."
+              placeholder={t('ui:DocumentAttachment.filterDocuments')}
               className="w-full px-3 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div className="max-h-48 overflow-y-auto">
             {searchedDocs.length === 0 ? (
               <div className="px-3 py-4 text-sm text-gray-500 dark:text-gray-400 text-center">
-                No documents found
+               {t('ui:DocumentAttachment.noDocumentsFound')}
               </div>
             ) : (
               searchedDocs.map((doc) => (

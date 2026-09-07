@@ -50,6 +50,8 @@ import Image from '@tiptap/extension-image'
 import Placeholder from '@tiptap/extension-placeholder'
 import * as Y from 'yjs'
 import { HocuspocusProvider, WebSocketStatus } from '@hocuspocus/provider'
+import { useTranslation } from 'react-i18next'
+import i18n from '@/i18n'
 
 // ---------------------------------------------------------------------------
 // Data model
@@ -99,71 +101,71 @@ function uid(): string {
 }
 
 const LAYOUTS: { value: SlideLayout; label: string }[] = [
-  { value: 'blank', label: 'Blank' },
-  { value: 'title', label: 'Title Slide' },
-  { value: 'title-content', label: 'Title + Content' },
-  { value: 'two-column', label: 'Two Column' },
-  { value: 'section-header', label: 'Section Header' },
-  { value: 'image-left', label: 'Image Left' },
-  { value: 'image-right', label: 'Image Right' },
-  { value: 'comparison', label: 'Comparison' },
+  { value: 'blank', label: i18n.t('ui:SlideEditorPage.blank') },
+  { value: 'title', label: i18n.t('ui:SlideEditorPage.titleSlide') },
+  { value: 'title-content', label: i18n.t('ui:SlideEditorPage.titleContent') },
+  { value: 'two-column', label: i18n.t('ui:SlideEditorPage.twoColumn') },
+  { value: 'section-header', label: i18n.t('ui:SlideEditorPage.sectionHeader') },
+  { value: 'image-left', label: i18n.t('ui:SlideEditorPage.imageLeft') },
+  { value: 'image-right', label: i18n.t('ui:SlideEditorPage.imageRight') },
+  { value: 'comparison', label: i18n.t('ui:SlideEditorPage.comparison') },
 ]
 
 const TRANSITIONS: { value: SlideTransition; label: string }[] = [
-  { value: 'none', label: 'None' },
-  { value: 'fade', label: 'Fade' },
-  { value: 'slide-left', label: 'Slide Left' },
-  { value: 'slide-right', label: 'Slide Right' },
+  { value: 'none', label: i18n.t('ui:SlideEditorPage.none') },
+  { value: 'fade', label: i18n.t('ui:SlideEditorPage.fade') },
+  { value: 'slide-left', label: i18n.t('ui:SlideEditorPage.slideLeft') },
+  { value: 'slide-right', label: i18n.t('ui:SlideEditorPage.slideRight') },
   { value: 'zoom', label: 'Zoom' },
 ]
 
 const ANIMATIONS: { value: ElementAnimation; label: string }[] = [
-  { value: 'none', label: 'None' },
-  { value: 'fade-in', label: 'Fade In' },
-  { value: 'slide-left', label: 'Slide Left' },
-  { value: 'slide-right', label: 'Slide Right' },
-  { value: 'slide-up', label: 'Slide Up' },
-  { value: 'zoom-in', label: 'Zoom In' },
+  { value: 'none', label: i18n.t('ui:SlideEditorPage.none') },
+  { value: 'fade-in', label: i18n.t('ui:SlideEditorPage.fadeIn') },
+  { value: 'slide-left', label: i18n.t('ui:SlideEditorPage.slideLeft') },
+  { value: 'slide-right', label: i18n.t('ui:SlideEditorPage.slideRight') },
+  { value: 'slide-up', label: i18n.t('ui:SlideEditorPage.slideUp') },
+  { value: 'zoom-in', label: i18n.t('ui:SlideEditorPage.zoomIn') },
 ]
 
 function makeLayoutElements(layout: SlideLayout): SlideElement[] {
   switch (layout) {
     case 'title':
       return [
-        { id: uid(), type: 'text', x: 10, y: 30, width: 80, height: 30, content: { type: 'doc', content: [{ type: 'heading', attrs: { level: 1, textAlign: 'center' }, content: [{ type: 'text', text: 'Presentation Title' }] }] } },
+        { id: uid(), type: 'text', x: 10, y: 30, width: 80, height: 30, content: { type: 'doc', content: [{ type: 'heading', attrs: { level: 1, textAlign: 'center' }, content: [{ type: 'text', text: i18n.t('ui:SlideEditorPage.presentationTitle') }] }] } },
       ]
     case 'title-content':
       return [
-        { id: uid(), type: 'text', x: 10, y: 5, width: 80, height: 15, content: { type: 'doc', content: [{ type: 'heading', attrs: { level: 1, textAlign: 'left' }, content: [{ type: 'text', text: 'Slide Title' }] }] } },
-        { id: uid(), type: 'text', x: 10, y: 25, width: 80, height: 60, content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Body content goes here...' }] }] } },
+        { id: uid(), type: 'text', x: 10, y: 5, width: 80, height: 15, content: { type: 'doc', content: [{ type: 'heading', attrs: { level: 1, textAlign: 'left' }, content: [{ type: 'text', text: i18n.t('ui:SlideEditorPage.slideTitle') }] }] } },
+        { id: uid(), type: 'text', x: 10, y: 25, width: 80, height: 60, content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: i18n.t('ui:SlideEditorPage.bodyContentGoesHere') }] }] } },
       ]
     case 'two-column':
       return [
-        { id: uid(), type: 'text', x: 5, y: 5, width: 90, height: 12, content: { type: 'doc', content: [{ type: 'heading', attrs: { level: 1, textAlign: 'center' }, content: [{ type: 'text', text: 'Two Columns' }] }] } },
-        { id: uid(), type: 'text', x: 5, y: 22, width: 42, height: 65, content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Left column...' }] }] } },
-        { id: uid(), type: 'text', x: 53, y: 22, width: 42, height: 65, content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Right column...' }] }] } },
+        { id: uid(), type: 'text', x: 5, y: 5, width: 90, height: 12, content: { type: 'doc', content: [{ type: 'heading', attrs: { level: 1, textAlign: 'center' }, content: [{ type: 'text', text: i18n.t('ui:SlideEditorPage.twoColumns') }] }] } },
+        { id: uid(), type: 'text', x: 5, y: 22, width: 42, height: 65, content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: i18n.t('ui:SlideEditorPage.leftColumn') }] }] } },
+        { id: uid(), type: 'text', x: 53, y: 22, width: 42, height: 65, content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: i18n.t('ui:SlideEditorPage.rightColumn') }] }] } },
       ]
     case 'section-header':
       return [
-        { id: uid(), type: 'text', x: 10, y: 30, width: 80, height: 30, content: { type: 'doc', content: [{ type: 'heading', attrs: { level: 1, textAlign: 'center' }, content: [{ type: 'text', text: 'Section Title' }] }] } },
+        { id: uid(), type: 'text', x: 10, y: 30, width: 80, height: 30, content: { type: 'doc', content: [{ type: 'heading', attrs: { level: 1, textAlign: 'center' }, content: [{ type: 'text', text: i18n.t('ui:SlideEditorPage.sectionTitle') }] }] } },
       ]
     case 'image-left':
       return [
         { id: uid(), type: 'image', x: 3, y: 10, width: 44, height: 75, src: '' },
-        { id: uid(), type: 'text', x: 52, y: 10, width: 44, height: 75, content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Description...' }] }] } },
+        { id: uid(), type: 'text', x: 52, y: 10, width: 44, height: 75, content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: i18n.t('ui:SlideEditorPage.description') }] }] } },
       ]
     case 'image-right':
       return [
-        { id: uid(), type: 'text', x: 3, y: 10, width: 44, height: 75, content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Description...' }] }] } },
+        { id: uid(), type: 'text', x: 3, y: 10, width: 44, height: 75, content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: i18n.t('ui:SlideEditorPage.description') }] }] } },
         { id: uid(), type: 'image', x: 52, y: 10, width: 44, height: 75, src: '' },
       ]
     case 'comparison':
       return [
-        { id: uid(), type: 'text', x: 5, y: 3, width: 90, height: 10, content: { type: 'doc', content: [{ type: 'heading', attrs: { level: 1, textAlign: 'center' }, content: [{ type: 'text', text: 'Comparison' }] }] } },
-        { id: uid(), type: 'text', x: 5, y: 16, width: 42, height: 10, content: { type: 'doc', content: [{ type: 'heading', attrs: { level: 2, textAlign: 'center' }, content: [{ type: 'text', text: 'Option A' }] }] } },
-        { id: uid(), type: 'text', x: 53, y: 16, width: 42, height: 10, content: { type: 'doc', content: [{ type: 'heading', attrs: { level: 2, textAlign: 'center' }, content: [{ type: 'text', text: 'Option B' }] }] } },
-        { id: uid(), type: 'text', x: 5, y: 30, width: 42, height: 58, content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Details...' }] }] } },
-        { id: uid(), type: 'text', x: 53, y: 30, width: 42, height: 58, content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Details...' }] }] } },
+        { id: uid(), type: 'text', x: 5, y: 3, width: 90, height: 10, content: { type: 'doc', content: [{ type: 'heading', attrs: { level: 1, textAlign: 'center' }, content: [{ type: 'text', text: i18n.t('ui:SlideEditorPage.comparison') }] }] } },
+        { id: uid(), type: 'text', x: 5, y: 16, width: 42, height: 10, content: { type: 'doc', content: [{ type: 'heading', attrs: { level: 2, textAlign: 'center' }, content: [{ type: 'text', text: i18n.t('ui:SlideEditorPage.optionA') }] }] } },
+        { id: uid(), type: 'text', x: 53, y: 16, width: 42, height: 10, content: { type: 'doc', content: [{ type: 'heading', attrs: { level: 2, textAlign: 'center' }, content: [{ type: 'text', text: i18n.t('ui:SlideEditorPage.optionB') }] }] } },
+        { id: uid(), type: 'text', x: 5, y: 30, width: 42, height: 58, content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: i18n.t('ui:SlideEditorPage.details') }] }] } },
+        { id: uid(), type: 'text', x: 53, y: 30, width: 42, height: 58, content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: i18n.t('ui:SlideEditorPage.details') }] }] } },
       ]
     default: // blank
       return []
@@ -203,12 +205,13 @@ interface ElementTextEditorProps {
 }
 
 function ElementTextEditor({ content, onUpdate, isSelected }: ElementTextEditorProps) {
+  const { t } = useTranslation('ui')
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ history: false } as any),
       UnderlineExt,
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
-      Placeholder.configure({ placeholder: 'Type here...' }),
+      Placeholder.configure({ placeholder: t('ui:SlideEditorPage.typeHere') }),
     ],
     editorProps: {
       attributes: {
@@ -253,13 +256,14 @@ interface SlideMainEditorProps {
 }
 
 function SlideMainEditor({ slideContent, onUpdate }: SlideMainEditorProps) {
+  const { t } = useTranslation('ui')
   const editor = useEditor({
     extensions: [
       StarterKit,
       UnderlineExt,
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       Image,
-      Placeholder.configure({ placeholder: 'Click to add text...' }),
+      Placeholder.configure({ placeholder: t('ui:SlideEditorPage.clickToAddText') }),
     ],
     editorProps: {
       attributes: {
@@ -351,10 +355,11 @@ interface PropertiesPanelProps {
 }
 
 function PropertiesPanel({ element, onUpdate, onDelete }: PropertiesPanelProps) {
+  const { t } = useTranslation('ui')
   if (!element) {
     return (
       <div className="p-4 text-sm text-gray-400 dark:text-gray-500 text-center">
-        Select an element to edit its properties
+       {t('ui:SlideEditorPage.selectAnElementToEdit')}
       </div>
     )
   }
@@ -362,12 +367,12 @@ function PropertiesPanel({ element, onUpdate, onDelete }: PropertiesPanelProps) 
   return (
     <div className="p-3 space-y-4 text-sm overflow-y-auto h-full">
       <h3 className="font-semibold text-gray-700 dark:text-gray-300 uppercase text-xs tracking-wide">
-        {element.type === 'text' ? 'Text Box' : element.type === 'shape' ? 'Shape' : 'Image'}
+        {element.type === 'text' ? t('ui:SlideEditorPage.textBox') : element.type === 'shape' ? t('ui:SlideEditorPage.shape') : t('ui:SlideEditorPage.image')}
       </h3>
 
       {/* Position */}
       <div className="space-y-2">
-        <label className="text-xs text-gray-500 dark:text-gray-400 font-medium">Position</label>
+        <label className="text-xs text-gray-500 dark:text-gray-400 font-medium">{t('ui:SlideEditorPage.position')}</label>
         <div className="grid grid-cols-2 gap-2">
           <div>
             <span className="text-[10px] text-gray-400">X %</span>
@@ -382,7 +387,7 @@ function PropertiesPanel({ element, onUpdate, onDelete }: PropertiesPanelProps) 
 
       {/* Size */}
       <div className="space-y-2">
-        <label className="text-xs text-gray-500 dark:text-gray-400 font-medium">Size</label>
+        <label className="text-xs text-gray-500 dark:text-gray-400 font-medium">{t('ui:SlideEditorPage.size')}</label>
         <div className="grid grid-cols-2 gap-2">
           <div>
             <span className="text-[10px] text-gray-400">W %</span>
@@ -397,14 +402,14 @@ function PropertiesPanel({ element, onUpdate, onDelete }: PropertiesPanelProps) 
 
       {/* Rotation & Opacity */}
       <div className="space-y-2">
-        <label className="text-xs text-gray-500 dark:text-gray-400 font-medium">Appearance</label>
+        <label className="text-xs text-gray-500 dark:text-gray-400 font-medium">{t('ui:SlideEditorPage.appearance')}</label>
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <span className="text-[10px] text-gray-400 flex items-center gap-1"><RotateCw className="h-2.5 w-2.5" /> Rotation</span>
+            <span className="text-[10px] text-gray-400 flex items-center gap-1"><RotateCw className="h-2.5 w-2.5" /> {t('ui:SlideEditorPage.rotation')}</span>
             <input type="number" min={0} max={360} value={element.rotation ?? 0} onChange={(e) => onUpdate({ rotation: Number(e.target.value) })} className="w-full px-2 py-1 border dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-xs" />
           </div>
           <div>
-            <span className="text-[10px] text-gray-400 flex items-center gap-1"><Eye className="h-2.5 w-2.5" /> Opacity</span>
+            <span className="text-[10px] text-gray-400 flex items-center gap-1"><Eye className="h-2.5 w-2.5" /> {t('ui:SlideEditorPage.opacity')}</span>
             <input type="range" min={0} max={100} value={(element.opacity ?? 1) * 100} onChange={(e) => onUpdate({ opacity: Number(e.target.value) / 100 })} className="w-full" />
           </div>
         </div>
@@ -413,21 +418,21 @@ function PropertiesPanel({ element, onUpdate, onDelete }: PropertiesPanelProps) 
       {/* Shape-specific */}
       {element.type === 'shape' && (
         <div className="space-y-2">
-          <label className="text-xs text-gray-500 dark:text-gray-400 font-medium">Shape</label>
+          <label className="text-xs text-gray-500 dark:text-gray-400 font-medium">{t('ui:SlideEditorPage.shape')}</label>
           <select value={element.shapeType || 'rectangle'} onChange={(e) => onUpdate({ shapeType: e.target.value as ShapeType })} className="w-full px-2 py-1 border dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-xs">
-            <option value="rectangle">Rectangle</option>
-            <option value="circle">Circle</option>
-            <option value="rounded-rect">Rounded Rect</option>
-            <option value="triangle">Triangle</option>
-            <option value="arrow-right">Arrow</option>
+            <option value="rectangle">{t('ui:SlideEditorPage.rectangle')}</option>
+            <option value="circle">{t('ui:SlideEditorPage.circle')}</option>
+            <option value="rounded-rect">{t('ui:SlideEditorPage.roundedRect')}</option>
+            <option value="triangle">{t('ui:SlideEditorPage.triangle')}</option>
+            <option value="arrow-right">{t('ui:SlideEditorPage.arrow')}</option>
           </select>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <span className="text-[10px] text-gray-400">Fill</span>
+              <span className="text-[10px] text-gray-400">{t('ui:SlideEditorPage.fill')}</span>
               <input type="color" value={element.fillColor || '#3b82f6'} onChange={(e) => onUpdate({ fillColor: e.target.value })} className="w-full h-7 rounded border dark:border-gray-600 cursor-pointer" />
             </div>
             <div>
-              <span className="text-[10px] text-gray-400">Border</span>
+              <span className="text-[10px] text-gray-400">{t('ui:SlideEditorPage.border')}</span>
               <input type="color" value={element.borderColor || '#000000'} onChange={(e) => onUpdate({ borderColor: e.target.value })} className="w-full h-7 rounded border dark:border-gray-600 cursor-pointer" />
             </div>
           </div>
@@ -437,25 +442,25 @@ function PropertiesPanel({ element, onUpdate, onDelete }: PropertiesPanelProps) 
       {/* Image-specific */}
       {element.type === 'image' && (
         <div className="space-y-2">
-          <label className="text-xs text-gray-500 dark:text-gray-400 font-medium">Image URL</label>
+          <label className="text-xs text-gray-500 dark:text-gray-400 font-medium">{t('ui:SlideEditorPage.imageUrl')}</label>
           <input type="text" value={element.src || ''} onChange={(e) => onUpdate({ src: e.target.value })} placeholder="https://..." className="w-full px-2 py-1 border dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-xs" />
         </div>
       )}
 
       {/* Animation */}
       <div className="space-y-2">
-        <label className="text-xs text-gray-500 dark:text-gray-400 font-medium">Animation</label>
+        <label className="text-xs text-gray-500 dark:text-gray-400 font-medium">{t('ui:SlideEditorPage.animation')}</label>
         <select value={element.animation?.type || 'none'} onChange={(e) => onUpdate({ animation: { ...element.animation, type: e.target.value as ElementAnimation, delay: element.animation?.delay ?? 0, duration: element.animation?.duration ?? 500 } })} className="w-full px-2 py-1 border dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-xs">
           {ANIMATIONS.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
         </select>
         {element.animation?.type && element.animation.type !== 'none' && (
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <span className="text-[10px] text-gray-400">Delay (ms)</span>
+              <span className="text-[10px] text-gray-400">{t('ui:SlideEditorPage.delayMs')}</span>
               <input type="number" min={0} step={100} value={element.animation.delay ?? 0} onChange={(e) => onUpdate({ animation: { ...element.animation!, delay: Number(e.target.value) } })} className="w-full px-2 py-1 border dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-xs" />
             </div>
             <div>
-              <span className="text-[10px] text-gray-400">Duration (ms)</span>
+              <span className="text-[10px] text-gray-400">{t('ui:SlideEditorPage.durationMs')}</span>
               <input type="number" min={100} step={100} value={element.animation.duration ?? 500} onChange={(e) => onUpdate({ animation: { ...element.animation!, duration: Number(e.target.value) } })} className="w-full px-2 py-1 border dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-xs" />
             </div>
           </div>
@@ -464,7 +469,7 @@ function PropertiesPanel({ element, onUpdate, onDelete }: PropertiesPanelProps) 
 
       {/* Delete */}
       <button onClick={onDelete} className="w-full px-3 py-1.5 text-sm text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 rounded hover:bg-red-50 dark:hover:bg-red-900/30 flex items-center gap-2 justify-center">
-        <Trash2 className="h-3.5 w-3.5" /> Delete Element
+        <Trash2 className="h-3.5 w-3.5" /> {t('ui:SlideEditorPage.deleteElement')}
       </button>
     </div>
   )
@@ -599,6 +604,7 @@ interface PresenterModeProps {
 }
 
 function PresenterMode({ slides, initialSlide, onExit }: PresenterModeProps) {
+  const { t } = useTranslation('ui')
   const [currentSlide, setCurrentSlide] = useState(initialSlide)
   const [elapsed, setElapsed] = useState(0)
   const startTimeRef = useRef(Date.now())
@@ -676,21 +682,21 @@ function PresenterMode({ slides, initialSlide, onExit }: PresenterModeProps) {
       <div className="w-80 bg-gray-900 border-l border-gray-800 flex flex-col">
         {/* Next slide preview */}
         <div className="p-3">
-          <div className="text-xs text-gray-400 mb-1 font-medium">Next Slide</div>
+          <div className="text-xs text-gray-400 mb-1 font-medium">{t('ui:SlideEditorPage.nextSlide')}</div>
           {nextSlide ? (
             <div className="opacity-70">{renderSlidePreview(nextSlide, false)}</div>
           ) : (
             <div className="aspect-video bg-gray-800 rounded flex items-center justify-center text-gray-500 text-xs">
-              End of presentation
+             {t('ui:SlideEditorPage.endOfPresentation')}
             </div>
           )}
         </div>
 
         {/* Speaker notes */}
         <div className="flex-1 p-3 overflow-y-auto">
-          <div className="text-xs text-gray-400 mb-1 font-medium">Speaker Notes</div>
+          <div className="text-xs text-gray-400 mb-1 font-medium">{t('ui:SlideEditorPage.speakerNotes')}</div>
           <div className="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed">
-            {slide?.speakerNotes || <span className="text-gray-600 italic">No notes for this slide</span>}
+            {slide?.speakerNotes || <span className="text-gray-600 italic">{t('ui:SlideEditorPage.noNotesForThisSlide')}</span>}
           </div>
         </div>
 
@@ -708,7 +714,7 @@ function PresenterMode({ slides, initialSlide, onExit }: PresenterModeProps) {
             <Timer className="h-4 w-4" />
             {formatTime(elapsed)}
           </div>
-          <button onClick={onExit} className="text-gray-400 hover:text-white p-1" title="Exit (Esc)">
+          <button onClick={onExit} className="text-gray-400 hover:text-white p-1" title={t('ui:SlideEditorPage.exitEsc')}>
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -865,6 +871,7 @@ function writeSlidesToY(ydoc: Y.Doc, next: SlideContent[], origin: symbol): void
 // ---------------------------------------------------------------------------
 
 export default function SlideEditorPage() {
+  const { t } = useTranslation('ui')
   const { id } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
   const { user } = useAuthStore()
@@ -1151,7 +1158,7 @@ export default function SlideEditorPage() {
       rotation: 0,
       opacity: 1,
       animation: { type: 'none', delay: 0, duration: 500 },
-      ...(type === 'text' ? { content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Text' }] }] } } : {}),
+      ...(type === 'text' ? { content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: t('ui:SlideEditorPage.text') }] }] } } : {}),
       ...(type === 'shape' ? { shapeType: 'rectangle' as ShapeType, fillColor: '#3b82f6', borderColor: 'transparent' } : {}),
       ...(type === 'image' ? { src: '' } : {}),
       ...extra,
@@ -1232,7 +1239,7 @@ export default function SlideEditorPage() {
       URL.revokeObjectURL(url)
     } catch (err) {
       console.error('PPTX export failed:', err)
-      alert('Export failed. The server may not support PPTX export yet.')
+      alert(t('ui:SlideEditorPage.exportFailedTheServerMay'))
     }
   }, [id, doc?.title])
 
@@ -1243,7 +1250,7 @@ export default function SlideEditorPage() {
       window.open(url, '_blank')
     } catch (err) {
       console.error('PDF export failed:', err)
-      alert('PDF export failed. The server may not support PDF export yet.')
+      alert(t('ui:SlideEditorPage.pdfExportFailedTheServer'))
     }
   }, [id])
 
@@ -1259,7 +1266,7 @@ export default function SlideEditorPage() {
       queryClient.invalidateQueries({ queryKey: ['office-doc', id] })
     } catch (err) {
       console.error('Import failed:', err)
-      alert('Import failed. The server may not support PPTX import yet.')
+      alert(t('ui:SlideEditorPage.importFailedTheServerMay'))
     }
   }, [id, queryClient])
 
@@ -1298,7 +1305,7 @@ export default function SlideEditorPage() {
       <EditorTopBar
         docType="presentation"
         docId={id}
-        title={doc?.title || 'Untitled presentation'}
+        title={doc?.title || t('ui:SlideEditorPage.untitledPresentation')}
         isStarred={doc?.is_starred ?? false}
         onTitleChange={handleTitleChange}
         onStar={() => starMutation.mutate()}
@@ -1310,7 +1317,7 @@ export default function SlideEditorPage() {
       <div className="bg-white dark:bg-gray-900 border-b dark:border-gray-700 px-4 py-1.5 flex items-center gap-2 flex-wrap">
         {/* Present */}
         <button onClick={startPresentation} className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-orange-600 rounded-lg hover:bg-orange-700">
-          <Play className="h-4 w-4" /> Present
+          <Play className="h-4 w-4" /> {t('ui:SlideEditorPage.present')}
         </button>
 
         <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1" />
@@ -1318,7 +1325,7 @@ export default function SlideEditorPage() {
         {/* Layout selector */}
         <Dropdown trigger={
           <button className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md">
-            <Layout className="h-4 w-4" /> Layout <ChevronDown className="h-3 w-3" />
+            <Layout className="h-4 w-4" /> {t('ui:SlideEditorPage.layout')} <ChevronDown className="h-3 w-3" />
           </button>
         }>
           {LAYOUTS.map((l) => (
@@ -1329,7 +1336,7 @@ export default function SlideEditorPage() {
         </Dropdown>
 
         {/* Background color */}
-        <label className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md cursor-pointer" title="Background color">
+        <label className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md cursor-pointer" title={t('ui:SlideEditorPage.backgroundColor')}>
           <Palette className="h-4 w-4" />
           <input
             type="color"
@@ -1342,7 +1349,7 @@ export default function SlideEditorPage() {
         {/* Transition */}
         <Dropdown trigger={
           <button className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md">
-            <Sparkles className="h-4 w-4" /> Transition <ChevronDown className="h-3 w-3" />
+            <Sparkles className="h-4 w-4" /> {t('ui:SlideEditorPage.transition')} <ChevronDown className="h-3 w-3" />
           </button>
         }>
           {TRANSITIONS.map((t) => (
@@ -1357,18 +1364,18 @@ export default function SlideEditorPage() {
         {/* Add element */}
         <Dropdown trigger={
           <button className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md">
-            <Plus className="h-4 w-4" /> Add <ChevronDown className="h-3 w-3" />
+            <Plus className="h-4 w-4" /> {t('ui:SlideEditorPage.add')} <ChevronDown className="h-3 w-3" />
           </button>
         }>
-          <DropdownItem onClick={() => addElement('text')}><Type className="h-4 w-4" /> Text Box</DropdownItem>
-          <div className="px-3 py-1 text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wider font-medium">Shapes</div>
-          <DropdownItem onClick={() => addElement('shape', { shapeType: 'rectangle' })}><Square className="h-4 w-4" /> Rectangle</DropdownItem>
-          <DropdownItem onClick={() => addElement('shape', { shapeType: 'circle', width: 20, height: 35 })}><Circle className="h-4 w-4" /> Circle</DropdownItem>
-          <DropdownItem onClick={() => addElement('shape', { shapeType: 'rounded-rect' })}><Square className="h-4 w-4 rounded" /> Rounded Rect</DropdownItem>
-          <DropdownItem onClick={() => addElement('shape', { shapeType: 'triangle' })}><Triangle className="h-4 w-4" /> Triangle</DropdownItem>
-          <DropdownItem onClick={() => addElement('shape', { shapeType: 'arrow-right', width: 25, height: 15 })}><ArrowRight className="h-4 w-4" /> Arrow</DropdownItem>
-          <div className="px-3 py-1 text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wider font-medium">Media</div>
-          <DropdownItem onClick={() => { const url = prompt('Enter image URL:'); addElement('image', { src: url || '' }) }}><ImageIcon className="h-4 w-4" /> Image (URL)</DropdownItem>
+          <DropdownItem onClick={() => addElement('text')}><Type className="h-4 w-4" /> {t('ui:SlideEditorPage.textBox')}</DropdownItem>
+          <div className="px-3 py-1 text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wider font-medium">{t('ui:SlideEditorPage.shapes')}</div>
+          <DropdownItem onClick={() => addElement('shape', { shapeType: 'rectangle' })}><Square className="h-4 w-4" /> {t('ui:SlideEditorPage.rectangle')}</DropdownItem>
+          <DropdownItem onClick={() => addElement('shape', { shapeType: 'circle', width: 20, height: 35 })}><Circle className="h-4 w-4" /> {t('ui:SlideEditorPage.circle')}</DropdownItem>
+          <DropdownItem onClick={() => addElement('shape', { shapeType: 'rounded-rect' })}><Square className="h-4 w-4 rounded" /> {t('ui:SlideEditorPage.roundedRect')}</DropdownItem>
+          <DropdownItem onClick={() => addElement('shape', { shapeType: 'triangle' })}><Triangle className="h-4 w-4" /> {t('ui:SlideEditorPage.triangle')}</DropdownItem>
+          <DropdownItem onClick={() => addElement('shape', { shapeType: 'arrow-right', width: 25, height: 15 })}><ArrowRight className="h-4 w-4" /> {t('ui:SlideEditorPage.arrow')}</DropdownItem>
+          <div className="px-3 py-1 text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wider font-medium">{t('ui:SlideEditorPage.media')}</div>
+          <DropdownItem onClick={() => { const url = prompt('Enter image URL:'); addElement('image', { src: url || '' }) }}><ImageIcon className="h-4 w-4" /> {t('ui:SlideEditorPage.imageUrl_2')}</DropdownItem>
         </Dropdown>
 
         <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1" />
@@ -1376,15 +1383,15 @@ export default function SlideEditorPage() {
         {/* Import/Export */}
         <Dropdown trigger={
           <button className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md">
-            <Download className="h-4 w-4" /> Download <ChevronDown className="h-3 w-3" />
+            <Download className="h-4 w-4" /> {t('ui:SlideEditorPage.download')} <ChevronDown className="h-3 w-3" />
           </button>
         }>
-          <DropdownItem onClick={handleExportPptx}><Download className="h-4 w-4" /> Download PPTX</DropdownItem>
-          <DropdownItem onClick={handleExportPdf}><Download className="h-4 w-4" /> Download PDF</DropdownItem>
+          <DropdownItem onClick={handleExportPptx}><Download className="h-4 w-4" /> {t('ui:SlideEditorPage.downloadPptx')}</DropdownItem>
+          <DropdownItem onClick={handleExportPdf}><Download className="h-4 w-4" /> {t('ui:SlideEditorPage.downloadPdf')}</DropdownItem>
         </Dropdown>
 
         <button onClick={() => importInputRef.current?.click()} className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md">
-          <Upload className="h-4 w-4" /> Import
+          <Upload className="h-4 w-4" /> {t('ui:SlideEditorPage.import')}
         </button>
         <input ref={importInputRef} type="file" accept=".pptx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImport(f); e.target.value = '' }} />
 
@@ -1392,7 +1399,7 @@ export default function SlideEditorPage() {
 
         {/* Speaker notes toggle */}
         <button onClick={() => setShowNotes((n) => !n)} className={cn('flex items-center gap-1.5 px-2.5 py-1.5 text-sm rounded-md', showNotes ? 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800')}>
-          <StickyNote className="h-4 w-4" /> Notes
+          <StickyNote className="h-4 w-4" /> {t('ui:SlideEditorPage.notes')}
         </button>
 
         {/* Properties panel toggle */}
@@ -1402,7 +1409,7 @@ export default function SlideEditorPage() {
 
         {/* Slide counter */}
         <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">
-          Slide {activeSlide + 1} of {slides.length}
+         {t('ui:SlideEditorPage.slide')} {activeSlide + 1} of {slides.length}
         </span>
       </div>
 
@@ -1444,7 +1451,7 @@ export default function SlideEditorPage() {
                 ))}
                 {!s.elements?.length && (
                   <div className="flex items-center justify-center h-full">
-                    <span className="font-medium text-[10px] text-gray-400 dark:text-gray-500">Slide {index + 1}</span>
+                    <span className="font-medium text-[10px] text-gray-400 dark:text-gray-500">{t('ui:SlideEditorPage.slide')} {index + 1}</span>
                   </div>
                 )}
               </div>
@@ -1461,7 +1468,7 @@ export default function SlideEditorPage() {
                 <button
                   onClick={(e) => { e.stopPropagation(); deleteSlide(index) }}
                   className="absolute top-1 right-1 p-0.5 bg-red-500/80 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                  title="Delete slide"
+                  title={t('ui:SlideEditorPage.deleteSlide')}
                 >
                   <Trash2 className="h-3 w-3" />
                 </button>
@@ -1511,12 +1518,12 @@ export default function SlideEditorPage() {
           {showNotes && (
             <div className="h-32 border-t dark:border-gray-700 bg-white dark:bg-gray-900 flex flex-col shrink-0">
               <div className="px-3 py-1 text-xs font-medium text-gray-500 dark:text-gray-400 border-b dark:border-gray-700 flex items-center gap-2">
-                <StickyNote className="h-3 w-3" /> Speaker Notes
+                <StickyNote className="h-3 w-3" /> {t('ui:SlideEditorPage.speakerNotes')}
               </div>
               <textarea
                 value={currentSlide?.speakerNotes || ''}
                 onChange={(e) => updateSlide(activeSlide, { speakerNotes: e.target.value })}
-                placeholder="Add speaker notes for this slide..."
+                placeholder={t('ui:SlideEditorPage.addSpeakerNotesForThis')}
                 className="flex-1 p-3 text-sm bg-transparent text-gray-700 dark:text-gray-300 resize-none focus:outline-none placeholder:text-gray-400 dark:placeholder:text-gray-600"
               />
             </div>
@@ -1527,7 +1534,7 @@ export default function SlideEditorPage() {
         {showProperties && (
           <div className="w-64 bg-white dark:bg-gray-900 border-l dark:border-gray-700 overflow-hidden shrink-0">
             <div className="px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 border-b dark:border-gray-700 uppercase tracking-wide">
-              Properties
+             {t('ui:SlideEditorPage.properties')}
             </div>
             <PropertiesPanel
               element={selectedElement}

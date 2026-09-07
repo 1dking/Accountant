@@ -4,14 +4,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { listAccounts, listCategories, createEntry } from '@/api/cashbook'
 import { listDocuments, getDocument } from '@/api/documents'
 import { useDebounce } from '@/hooks/useDebounce'
-import { formatFileSize } from '@/lib/utils'
+import { formatFileSize, uiLocale } from '@/lib/utils'
 import { ArrowLeft, Paperclip, X } from 'lucide-react'
 import type { EntryType, DocumentListItem } from '@/types/models'
+import { useTranslation } from 'react-i18next'
 
 function formatCurrency(amount: number): string {
   return (
     '$' +
-    Math.abs(amount).toLocaleString('en-US', {
+    Math.abs(amount).toLocaleString(uiLocale(), {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })
@@ -19,6 +20,7 @@ function formatCurrency(amount: number): string {
 }
 
 export default function NewCashbookEntryPage() {
+  const { t } = useTranslation('ui')
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
@@ -114,18 +116,18 @@ export default function NewCashbookEntryPage() {
         className="flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:underline mb-4"
       >
         <ArrowLeft className="h-4 w-4" />
-        Back to cashbook
+       {t('ui:NewCashbookEntryPage.backToCashbook')}
       </button>
 
       <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">
-        New Cashbook Entry
+       {t('ui:NewCashbookEntryPage.newCashbookEntry')}
       </h1>
 
       <div className="bg-white dark:bg-gray-900 rounded-lg border p-6 space-y-4">
         {/* Account Selector */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Account <span className="text-red-500">*</span>
+           {t('ui:NewCashbookEntryPage.account')} <span className="text-red-500">*</span>
           </label>
           <select
             value={activeAccountId}
@@ -133,7 +135,7 @@ export default function NewCashbookEntryPage() {
             className="w-full px-3 py-2 text-sm border rounded-md bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             {accounts.length === 0 && (
-              <option value="">No accounts available</option>
+              <option value="">{t('ui:NewCashbookEntryPage.noAccountsAvailable')}</option>
             )}
             {accounts.map((a) => (
               <option key={a.id} value={a.id}>
@@ -146,7 +148,7 @@ export default function NewCashbookEntryPage() {
         {/* Entry Type Toggle */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Type
+           {t('ui:NewCashbookEntryPage.type')}
           </label>
           <div className="flex rounded-md border overflow-hidden">
             <button
@@ -161,7 +163,7 @@ export default function NewCashbookEntryPage() {
                   : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-50'
               }`}
             >
-              Income
+             {t('ui:NewCashbookEntryPage.income')}
             </button>
             <button
               type="button"
@@ -175,7 +177,7 @@ export default function NewCashbookEntryPage() {
                   : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-50'
               }`}
             >
-              Expense
+             {t('ui:NewCashbookEntryPage.expense')}
             </button>
           </div>
         </div>
@@ -184,7 +186,7 @@ export default function NewCashbookEntryPage() {
           {/* Date */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Date <span className="text-red-500">*</span>
+             {t('ui:NewCashbookEntryPage.date')} <span className="text-red-500">*</span>
             </label>
             <input
               type="date"
@@ -197,7 +199,7 @@ export default function NewCashbookEntryPage() {
           {/* Amount */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Amount <span className="text-red-500">*</span>
+             {t('ui:NewCashbookEntryPage.amount')} <span className="text-red-500">*</span>
             </label>
             <input
               type="number"
@@ -214,13 +216,13 @@ export default function NewCashbookEntryPage() {
         {/* Description */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Description <span className="text-red-500">*</span>
+           {t('ui:NewCashbookEntryPage.description')} <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="What is this transaction for?"
+            placeholder={t('ui:NewCashbookEntryPage.whatIsThisTransactionFor')}
             className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
@@ -228,14 +230,14 @@ export default function NewCashbookEntryPage() {
         {/* Category */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Category
+           {t('ui:NewCashbookEntryPage.category')}
           </label>
           <select
             value={categoryId}
             onChange={(e) => setCategoryId(e.target.value)}
             className="w-full px-3 py-2 text-sm border rounded-md bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="">Select a category</option>
+            <option value="">{t('ui:NewCashbookEntryPage.selectACategory')}</option>
             {filteredCategories.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
@@ -248,7 +250,7 @@ export default function NewCashbookEntryPage() {
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             <Paperclip className="inline h-3.5 w-3.5 mr-1" />
-            Linked Document
+           {t('ui:NewCashbookEntryPage.linkedDocument')}
           </label>
           {selectedDocument ? (
             <div className="flex items-center gap-2 w-full px-3 py-2 text-sm border rounded-md bg-gray-50 dark:bg-gray-950">
@@ -273,7 +275,7 @@ export default function NewCashbookEntryPage() {
                 onClick={() => setShowDocPicker(!showDocPicker)}
                 className="w-full px-3 py-2 text-sm border rounded-md text-left text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center justify-between"
               >
-                <span>Select a document...</span>
+                <span>{t('ui:NewCashbookEntryPage.selectADocument')}</span>
                 <Paperclip className="h-4 w-4" />
               </button>
               {showDocPicker && (
@@ -283,13 +285,13 @@ export default function NewCashbookEntryPage() {
                       type="text"
                       value={documentSearch}
                       onChange={(e) => setDocumentSearch(e.target.value)}
-                      placeholder="Filter documents..."
+                      placeholder={t('ui:NewCashbookEntryPage.filterDocuments')}
                       className="w-full px-3 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div className="max-h-48 overflow-y-auto">
                     {searchedDocs.length === 0 ? (
-                      <div className="px-3 py-4 text-sm text-gray-500 dark:text-gray-400 text-center">No documents found</div>
+                      <div className="px-3 py-4 text-sm text-gray-500 dark:text-gray-400 text-center">{t('ui:NewCashbookEntryPage.noDocumentsFound')}</div>
                     ) : (
                       searchedDocs.map((doc) => (
                         <button
@@ -342,7 +344,7 @@ export default function NewCashbookEntryPage() {
         <div>
           <div className="flex items-center justify-between mb-1">
             <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Tax (HST 13%)
+             {t('ui:NewCashbookEntryPage.taxHst13')}
             </label>
             <label className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 cursor-pointer">
               <input
@@ -356,7 +358,7 @@ export default function NewCashbookEntryPage() {
                 }}
                 className="rounded border-gray-300 dark:border-gray-600"
               />
-              Override
+             {t('ui:NewCashbookEntryPage.override')}
             </label>
           </div>
           {taxOverride ? (
@@ -373,7 +375,7 @@ export default function NewCashbookEntryPage() {
               {parsedAmount > 0 ? formatCurrency(calculatedTax) : '$0.00'}
               {parsedAmount > 0 && (
                 <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">
-                  (auto-calculated from {formatCurrency(parsedAmount)})
+                 {t('ui:NewCashbookEntryPage.autoCalculatedFrom')} {formatCurrency(parsedAmount)})
                 </span>
               )}
             </div>
@@ -383,13 +385,13 @@ export default function NewCashbookEntryPage() {
         {/* Notes */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Notes
+           {t('ui:NewCashbookEntryPage.notes')}
           </label>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={3}
-            placeholder="Additional notes..."
+            placeholder={t('ui:NewCashbookEntryPage.additionalNotes')}
             className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
@@ -400,21 +402,21 @@ export default function NewCashbookEntryPage() {
             onClick={() => navigate('/cashbook')}
             className="px-4 py-2 text-sm border rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
           >
-            Cancel
+           {t('ui:NewCashbookEntryPage.cancel')}
           </button>
           <button
             onClick={() => createMutation.mutate()}
             disabled={!isValid || createMutation.isPending}
             className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
           >
-            {createMutation.isPending ? 'Saving...' : 'Save Entry'}
+            {createMutation.isPending ? t('ui:NewCashbookEntryPage.saving') : t('ui:NewCashbookEntryPage.saveEntry')}
           </button>
         </div>
 
         {createMutation.isError && (
           <p className="text-sm text-red-600">
             {(createMutation.error as Error).message ||
-              'Failed to create entry'}
+              t('ui:NewCashbookEntryPage.failedToCreateEntry')}
           </p>
         )}
       </div>

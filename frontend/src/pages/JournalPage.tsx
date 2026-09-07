@@ -12,6 +12,7 @@ import {
   type ChartAccount,
 } from '@/api/accounting'
 import { formatDate } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
 
 function money(n: string | number): string {
   const v = typeof n === 'string' ? parseFloat(n) : n
@@ -19,6 +20,7 @@ function money(n: string | number): string {
 }
 
 export default function JournalPage() {
+  const { t } = useTranslation('ui')
   const [creating, setCreating] = useState(false)
   const { data, isLoading } = useQuery({
     queryKey: ['journal-entries'],
@@ -32,11 +34,10 @@ export default function JournalPage() {
         <div>
           <div className="flex items-center gap-2">
             <BookText className="w-6 h-6 text-gray-700 dark:text-gray-300" />
-            <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Journal Entries</h1>
+            <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">{t('ui:JournalPage.journalEntries')}</h1>
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Manual double-entry adjustments. Every entry must balance — total debits equal total credits —
-            and posts to your Chart of Accounts.
+           {t('ui:JournalPage.manualDoubleEntryAdjustmentsEvery')}
           </p>
         </div>
         <button
@@ -44,7 +45,7 @@ export default function JournalPage() {
           className="flex items-center gap-1.5 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >
           <Plus className="w-4 h-4" />
-          New entry
+         {t('ui:JournalPage.newEntry')}
         </button>
       </div>
 
@@ -55,9 +56,9 @@ export default function JournalPage() {
       ) : entries.length === 0 ? (
         <div className="text-center py-16 border border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
           <BookText className="w-10 h-10 mx-auto text-gray-300 dark:text-gray-600" />
-          <p className="mt-3 text-gray-600 dark:text-gray-300 font-medium">No journal entries yet</p>
+          <p className="mt-3 text-gray-600 dark:text-gray-300 font-medium">{t('ui:JournalPage.noJournalEntriesYet')}</p>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Post a manual adjusting entry — a depreciation charge, an accrual, an opening balance.
+           {t('ui:JournalPage.postAManualAdjustingEntry')}
           </p>
         </div>
       ) : (
@@ -74,13 +75,14 @@ export default function JournalPage() {
 }
 
 function JournalRow({ entry }: { entry: JournalEntry }) {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const [expanded, setExpanded] = useState(false)
   const voidMutation = useMutation({
     mutationFn: () => voidJournalEntry(entry.id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['journal-entries'] })
-      toast.success('Entry voided')
+      toast.success(t('ui:JournalPage.entryVoided'))
     },
     onError: (err: any) => toast.error(err?.message || 'Failed to void entry'),
   })
@@ -94,7 +96,7 @@ function JournalRow({ entry }: { entry: JournalEntry }) {
         <span className="font-mono text-xs text-gray-400 w-10 shrink-0">#{entry.entry_number}</span>
         <span className="text-sm text-gray-500 dark:text-gray-400 w-24 shrink-0">{formatDate(entry.date)}</span>
         <span className="text-sm text-gray-900 dark:text-gray-100 flex-1 truncate">
-          {entry.memo || <span className="text-gray-400">No memo</span>}
+          {entry.memo || <span className="text-gray-400">{t('ui:JournalPage.noMemo')}</span>}
         </span>
         {entry.status === 'void' && (
           <span className="text-[11px] px-1.5 py-0.5 rounded bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400">
@@ -108,9 +110,9 @@ function JournalRow({ entry }: { entry: JournalEntry }) {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-xs text-gray-400 text-left">
-                <th className="font-medium pb-1">Account</th>
-                <th className="font-medium pb-1 text-right">Debit</th>
-                <th className="font-medium pb-1 text-right">Credit</th>
+                <th className="font-medium pb-1">{t('ui:JournalPage.account')}</th>
+                <th className="font-medium pb-1 text-right">{t('ui:JournalPage.debit')}</th>
+                <th className="font-medium pb-1 text-right">{t('ui:JournalPage.credit')}</th>
               </tr>
             </thead>
             <tbody>
@@ -138,7 +140,7 @@ function JournalRow({ entry }: { entry: JournalEntry }) {
                 disabled={voidMutation.isPending}
                 className="flex items-center gap-1 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950 px-2 py-1 rounded disabled:opacity-50"
               >
-                <Ban className="w-3.5 h-3.5" /> Void entry
+                <Ban className="w-3.5 h-3.5" /> {t('ui:JournalPage.voidEntry')}
               </button>
             </div>
           )}
@@ -153,6 +155,7 @@ type DraftLine = { account_id: string; debit: string; credit: string; descriptio
 const emptyLine = (): DraftLine => ({ account_id: '', debit: '', credit: '', description: '' })
 
 function NewEntryModal({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const [entryDate, setEntryDate] = useState(new Date().toISOString().slice(0, 10))
   const [memo, setMemo] = useState('')
@@ -187,7 +190,7 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['journal-entries'] })
-      toast.success('Journal entry posted')
+      toast.success(t('ui:JournalPage.journalEntryPosted'))
       onClose()
     },
     onError: (err: any) => toast.error(err?.message || 'Failed to post entry'),
@@ -202,7 +205,7 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-4 border-b dark:border-gray-700">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">New Journal Entry</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('ui:JournalPage.newJournalEntry')}</h2>
           <button onClick={onClose} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded">
             <X className="w-5 h-5" />
           </button>
@@ -211,7 +214,7 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
         <div className="p-4 space-y-4">
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:JournalPage.date')}</label>
               <input
                 type="date"
                 value={entryDate}
@@ -220,12 +223,12 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
               />
             </div>
             <div className="col-span-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Memo</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:JournalPage.memo')}</label>
               <input
                 type="text"
                 value={memo}
                 onChange={(e) => setMemo(e.target.value)}
-                placeholder="e.g. Monthly depreciation"
+                placeholder={t('ui:JournalPage.eGMonthlyDepreciation')}
                 className="w-full px-3 py-2 border rounded-lg text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
               />
             </div>
@@ -233,9 +236,9 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
 
           <div className="space-y-2">
             <div className="flex items-center text-xs text-gray-400 px-1">
-              <span className="flex-1">Account</span>
-              <span className="w-24 text-right">Debit</span>
-              <span className="w-24 text-right">Credit</span>
+              <span className="flex-1">{t('ui:JournalPage.account')}</span>
+              <span className="w-24 text-right">{t('ui:JournalPage.debit')}</span>
+              <span className="w-24 text-right">{t('ui:JournalPage.credit')}</span>
               <span className="w-8" />
             </div>
             {lines.map((line, i) => (
@@ -245,7 +248,7 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
                   onChange={(e) => setLine(i, { account_id: e.target.value })}
                   className="flex-1 px-2 py-1.5 border rounded-lg text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
                 >
-                  <option value="">Select account…</option>
+                  <option value="">{t('ui:JournalPage.selectAccount')}</option>
                   {accounts.map((a) => (
                     <option key={a.id} value={a.id}>
                       {a.code} — {a.name}
@@ -272,7 +275,7 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
                   onClick={() => setLines((prev) => (prev.length > 2 ? prev.filter((_, idx) => idx !== i) : prev))}
                   disabled={lines.length <= 2}
                   className="p-1.5 text-gray-400 hover:text-red-600 disabled:opacity-30 rounded"
-                  title="Remove line"
+                  title={t('ui:JournalPage.removeLine')}
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -282,17 +285,17 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
               onClick={() => setLines((prev) => [...prev, emptyLine()])}
               className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 px-1 pt-1"
             >
-              <Plus className="w-4 h-4" /> Add line
+              <Plus className="w-4 h-4" /> {t('ui:JournalPage.addLine')}
             </button>
           </div>
 
           <div className="flex items-center justify-end gap-6 text-sm border-t dark:border-gray-700 pt-3">
             <div className="text-right">
-              <div className="text-xs text-gray-400">Debits</div>
+              <div className="text-xs text-gray-400">{t('ui:JournalPage.debits')}</div>
               <div className="tabular-nums font-medium">${money(totals.debit)}</div>
             </div>
             <div className="text-right">
-              <div className="text-xs text-gray-400">Credits</div>
+              <div className="text-xs text-gray-400">{t('ui:JournalPage.credits')}</div>
               <div className="tabular-nums font-medium">${money(totals.credit)}</div>
             </div>
             <div
@@ -302,7 +305,7 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
                   : 'bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300'
               }`}
             >
-              {totals.balanced ? 'Balanced' : `Out by $${money(Math.abs(totals.debit - totals.credit))}`}
+              {totals.balanced ? t('ui:JournalPage.balanced') : t('ui:JournalPage.outByV0', { v0: money(Math.abs(totals.debit - totals.credit)) })}
             </div>
           </div>
         </div>
@@ -312,16 +315,16 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
             onClick={onClose}
             className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
           >
-            Cancel
+           {t('ui:JournalPage.cancel')}
           </button>
           <button
             onClick={() => mutation.mutate()}
             disabled={mutation.isPending || !canSubmit}
             className="flex items-center gap-1.5 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-            title={canSubmit ? '' : 'Entry must balance and use at least two accounts'}
+            title={canSubmit ? '' : t('ui:JournalPage.entryMustBalanceAndUse')}
           >
             {mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-            Post entry
+           {t('ui:JournalPage.postEntry')}
           </button>
         </div>
       </div>

@@ -3,6 +3,8 @@ import { X, BarChart3, LineChart as LineChartIcon, PieChart as PieChartIcon, Are
 import { cn } from '@/lib/utils'
 import type { ChartConfig } from '@/lib/spreadsheet/types'
 import { colLabel } from '@/lib/spreadsheet/types'
+import { useTranslation } from 'react-i18next'
+import i18n from '@/i18n'
 
 interface ChartDialogProps {
   open: boolean
@@ -15,10 +17,10 @@ interface ChartDialogProps {
 type ChartType = ChartConfig['type']
 
 const CHART_TYPES: { value: ChartType; label: string; Icon: typeof BarChart3 }[] = [
-  { value: 'bar', label: 'Bar', Icon: BarChart3 },
-  { value: 'line', label: 'Line', Icon: LineChartIcon },
-  { value: 'pie', label: 'Pie', Icon: PieChartIcon },
-  { value: 'area', label: 'Area', Icon: AreaChartIcon },
+  { value: 'bar', label: i18n.t('ui:ChartDialog.bar'), Icon: BarChart3 },
+  { value: 'line', label: i18n.t('ui:ChartDialog.line'), Icon: LineChartIcon },
+  { value: 'pie', label: i18n.t('ui:ChartDialog.pie'), Icon: PieChartIcon },
+  { value: 'area', label: i18n.t('ui:ChartDialog.area'), Icon: AreaChartIcon },
 ]
 
 function formatRange(range: { startRow: number; startCol: number; endRow: number; endCol: number }): string {
@@ -99,6 +101,7 @@ export default function ChartDialog({
   selectionRange,
   existingChart,
 }: ChartDialogProps) {
+  const { t } = useTranslation('ui')
   const [editor, setEditor] = useState<EditorState>(
     getDefaultEditorState(selectionRange, existingChart)
   )
@@ -143,7 +146,7 @@ export default function ChartDialog({
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            {isEditing ? 'Edit Chart' : 'Insert Chart'}
+            {isEditing ? t('ui:ChartDialog.editChart') : t('ui:ChartDialog.insertChart')}
           </h2>
           <button
             onClick={onClose}
@@ -158,7 +161,7 @@ export default function ChartDialog({
           {/* Chart type selector */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Chart type
+             {t('ui:ChartDialog.chartType')}
             </label>
             <div className="grid grid-cols-4 gap-2">
               {CHART_TYPES.map(({ value, label, Icon }) => (
@@ -182,13 +185,13 @@ export default function ChartDialog({
           {/* Chart title */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Chart title
+             {t('ui:ChartDialog.chartTitle')}
             </label>
             <input
               type="text"
               value={editor.title}
               onChange={(e) => setEditor((prev) => ({ ...prev, title: e.target.value }))}
-              placeholder="My Chart"
+              placeholder={t('ui:ChartDialog.myChart')}
               className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
@@ -196,7 +199,7 @@ export default function ChartDialog({
           {/* Data range */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Data range
+             {t('ui:ChartDialog.dataRange')}
             </label>
             <input
               type="text"
@@ -229,13 +232,13 @@ export default function ChartDialog({
               className="rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400 focus:ring-blue-500"
             />
             <span className="text-sm text-gray-700 dark:text-gray-300">
-              First row is header
+             {t('ui:ChartDialog.firstRowIsHeader')}
             </span>
           </label>
 
           {/* Preview area */}
           <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-950">
-            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Preview</p>
+            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">{t('ui:ChartDialog.preview')}</p>
             <div className="flex items-center justify-center h-24">
               {/* Minimal visual chart preview */}
               {editor.chartType === 'bar' && (
@@ -300,8 +303,8 @@ export default function ChartDialog({
               )}
             </div>
             <p className="text-xs text-gray-400 dark:text-gray-500 text-center mt-1">
-              {editor.title || 'Untitled'} &mdash;{' '}
-              {CHART_TYPES.find((t) => t.value === editor.chartType)?.label} chart from{' '}
+              {editor.title || t('ui:ChartDialog.untitled')} &mdash;{' '}
+              {CHART_TYPES.find((t) => t.value === editor.chartType)?.label} {t('ui:ChartDialog.chartFrom')}{' '}
               {editor.rangeStr || '...'}
             </p>
           </div>
@@ -313,13 +316,13 @@ export default function ChartDialog({
             onClick={onClose}
             className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
           >
-            Cancel
+           {t('ui:ChartDialog.cancel')}
           </button>
           <button
             onClick={handleInsert}
             className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
           >
-            {isEditing ? 'Update' : 'Insert'}
+            {isEditing ? t('ui:ChartDialog.update') : t('ui:ChartDialog.insert')}
           </button>
         </div>
       </div>

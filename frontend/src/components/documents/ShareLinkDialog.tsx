@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { createShareLink } from '@/api/public'
 import { X, Copy, Check, Loader2, Link } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 interface ShareLinkDialogProps {
   isOpen: boolean
@@ -16,6 +17,7 @@ export default function ShareLinkDialog({
   resourceId,
   onClose,
 }: ShareLinkDialogProps) {
+  const { t } = useTranslation('ui')
   const [copied, setCopied] = useState(false)
   const [shareUrl, setShareUrl] = useState('')
 
@@ -73,7 +75,7 @@ export default function ShareLinkDialog({
         <div className="flex items-center justify-between px-6 py-4 border-b">
           <div className="flex items-center gap-2">
             <Link className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Share Link</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('ui:ShareLinkDialog.shareLink')}</h2>
           </div>
           <button
             onClick={handleClose}
@@ -87,20 +89,20 @@ export default function ShareLinkDialog({
           {createMutation.isPending && (
             <div className="flex items-center gap-3 py-4">
               <Loader2 className="h-5 w-5 text-blue-500 animate-spin" />
-              <span className="text-sm text-gray-600 dark:text-gray-400">Creating shareable link...</span>
+              <span className="text-sm text-gray-600 dark:text-gray-400">{t('ui:ShareLinkDialog.creatingShareableLink')}</span>
             </div>
           )}
 
           {createMutation.isError && (
             <div className="py-4">
               <p className="text-sm text-red-600">
-                Failed to create share link: {createMutation.error instanceof Error ? createMutation.error.message : 'Unknown error'}
+               {t('ui:ShareLinkDialog.failedToCreateShareLink')} {createMutation.error instanceof Error ? createMutation.error.message : t('ui:ShareLinkDialog.unknownError')}
               </p>
               <button
                 onClick={() => createMutation.mutate()}
                 className="mt-2 text-sm text-blue-600 dark:text-blue-400 hover:underline"
               >
-                Retry
+               {t('ui:ShareLinkDialog.retry')}
               </button>
             </div>
           )}
@@ -108,7 +110,7 @@ export default function ShareLinkDialog({
           {shareUrl && (
             <div className="space-y-3">
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Anyone with this link can view this {resourceType}:
+               {t('ui:ShareLinkDialog.anyoneWithThisLinkCan')} {resourceType}:
               </p>
               <div className="flex gap-2">
                 <input
@@ -129,12 +131,12 @@ export default function ShareLinkDialog({
                   {copied ? (
                     <>
                       <Check className="h-4 w-4" />
-                      Copied
+                     {t('ui:ShareLinkDialog.copied')}
                     </>
                   ) : (
                     <>
                       <Copy className="h-4 w-4" />
-                      Copy
+                     {t('ui:ShareLinkDialog.copy')}
                     </>
                   )}
                 </button>
@@ -148,7 +150,7 @@ export default function ShareLinkDialog({
             onClick={handleClose}
             className="px-4 py-2 text-sm border rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
           >
-            Close
+           {t('ui:ShareLinkDialog.close')}
           </button>
         </div>
       </div>

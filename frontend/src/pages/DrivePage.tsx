@@ -54,10 +54,12 @@ import {
   Presentation,
 } from 'lucide-react'
 import { createOfficeDoc } from '@/api/office'
+import { useTranslation } from 'react-i18next'
 
 type ViewType = 'all' | 'starred' | 'recent' | 'trash'
 
 export default function DrivePage() {
+  const { t } = useTranslation('ui')
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
@@ -151,7 +153,7 @@ export default function DrivePage() {
       invalidateAll()
       setShowNewFolderDialog(false)
       setNewFolderName('')
-      toast.success('Folder created')
+      toast.success(t('ui:DrivePage.folderCreated'))
     },
     onError: (err: Error) => toast.error(err.message || 'Failed to create folder'),
   })
@@ -161,7 +163,7 @@ export default function DrivePage() {
       moveDocument(id, folderId),
     onSuccess: () => {
       invalidateAll()
-      toast.success('File moved')
+      toast.success(t('ui:DrivePage.fileMoved'))
     },
     onError: (err: Error) => toast.error(err.message || 'Failed to move file'),
   })
@@ -171,7 +173,7 @@ export default function DrivePage() {
       moveFolderApi(id, parentId),
     onSuccess: () => {
       invalidateAll()
-      toast.success('Folder moved')
+      toast.success(t('ui:DrivePage.folderMoved'))
     },
     onError: (err: Error) => toast.error(err.message || 'Failed to move folder'),
   })
@@ -185,7 +187,7 @@ export default function DrivePage() {
       invalidateAll()
       setShowRenameDialog(false)
       setRenameTarget(null)
-      toast.success('Renamed')
+      toast.success(t('ui:DrivePage.renamed'))
     },
     onError: (err: Error) => toast.error(err.message || 'Rename failed'),
   })
@@ -198,7 +200,7 @@ export default function DrivePage() {
       invalidateAll()
       setSelectedIds(new Set())
       const d = res.data
-      toast.success(`Deleted ${d.documents_deleted} file(s), ${d.folders_deleted} folder(s)`)
+      toast.success(t('ui:DrivePage.deletedDocumentsDeletedFileS', { documents_deleted: d.documents_deleted, folders_deleted: d.folders_deleted }))
     },
     onError: (err: Error) => toast.error(err.message || 'Bulk delete failed'),
   })
@@ -210,7 +212,7 @@ export default function DrivePage() {
       invalidateAll()
       setSelectedIds(new Set())
       setShowBulkMoveDialog(false)
-      toast.success('Items moved')
+      toast.success(t('ui:DrivePage.itemsMoved'))
     },
     onError: (err: Error) => toast.error(err.message || 'Bulk move failed'),
   })
@@ -221,7 +223,7 @@ export default function DrivePage() {
     onSuccess: () => {
       invalidateAll()
       setSelectedIds(new Set())
-      toast.success('Updated')
+      toast.success(t('ui:DrivePage.updated'))
     },
     onError: (err: Error) => toast.error(err.message || 'Failed'),
   })
@@ -450,14 +452,14 @@ export default function DrivePage() {
         const failed = result.failures?.length ?? 0
         if (failed === 0) {
           toast.success(
-            `Uploaded ${success} file${success === 1 ? '' : 's'}`,
+            t('ui:DrivePage.uploadedSuccessFileV1', { success, v1: success === 1 ? '' : 's' }),
           )
         } else if (success === 0) {
           toast.error(
-            `All ${failed} file${failed === 1 ? '' : 's'} failed to upload`,
+            t('ui:DrivePage.allFailedFileV1Failed', { failed, v1: failed === 1 ? '' : 's' }),
           )
         } else {
-          toast.warning(`Uploaded ${success}, ${failed} failed`)
+          toast.warning(t('ui:DrivePage.uploadedSuccessFailedFailed', { success, failed }))
         }
         handleUploadComplete()
       } catch (err: any) {
@@ -498,9 +500,9 @@ export default function DrivePage() {
       const count = result.data.length
       const failCount = result.failures.length
       if (failCount > 0) {
-        toast.warning(`Uploaded ${count} file(s), ${failCount} failed`)
+        toast.warning(t('ui:DrivePage.uploadedCountFileSFailcount', { count, failCount }))
       } else {
-        toast.success(`Uploaded ${count} file(s)`)
+        toast.success(t('ui:DrivePage.uploadedCountFileS', { count }))
       }
     } catch (err: any) {
       toast.error(err.message || 'Folder upload failed')
@@ -525,7 +527,7 @@ export default function DrivePage() {
   const handleBulkDelete = () => {
     const { docIds, folderIds } = getSelectedByType()
     const total = docIds.length + folderIds.length
-    if (confirm(`Delete ${total} item(s)? This cannot be undone.`)) {
+    if (confirm(t('ui:DrivePage.deleteTotalItemSThis', { total }))) {
       bulkDeleteMutation.mutate({ docIds, folderIds })
     }
   }
@@ -543,7 +545,7 @@ export default function DrivePage() {
       a.download = ''
       a.click()
     }
-    toast.success(`Downloading ${docIds.length} file(s)`)
+    toast.success(t('ui:DrivePage.downloadingLengthFileS', { length: docIds.length }))
   }
 
   const handleBulkMoveConfirm = () => {
@@ -585,14 +587,14 @@ export default function DrivePage() {
               <div className="flex items-center gap-3">
                 <Upload className="h-5 w-5 text-blue-500 animate-pulse" />
                 <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                  Uploading {externalDropProgress.done} / {externalDropProgress.total}…
+                 {t('ui:DrivePage.uploading')} {externalDropProgress.done} / {externalDropProgress.total}…
                 </span>
               </div>
             ) : (
               <div className="flex items-center gap-3">
                 <Upload className="h-5 w-5 text-blue-500" />
                 <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                  Drop files to upload here
+                 {t('ui:DrivePage.dropFilesToUploadHere')}
                 </span>
               </div>
             )}
@@ -617,25 +619,25 @@ export default function DrivePage() {
           <SidebarButton
             active={currentView === 'all' && currentFolderId === null}
             icon={FolderIcon}
-            label="All Files"
+            label={t('ui:DrivePage.allFiles')}
             onClick={() => handleSidebarNavigate('all', null)}
           />
           <SidebarButton
             active={currentView === 'starred'}
             icon={Star}
-            label="Starred"
+            label={t('ui:DrivePage.starred')}
             onClick={() => handleSidebarNavigate('starred')}
           />
           <SidebarButton
             active={currentView === 'recent'}
             icon={Clock}
-            label="Recent"
+            label={t('ui:DrivePage.recent')}
             onClick={() => handleSidebarNavigate('recent')}
           />
           <SidebarButton
             active={currentView === 'trash'}
             icon={Trash2}
-            label="Trash"
+            label={t('ui:DrivePage.trash')}
             onClick={() => handleSidebarNavigate('trash')}
           />
         </div>
@@ -643,7 +645,7 @@ export default function DrivePage() {
         {/* Folder tree */}
         <div className="px-3 pb-2">
           <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1 px-2">
-            Folders
+           {t('ui:DrivePage.folders')}
           </h4>
           <SidebarFolderTree
             folders={folders}
@@ -669,7 +671,7 @@ export default function DrivePage() {
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
             >
               <Plus className="h-4 w-4" />
-              New
+             {t('ui:DrivePage.new')}
             </button>
             {showPlusMenu && (
               <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 z-40">
@@ -681,7 +683,7 @@ export default function DrivePage() {
                   className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
                 >
                   <Upload className="h-4 w-4" />
-                  Upload File
+                 {t('ui:DrivePage.uploadFile')}
                 </button>
                 <button
                   onClick={handleFolderUploadClick}
@@ -689,7 +691,7 @@ export default function DrivePage() {
                   className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
                 >
                   <FolderUp className="h-4 w-4" />
-                  {isFolderUploading ? 'Uploading...' : 'Upload Folder'}
+                  {isFolderUploading ? t('ui:DrivePage.uploading_2') : t('ui:DrivePage.uploadFolder')}
                 </button>
                 <button
                   onClick={() => {
@@ -699,41 +701,41 @@ export default function DrivePage() {
                   className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
                 >
                   <FolderPlus className="h-4 w-4" />
-                  New Folder
+                 {t('ui:DrivePage.newFolder')}
                 </button>
                 <div className="h-px bg-gray-200 dark:bg-gray-700 my-1" />
                 <button
                   onClick={async () => {
                     setShowPlusMenu(false)
-                    const res = await createOfficeDoc({ title: 'Untitled document', doc_type: 'document', folder_id: currentFolderId ?? undefined })
+                    const res = await createOfficeDoc({ title: t('ui:DrivePage.untitledDocument'), doc_type: 'document', folder_id: currentFolderId ?? undefined })
                     navigate(`/docs/${res.data.id}`)
                   }}
                   className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
                 >
                   <FileText className="h-4 w-4 text-blue-600" />
-                  New Document
+                 {t('ui:DrivePage.newDocument')}
                 </button>
                 <button
                   onClick={async () => {
                     setShowPlusMenu(false)
-                    const res = await createOfficeDoc({ title: 'Untitled spreadsheet', doc_type: 'spreadsheet', folder_id: currentFolderId ?? undefined })
+                    const res = await createOfficeDoc({ title: t('ui:DrivePage.untitledSpreadsheet'), doc_type: 'spreadsheet', folder_id: currentFolderId ?? undefined })
                     navigate(`/sheets/${res.data.id}`)
                   }}
                   className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
                 >
                   <Table2 className="h-4 w-4 text-green-600" />
-                  New Spreadsheet
+                 {t('ui:DrivePage.newSpreadsheet')}
                 </button>
                 <button
                   onClick={async () => {
                     setShowPlusMenu(false)
-                    const res = await createOfficeDoc({ title: 'Untitled presentation', doc_type: 'presentation', folder_id: currentFolderId ?? undefined })
+                    const res = await createOfficeDoc({ title: t('ui:DrivePage.untitledPresentation'), doc_type: 'presentation', folder_id: currentFolderId ?? undefined })
                     navigate(`/slides/${res.data.id}`)
                   }}
                   className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
                 >
                   <Presentation className="h-4 w-4 text-orange-600" />
-                  New Presentation
+                 {t('ui:DrivePage.newPresentation')}
                 </button>
               </div>
             )}
@@ -744,14 +746,14 @@ export default function DrivePage() {
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
           >
             <Upload className="h-4 w-4" />
-            Upload
+           {t('ui:DrivePage.upload')}
           </button>
           <button
             onClick={() => setShowNewFolderDialog(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
           >
             <FolderPlus className="h-4 w-4" />
-            New Folder
+           {t('ui:DrivePage.newFolder')}
           </button>
 
           <div className="flex-1" />
@@ -761,7 +763,7 @@ export default function DrivePage() {
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
             <input
               type="search"
-              placeholder="Search files..."
+              placeholder={t('ui:DrivePage.searchFiles')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9 pr-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-56"
@@ -778,7 +780,7 @@ export default function DrivePage() {
                   ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600'
                   : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50',
               )}
-              title="Grid view"
+              title={t('ui:DrivePage.gridView')}
             >
               <LayoutGrid className="h-4 w-4" />
             </button>
@@ -790,7 +792,7 @@ export default function DrivePage() {
                   ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600'
                   : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50',
               )}
-              title="List view"
+              title={t('ui:DrivePage.listView')}
             >
               <LayoutList className="h-4 w-4" />
             </button>
@@ -801,7 +803,7 @@ export default function DrivePage() {
         {selectedIds.size >= 2 && (
           <div className="bg-blue-50 dark:bg-blue-900/30 border-b border-blue-200 dark:border-blue-800 px-4 py-2 flex items-center gap-3">
             <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
-              {selectedIds.size} items selected
+              {selectedIds.size} {t('ui:DrivePage.itemsSelected')}
             </span>
             <div className="flex-1" />
             <button
@@ -810,7 +812,7 @@ export default function DrivePage() {
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
             >
               <Star className="h-3.5 w-3.5" />
-              Star All
+             {t('ui:DrivePage.starAll')}
             </button>
             <button
               onClick={() => {
@@ -821,14 +823,14 @@ export default function DrivePage() {
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
             >
               <FolderInput className="h-3.5 w-3.5" />
-              Move All
+             {t('ui:DrivePage.moveAll')}
             </button>
             <button
               onClick={handleBulkDownload}
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
             >
               <Download className="h-3.5 w-3.5" />
-              Download All
+             {t('ui:DrivePage.downloadAll')}
             </button>
             <button
               onClick={handleBulkDelete}
@@ -836,12 +838,12 @@ export default function DrivePage() {
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-600 bg-white dark:bg-gray-800 border border-red-300 dark:border-red-700 rounded-lg hover:bg-red-50 dark:hover:bg-red-950 transition-colors disabled:opacity-50"
             >
               <Trash2 className="h-3.5 w-3.5" />
-              {bulkDeleteMutation.isPending ? 'Deleting...' : 'Delete All'}
+              {bulkDeleteMutation.isPending ? t('ui:DrivePage.deleting') : t('ui:DrivePage.deleteAll')}
             </button>
             <button
               onClick={() => setSelectedIds(new Set())}
               className="p-1.5 text-gray-500 hover:text-gray-700 transition-colors"
-              title="Clear selection"
+              title={t('ui:DrivePage.clearSelection')}
             >
               <X className="h-4 w-4" />
             </button>
@@ -926,13 +928,13 @@ export default function DrivePage() {
       {showNewFolderDialog && (
         <DialogOverlay onClose={() => setShowNewFolderDialog(false)}>
           <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-sm p-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">New Folder</h3>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">{t('ui:DrivePage.newFolder')}</h3>
             <input
               type="text"
               autoFocus
               value={newFolderName}
               onChange={(e) => setNewFolderName(e.target.value)}
-              placeholder="Folder name"
+              placeholder={t('ui:DrivePage.folderName')}
               className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && newFolderName.trim()) {
@@ -951,7 +953,7 @@ export default function DrivePage() {
                 }}
                 className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
               >
-                Cancel
+               {t('ui:DrivePage.cancel')}
               </button>
               <button
                 onClick={() => {
@@ -965,7 +967,7 @@ export default function DrivePage() {
                 disabled={!newFolderName.trim() || createFolderMutation.isPending}
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
               >
-                {createFolderMutation.isPending ? 'Creating...' : 'Create'}
+                {createFolderMutation.isPending ? t('ui:DrivePage.creating') : t('ui:DrivePage.create')}
               </button>
             </div>
           </div>
@@ -976,13 +978,13 @@ export default function DrivePage() {
       {showRenameDialog && renameTarget && (
         <DialogOverlay onClose={() => setShowRenameDialog(false)}>
           <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-sm p-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Rename</h3>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">{t('ui:DrivePage.rename')}</h3>
             <input
               type="text"
               autoFocus
               value={renameValue}
               onChange={(e) => setRenameValue(e.target.value)}
-              placeholder="New name"
+              placeholder={t('ui:DrivePage.newName')}
               className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && renameValue.trim()) {
@@ -995,7 +997,7 @@ export default function DrivePage() {
                 onClick={() => setShowRenameDialog(false)}
                 className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
               >
-                Cancel
+               {t('ui:DrivePage.cancel')}
               </button>
               <button
                 onClick={() => {
@@ -1006,7 +1008,7 @@ export default function DrivePage() {
                 disabled={!renameValue.trim() || renameMutation.isPending}
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
               >
-                {renameMutation.isPending ? 'Renaming...' : 'Rename'}
+                {renameMutation.isPending ? t('ui:DrivePage.renaming') : t('ui:DrivePage.rename')}
               </button>
             </div>
           </div>
@@ -1017,7 +1019,7 @@ export default function DrivePage() {
       {showMoveDialog && moveTarget && (
         <DialogOverlay onClose={() => setShowMoveDialog(false)}>
           <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-sm p-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Move to...</h3>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">{t('ui:DrivePage.moveTo')}</h3>
             <FolderPicker
               folders={flatFolders}
               excludeId={moveTarget.id}
@@ -1029,14 +1031,14 @@ export default function DrivePage() {
                 onClick={() => setShowMoveDialog(false)}
                 className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
               >
-                Cancel
+               {t('ui:DrivePage.cancel')}
               </button>
               <button
                 onClick={handleConfirmMove}
                 disabled={moveDocMutation.isPending || moveFolderMutation.isPending}
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
               >
-                Move here
+               {t('ui:DrivePage.moveHere')}
               </button>
             </div>
           </div>
@@ -1048,7 +1050,7 @@ export default function DrivePage() {
         <DialogOverlay onClose={() => setShowBulkMoveDialog(false)}>
           <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-sm p-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-              Move {selectedIds.size} items to...
+             {t('ui:DrivePage.move')} {selectedIds.size} {t('ui:DrivePage.itemsTo')}
             </h3>
             <FolderPicker
               folders={flatFolders}
@@ -1060,14 +1062,14 @@ export default function DrivePage() {
                 onClick={() => setShowBulkMoveDialog(false)}
                 className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
               >
-                Cancel
+               {t('ui:DrivePage.cancel')}
               </button>
               <button
                 onClick={handleBulkMoveConfirm}
                 disabled={bulkMoveMutation.isPending}
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
               >
-                {bulkMoveMutation.isPending ? 'Moving...' : 'Move here'}
+                {bulkMoveMutation.isPending ? t('ui:DrivePage.moving') : t('ui:DrivePage.moveHere')}
               </button>
             </div>
           </div>
@@ -1098,6 +1100,7 @@ function FolderPicker({
   selected: string | null
   onSelect: (id: string | null) => void
 }) {
+  const { t } = useTranslation('ui')
   return (
     <div className="max-h-60 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg">
       <button
@@ -1108,7 +1111,7 @@ function FolderPicker({
         )}
       >
         <FolderIcon className="h-4 w-4" />
-        My Drive (root)
+       {t('ui:DrivePage.myDriveRoot')}
       </button>
       {folders
         .filter((f) => f.id !== excludeId)

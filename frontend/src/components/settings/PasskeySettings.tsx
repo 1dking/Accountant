@@ -9,8 +9,10 @@ import {
   type PasskeyInfo,
 } from '@/api/webauthn'
 import { formatDate } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
 
 export default function PasskeySettings() {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const [deviceName, setDeviceName] = useState('')
   const [msg, setMsg] = useState('')
@@ -29,7 +31,7 @@ export default function PasskeySettings() {
       queryClient.invalidateQueries({ queryKey: ['passkeys'] })
       setDeviceName('')
       setErr('')
-      setMsg('Passkey registered.')
+      setMsg(t('ui:PasskeySettings.passkeyRegistered'))
       setTimeout(() => setMsg(''), 3000)
     },
     onError: (e: any) => {
@@ -49,18 +51,16 @@ export default function PasskeySettings() {
       <div>
         <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2">
           <ShieldCheck className="w-5 h-5 text-blue-500" />
-          Passkeys (two-factor)
+         {t('ui:PasskeySettings.passkeysTwoFactor')}
         </h2>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          A passkey (Face ID, Touch ID, Windows Hello, or a security key) is a phishing-resistant
-          second factor. It works alongside your authenticator app — either one satisfies
-          two-factor authentication.
+         {t('ui:PasskeySettings.aPasskeyFaceIdTouch')}
         </p>
       </div>
 
       {!supported && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
-          This browser doesn&apos;t support passkeys. Use an authenticator-app (TOTP) code instead.
+         {t('ui:PasskeySettings.thisBrowserDoesnTSupport')}
         </div>
       )}
 
@@ -81,13 +81,13 @@ export default function PasskeySettings() {
         >
           <div className="flex-1">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Device name
+             {t('ui:PasskeySettings.deviceName')}
             </label>
             <input
               type="text"
               value={deviceName}
               onChange={(e) => setDeviceName(e.target.value)}
-              placeholder="e.g. My iPhone, Work laptop, YubiKey"
+              placeholder={t('ui:PasskeySettings.eGMyIphoneWork')}
               maxLength={100}
               className="w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
@@ -98,7 +98,7 @@ export default function PasskeySettings() {
             className="flex items-center justify-center gap-1.5 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
           >
             <Plus className="w-4 h-4" />
-            {registerMutation.isPending ? 'Waiting for device…' : 'Add a passkey'}
+            {registerMutation.isPending ? t('ui:PasskeySettings.waitingForDevice') : t('ui:PasskeySettings.addAPasskey')}
           </button>
         </form>
       )}
@@ -114,17 +114,17 @@ export default function PasskeySettings() {
               <div>
                 <div className="font-medium text-gray-900 dark:text-gray-100">{pk.device_name}</div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">
-                  Added {formatDate(pk.created_at)}
-                  {pk.last_used_at ? ` · Last used ${formatDate(pk.last_used_at)}` : ' · Never used'}
+                 {t('ui:PasskeySettings.added')} {formatDate(pk.created_at)}
+                  {pk.last_used_at ? t('ui:PasskeySettings.lastUsedV0', { v0: formatDate(pk.last_used_at) }) : t('ui:PasskeySettings.neverUsed')}
                 </div>
               </div>
             </div>
             <button
               onClick={() => {
-                if (confirm(`Remove passkey "${pk.device_name}"?`)) removeMutation.mutate(pk.id)
+                if (confirm(t('ui:PasskeySettings.removePasskeyDeviceName', { device_name: pk.device_name }))) removeMutation.mutate(pk.id)
               }}
               className="p-1.5 text-red-500 hover:bg-red-50 rounded"
-              title="Remove passkey"
+              title={t('ui:PasskeySettings.removePasskey')}
             >
               <Trash2 className="w-4 h-4" />
             </button>
@@ -134,15 +134,13 @@ export default function PasskeySettings() {
         {supported && passkeys.length === 0 && (
           <div className="text-center py-8 bg-white dark:bg-gray-900 border rounded-lg">
             <Fingerprint className="w-9 h-9 text-gray-300 mx-auto mb-2" />
-            <p className="text-gray-500 dark:text-gray-400 text-sm">No passkeys registered yet.</p>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">{t('ui:PasskeySettings.noPasskeysRegisteredYet')}</p>
           </div>
         )}
       </div>
 
       <div className="bg-gray-50 dark:bg-gray-950 border rounded-lg p-4 text-xs text-gray-500 dark:text-gray-400">
-        If you lose all your passkeys, you can still sign in with your authenticator app (TOTP) and
-        recovery codes. We never send a passkey reset link by email — that would reintroduce the
-        phishing risk passkeys are designed to remove.
+       {t('ui:PasskeySettings.ifYouLoseAllYour')}
       </div>
     </div>
   )

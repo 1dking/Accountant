@@ -4,6 +4,7 @@ import { listContacts } from '@/api/contacts'
 import { Search, X, User, Building2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ContactListItem } from '@/types/models'
+import { useTranslation } from 'react-i18next'
 
 interface ContactSelectorProps {
   value: string | null
@@ -23,6 +24,7 @@ export default function ContactSelector({
   disabled,
   filterType,
 }: ContactSelectorProps) {
+  const { t } = useTranslation('ui')
   const [isOpen, setIsOpen] = useState(false)
   const [search, setSearch] = useState('')
   const containerRef = useRef<HTMLDivElement>(null)
@@ -129,7 +131,7 @@ export default function ContactSelector({
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search contacts..."
+                placeholder={t('ui:ContactSelector.searchContacts')}
                 className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
@@ -139,7 +141,7 @@ export default function ContactSelector({
           <div className="max-h-60 overflow-y-auto">
             {contacts.length === 0 ? (
               <div className="px-3 py-4 text-sm text-gray-500 dark:text-gray-400 text-center">
-                No contacts found
+               {t('ui:ContactSelector.noContactsFound')}
               </div>
             ) : (
               contacts.map((contact) => (

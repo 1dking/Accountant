@@ -1,5 +1,6 @@
 import { Mail, Phone, Globe, CalendarDays, QrCode, UserPlus, Wallet } from 'lucide-react'
 import type { CardTemplateProps } from '../types'
+import { useTranslation } from 'react-i18next'
 
 /** Classic — centered avatar, stacked action buttons (Arivio classic.tsx). */
 export default function ClassicCard({
@@ -9,6 +10,7 @@ export default function ClassicCard({
   onAddAppleWallet,
   onAddGoogleWallet,
 }: CardTemplateProps) {
+  const { t } = useTranslation('ui')
   const initials = card.display_name
     .split(' ')
     .map((w) => w[0])
@@ -56,7 +58,7 @@ export default function ClassicCard({
             className="w-full flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold"
             style={{ background: card.button_color, color: card.button_text_color }}
           >
-            <UserPlus className="w-4 h-4" /> Save Contact
+            <UserPlus className="w-4 h-4" /> {t('ui:ClassicCard.saveContact')}
           </button>
           {card.booking_url && (
             <a
@@ -64,7 +66,7 @@ export default function ClassicCard({
               className="w-full flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold border"
               style={{ borderColor: card.accent_color, color: card.accent_color }}
             >
-              <CalendarDays className="w-4 h-4" /> Book a meeting
+              <CalendarDays className="w-4 h-4" /> {t('ui:ClassicCard.bookAMeeting')}
             </a>
           )}
           {(onAddAppleWallet || onAddGoogleWallet) && (
@@ -74,7 +76,7 @@ export default function ClassicCard({
                   onClick={onAddAppleWallet}
                   className="flex-1 flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-semibold bg-black text-white"
                 >
-                  <Wallet className="w-3.5 h-3.5" /> Apple Wallet
+                  <Wallet className="w-3.5 h-3.5" /> {t('ui:ClassicCard.appleWallet')}
                 </button>
               )}
               {onAddGoogleWallet && (
@@ -82,7 +84,7 @@ export default function ClassicCard({
                   onClick={onAddGoogleWallet}
                   className="flex-1 flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-semibold border border-gray-800 text-gray-900 bg-white"
                 >
-                  <Wallet className="w-3.5 h-3.5" /> Google Wallet
+                  <Wallet className="w-3.5 h-3.5" /> {t('ui:ClassicCard.googleWallet')}
                 </button>
               )}
             </div>
@@ -118,7 +120,7 @@ export default function ClassicCard({
         )}
 
         <button onClick={onShowQr} className="mt-8 inline-flex items-center gap-1.5 text-xs opacity-50 hover:opacity-90">
-          <QrCode className="w-3.5 h-3.5" /> Share this card
+          <QrCode className="w-3.5 h-3.5" /> {t('ui:ClassicCard.shareThisCard')}
         </button>
       </div>
     </div>

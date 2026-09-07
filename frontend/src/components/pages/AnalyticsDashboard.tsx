@@ -24,6 +24,8 @@ import {
   Target,
   Loader2,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import i18n from '@/i18n'
 
 interface AnalyticsDashboardProps {
   pageId: string
@@ -33,9 +35,9 @@ interface AnalyticsDashboardProps {
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316']
 
 const DAY_OPTIONS = [
-  { label: '7 days', value: 7 },
-  { label: '30 days', value: 30 },
-  { label: '90 days', value: 90 },
+  { label: i18n.t('ui:AnalyticsDashboard.n7Days'), value: 7 },
+  { label: i18n.t('ui:AnalyticsDashboard.n30Days'), value: 30 },
+  { label: i18n.t('ui:AnalyticsDashboard.n90Days'), value: 90 },
 ]
 
 function formatSeconds(seconds: number): string {
@@ -46,6 +48,7 @@ function formatSeconds(seconds: number): string {
 }
 
 export default function AnalyticsDashboard({ pageId, onClose }: AnalyticsDashboardProps) {
+  const { t } = useTranslation('ui')
   const [days, setDays] = useState(30)
 
   const { data: res, isLoading } = useQuery({
@@ -82,7 +85,7 @@ export default function AnalyticsDashboard({ pageId, onClose }: AnalyticsDashboa
       <div className="w-full max-w-6xl my-8 bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Page Analytics</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('ui:AnalyticsDashboard.pageAnalytics')}</h2>
           <div className="flex items-center gap-3">
             <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5">
               {DAY_OPTIONS.map((opt) => (
@@ -111,11 +114,11 @@ export default function AnalyticsDashboard({ pageId, onClose }: AnalyticsDashboa
         {isLoading ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
-            <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">Loading analytics...</span>
+            <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">{t('ui:AnalyticsDashboard.loadingAnalytics')}</span>
           </div>
         ) : !analytics ? (
           <div className="flex items-center justify-center py-20 text-sm text-gray-500 dark:text-gray-400">
-            No analytics data available yet.
+           {t('ui:AnalyticsDashboard.noAnalyticsDataAvailableYet')}
           </div>
         ) : (
           <div className="p-6 space-y-6">
@@ -123,31 +126,31 @@ export default function AnalyticsDashboard({ pageId, onClose }: AnalyticsDashboa
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
               <MetricCard
                 icon={<Eye className="w-4 h-4" />}
-                label="Total Visitors"
+                label={t('ui:AnalyticsDashboard.totalVisitors')}
                 value={analytics.total_views?.toLocaleString() ?? '0'}
                 color="blue"
               />
               <MetricCard
                 icon={<Users className="w-4 h-4" />}
-                label="Unique Visitors"
+                label={t('ui:AnalyticsDashboard.uniqueVisitors')}
                 value={analytics.unique_visitors?.toLocaleString() ?? '0'}
                 color="green"
               />
               <MetricCard
                 icon={<Clock className="w-4 h-4" />}
-                label="Avg Time on Page"
+                label={t('ui:AnalyticsDashboard.avgTimeOnPage')}
                 value={formatSeconds(analytics.avg_time_seconds ?? 0)}
                 color="amber"
               />
               <MetricCard
                 icon={<TrendingDown className="w-4 h-4" />}
-                label="Bounce Rate"
+                label={t('ui:AnalyticsDashboard.bounceRate')}
                 value={`${((analytics.bounce_rate ?? 0) * 100).toFixed(1)}%`}
                 color="red"
               />
               <MetricCard
                 icon={<Target className="w-4 h-4" />}
-                label="Conversion Rate"
+                label={t('ui:AnalyticsDashboard.conversionRate')}
                 value={`${((analytics.conversion_rate ?? 0) * 100).toFixed(1)}%`}
                 color="purple"
               />
@@ -156,7 +159,7 @@ export default function AnalyticsDashboard({ pageId, onClose }: AnalyticsDashboa
             {/* Visitors Over Time */}
             {viewsByDay.length > 0 && (
               <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
-                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">Visitors Over Time</h3>
+                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">{t('ui:AnalyticsDashboard.visitorsOverTime')}</h3>
                 <ResponsiveContainer width="100%" height={280}>
                   <LineChart data={viewsByDay}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.2} />
@@ -204,7 +207,7 @@ export default function AnalyticsDashboard({ pageId, onClose }: AnalyticsDashboa
               {/* Traffic Sources */}
               {sourceData.length > 0 && (
                 <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
-                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">Traffic Sources</h3>
+                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">{t('ui:AnalyticsDashboard.trafficSources')}</h3>
                   <ResponsiveContainer width="100%" height={220}>
                     <PieChart>
                       <Pie
@@ -230,7 +233,7 @@ export default function AnalyticsDashboard({ pageId, onClose }: AnalyticsDashboa
               {/* Devices */}
               {deviceData.length > 0 && (
                 <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
-                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">Devices</h3>
+                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">{t('ui:AnalyticsDashboard.devices')}</h3>
                   <ResponsiveContainer width="100%" height={220}>
                     <PieChart>
                       <Pie
@@ -257,7 +260,7 @@ export default function AnalyticsDashboard({ pageId, onClose }: AnalyticsDashboa
             {/* Scroll Depth Bar Chart */}
             {scrollData.length > 0 && (
               <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
-                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">Scroll Depth</h3>
+                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">{t('ui:AnalyticsDashboard.scrollDepth')}</h3>
                 <ResponsiveContainer width="100%" height={220}>
                   <BarChart data={scrollData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.2} />
@@ -284,13 +287,13 @@ export default function AnalyticsDashboard({ pageId, onClose }: AnalyticsDashboa
               {topClicks.length > 0 && (
                 <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
                   <div className="px-5 py-3 border-b border-gray-200 dark:border-gray-700">
-                    <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Top Clicks</h3>
+                    <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('ui:AnalyticsDashboard.topClicks')}</h3>
                   </div>
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800">
-                        <th className="text-left px-4 py-2 text-gray-500 dark:text-gray-400 font-medium">Element</th>
-                        <th className="text-right px-4 py-2 text-gray-500 dark:text-gray-400 font-medium">Clicks</th>
+                        <th className="text-left px-4 py-2 text-gray-500 dark:text-gray-400 font-medium">{t('ui:AnalyticsDashboard.element')}</th>
+                        <th className="text-right px-4 py-2 text-gray-500 dark:text-gray-400 font-medium">{t('ui:AnalyticsDashboard.clicks')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -313,13 +316,13 @@ export default function AnalyticsDashboard({ pageId, onClose }: AnalyticsDashboa
               {utmCampaigns.length > 0 && (
                 <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
                   <div className="px-5 py-3 border-b border-gray-200 dark:border-gray-700">
-                    <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">UTM Campaigns</h3>
+                    <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('ui:AnalyticsDashboard.utmCampaigns')}</h3>
                   </div>
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800">
-                        <th className="text-left px-4 py-2 text-gray-500 dark:text-gray-400 font-medium">Campaign</th>
-                        <th className="text-right px-4 py-2 text-gray-500 dark:text-gray-400 font-medium">Visitors</th>
+                        <th className="text-left px-4 py-2 text-gray-500 dark:text-gray-400 font-medium">{t('ui:AnalyticsDashboard.campaign')}</th>
+                        <th className="text-right px-4 py-2 text-gray-500 dark:text-gray-400 font-medium">{t('ui:AnalyticsDashboard.visitors')}</th>
                       </tr>
                     </thead>
                     <tbody>

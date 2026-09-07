@@ -1,7 +1,9 @@
 import { Download, X } from 'lucide-react'
 import { useInstallPrompt } from '@/hooks/useInstallPrompt'
+import { useTranslation } from 'react-i18next'
 
 export default function InstallBanner() {
+  const { t } = useTranslation('ui')
   const { showBanner, install, dismiss } = useInstallPrompt()
 
   if (!showBanner) return null
@@ -14,8 +16,8 @@ export default function InstallBanner() {
             <Download className="w-5 h-5 text-purple-400" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-semibold text-sm">Install O-Brain</p>
-            <p className="text-xs text-gray-400 mt-0.5">Get faster access from your home screen</p>
+            <p className="font-semibold text-sm">{t('ui:InstallBanner.installOBrain')}</p>
+            <p className="text-xs text-gray-400 mt-0.5">{t('ui:InstallBanner.getFasterAccessFromYour')}</p>
           </div>
           <button onClick={dismiss} className="p-1 text-gray-500 hover:text-gray-300">
             <X className="w-4 h-4" />
@@ -26,13 +28,13 @@ export default function InstallBanner() {
             onClick={install}
             className="flex-1 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg transition-colors"
           >
-            Install
+           {t('ui:InstallBanner.install')}
           </button>
           <button
             onClick={dismiss}
             className="px-4 py-2 text-gray-400 hover:text-white text-sm font-medium transition-colors"
           >
-            Not now
+           {t('ui:InstallBanner.notNow')}
           </button>
         </div>
       </div>

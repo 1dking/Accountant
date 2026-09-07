@@ -3,14 +3,14 @@
  * sub-components. Pure functions + small stateless components — no
  * domain logic, no data fetching.
  */
-import { cn } from '@/lib/utils'
+import { cn, uiLocale } from '@/lib/utils'
 
 export function formatCurrency(amount: number, currency = 'USD'): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount)
+  return new Intl.NumberFormat(uiLocale(), { style: 'currency', currency }).format(amount)
 }
 
 export function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('en-US', {
+  return new Date(dateStr).toLocaleDateString(uiLocale(), {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
@@ -18,7 +18,7 @@ export function formatDate(dateStr: string): string {
 }
 
 export function formatDateTime(dateStr: string): string {
-  return new Date(dateStr).toLocaleString('en-US', {
+  return new Date(dateStr).toLocaleString(uiLocale(), {
     month: 'short',
     day: 'numeric',
     year: 'numeric',

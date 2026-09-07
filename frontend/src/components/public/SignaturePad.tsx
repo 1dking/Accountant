@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 
 interface SignaturePadProps {
   onSignatureChange: (dataUrl: string | null) => void
@@ -10,6 +11,7 @@ export default function SignaturePad({
   onSignatureChange,
   height = 200,
 }: SignaturePadProps) {
+  const { t } = useTranslation('ui')
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [isDrawing, setIsDrawing] = useState(false)
   const [hasSignature, setHasSignature] = useState(false)
@@ -120,7 +122,7 @@ export default function SignaturePad({
         />
         {!hasSignature && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <span className="text-gray-400 dark:text-gray-500 text-sm">Sign here</span>
+            <span className="text-gray-400 dark:text-gray-500 text-sm">{t('ui:SignaturePad.signHere')}</span>
           </div>
         )}
       </div>
@@ -130,7 +132,7 @@ export default function SignaturePad({
           onClick={clear}
           className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700"
         >
-          Clear signature
+         {t('ui:SignaturePad.clearSignature')}
         </button>
       )}
     </div>

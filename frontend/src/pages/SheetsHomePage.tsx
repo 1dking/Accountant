@@ -6,18 +6,21 @@ import OfficeDocCard from '@/components/office/OfficeDocCard'
 import { useDebounce } from '@/hooks/useDebounce'
 import { Table2, Plus, Search, DollarSign, Receipt, TrendingUp, BookOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
+import i18n from '@/i18n'
 
 type ViewTab = 'owned' | 'shared' | 'starred'
 
 const TEMPLATES = [
-  { title: 'Blank', icon: Plus, description: 'Empty spreadsheet' },
-  { title: 'Budget', icon: DollarSign, description: 'Budget tracker' },
-  { title: 'Invoice', icon: Receipt, description: 'Invoice template' },
-  { title: 'Expense Tracker', icon: TrendingUp, description: 'Track expenses' },
-  { title: 'Ledger', icon: BookOpen, description: 'General ledger' },
+  { title: i18n.t('ui:SheetsHomePage.blank'), icon: Plus, description: i18n.t('ui:SheetsHomePage.emptySpreadsheet') },
+  { title: i18n.t('ui:SheetsHomePage.budget'), icon: DollarSign, description: i18n.t('ui:SheetsHomePage.budgetTracker') },
+  { title: i18n.t('ui:SheetsHomePage.invoice'), icon: Receipt, description: i18n.t('ui:SheetsHomePage.invoiceTemplate') },
+  { title: i18n.t('ui:SheetsHomePage.expenseTracker'), icon: TrendingUp, description: i18n.t('ui:SheetsHomePage.trackExpenses') },
+  { title: i18n.t('ui:SheetsHomePage.ledger'), icon: BookOpen, description: i18n.t('ui:SheetsHomePage.generalLedger') },
 ]
 
 export default function SheetsHomePage() {
+  const { t } = useTranslation('ui')
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<ViewTab>('owned')
@@ -51,9 +54,9 @@ export default function SheetsHomePage() {
   }
 
   const tabs: { key: ViewTab; label: string }[] = [
-    { key: 'owned', label: 'Owned by me' },
-    { key: 'shared', label: 'Shared with me' },
-    { key: 'starred', label: 'Starred' },
+    { key: 'owned', label: t('ui:SheetsHomePage.ownedByMe') },
+    { key: 'shared', label: t('ui:SheetsHomePage.sharedWithMe') },
+    { key: 'starred', label: t('ui:SheetsHomePage.starred') },
   ]
 
   return (
@@ -64,7 +67,7 @@ export default function SheetsHomePage() {
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
               <Table2 className="h-7 w-7 text-green-600" />
-              Sheets
+             {t('ui:SheetsHomePage.sheets')}
             </h1>
             <button
               onClick={() => createMutation.mutate('Untitled spreadsheet')}
@@ -72,13 +75,13 @@ export default function SheetsHomePage() {
               className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50"
             >
               <Plus className="h-4 w-4" />
-              Blank Spreadsheet
+             {t('ui:SheetsHomePage.blankSpreadsheet')}
             </button>
           </div>
 
           {/* Templates */}
           <div>
-            <h2 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-3">Start a new spreadsheet</h2>
+            <h2 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-3">{t('ui:SheetsHomePage.startANewSpreadsheet')}</h2>
             <div className="flex gap-4">
               {TEMPLATES.map((template) => {
                 const Icon = template.icon
@@ -111,7 +114,7 @@ export default function SheetsHomePage() {
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search spreadsheets..."
+              placeholder={t('ui:SheetsHomePage.searchSpreadsheets')}
               className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-gray-800 dark:text-gray-100"
             />
           </div>
@@ -144,12 +147,12 @@ export default function SheetsHomePage() {
           <div className="text-center py-16">
             <Table2 className="h-12 w-12 text-gray-300 mx-auto mb-4" />
             <h3 className="text-gray-900 dark:text-gray-100 font-medium mb-1">
-              {search ? 'No spreadsheets found' : 'No spreadsheets yet'}
+              {search ? t('ui:SheetsHomePage.noSpreadsheetsFound') : t('ui:SheetsHomePage.noSpreadsheetsYet')}
             </h3>
             <p className="text-sm text-gray-500 dark:text-gray-400">
               {search
-                ? 'Try a different search term'
-                : 'Create a new spreadsheet to get started'}
+                ? t('ui:SheetsHomePage.tryADifferentSearchTerm')
+                : t('ui:SheetsHomePage.createANewSpreadsheetTo')}
             </p>
           </div>
         ) : (

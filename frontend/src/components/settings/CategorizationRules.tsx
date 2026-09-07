@@ -17,9 +17,11 @@ import type {
   CategorizationMatchType,
   ExpenseCategory,
 } from '@/types/models'
+import { useTranslation } from 'react-i18next'
+import i18n from '@/i18n'
 
 const MATCH_FIELD_LABELS: Record<CategorizationMatchField, string> = {
-  name: 'Transaction Name',
+  name: i18n.t('ui:CategorizationRules.transactionName'),
   merchant_name: 'Merchant Name',
   category: 'Plaid Category',
 }
@@ -52,6 +54,7 @@ const EMPTY_FORM: RuleFormData = {
 }
 
 export default function CategorizationRules() {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -157,9 +160,9 @@ export default function CategorizationRules() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">Auto-Categorization Rules</h2>
+          <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">{t('ui:CategorizationRules.autoCategorizationRules')}</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Automatically categorize bank transactions based on matching rules.
+           {t('ui:CategorizationRules.automaticallyCategorizeBankTransactionsB')}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -169,7 +172,7 @@ export default function CategorizationRules() {
             className="flex items-center gap-1.5 px-3 py-2 text-sm border border-blue-200 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-50 disabled:opacity-50"
           >
             <Zap className={`w-4 h-4 ${applyMutation.isPending ? 'animate-pulse' : ''}`} />
-            {applyMutation.isPending ? 'Applying...' : 'Apply Rules'}
+            {applyMutation.isPending ? t('ui:CategorizationRules.applying') : t('ui:CategorizationRules.applyRules')}
           </button>
           {!showForm && (
             <button
@@ -177,7 +180,7 @@ export default function CategorizationRules() {
               className="flex items-center gap-1.5 px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             >
               <Plus className="w-4 h-4" />
-              Add Rule
+             {t('ui:CategorizationRules.addRule')}
             </button>
           )}
         </div>
@@ -194,7 +197,7 @@ export default function CategorizationRules() {
         <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-900 border rounded-lg p-5 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              {editingId ? 'Edit Rule' : 'New Rule'}
+              {editingId ? t('ui:CategorizationRules.editRule') : t('ui:CategorizationRules.newRule')}
             </h3>
             <button type="button" onClick={resetForm} className="text-gray-400 dark:text-gray-500 hover:text-gray-600">
               <X className="w-4 h-4" />
@@ -203,25 +206,25 @@ export default function CategorizationRules() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Rule Name</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:CategorizationRules.ruleName')}</label>
               <input
                 type="text"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="e.g. AWS Cloud Services"
+                placeholder={t('ui:CategorizationRules.eGAwsCloudServices')}
                 required
                 className="w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Assign Category</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:CategorizationRules.assignCategory')}</label>
               <select
                 value={form.assign_category_id}
                 onChange={(e) => setForm({ ...form, assign_category_id: e.target.value })}
                 required
                 className="w-full px-3 py-2 border rounded-md text-sm bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="">Select category...</option>
+                <option value="">{t('ui:CategorizationRules.selectCategory')}</option>
                 {categories.map((cat) => (
                   <option key={cat.id} value={cat.id}>{cat.name}</option>
                 ))}
@@ -231,7 +234,7 @@ export default function CategorizationRules() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Match Field</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:CategorizationRules.matchField')}</label>
               <select
                 value={form.match_field}
                 onChange={(e) => setForm({ ...form, match_field: e.target.value as CategorizationMatchField })}
@@ -243,7 +246,7 @@ export default function CategorizationRules() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Match Type</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:CategorizationRules.matchType')}</label>
               <select
                 value={form.match_type}
                 onChange={(e) => setForm({ ...form, match_type: e.target.value as CategorizationMatchType })}
@@ -255,12 +258,12 @@ export default function CategorizationRules() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Match Value</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:CategorizationRules.matchValue')}</label>
               <input
                 type="text"
                 value={form.match_value}
                 onChange={(e) => setForm({ ...form, match_value: e.target.value })}
-                placeholder={form.match_type === 'regex' ? 'e.g. AWS|Amazon Web' : 'e.g. AWS'}
+                placeholder={form.match_type === 'regex' ? t('ui:CategorizationRules.eGAwsAmazonWeb') : t('ui:CategorizationRules.eGAws')}
                 required
                 className="w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
@@ -269,7 +272,7 @@ export default function CategorizationRules() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Priority</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:CategorizationRules.priority')}</label>
               <input
                 type="number"
                 value={form.priority}
@@ -277,7 +280,7 @@ export default function CategorizationRules() {
                 min={0}
                 className="w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Higher priority rules match first</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{t('ui:CategorizationRules.higherPriorityRulesMatchFirst')}</p>
             </div>
             <div className="flex items-center pt-6">
               <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
@@ -287,7 +290,7 @@ export default function CategorizationRules() {
                   onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
                   className="rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400 focus:ring-blue-500"
                 />
-                Active
+               {t('ui:CategorizationRules.active')}
               </label>
             </div>
           </div>
@@ -298,14 +301,14 @@ export default function CategorizationRules() {
               disabled={isSaving}
               className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
             >
-              {isSaving ? 'Saving...' : editingId ? 'Update Rule' : 'Create Rule'}
+              {isSaving ? t('ui:CategorizationRules.saving') : editingId ? t('ui:CategorizationRules.updateRule') : t('ui:CategorizationRules.createRule')}
             </button>
             <button
               type="button"
               onClick={resetForm}
               className="px-4 py-2 text-sm border rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
             >
-              Cancel
+             {t('ui:CategorizationRules.cancel')}
             </button>
           </div>
         </form>
@@ -313,19 +316,19 @@ export default function CategorizationRules() {
 
       {/* Rules Table */}
       {isLoading ? (
-        <p className="text-gray-400 dark:text-gray-500 py-8 text-center text-sm">Loading rules...</p>
+        <p className="text-gray-400 dark:text-gray-500 py-8 text-center text-sm">{t('ui:CategorizationRules.loadingRules')}</p>
       ) : rules.length > 0 ? (
         <div className="bg-white dark:bg-gray-900 border rounded-lg overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-gray-50 dark:bg-gray-950">
                 <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium w-8"></th>
-                <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Name</th>
-                <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Match</th>
-                <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Category</th>
-                <th className="text-center px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Priority</th>
-                <th className="text-center px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Status</th>
-                <th className="text-right px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Actions</th>
+                <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">{t('ui:CategorizationRules.name')}</th>
+                <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">{t('ui:CategorizationRules.match')}</th>
+                <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">{t('ui:CategorizationRules.category')}</th>
+                <th className="text-center px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">{t('ui:CategorizationRules.priority')}</th>
+                <th className="text-center px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">{t('ui:CategorizationRules.status')}</th>
+                <th className="text-right px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">{t('ui:CategorizationRules.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -358,7 +361,7 @@ export default function CategorizationRules() {
                           : 'bg-gray-100 dark:bg-gray-800 text-gray-500'
                       }`}
                     >
-                      {rule.is_active ? 'Active' : 'Inactive'}
+                      {rule.is_active ? t('ui:CategorizationRules.active') : t('ui:CategorizationRules.inactive')}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right">
@@ -366,18 +369,18 @@ export default function CategorizationRules() {
                       <button
                         onClick={() => startEdit(rule)}
                         className="p-1 text-gray-400 dark:text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded"
-                        title="Edit"
+                        title={t('ui:CategorizationRules.edit')}
                       >
                         <Pencil className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => {
-                          if (confirm(`Delete rule "${rule.name}"?`)) {
+                          if (confirm(t('ui:CategorizationRules.deleteRuleName', { name: rule.name }))) {
                             deleteMutation.mutate(rule.id)
                           }
                         }}
                         className="p-1 text-gray-400 dark:text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"
-                        title="Delete"
+                        title={t('ui:CategorizationRules.delete')}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -391,21 +394,21 @@ export default function CategorizationRules() {
       ) : (
         <div className="text-center py-12 bg-white dark:bg-gray-900 border rounded-lg">
           <Zap className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500 dark:text-gray-400 text-sm">No categorization rules yet.</p>
+          <p className="text-gray-500 dark:text-gray-400 text-sm">{t('ui:CategorizationRules.noCategorizationRulesYet')}</p>
           <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">
-            Create a rule to automatically categorize bank transactions.
+           {t('ui:CategorizationRules.createARuleToAutomatically')}
           </p>
         </div>
       )}
 
       <div className="bg-gray-50 dark:bg-gray-950 border rounded-lg p-4 text-sm text-gray-600 dark:text-gray-400">
-        <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-1">How rules work</h4>
+        <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:CategorizationRules.howRulesWork')}</h4>
         <ul className="list-disc list-inside space-y-1 text-gray-500 dark:text-gray-400">
-          <li>Rules match against transaction fields (name, merchant, or Plaid category)</li>
-          <li>Higher priority rules are checked first</li>
-          <li>When a rule matches, the transaction is automatically categorized as an expense</li>
-          <li>Rules run automatically when new transactions are synced from Plaid</li>
-          <li>Use "Apply Rules" to re-process existing uncategorized transactions</li>
+          <li>{t('ui:CategorizationRules.rulesMatchAgainstTransactionFields')}</li>
+          <li>{t('ui:CategorizationRules.higherPriorityRulesAreChecked')}</li>
+          <li>{t('ui:CategorizationRules.whenARuleMatchesThe')}</li>
+          <li>{t('ui:CategorizationRules.rulesRunAutomaticallyWhenNew')}</li>
+          <li>{t('ui:CategorizationRules.useApplyRulesToRe')}</li>
         </ul>
       </div>
     </div>

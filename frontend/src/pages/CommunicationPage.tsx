@@ -52,17 +52,20 @@ import type {
   ChatMessage,
   User as AppUser,
 } from '@/types/models'
+import { useTranslation } from 'react-i18next'
+import i18n from '@/i18n'
 
 type TabKey = 'phone-numbers' | 'calls' | 'sms' | 'chat'
 
 const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
-  { key: 'phone-numbers', label: 'Phone Numbers', icon: <Hash className="h-4 w-4" /> },
-  { key: 'calls', label: 'Call Log', icon: <PhoneCall className="h-4 w-4" /> },
+  { key: 'phone-numbers', label: i18n.t('ui:CommunicationPage.phoneNumbers'), icon: <Hash className="h-4 w-4" /> },
+  { key: 'calls', label: i18n.t('ui:CommunicationPage.callLog'), icon: <PhoneCall className="h-4 w-4" /> },
   { key: 'sms', label: 'SMS', icon: <MessageSquare className="h-4 w-4" /> },
-  { key: 'chat', label: 'Live Chat', icon: <MessageCircle className="h-4 w-4" /> },
+  { key: 'chat', label: i18n.t('ui:CommunicationPage.liveChat'), icon: <MessageCircle className="h-4 w-4" /> },
 ]
 
 export default function CommunicationPage() {
+  const { t } = useTranslation('ui')
   const [activeTab, setActiveTab] = useState<TabKey>('phone-numbers')
 
   return (
@@ -71,7 +74,7 @@ export default function CommunicationPage() {
       <div className="flex items-center gap-3 mb-6">
         <Phone className="h-6 w-6 text-blue-500" />
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-          Communication
+         {t('ui:CommunicationPage.communication')}
         </h1>
       </div>
 
@@ -105,6 +108,7 @@ export default function CommunicationPage() {
 /* ===================== Phone Numbers Tab ===================== */
 
 function PhoneNumbersTab() {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const [addOpen, setAddOpen] = useState(false)
   const [newNumber, setNewNumber] = useState('')
@@ -150,7 +154,7 @@ function PhoneNumbersTab() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['phone-numbers'] })
-      toast.success('Phone number added')
+      toast.success(t('ui:CommunicationPage.phoneNumberAdded'))
       setAddOpen(false)
       setNewNumber('')
       setNewFriendlyName('')
@@ -177,13 +181,13 @@ function PhoneNumbersTab() {
       const wh = resp?.data?.webhooks_configured_at
       const err = resp?.data?.webhook_config_error
       if (wh) {
-        toast.success('Number purchased and webhooks configured automatically')
+        toast.success(t('ui:CommunicationPage.numberPurchasedAndWebhooksConfigured'))
       } else if (err) {
         toast.success(
-          `Number purchased — webhook config failed: ${err}. Use Sync Webhooks to retry.`,
+          t('ui:CommunicationPage.numberPurchasedWebhookConfigFailed', { err }),
         )
       } else {
-        toast.success('Number purchased')
+        toast.success(t('ui:CommunicationPage.numberPurchased'))
       }
       setSearchOpen(false)
       setSearchResults([])
@@ -197,7 +201,7 @@ function PhoneNumbersTab() {
     mutationFn: (phoneId: string) => syncWebhooks(phoneId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['phone-numbers'] })
-      toast.success('Webhooks synced')
+      toast.success(t('ui:CommunicationPage.webhooksSynced'))
     },
     onError: (err: any) =>
       toast.error(err.message || 'Webhook sync failed'),
@@ -209,7 +213,7 @@ function PhoneNumbersTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['phone-numbers'] })
       queryClient.invalidateQueries({ queryKey: ['my-number'] })
-      toast.success('Assignment updated')
+      toast.success(t('ui:CommunicationPage.assignmentUpdated'))
       setAssignTarget(null)
       setAssignUserId('')
     },
@@ -220,13 +224,13 @@ function PhoneNumbersTab() {
     mutationFn: (id: string) => deletePhoneNumber(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['phone-numbers'] })
-      toast.success('Phone number removed')
+      toast.success(t('ui:CommunicationPage.phoneNumberRemoved'))
     },
     onError: (err: any) => toast.error(err.message || 'Failed to delete'),
   })
 
   function handleDelete(id: string) {
-    if (confirm('Remove this phone number?')) {
+    if (confirm(t('ui:CommunicationPage.removeThisPhoneNumber'))) {
       deleteMutation.mutate(id)
     }
   }
@@ -235,7 +239,7 @@ function PhoneNumbersTab() {
     <div>
       <div className="flex items-center justify-between mb-4">
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          Manage Twilio phone numbers and user assignments.
+         {t('ui:CommunicationPage.manageTwilioPhoneNumbersAnd')}
         </p>
         <div className="flex items-center gap-2">
           <button
@@ -243,14 +247,14 @@ function PhoneNumbersTab() {
             className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
           >
             <ShoppingCart className="h-4 w-4" />
-            Buy a Number
+           {t('ui:CommunicationPage.buyANumber')}
           </button>
           <button
             onClick={() => setAddOpen(true)}
             className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
           >
             <Plus className="h-4 w-4" />
-            Add Manually
+           {t('ui:CommunicationPage.addManually')}
           </button>
         </div>
       </div>
@@ -262,7 +266,7 @@ function PhoneNumbersTab() {
       ) : numbers.length === 0 ? (
         <div className="text-center py-16 text-gray-400 dark:text-gray-500">
           <Phone className="h-10 w-10 mx-auto mb-2 opacity-50" />
-          <p className="text-sm">No phone numbers configured.</p>
+          <p className="text-sm">{t('ui:CommunicationPage.noPhoneNumbersConfigured')}</p>
         </div>
       ) : (
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
@@ -270,19 +274,19 @@ function PhoneNumbersTab() {
             <thead>
               <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
                 <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">
-                  Number
+                 {t('ui:CommunicationPage.number')}
                 </th>
                 <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">
-                  Friendly Name
+                 {t('ui:CommunicationPage.friendlyName')}
                 </th>
                 <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">
-                  Assigned User
+                 {t('ui:CommunicationPage.assignedUser')}
                 </th>
                 <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">
-                  Webhooks
+                 {t('ui:CommunicationPage.webhooks')}
                 </th>
                 <th className="text-right px-4 py-3 font-medium text-gray-500 dark:text-gray-400">
-                  Actions
+                 {t('ui:CommunicationPage.actions')}
                 </th>
               </tr>
             </thead>
@@ -305,23 +309,23 @@ function PhoneNumbersTab() {
                         {resolveAssignedName(num.assigned_user_id)}
                       </span>
                     ) : (
-                      <span className="text-xs text-gray-400">Unassigned</span>
+                      <span className="text-xs text-gray-400">{t('ui:CommunicationPage.unassigned')}</span>
                     )}
                   </td>
                   <td className="px-4 py-3">
                     {num.webhooks_configured_at ? (
                       <span
                         className="inline-flex items-center gap-1 text-xs text-green-700 dark:text-green-400"
-                        title={`Configured ${new Date(num.webhooks_configured_at).toLocaleString()}`}
+                        title={t('ui:CommunicationPage.configuredV0', { v0: new Date(num.webhooks_configured_at).toLocaleString() })}
                       >
                         <Zap className="h-3 w-3" />
-                        Configured
+                       {t('ui:CommunicationPage.configured')}
                       </span>
                     ) : (
                       <div className="flex items-center gap-2">
                         <span className="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
                           <CircleAlert className="h-3 w-3" />
-                          Not configured
+                         {t('ui:CommunicationPage.notConfigured')}
                         </span>
                         <button
                           onClick={() => syncMutation.mutate(num.id)}
@@ -329,11 +333,11 @@ function PhoneNumbersTab() {
                             syncMutation.isPending && syncMutation.variables === num.id
                           }
                           className="px-2 py-0.5 text-xs font-medium text-blue-600 hover:text-blue-700 border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded disabled:opacity-50"
-                          title="Push platform webhook URLs to Twilio"
+                          title={t('ui:CommunicationPage.pushPlatformWebhookUrlsTo')}
                         >
                           {syncMutation.isPending && syncMutation.variables === num.id
-                            ? 'Syncing…'
-                            : 'Sync Webhooks'}
+                            ? t('ui:CommunicationPage.syncing')
+                            : t('ui:CommunicationPage.syncWebhooks')}
                         </button>
                       </div>
                     )}
@@ -346,14 +350,14 @@ function PhoneNumbersTab() {
                           setAssignUserId(num.assigned_user_id ?? '')
                         }}
                         className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                        title="Assign"
+                        title={t('ui:CommunicationPage.assign')}
                       >
                         <UserCog className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => handleDelete(num.id)}
                         className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-                        title="Remove"
+                        title={t('ui:CommunicationPage.remove')}
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -372,7 +376,7 @@ function PhoneNumbersTab() {
           <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-md">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                Add Phone Number
+               {t('ui:CommunicationPage.addPhoneNumber')}
               </h2>
               <button
                 onClick={() => setAddOpen(false)}
@@ -384,7 +388,7 @@ function PhoneNumbersTab() {
             <div className="px-6 py-4 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Phone Number
+                 {t('ui:CommunicationPage.phoneNumber')}
                 </label>
                 <input
                   type="text"
@@ -396,13 +400,13 @@ function PhoneNumbersTab() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Friendly Name (optional)
+                 {t('ui:CommunicationPage.friendlyNameOptional')}
                 </label>
                 <input
                   type="text"
                   value={newFriendlyName}
                   onChange={(e) => setNewFriendlyName(e.target.value)}
-                  placeholder="e.g. Main Office"
+                  placeholder={t('ui:CommunicationPage.eGMainOffice')}
                   className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100"
                 />
               </div>
@@ -412,7 +416,7 @@ function PhoneNumbersTab() {
                 onClick={() => setAddOpen(false)}
                 className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
               >
-                Cancel
+               {t('ui:CommunicationPage.cancel')}
               </button>
               <button
                 onClick={() => addMutation.mutate()}
@@ -420,7 +424,7 @@ function PhoneNumbersTab() {
                 className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
               >
                 {addMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                Add Number
+               {t('ui:CommunicationPage.addNumber')}
               </button>
             </div>
           </div>
@@ -433,7 +437,7 @@ function PhoneNumbersTab() {
           <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-2xl flex flex-col max-h-[90vh]">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                Buy a Phone Number
+               {t('ui:CommunicationPage.buyAPhoneNumber')}
               </h2>
               <button
                 onClick={() => setSearchOpen(false)}
@@ -447,7 +451,7 @@ function PhoneNumbersTab() {
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Country
+                   {t('ui:CommunicationPage.country')}
                   </label>
                   <select
                     value={searchCountry}
@@ -461,7 +465,7 @@ function PhoneNumbersTab() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Area Code
+                   {t('ui:CommunicationPage.areaCode')}
                   </label>
                   <input
                     type="text"
@@ -473,13 +477,13 @@ function PhoneNumbersTab() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Contains
+                   {t('ui:CommunicationPage.contains')}
                   </label>
                   <input
                     type="text"
                     value={searchContains}
                     onChange={(e) => setSearchContains(e.target.value)}
-                    placeholder="e.g. CAT"
+                    placeholder={t('ui:CommunicationPage.eGCat')}
                     className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100"
                   />
                 </div>
@@ -494,14 +498,14 @@ function PhoneNumbersTab() {
                 ) : (
                   <Search className="h-4 w-4" />
                 )}
-                Search
+               {t('ui:CommunicationPage.search')}
               </button>
             </div>
 
             <div className="flex-1 overflow-y-auto px-6 py-4">
               {searchResults.length === 0 && !searchMutation.isPending && (
                 <div className="text-center text-sm text-gray-400 py-8">
-                  Enter search criteria above and click Search.
+                 {t('ui:CommunicationPage.enterSearchCriteriaAboveAnd')}
                 </div>
               )}
               {searchResults.length > 0 && (
@@ -527,7 +531,7 @@ function PhoneNumbersTab() {
                           )}
                           {r.capabilities.voice && (
                             <span className="text-[10px] uppercase px-1.5 py-0.5 bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 rounded">
-                              Voice
+                             {t('ui:CommunicationPage.voice')}
                             </span>
                           )}
                           {r.capabilities.mms && (
@@ -546,7 +550,7 @@ function PhoneNumbersTab() {
                           purchaseMutation.variables === r.phone_number && (
                             <Loader2 className="h-4 w-4 animate-spin" />
                           )}
-                        Buy
+                       {t('ui:CommunicationPage.buy')}
                       </button>
                     </div>
                   ))}
@@ -559,7 +563,7 @@ function PhoneNumbersTab() {
                 onClick={() => setSearchOpen(false)}
                 className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
               >
-                Close
+               {t('ui:CommunicationPage.close')}
               </button>
             </div>
           </div>
@@ -572,7 +576,7 @@ function PhoneNumbersTab() {
           <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-md flex flex-col">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                Assign Phone Number
+               {t('ui:CommunicationPage.assignPhoneNumber')}
               </h2>
               <button
                 onClick={() => {
@@ -587,7 +591,7 @@ function PhoneNumbersTab() {
 
             <div className="px-6 py-4 space-y-4">
               <div>
-                <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Phone Number</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">{t('ui:CommunicationPage.phoneNumber')}</div>
                 <div className="font-mono text-sm text-gray-900 dark:text-gray-100">
                   {assignTarget.phone_number}
                   {assignTarget.friendly_name && (
@@ -599,14 +603,14 @@ function PhoneNumbersTab() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Assign to
+                 {t('ui:CommunicationPage.assignTo')}
                 </label>
                 <select
                   value={assignUserId}
                   onChange={(e) => setAssignUserId(e.target.value)}
                   className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100"
                 >
-                  <option value="">Unassigned</option>
+                  <option value="">{t('ui:CommunicationPage.unassigned')}</option>
                   {(usersData?.data ?? []).map((u: AppUser) => (
                     <option key={u.id} value={u.id}>
                       {u.full_name} ({u.email})
@@ -624,7 +628,7 @@ function PhoneNumbersTab() {
                 }}
                 className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
               >
-                Cancel
+               {t('ui:CommunicationPage.cancel')}
               </button>
               <button
                 onClick={() =>
@@ -637,7 +641,7 @@ function PhoneNumbersTab() {
                 className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
               >
                 {assignMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                Save
+               {t('ui:CommunicationPage.save')}
               </button>
             </div>
           </div>
@@ -656,17 +660,18 @@ function VoicemailTranscript({
   status?: 'pending' | 'completed' | 'failed' | null
   transcript?: string | null
 }) {
+  const { t } = useTranslation('ui')
   const [isExpanded, setIsExpanded] = useState(false)
   if (status === 'pending') {
     return (
       <span className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400 italic">
         <Loader2 className="h-3 w-3 animate-spin" />
-        Transcribing…
+       {t('ui:CommunicationPage.transcribing')}
       </span>
     )
   }
   if (status === 'failed') {
-    return <span className="text-xs text-gray-400 italic">Transcript unavailable</span>
+    return <span className="text-xs text-gray-400 italic">{t('ui:CommunicationPage.transcriptUnavailable')}</span>
   }
   if (status === 'completed' && transcript) {
     return (
@@ -674,7 +679,7 @@ function VoicemailTranscript({
         type="button"
         onClick={() => setIsExpanded((v) => !v)}
         className="text-left text-xs text-gray-600 dark:text-gray-400 italic hover:text-gray-900 dark:hover:text-gray-100 cursor-pointer max-w-xs"
-        title={isExpanded ? 'Click to collapse' : 'Click to expand'}
+        title={isExpanded ? t('ui:CommunicationPage.clickToCollapse') : t('ui:CommunicationPage.clickToExpand')}
       >
         <span className={isExpanded ? '' : 'line-clamp-2'}>"{transcript}"</span>
       </button>
@@ -684,6 +689,7 @@ function VoicemailTranscript({
 }
 
 function CallLogTab() {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const [filters, setFilters] = useState<CallLogFilters>({ page: 1, page_size: 25 })
   const [directionFilter, setDirectionFilter] = useState('')
@@ -716,7 +722,7 @@ function CallLogTab() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calls'] })
-      toast.success('Call logged')
+      toast.success(t('ui:CommunicationPage.callLogged'))
       setLogOpen(false)
       setCallFrom('')
       setCallTo('')
@@ -739,9 +745,9 @@ function CallLogTab() {
         <div className="flex items-center gap-3">
           <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
             {[
-              { value: '', label: 'All' },
-              { value: 'inbound', label: 'Inbound' },
-              { value: 'outbound', label: 'Outbound' },
+              { value: '', label: t('ui:CommunicationPage.all') },
+              { value: 'inbound', label: t('ui:CommunicationPage.inbound') },
+              { value: 'outbound', label: t('ui:CommunicationPage.outbound') },
             ].map((opt) => (
               <button
                 key={opt.value}
@@ -765,7 +771,7 @@ function CallLogTab() {
           className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
         >
           <Plus className="h-4 w-4" />
-          Log Call
+         {t('ui:CommunicationPage.logCall')}
         </button>
       </div>
 
@@ -776,7 +782,7 @@ function CallLogTab() {
       ) : calls.length === 0 ? (
         <div className="text-center py-16 text-gray-400 dark:text-gray-500">
           <PhoneCall className="h-10 w-10 mx-auto mb-2 opacity-50" />
-          <p className="text-sm">No calls recorded.</p>
+          <p className="text-sm">{t('ui:CommunicationPage.noCallsRecorded')}</p>
         </div>
       ) : (
         <>
@@ -785,28 +791,28 @@ function CallLogTab() {
               <thead>
                 <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
                   <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400 w-10">
-                    Dir
+                   {t('ui:CommunicationPage.dir')}
                   </th>
                   <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">
-                    From
+                   {t('ui:CommunicationPage.from')}
                   </th>
                   <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">
-                    To
+                   {t('ui:CommunicationPage.to')}
                   </th>
                   <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">
-                    Duration
+                   {t('ui:CommunicationPage.duration')}
                   </th>
                   <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">
-                    Status
+                   {t('ui:CommunicationPage.status')}
                   </th>
                   <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">
-                    Recording
+                   {t('ui:CommunicationPage.recording')}
                   </th>
                   <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">
-                    Outcome
+                   {t('ui:CommunicationPage.outcome')}
                   </th>
                   <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">
-                    Date
+                   {t('ui:CommunicationPage.date')}
                   </th>
                 </tr>
               </thead>
@@ -904,7 +910,7 @@ function CallLogTab() {
           {meta && meta.total_pages > 1 && (
             <div className="flex items-center justify-between mt-4 text-sm">
               <span className="text-gray-500 dark:text-gray-400">
-                Page {meta.page} of {meta.total_pages} ({meta.total_count} total)
+               {t('ui:CommunicationPage.page')} {meta.page} of {meta.total_pages} ({meta.total_count} {t('ui:CommunicationPage.total')}
               </span>
               <div className="flex gap-2">
                 <button
@@ -912,14 +918,14 @@ function CallLogTab() {
                   disabled={meta.page <= 1}
                   className="px-3 py-1 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 disabled:opacity-50"
                 >
-                  Previous
+                 {t('ui:CommunicationPage.previous')}
                 </button>
                 <button
                   onClick={() => setFilters((f) => ({ ...f, page: (f.page ?? 1) + 1 }))}
                   disabled={meta.page >= meta.total_pages}
                   className="px-3 py-1 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 disabled:opacity-50"
                 >
-                  Next
+                 {t('ui:CommunicationPage.next')}
                 </button>
               </div>
             </div>
@@ -933,7 +939,7 @@ function CallLogTab() {
           <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-md">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                Log a Call
+               {t('ui:CommunicationPage.logACall')}
               </h2>
               <button
                 onClick={() => setLogOpen(false)}
@@ -945,21 +951,21 @@ function CallLogTab() {
             <div className="px-6 py-4 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Direction
+                 {t('ui:CommunicationPage.direction')}
                 </label>
                 <select
                   value={callDirection}
                   onChange={(e) => setCallDirection(e.target.value)}
                   className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100"
                 >
-                  <option value="outbound">Outbound</option>
-                  <option value="inbound">Inbound</option>
+                  <option value="outbound">{t('ui:CommunicationPage.outbound')}</option>
+                  <option value="inbound">{t('ui:CommunicationPage.inbound')}</option>
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    From
+                   {t('ui:CommunicationPage.from')}
                   </label>
                   <input
                     type="text"
@@ -971,7 +977,7 @@ function CallLogTab() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    To
+                   {t('ui:CommunicationPage.to')}
                   </label>
                   <input
                     type="text"
@@ -984,7 +990,7 @@ function CallLogTab() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Duration (seconds)
+                 {t('ui:CommunicationPage.durationSeconds')}
                 </label>
                 <input
                   type="number"
@@ -995,24 +1001,24 @@ function CallLogTab() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Outcome
+                 {t('ui:CommunicationPage.outcome')}
                 </label>
                 <select
                   value={callOutcome}
                   onChange={(e) => setCallOutcome(e.target.value)}
                   className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100"
                 >
-                  <option value="">Select...</option>
-                  <option value="connected">Connected</option>
-                  <option value="voicemail">Voicemail</option>
-                  <option value="no_answer">No Answer</option>
-                  <option value="busy">Busy</option>
-                  <option value="wrong_number">Wrong Number</option>
+                  <option value="">{t('ui:CommunicationPage.select')}</option>
+                  <option value="connected">{t('ui:CommunicationPage.connected')}</option>
+                  <option value="voicemail">{t('ui:CommunicationPage.voicemail')}</option>
+                  <option value="no_answer">{t('ui:CommunicationPage.noAnswer')}</option>
+                  <option value="busy">{t('ui:CommunicationPage.busy')}</option>
+                  <option value="wrong_number">{t('ui:CommunicationPage.wrongNumber')}</option>
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Notes
+                 {t('ui:CommunicationPage.notes')}
                 </label>
                 <textarea
                   value={callNotes}
@@ -1027,7 +1033,7 @@ function CallLogTab() {
                 onClick={() => setLogOpen(false)}
                 className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
               >
-                Cancel
+               {t('ui:CommunicationPage.cancel')}
               </button>
               <button
                 onClick={() => logMutation.mutate()}
@@ -1035,7 +1041,7 @@ function CallLogTab() {
                 className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
               >
                 {logMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                Save Call
+               {t('ui:CommunicationPage.saveCall')}
               </button>
             </div>
           </div>
@@ -1048,6 +1054,7 @@ function CallLogTab() {
 /* ===================== SMS Tab ===================== */
 
 function SmsTab() {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const [filters, setFilters] = useState<SmsFilters>({ page: 1, page_size: 25 })
   const [composeOpen, setComposeOpen] = useState(false)
@@ -1065,7 +1072,7 @@ function SmsTab() {
     mutationFn: () => sendSms({ to_number: smsTo.trim(), body: smsBody.trim() }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sms'] })
-      toast.success('SMS sent')
+      toast.success(t('ui:CommunicationPage.smsSent'))
       setComposeOpen(false)
       setSmsTo('')
       setSmsBody('')
@@ -1077,14 +1084,14 @@ function SmsTab() {
     <div>
       <div className="flex items-center justify-between mb-4">
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          SMS messages sent and received.
+         {t('ui:CommunicationPage.smsMessagesSentAndReceived')}
         </p>
         <button
           onClick={() => setComposeOpen(true)}
           className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
         >
           <Send className="h-4 w-4" />
-          Compose
+         {t('ui:CommunicationPage.compose')}
         </button>
       </div>
 
@@ -1095,7 +1102,7 @@ function SmsTab() {
       ) : messages.length === 0 ? (
         <div className="text-center py-16 text-gray-400 dark:text-gray-500">
           <MessageSquare className="h-10 w-10 mx-auto mb-2 opacity-50" />
-          <p className="text-sm">No SMS messages.</p>
+          <p className="text-sm">{t('ui:CommunicationPage.noSmsMessages')}</p>
         </div>
       ) : (
         <>
@@ -1111,8 +1118,8 @@ function SmsTab() {
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                    {msg.direction === 'outbound' ? 'Sent' : 'Received'}{' '}
-                    {msg.direction === 'outbound' ? `to ${msg.to_number}` : `from ${msg.from_number}`}
+                    {msg.direction === 'outbound' ? t('ui:CommunicationPage.sent') : t('ui:CommunicationPage.received')}{' '}
+                    {msg.direction === 'outbound' ? t('ui:CommunicationPage.toToNumber', { to_number: msg.to_number }) : t('ui:CommunicationPage.fromFromNumber', { from_number: msg.from_number })}
                   </span>
                   <span className="text-xs text-gray-400 dark:text-gray-500">
                     {new Date(msg.created_at).toLocaleString(undefined, {
@@ -1145,7 +1152,7 @@ function SmsTab() {
           {meta && meta.total_pages > 1 && (
             <div className="flex items-center justify-between mt-4 text-sm">
               <span className="text-gray-500 dark:text-gray-400">
-                Page {meta.page} of {meta.total_pages}
+               {t('ui:CommunicationPage.page')} {meta.page} of {meta.total_pages}
               </span>
               <div className="flex gap-2">
                 <button
@@ -1153,14 +1160,14 @@ function SmsTab() {
                   disabled={(filters.page ?? 1) <= 1}
                   className="px-3 py-1 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 disabled:opacity-50"
                 >
-                  Previous
+                 {t('ui:CommunicationPage.previous')}
                 </button>
                 <button
                   onClick={() => setFilters((f) => ({ ...f, page: (f.page ?? 1) + 1 }))}
                   disabled={(filters.page ?? 1) >= (meta?.total_pages ?? 1)}
                   className="px-3 py-1 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 disabled:opacity-50"
                 >
-                  Next
+                 {t('ui:CommunicationPage.next')}
                 </button>
               </div>
             </div>
@@ -1174,7 +1181,7 @@ function SmsTab() {
           <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-md">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                Send SMS
+               {t('ui:CommunicationPage.sendSms')}
               </h2>
               <button
                 onClick={() => setComposeOpen(false)}
@@ -1186,7 +1193,7 @@ function SmsTab() {
             <div className="px-6 py-4 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  To
+                 {t('ui:CommunicationPage.to')}
                 </label>
                 <input
                   type="text"
@@ -1198,13 +1205,13 @@ function SmsTab() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Message
+                 {t('ui:CommunicationPage.message')}
                 </label>
                 <textarea
                   value={smsBody}
                   onChange={(e) => setSmsBody(e.target.value)}
                   rows={4}
-                  placeholder="Type your message..."
+                  placeholder={t('ui:CommunicationPage.typeYourMessage')}
                   className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100 resize-none"
                 />
                 <p className="text-xs text-gray-400 mt-1">
@@ -1217,7 +1224,7 @@ function SmsTab() {
                 onClick={() => setComposeOpen(false)}
                 className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
               >
-                Cancel
+               {t('ui:CommunicationPage.cancel')}
               </button>
               <button
                 onClick={() => sendMutation.mutate()}
@@ -1226,7 +1233,7 @@ function SmsTab() {
               >
                 {sendMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
                 <Send className="h-4 w-4" />
-                Send
+               {t('ui:CommunicationPage.send')}
               </button>
             </div>
           </div>
@@ -1239,6 +1246,7 @@ function SmsTab() {
 /* ===================== Live Chat Tab ===================== */
 
 function LiveChatTab() {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const [statusFilter, setStatusFilter] = useState('')
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
@@ -1274,7 +1282,7 @@ function LiveChatTab() {
     mutationFn: (id: string) => closeChatSession(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['chat-sessions'] })
-      toast.success('Chat session closed')
+      toast.success(t('ui:CommunicationPage.chatSessionClosed'))
       setSelectedSessionId(null)
     },
     onError: (err: any) => toast.error(err.message || 'Failed to close session'),
@@ -1293,9 +1301,9 @@ function LiveChatTab() {
         <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
           <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5">
             {[
-              { value: '', label: 'All' },
-              { value: 'open', label: 'Open' },
-              { value: 'closed', label: 'Closed' },
+              { value: '', label: t('ui:CommunicationPage.all') },
+              { value: 'open', label: t('ui:CommunicationPage.open') },
+              { value: 'closed', label: t('ui:CommunicationPage.closed') },
             ].map((opt) => (
               <button
                 key={opt.value}
@@ -1320,7 +1328,7 @@ function LiveChatTab() {
           ) : sessions.length === 0 ? (
             <div className="text-center py-10 text-gray-400 dark:text-gray-500">
               <MessageCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
-              <p className="text-xs">No chat sessions.</p>
+              <p className="text-xs">{t('ui:CommunicationPage.noChatSessions')}</p>
             </div>
           ) : (
             sessions.map((session) => (
@@ -1335,7 +1343,7 @@ function LiveChatTab() {
               >
                 <div className="flex items-center justify-between mb-0.5">
                   <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                    {session.visitor_name || session.visitor_email || 'Anonymous'}
+                    {session.visitor_name || session.visitor_email || t('ui:CommunicationPage.anonymous')}
                   </span>
                   <span
                     className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
@@ -1348,7 +1356,7 @@ function LiveChatTab() {
                   </span>
                 </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                  {session.visitor_email || 'No email'}
+                  {session.visitor_email || t('ui:CommunicationPage.noEmail')}
                 </p>
                 <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
                   {new Date(session.created_at).toLocaleDateString(undefined, {
@@ -1372,10 +1380,10 @@ function LiveChatTab() {
             <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                  {selectedSession?.visitor_name || 'Anonymous'}
+                  {selectedSession?.visitor_name || t('ui:CommunicationPage.anonymous')}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {selectedSession?.visitor_email || 'No email'}
+                  {selectedSession?.visitor_email || t('ui:CommunicationPage.noEmail')}
                 </p>
               </div>
               {selectedSession?.status === 'open' && (
@@ -1384,7 +1392,7 @@ function LiveChatTab() {
                   className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
                 >
                   <XCircle className="h-3.5 w-3.5" />
-                  Close Session
+                 {t('ui:CommunicationPage.closeSession')}
                 </button>
               )}
             </div>
@@ -1438,7 +1446,7 @@ function LiveChatTab() {
                         sendMessageMutation.mutate()
                       }
                     }}
-                    placeholder="Type a message..."
+                    placeholder={t('ui:CommunicationPage.typeAMessage')}
                     className="flex-1 px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100"
                   />
                   <button
@@ -1462,7 +1470,7 @@ function LiveChatTab() {
           <div className="flex-1 flex items-center justify-center text-gray-400 dark:text-gray-500">
             <div className="text-center">
               <MessageCircle className="h-10 w-10 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">Select a chat session to view messages.</p>
+              <p className="text-sm">{t('ui:CommunicationPage.selectAChatSessionTo')}</p>
             </div>
           </div>
         )}

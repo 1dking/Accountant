@@ -18,7 +18,7 @@ import {
   restoreEntry,
   fixOrphanEntries,
 } from '@/api/cashbook'
-import { formatDate } from '@/lib/utils'
+import { formatDate, uiLocale } from '@/lib/utils'
 import { ACCOUNT_TYPES } from '@/lib/constants'
 import {
   Plus,
@@ -58,11 +58,12 @@ import type {
 import ExcelImportDialog from '@/components/cashbook/ExcelImportDialog'
 import EditEntryModal from '@/components/cashbook/EditEntryModal'
 import SplitEntryModal from '@/components/cashbook/SplitEntryModal'
+import { useTranslation } from 'react-i18next'
 
 function formatCurrency(amount: number): string {
   return (
     '$' +
-    Math.abs(amount).toLocaleString('en-US', {
+    Math.abs(amount).toLocaleString(uiLocale(), {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })
@@ -86,6 +87,7 @@ const STATUS_COLORS: Record<string, string> = {
 const currentYear = new Date().getFullYear()
 
 export default function CashbookPage() {
+  const { t } = useTranslation('ui')
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
@@ -217,7 +219,7 @@ export default function CashbookPage() {
       setNewAccountCurrency('CAD')
       setNewAccountBalance('')
       setNewAccountDate(new Date().toISOString().split('T')[0])
-      toast.success(`Account "${data.data.name}" created`)
+      toast.success(t('ui:CashbookPage.accountNameCreated', { name: data.data.name }))
     },
     onError: (err: any) => {
       toast.error(err?.message || 'Failed to create account')
@@ -230,7 +232,7 @@ export default function CashbookPage() {
       queryClient.invalidateQueries({ queryKey: ['cashbook-accounts'] })
       queryClient.invalidateQueries({ queryKey: ['cashbook-summary'] })
       setEditAccountTarget(null)
-      toast.success(`Account "${(data.data as any).name}" updated`)
+      toast.success(t('ui:CashbookPage.accountNameUpdated', { name: (data.data as any).name }))
     },
     onError: (err: any) => toast.error(err?.message || 'Failed to update account'),
   })
@@ -256,7 +258,7 @@ export default function CashbookPage() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteEntry(id),
     onSuccess: () => {
-      toast.success('Entry deleted')
+      toast.success(t('ui:CashbookPage.entryDeleted'))
       setConfirmDeleteId(null)
       queryClient.invalidateQueries({ queryKey: ['cashbook-entries'] })
       queryClient.invalidateQueries({ queryKey: ['cashbook-summary'] })
@@ -267,7 +269,7 @@ export default function CashbookPage() {
   const bulkDeleteMutation = useMutation({
     mutationFn: (ids: string[]) => bulkDeleteEntries(ids),
     onSuccess: (data) => {
-      toast.success(`Deleted ${data.data.deleted} entries`)
+      toast.success(t('ui:CashbookPage.deletedDeletedEntries', { deleted: data.data.deleted }))
       setSelectedIds(new Set())
       setConfirmBulkDelete(false)
       queryClient.invalidateQueries({ queryKey: ['cashbook-entries'] })
@@ -278,7 +280,7 @@ export default function CashbookPage() {
   const bulkCategorizeMutation = useMutation({
     mutationFn: ({ ids, catId }: { ids: string[]; catId: string }) => bulkCategorizeEntries(ids, catId),
     onSuccess: (data) => {
-      toast.success(`Categorized ${data.data.updated} entries`)
+      toast.success(t('ui:CashbookPage.categorizedUpdatedEntries', { updated: data.data.updated }))
       setSelectedIds(new Set())
       setShowBulkCategorize(false)
       queryClient.invalidateQueries({ queryKey: ['cashbook-entries'] })
@@ -288,7 +290,7 @@ export default function CashbookPage() {
   const bulkMoveMutation = useMutation({
     mutationFn: ({ ids, acctId }: { ids: string[]; acctId: string }) => bulkMoveEntries(ids, acctId),
     onSuccess: (data) => {
-      toast.success(`Moved ${data.data.moved} entries`)
+      toast.success(t('ui:CashbookPage.movedMovedEntries', { moved: data.data.moved }))
       setSelectedIds(new Set())
       setShowBulkMove(false)
       queryClient.invalidateQueries({ queryKey: ['cashbook-entries'] })
@@ -299,7 +301,7 @@ export default function CashbookPage() {
   const bulkStatusMutation = useMutation({
     mutationFn: ({ ids, status }: { ids: string[]; status: string }) => bulkUpdateStatus(ids, status),
     onSuccess: (data) => {
-      toast.success(`Updated ${data.data.updated} entries`)
+      toast.success(t('ui:CashbookPage.updatedUpdatedEntries', { updated: data.data.updated }))
       setSelectedIds(new Set())
       queryClient.invalidateQueries({ queryKey: ['cashbook-entries'] })
     },
@@ -308,7 +310,7 @@ export default function CashbookPage() {
   const restoreMutation = useMutation({
     mutationFn: restoreEntry,
     onSuccess: () => {
-      toast.success('Entry restored')
+      toast.success(t('ui:CashbookPage.entryRestored'))
       queryClient.invalidateQueries({ queryKey: ['cashbook-entries'] })
     },
   })
@@ -321,7 +323,7 @@ export default function CashbookPage() {
       if (data.data.reassigned > 0) {
         queryClient.invalidateQueries({ queryKey: ['cashbook-entries'] })
         queryClient.invalidateQueries({ queryKey: ['cashbook-summary'] })
-        toast.success(`Assigned ${data.data.reassigned} orphan entries to your first account`)
+        toast.success(t('ui:CashbookPage.assignedReassignedOrphanEntriesTo', { reassigned: data.data.reassigned }))
       }
     },
   })
@@ -390,25 +392,25 @@ export default function CashbookPage() {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowAddAccount(false)}>
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl border dark:border-gray-700 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-4 border-b dark:border-gray-700">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Add Payment Account</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('ui:CashbookPage.addPaymentAccount')}</h3>
           <button onClick={() => setShowAddAccount(false)} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
             <X className="h-5 w-5" />
           </button>
         </div>
         <div className="px-6 py-5 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Account Name *</label>
-            <input type="text" value={newAccountName} onChange={e => setNewAccountName(e.target.value)} placeholder="Business Checking" className="w-full px-3 py-2 text-sm border dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" autoFocus />
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:CashbookPage.accountName')}</label>
+            <input type="text" value={newAccountName} onChange={e => setNewAccountName(e.target.value)} placeholder={t('ui:CashbookPage.businessChecking')} className="w-full px-3 py-2 text-sm border dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" autoFocus />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:CashbookPage.type')}</label>
               <select value={newAccountType} onChange={e => setNewAccountType(e.target.value as AccountType)} className="w-full px-3 py-2 text-sm border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 dark:text-gray-100">
                 {ACCOUNT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Currency</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:CashbookPage.currency')}</label>
               <select value={newAccountCurrency} onChange={e => setNewAccountCurrency(e.target.value)} className="w-full px-3 py-2 text-sm border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 dark:text-gray-100">
                 <option value="CAD">CAD</option>
                 <option value="USD">USD</option>
@@ -417,24 +419,24 @@ export default function CashbookPage() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Opening Balance</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:CashbookPage.openingBalance')}</label>
               <input type="number" step="0.01" value={newAccountBalance} onChange={e => setNewAccountBalance(e.target.value)} placeholder="0.00" className="w-full px-3 py-2 text-sm border dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">As of Date *</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:CashbookPage.asOfDate')}</label>
               <input type="date" value={newAccountDate} onChange={e => setNewAccountDate(e.target.value)} className="w-full px-3 py-2 text-sm border dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
             </div>
           </div>
         </div>
         {createAccountMutation.isError && (
           <div className="mx-6 mb-0 p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-300">
-            {(createAccountMutation.error as any)?.message || 'Failed to create account'}
+            {(createAccountMutation.error as any)?.message || t('ui:CashbookPage.failedToCreateAccount')}
           </div>
         )}
         <div className="flex justify-end gap-2 px-6 py-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 rounded-b-xl">
-          <button onClick={() => setShowAddAccount(false)} className="px-4 py-2 text-sm border dark:border-gray-600 rounded-lg dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Cancel</button>
+          <button onClick={() => setShowAddAccount(false)} className="px-4 py-2 text-sm border dark:border-gray-600 rounded-lg dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">{t('ui:CashbookPage.cancel')}</button>
           <button onClick={() => createAccountMutation.mutate()} disabled={!newAccountName || createAccountMutation.isPending} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">
-            {createAccountMutation.isPending ? 'Creating...' : 'Create Account'}
+            {createAccountMutation.isPending ? t('ui:CashbookPage.creating') : t('ui:CashbookPage.createAccount')}
           </button>
         </div>
       </div>
@@ -459,15 +461,15 @@ export default function CashbookPage() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Cashbook</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('ui:CashbookPage.cashbook')}</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{meta?.total_count ?? 0} entries</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           <button onClick={() => setShowAddAccount(true)} className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 border dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800">
-            <Plus className="h-4 w-4" /> Add Account
+            <Plus className="h-4 w-4" /> {t('ui:CashbookPage.addAccount')}
           </button>
           <button onClick={() => setShowImportDialog(true)} className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 border dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800">
-            <Upload className="h-4 w-4" /> Import
+            <Upload className="h-4 w-4" /> {t('ui:CashbookPage.import')}
           </button>
           {activeAccountId !== 'all' && (
             <a
@@ -493,7 +495,7 @@ export default function CashbookPage() {
             </a>
           )}
           <button onClick={() => navigate('/cashbook/new')} className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">
-            <Plus className="h-4 w-4" /> New Entry
+            <Plus className="h-4 w-4" /> {t('ui:CashbookPage.newEntry')}
           </button>
         </div>
       </div>
@@ -505,9 +507,9 @@ export default function CashbookPage() {
       {accounts.length === 0 && (
         <div className="flex items-center gap-3 p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
           <Wallet className="h-5 w-5 text-amber-600 shrink-0" />
-          <p className="text-sm text-amber-800 dark:text-amber-300">Create a payment account to start tracking income and expenses.</p>
+          <p className="text-sm text-amber-800 dark:text-amber-300">{t('ui:CashbookPage.createAPaymentAccountTo')}</p>
           <button onClick={() => setShowAddAccount(true)} className="ml-auto shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">
-            <Plus className="h-3.5 w-3.5" /> Add Account
+            <Plus className="h-3.5 w-3.5" /> {t('ui:CashbookPage.addAccount')}
           </button>
         </div>
       )}
@@ -521,7 +523,7 @@ export default function CashbookPage() {
         )}
         <div ref={tabContainerRef} className="flex items-center gap-1 overflow-x-auto scrollbar-hide scroll-smooth flex-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
           <button onClick={() => { setSelectedAccountId('all'); setPage(1); setSelectedIds(new Set()) }} ref={activeAccountId === 'all' ? activeTabRef : undefined} className={`px-4 py-2 text-sm font-medium border-b-2 whitespace-nowrap shrink-0 ${activeAccountId === 'all' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}>
-            All Accounts
+           {t('ui:CashbookPage.allAccounts')}
           </button>
           {accounts.map(account => (
             <button key={account.id} onClick={() => { setSelectedAccountId(account.id); setPage(1); setSelectedIds(new Set()) }} ref={activeAccountId === account.id ? activeTabRef : undefined} className={`px-4 py-2 text-sm font-medium border-b-2 whitespace-nowrap shrink-0 ${activeAccountId === account.id ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}>
@@ -537,10 +539,10 @@ export default function CashbookPage() {
         )}
         {activeAccountId !== 'all' && (
           <div className="shrink-0 flex items-center gap-1 ml-2 pl-2 border-l dark:border-gray-700">
-            <button onClick={() => openEditAccount(accounts.find(a => a.id === activeAccountId)!)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 rounded" title="Edit account">
+            <button onClick={() => openEditAccount(accounts.find(a => a.id === activeAccountId)!)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 rounded" title={t('ui:CashbookPage.editAccount')}>
               <Pencil className="h-3.5 w-3.5" />
             </button>
-            <button onClick={() => openDeleteAccount(accounts.find(a => a.id === activeAccountId)!)} disabled={deleteAccountMutation.isPending} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950 rounded disabled:opacity-50" title="Delete account">
+            <button onClick={() => openDeleteAccount(accounts.find(a => a.id === activeAccountId)!)} disabled={deleteAccountMutation.isPending} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950 rounded disabled:opacity-50" title={t('ui:CashbookPage.deleteAccount')}>
               <Trash2 className="h-3.5 w-3.5" />
             </button>
           </div>
@@ -556,7 +558,7 @@ export default function CashbookPage() {
                 ? type === 'income' ? 'bg-green-100 dark:bg-green-900/30 text-green-700' : type === 'expense' ? 'bg-red-100 dark:bg-red-900/30 text-red-700' : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700'
                 : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'
             }`}>
-              {type === 'all' ? 'All' : type === 'income' ? 'Income' : 'Expenses'}
+              {type === 'all' ? t('ui:CashbookPage.all') : type === 'income' ? t('ui:CashbookPage.income') : t('ui:CashbookPage.expenses')}
             </button>
           ))}
         </div>
@@ -571,14 +573,14 @@ export default function CashbookPage() {
                   : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'
               }`}>
                 {Icon && <Icon className={`h-3.5 w-3.5 ${color}`} />}
-                {st === 'all' ? 'All Status' : st.charAt(0).toUpperCase() + st.slice(1)}
+                {st === 'all' ? t('ui:CashbookPage.allStatus') : st.charAt(0).toUpperCase() + st.slice(1)}
               </button>
             )
           })}
         </div>
         <div className="flex items-center gap-1">
           {[
-            { label: 'All Time', from: '', to: '' },
+            { label: t('ui:CashbookPage.allTime'), from: '', to: '' },
             { label: String(currentYear), from: `${currentYear}-01-01`, to: `${currentYear}-12-31` },
             { label: String(currentYear - 1), from: `${currentYear - 1}-01-01`, to: `${currentYear - 1}-12-31` },
           ].map(r => {
@@ -598,9 +600,9 @@ export default function CashbookPage() {
         <div className="flex-1 flex gap-2 max-w-md">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input type="text" value={searchInput} onChange={e => setSearchInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSearch()} placeholder="Search..." className="w-full pl-10 pr-4 py-1.5 text-sm border dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-gray-100" />
+            <input type="text" value={searchInput} onChange={e => setSearchInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSearch()} placeholder={t('ui:CashbookPage.search')} className="w-full pl-10 pr-4 py-1.5 text-sm border dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-gray-100" />
           </div>
-          <button onClick={handleSearch} className="px-3 py-1.5 text-sm border dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-300">Go</button>
+          <button onClick={handleSearch} className="px-3 py-1.5 text-sm border dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-300">{t('ui:CashbookPage.go')}</button>
         </div>
         <button
           onClick={() => { setShowDeleted(!showDeleted); setPage(1) }}
@@ -609,10 +611,10 @@ export default function CashbookPage() {
               ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
               : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'
           }`}
-          title={showDeleted ? 'Hide deleted entries' : 'Show deleted entries'}
+          title={showDeleted ? t('ui:CashbookPage.hideDeletedEntries') : t('ui:CashbookPage.showDeletedEntries')}
         >
           {showDeleted ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-          {showDeleted ? 'Hide deleted' : 'Show deleted'}
+          {showDeleted ? t('ui:CashbookPage.hideDeleted') : t('ui:CashbookPage.showDeleted')}
         </button>
       </div>
 
@@ -622,28 +624,28 @@ export default function CashbookPage() {
           <CheckSquare className="w-4 h-4 text-blue-600" />
           <span className="text-sm font-medium text-blue-700 dark:text-blue-300">{selectedIds.size} selected</span>
           <div className="flex gap-1 ml-3 flex-wrap">
-            <button onClick={() => setConfirmBulkDelete(true)} className="px-2.5 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700">Delete</button>
+            <button onClick={() => setConfirmBulkDelete(true)} className="px-2.5 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700">{t('ui:CashbookPage.delete')}</button>
             <div className="relative">
-              <button onClick={() => { setShowBulkCategorize(!showBulkCategorize); setShowBulkMove(false) }} className="px-2.5 py-1 text-xs bg-white dark:bg-gray-800 border rounded hover:bg-gray-50 dark:text-gray-300">Categorize</button>
+              <button onClick={() => { setShowBulkCategorize(!showBulkCategorize); setShowBulkMove(false) }} className="px-2.5 py-1 text-xs bg-white dark:bg-gray-800 border rounded hover:bg-gray-50 dark:text-gray-300">{t('ui:CashbookPage.categorize')}</button>
               {showBulkCategorize && (
                 <div className="absolute top-8 left-0 z-20 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg shadow-lg p-3 w-60">
                   <select value={bulkCategoryId} onChange={e => setBulkCategoryId(e.target.value)} className="w-full px-2 py-1.5 text-sm border rounded dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100 mb-2">
-                    <option value="">Select...</option>
+                    <option value="">{t('ui:CashbookPage.select')}</option>
                     {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
-                  <button onClick={() => bulkCategoryId && bulkCategorizeMutation.mutate({ ids: Array.from(selectedIds), catId: bulkCategoryId })} disabled={!bulkCategoryId} className="w-full px-2 py-1 text-xs bg-blue-600 text-white rounded disabled:opacity-50">Apply</button>
+                  <button onClick={() => bulkCategoryId && bulkCategorizeMutation.mutate({ ids: Array.from(selectedIds), catId: bulkCategoryId })} disabled={!bulkCategoryId} className="w-full px-2 py-1 text-xs bg-blue-600 text-white rounded disabled:opacity-50">{t('ui:CashbookPage.apply')}</button>
                 </div>
               )}
             </div>
             <div className="relative">
-              <button onClick={() => { setShowBulkMove(!showBulkMove); setShowBulkCategorize(false) }} className="px-2.5 py-1 text-xs bg-white dark:bg-gray-800 border rounded hover:bg-gray-50 dark:text-gray-300">Move</button>
+              <button onClick={() => { setShowBulkMove(!showBulkMove); setShowBulkCategorize(false) }} className="px-2.5 py-1 text-xs bg-white dark:bg-gray-800 border rounded hover:bg-gray-50 dark:text-gray-300">{t('ui:CashbookPage.move')}</button>
               {showBulkMove && (
                 <div className="absolute top-8 left-0 z-20 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg shadow-lg p-3 w-60">
                   <select value={bulkMoveAccountId} onChange={e => setBulkMoveAccountId(e.target.value)} className="w-full px-2 py-1.5 text-sm border rounded dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100 mb-2">
-                    <option value="">Select...</option>
+                    <option value="">{t('ui:CashbookPage.select')}</option>
                     {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                   </select>
-                  <button onClick={() => bulkMoveAccountId && bulkMoveMutation.mutate({ ids: Array.from(selectedIds), acctId: bulkMoveAccountId })} disabled={!bulkMoveAccountId} className="w-full px-2 py-1 text-xs bg-blue-600 text-white rounded disabled:opacity-50">Move</button>
+                  <button onClick={() => bulkMoveAccountId && bulkMoveMutation.mutate({ ids: Array.from(selectedIds), acctId: bulkMoveAccountId })} disabled={!bulkMoveAccountId} className="w-full px-2 py-1 text-xs bg-blue-600 text-white rounded disabled:opacity-50">{t('ui:CashbookPage.move')}</button>
                 </div>
               )}
             </div>
@@ -653,7 +655,7 @@ export default function CashbookPage() {
               </button>
             ))}
           </div>
-          <button onClick={() => setSelectedIds(new Set())} className="ml-auto text-xs text-gray-500 hover:text-gray-700">Clear</button>
+          <button onClick={() => setSelectedIds(new Set())} className="ml-auto text-xs text-gray-500 hover:text-gray-700">{t('ui:CashbookPage.clear')}</button>
         </div>
       )}
 
@@ -661,19 +663,19 @@ export default function CashbookPage() {
       {summary && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-4">
-            <div className="flex items-center gap-2 text-sm text-gray-500 mb-1"><Wallet className="h-4 w-4" /> Opening</div>
+            <div className="flex items-center gap-2 text-sm text-gray-500 mb-1"><Wallet className="h-4 w-4" /> {t('ui:CashbookPage.opening')}</div>
             <p className="text-xl font-bold text-gray-900 dark:text-gray-100">{summary.opening_balance < 0 ? '-' : ''}{formatCurrency(summary.opening_balance)}</p>
           </div>
           <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-4">
-            <div className="flex items-center gap-2 text-sm text-green-600 mb-1"><TrendingUp className="h-4 w-4" /> Income</div>
+            <div className="flex items-center gap-2 text-sm text-green-600 mb-1"><TrendingUp className="h-4 w-4" /> {t('ui:CashbookPage.income')}</div>
             <p className="text-xl font-bold text-green-700">{formatCurrency(summary.total_income)}</p>
           </div>
           <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-4">
-            <div className="flex items-center gap-2 text-sm text-red-600 mb-1"><TrendingDown className="h-4 w-4" /> Expenses</div>
+            <div className="flex items-center gap-2 text-sm text-red-600 mb-1"><TrendingDown className="h-4 w-4" /> {t('ui:CashbookPage.expenses')}</div>
             <p className="text-xl font-bold text-red-700">{formatCurrency(summary.total_expenses)}</p>
           </div>
           <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-4">
-            <div className="flex items-center gap-2 text-sm text-gray-500 mb-1"><DollarSign className="h-4 w-4" /> Closing</div>
+            <div className="flex items-center gap-2 text-sm text-gray-500 mb-1"><DollarSign className="h-4 w-4" /> {t('ui:CashbookPage.closing')}</div>
             <p className={`text-xl font-bold ${summary.closing_balance >= 0 ? 'text-gray-900 dark:text-gray-100' : 'text-red-700'}`}>
               {summary.closing_balance < 0 ? '-' : ''}{formatCurrency(summary.closing_balance)}
             </p>
@@ -685,18 +687,18 @@ export default function CashbookPage() {
       {summary && (summary.total_tax_collected > 0 || summary.total_tax_paid > 0) && (
         <div className="grid grid-cols-3 gap-4">
           <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-3">
-            <div className="flex items-center gap-2 text-xs text-green-600 mb-1"><Receipt className="h-3.5 w-3.5" /> Tax Collected</div>
+            <div className="flex items-center gap-2 text-xs text-green-600 mb-1"><Receipt className="h-3.5 w-3.5" /> {t('ui:CashbookPage.taxCollected')}</div>
             <p className="text-lg font-bold text-green-700">{formatCurrency(summary.total_tax_collected)}</p>
           </div>
           <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-3">
-            <div className="flex items-center gap-2 text-xs text-red-600 mb-1"><Receipt className="h-3.5 w-3.5" /> Tax Paid</div>
+            <div className="flex items-center gap-2 text-xs text-red-600 mb-1"><Receipt className="h-3.5 w-3.5" /> {t('ui:CashbookPage.taxPaid')}</div>
             <p className="text-lg font-bold text-red-700">{formatCurrency(summary.total_tax_paid)}</p>
           </div>
           <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-3">
-            <div className="flex items-center gap-2 text-xs text-gray-500 mb-1"><Receipt className="h-3.5 w-3.5" /> Net Tax</div>
+            <div className="flex items-center gap-2 text-xs text-gray-500 mb-1"><Receipt className="h-3.5 w-3.5" /> {t('ui:CashbookPage.netTax')}</div>
             <p className={`text-lg font-bold ${summary.total_tax_collected - summary.total_tax_paid >= 0 ? 'text-orange-600' : 'text-blue-600'}`}>
               {formatCurrency(summary.total_tax_collected - summary.total_tax_paid)}
-              <span className="text-xs font-normal text-gray-400 ml-1">{summary.total_tax_collected - summary.total_tax_paid >= 0 ? '(owed)' : '(refund)'}</span>
+              <span className="text-xs font-normal text-gray-400 ml-1">{summary.total_tax_collected - summary.total_tax_paid >= 0 ? t('ui:CashbookPage.owed') : t('ui:CashbookPage.refund')}</span>
             </p>
           </div>
         </div>
@@ -710,15 +712,15 @@ export default function CashbookPage() {
               <th className="w-10 px-3 py-3">
                 <input type="checkbox" checked={selectedIds.size === entries.length && entries.length > 0} onChange={toggleSelectAll} className="rounded border-gray-300" />
               </th>
-              <th className="w-8 px-1 py-3 text-xs font-medium text-gray-500 uppercase" title="Status">St</th>
-              <th className="text-left px-3 py-3 text-xs font-medium text-gray-500 uppercase">Date</th>
-              {activeAccountId === 'all' && <th className="text-left px-3 py-3 text-xs font-medium text-gray-500 uppercase">Account</th>}
-              <th className="text-left px-3 py-3 text-xs font-medium text-gray-500 uppercase">Description</th>
-              <th className="text-left px-3 py-3 text-xs font-medium text-gray-500 uppercase">Category</th>
-              <th className="text-right px-3 py-3 text-xs font-medium text-gray-500 uppercase">Income</th>
-              <th className="text-right px-3 py-3 text-xs font-medium text-gray-500 uppercase">Expense</th>
-              <th className="text-right px-3 py-3 text-xs font-medium text-gray-500 uppercase">Tax</th>
-              <th className="text-right px-3 py-3 text-xs font-medium text-gray-500 uppercase">Balance</th>
+              <th className="w-8 px-1 py-3 text-xs font-medium text-gray-500 uppercase" title={t('ui:CashbookPage.status')}>{t('ui:CashbookPage.st')}</th>
+              <th className="text-left px-3 py-3 text-xs font-medium text-gray-500 uppercase">{t('ui:CashbookPage.date')}</th>
+              {activeAccountId === 'all' && <th className="text-left px-3 py-3 text-xs font-medium text-gray-500 uppercase">{t('ui:CashbookPage.account')}</th>}
+              <th className="text-left px-3 py-3 text-xs font-medium text-gray-500 uppercase">{t('ui:CashbookPage.description')}</th>
+              <th className="text-left px-3 py-3 text-xs font-medium text-gray-500 uppercase">{t('ui:CashbookPage.category')}</th>
+              <th className="text-right px-3 py-3 text-xs font-medium text-gray-500 uppercase">{t('ui:CashbookPage.income')}</th>
+              <th className="text-right px-3 py-3 text-xs font-medium text-gray-500 uppercase">{t('ui:CashbookPage.expense')}</th>
+              <th className="text-right px-3 py-3 text-xs font-medium text-gray-500 uppercase">{t('ui:CashbookPage.tax')}</th>
+              <th className="text-right px-3 py-3 text-xs font-medium text-gray-500 uppercase">{t('ui:CashbookPage.balance')}</th>
               <th className="w-20 px-2 py-3"></th>
             </tr>
           </thead>
@@ -731,7 +733,7 @@ export default function CashbookPage() {
               <tr>
                 <td colSpan={11} className="px-4 py-12 text-center">
                   <BookOpen className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-500 font-medium">No entries found</p>
+                  <p className="text-gray-500 font-medium">{t('ui:CashbookPage.noEntriesFound')}</p>
                 </td>
               </tr>
             ) : entries.map(entry => {
@@ -782,18 +784,18 @@ export default function CashbookPage() {
                     <div className="flex items-center gap-0.5 justify-end">
                       {!entry.is_deleted ? (
                         <>
-                          <button onClick={() => setEditEntry(entry)} className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 rounded" title="Edit">
+                          <button onClick={() => setEditEntry(entry)} className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 rounded" title={t('ui:CashbookPage.edit')}>
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
-                          <button onClick={() => setSplitEntryTarget(entry)} className="p-1 text-gray-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950 rounded" title="Split">
+                          <button onClick={() => setSplitEntryTarget(entry)} className="p-1 text-gray-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950 rounded" title={t('ui:CashbookPage.split')}>
                             <Scissors className="w-3.5 h-3.5" />
                           </button>
-                          <button onClick={() => setConfirmDeleteId(entry.id)} className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950 rounded" title="Delete">
+                          <button onClick={() => setConfirmDeleteId(entry.id)} className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950 rounded" title={t('ui:CashbookPage.delete')}>
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </>
                       ) : (
-                        <button onClick={() => restoreMutation.mutate(entry.id)} className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-950 rounded" title="Restore">
+                        <button onClick={() => restoreMutation.mutate(entry.id)} className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-950 rounded" title={t('ui:CashbookPage.restore')}>
                           <RotateCcw className="w-3.5 h-3.5" />
                         </button>
                       )}
@@ -809,10 +811,10 @@ export default function CashbookPage() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
-          <p className="text-sm text-gray-500">{currentPage}/{totalPages} ({meta?.total_count} total)</p>
+          <p className="text-sm text-gray-500">{currentPage}/{totalPages} ({meta?.total_count} {t('ui:CashbookPage.total')}</p>
           <div className="flex gap-1">
-            <button disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)} className="px-3 py-1 text-sm border dark:border-gray-600 rounded-md disabled:opacity-50 dark:text-gray-300">Prev</button>
-            <button disabled={currentPage >= totalPages} onClick={() => setPage(currentPage + 1)} className="px-3 py-1 text-sm border dark:border-gray-600 rounded-md disabled:opacity-50 dark:text-gray-300">Next</button>
+            <button disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)} className="px-3 py-1 text-sm border dark:border-gray-600 rounded-md disabled:opacity-50 dark:text-gray-300">{t('ui:CashbookPage.prev')}</button>
+            <button disabled={currentPage >= totalPages} onClick={() => setPage(currentPage + 1)} className="px-3 py-1 text-sm border dark:border-gray-600 rounded-md disabled:opacity-50 dark:text-gray-300">{t('ui:CashbookPage.next')}</button>
           </div>
         </div>
       )}
@@ -821,14 +823,14 @@ export default function CashbookPage() {
       {summary && categoryTotals.length > 0 && (
         <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700">
           <button onClick={() => setShowCategoryTotals(!showCategoryTotals)} className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">
-            Category Totals
+           {t('ui:CashbookPage.categoryTotals')}
             <ChevronDown className={`h-4 w-4 transition-transform ${showCategoryTotals ? 'rotate-180' : ''}`} />
           </button>
           {showCategoryTotals && (
             <div className="px-4 pb-4">
               {incomeTotals.length > 0 && (
                 <div className="mb-4">
-                  <h4 className="text-xs font-semibold text-green-700 uppercase mb-2">Income</h4>
+                  <h4 className="text-xs font-semibold text-green-700 uppercase mb-2">{t('ui:CashbookPage.income')}</h4>
                   {incomeTotals.map((ct: any) => (
                     <div key={`i-${ct.category_id}`} className="flex justify-between text-sm py-1">
                       <span className="text-gray-700 dark:text-gray-300">{ct.category_name} <span className="text-gray-400">({ct.count})</span></span>
@@ -839,7 +841,7 @@ export default function CashbookPage() {
               )}
               {expenseTotals.length > 0 && (
                 <div>
-                  <h4 className="text-xs font-semibold text-red-700 uppercase mb-2">Expenses</h4>
+                  <h4 className="text-xs font-semibold text-red-700 uppercase mb-2">{t('ui:CashbookPage.expenses')}</h4>
                   {expenseTotals.map((ct: any) => (
                     <div key={`e-${ct.category_id}`} className="flex justify-between text-sm py-1">
                       <span className="text-gray-700 dark:text-gray-300">{ct.category_name} <span className="text-gray-400">({ct.count})</span></span>
@@ -858,23 +860,23 @@ export default function CashbookPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setEditAccountTarget(null)}>
           <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl border dark:border-gray-700 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-4 border-b dark:border-gray-700">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Edit Account</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('ui:CashbookPage.editAccount_2')}</h3>
               <button onClick={() => setEditAccountTarget(null)} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"><X className="h-5 w-5" /></button>
             </div>
             <div className="px-6 py-5 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Account Name *</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:CashbookPage.accountName')}</label>
                 <input type="text" value={editAccName} onChange={e => setEditAccName(e.target.value)} className="w-full px-3 py-2 text-sm border dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" autoFocus />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:CashbookPage.type')}</label>
                   <select value={editAccType} onChange={e => setEditAccType(e.target.value as AccountType)} className="w-full px-3 py-2 text-sm border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 dark:text-gray-100">
                     {ACCOUNT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Currency</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:CashbookPage.currency')}</label>
                   <select value={editAccCurrency} onChange={e => setEditAccCurrency(e.target.value)} className="w-full px-3 py-2 text-sm border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 dark:text-gray-100">
                     <option value="CAD">CAD</option>
                     <option value="USD">USD</option>
@@ -883,17 +885,17 @@ export default function CashbookPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Opening Balance</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:CashbookPage.openingBalance')}</label>
                   <input type="number" step="0.01" value={editAccBalance} onChange={e => setEditAccBalance(e.target.value)} className="w-full px-3 py-2 text-sm border dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">As of Date</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:CashbookPage.asOfDate_2')}</label>
                   <input type="date" value={editAccDate} onChange={e => setEditAccDate(e.target.value)} className="w-full px-3 py-2 text-sm border dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
                 </div>
               </div>
             </div>
             <div className="flex justify-end gap-2 px-6 py-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 rounded-b-xl">
-              <button onClick={() => setEditAccountTarget(null)} className="px-4 py-2 text-sm border dark:border-gray-600 rounded-lg dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Cancel</button>
+              <button onClick={() => setEditAccountTarget(null)} className="px-4 py-2 text-sm border dark:border-gray-600 rounded-lg dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">{t('ui:CashbookPage.cancel')}</button>
               <button
                 onClick={() => {
                   const data: Record<string, unknown> = {}
@@ -909,7 +911,7 @@ export default function CashbookPage() {
                 disabled={!editAccName || updateAccountMutation.isPending}
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
               >
-                {updateAccountMutation.isPending ? 'Saving...' : 'Save Changes'}
+                {updateAccountMutation.isPending ? t('ui:CashbookPage.saving') : t('ui:CashbookPage.saveChanges')}
               </button>
             </div>
           </div>
@@ -921,26 +923,26 @@ export default function CashbookPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setDeleteAccountTarget(null)}>
           <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl border dark:border-gray-700 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-4 border-b dark:border-gray-700">
-              <h3 className="text-lg font-semibold text-red-700 dark:text-red-400">Delete Account</h3>
+              <h3 className="text-lg font-semibold text-red-700 dark:text-red-400">{t('ui:CashbookPage.deleteAccount_2')}</h3>
               <button onClick={() => setDeleteAccountTarget(null)} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"><X className="h-5 w-5" /></button>
             </div>
             <div className="px-6 py-5 space-y-4">
               <p className="text-sm text-gray-700 dark:text-gray-300">
-                Are you sure you want to delete <strong>{deleteAccountTarget.name}</strong>?
+               {t('ui:CashbookPage.areYouSureYouWant')} <strong>{deleteAccountTarget.name}</strong>?
               </p>
               {accounts.length <= 1 ? (
                 <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-sm text-amber-800 dark:text-amber-300">
-                  This is your only account. You cannot delete it.
+                 {t('ui:CashbookPage.thisIsYourOnlyAccount')}
                 </div>
               ) : (
                 <>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">What should happen to entries in this account?</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{t('ui:CashbookPage.whatShouldHappenToEntries')}</p>
                   <div className="space-y-3">
                     <label className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer ${deleteAction === 'move' ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/20' : 'dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>
                       <input type="radio" name="deleteAction" value="move" checked={deleteAction === 'move'} onChange={() => setDeleteAction('move')} className="mt-0.5" />
                       <div className="flex-1">
                         <div className="flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-gray-100">
-                          <ArrowRightLeft className="h-4 w-4 text-blue-600" /> Move entries to another account
+                          <ArrowRightLeft className="h-4 w-4 text-blue-600" /> {t('ui:CashbookPage.moveEntriesToAnotherAccount')}
                         </div>
                         {deleteAction === 'move' && (
                           <select value={deleteMoveTargetId} onChange={e => setDeleteMoveTargetId(e.target.value)} className="mt-2 w-full px-3 py-2 text-sm border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 dark:text-gray-100">
@@ -955,9 +957,9 @@ export default function CashbookPage() {
                       <input type="radio" name="deleteAction" value="delete" checked={deleteAction === 'delete'} onChange={() => setDeleteAction('delete')} className="mt-0.5" />
                       <div>
                         <div className="flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-gray-100">
-                          <Trash2 className="h-4 w-4 text-red-600" /> Delete all entries too
+                          <Trash2 className="h-4 w-4 text-red-600" /> {t('ui:CashbookPage.deleteAllEntriesToo')}
                         </div>
-                        <p className="text-xs text-gray-500 mt-0.5">Entries will be soft-deleted and can be restored later.</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{t('ui:CashbookPage.entriesWillBeSoftDeleted')}</p>
                       </div>
                     </label>
                   </div>
@@ -965,7 +967,7 @@ export default function CashbookPage() {
               )}
             </div>
             <div className="flex justify-end gap-2 px-6 py-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 rounded-b-xl">
-              <button onClick={() => setDeleteAccountTarget(null)} className="px-4 py-2 text-sm border dark:border-gray-600 rounded-lg dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Cancel</button>
+              <button onClick={() => setDeleteAccountTarget(null)} className="px-4 py-2 text-sm border dark:border-gray-600 rounded-lg dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">{t('ui:CashbookPage.cancel')}</button>
               {accounts.length > 1 && (
                 <button
                   onClick={() => deleteAccountMutation.mutate({
@@ -976,7 +978,7 @@ export default function CashbookPage() {
                   disabled={deleteAccountMutation.isPending || (deleteAction === 'move' && !deleteMoveTargetId)}
                   className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50"
                 >
-                  {deleteAccountMutation.isPending ? 'Deleting...' : 'Delete Account'}
+                  {deleteAccountMutation.isPending ? t('ui:CashbookPage.deleting') : t('ui:CashbookPage.deleteAccount_2')}
                 </button>
               )}
             </div>
@@ -995,13 +997,13 @@ export default function CashbookPage() {
           <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl border dark:border-gray-700 w-full max-w-sm mx-4 p-6" onClick={e => e.stopPropagation()}>
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 bg-red-100 dark:bg-red-950/30 rounded-full"><Trash2 className="h-5 w-5 text-red-600" /></div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Delete Entry</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('ui:CashbookPage.deleteEntry')}</h3>
             </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">Are you sure you want to delete this entry? It can be restored later from the "Show deleted" view.</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">{t('ui:CashbookPage.areYouSureYouWant_2')}</p>
             <div className="flex justify-end gap-2">
-              <button onClick={() => setConfirmDeleteId(null)} className="px-4 py-2 text-sm border dark:border-gray-600 rounded-lg dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Cancel</button>
+              <button onClick={() => setConfirmDeleteId(null)} className="px-4 py-2 text-sm border dark:border-gray-600 rounded-lg dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">{t('ui:CashbookPage.cancel')}</button>
               <button onClick={() => deleteMutation.mutate(confirmDeleteId)} disabled={deleteMutation.isPending} className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50">
-                {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+                {deleteMutation.isPending ? t('ui:CashbookPage.deleting') : t('ui:CashbookPage.delete')}
               </button>
             </div>
           </div>
@@ -1014,13 +1016,13 @@ export default function CashbookPage() {
           <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl border dark:border-gray-700 w-full max-w-sm mx-4 p-6" onClick={e => e.stopPropagation()}>
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 bg-red-100 dark:bg-red-950/30 rounded-full"><Trash2 className="h-5 w-5 text-red-600" /></div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Delete {selectedIds.size} Entries</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('ui:CashbookPage.delete')} {selectedIds.size} {t('ui:CashbookPage.entries')}</h3>
             </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">Are you sure you want to delete {selectedIds.size} selected entries? They can be restored later from the "Show deleted" view.</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">{t('ui:CashbookPage.areYouSureYouWant')} {selectedIds.size} {t('ui:CashbookPage.selectedEntriesTheyCanBe')}</p>
             <div className="flex justify-end gap-2">
-              <button onClick={() => setConfirmBulkDelete(false)} className="px-4 py-2 text-sm border dark:border-gray-600 rounded-lg dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Cancel</button>
+              <button onClick={() => setConfirmBulkDelete(false)} className="px-4 py-2 text-sm border dark:border-gray-600 rounded-lg dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">{t('ui:CashbookPage.cancel')}</button>
               <button onClick={() => bulkDeleteMutation.mutate(Array.from(selectedIds))} disabled={bulkDeleteMutation.isPending} className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50">
-                {bulkDeleteMutation.isPending ? 'Deleting...' : `Delete ${selectedIds.size} entries`}
+                {bulkDeleteMutation.isPending ? t('ui:CashbookPage.deleting') : t('ui:CashbookPage.deleteSizeEntries', { size: selectedIds.size })}
               </button>
             </div>
           </div>

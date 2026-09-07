@@ -22,6 +22,7 @@ import {
   Pencil,
   Share2,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 export interface ContextMenuPosition {
   x: number
@@ -55,6 +56,7 @@ export default function FileContextMenu({
   onRename,
   onShare,
 }: FileContextMenuProps) {
+  const { t } = useTranslation('ui')
   const ref = useRef<HTMLDivElement>(null)
   const queryClient = useQueryClient()
 
@@ -74,7 +76,7 @@ export default function FileContextMenu({
     },
     onSuccess: () => {
       invalidateAll()
-      toast.success('Updated')
+      toast.success(t('ui:FileContextMenu.updated'))
     },
   })
 
@@ -82,7 +84,7 @@ export default function FileContextMenu({
     mutationFn: (id: string) => trashDocument(id),
     onSuccess: () => {
       invalidateAll()
-      toast.success('Moved to trash')
+      toast.success(t('ui:FileContextMenu.movedToTrash'))
     },
   })
 
@@ -90,7 +92,7 @@ export default function FileContextMenu({
     mutationFn: (id: string) => restoreDocument(id),
     onSuccess: () => {
       invalidateAll()
-      toast.success('Restored')
+      toast.success(t('ui:FileContextMenu.restored'))
     },
   })
 
@@ -98,7 +100,7 @@ export default function FileContextMenu({
     mutationFn: (id: string) => deleteDocumentPermanent(id),
     onSuccess: () => {
       invalidateAll()
-      toast.success('Permanently deleted')
+      toast.success(t('ui:FileContextMenu.permanentlyDeleted'))
     },
     onError: (err: Error) => toast.error(err.message || 'Delete failed'),
   })
@@ -107,7 +109,7 @@ export default function FileContextMenu({
     mutationFn: (id: string) => deleteFolderRecursive(id),
     onSuccess: () => {
       invalidateAll()
-      toast.success('Folder and contents deleted')
+      toast.success(t('ui:FileContextMenu.folderAndContentsDeleted'))
     },
     onError: (err: Error) => toast.error(err.message || 'Delete failed'),
   })
@@ -149,7 +151,7 @@ export default function FileContextMenu({
   const menuItems: MenuItem[] = item.trashed
     ? [
         {
-          label: 'Restore',
+          label: t('ui:FileContextMenu.restore'),
           icon: RotateCcw,
           onClick: () => {
             restoreMutation.mutate(item.id)
@@ -157,11 +159,11 @@ export default function FileContextMenu({
           },
         },
         {
-          label: 'Delete permanently',
+          label: t('ui:FileContextMenu.deletePermanently'),
           icon: XCircle,
           danger: true,
           onClick: () => {
-            if (confirm(`Permanently delete "${item.name}"? This cannot be undone.`)) {
+            if (confirm(t('ui:FileContextMenu.permanentlyDeleteNameThisCannot', { name: item.name }))) {
               if (item.type === 'folder') {
                 deleteFolderMutation.mutate(item.id)
               } else {
@@ -186,7 +188,7 @@ export default function FileContextMenu({
         ...(item.type === 'file'
           ? [
               {
-                label: 'Download',
+                label: t('ui:FileContextMenu.download'),
                 icon: Download,
                 onClick: () => {
                   const a = document.createElement('a')
@@ -200,7 +202,7 @@ export default function FileContextMenu({
           : []),
         // Rename
         {
-          label: 'Rename',
+          label: t('ui:FileContextMenu.rename'),
           icon: Pencil,
           divider: true,
           onClick: () => {
@@ -219,7 +221,7 @@ export default function FileContextMenu({
         },
         // Move
         {
-          label: 'Move to...',
+          label: t('ui:FileContextMenu.moveTo'),
           icon: FolderInput,
           onClick: () => {
             onMove(item.id, item.type)
@@ -231,7 +233,7 @@ export default function FileContextMenu({
         ...(item.type === 'file' && onShare
           ? [
               {
-                label: 'Share',
+                label: t('ui:FileContextMenu.share'),
                 icon: Share2,
                 divider: true,
                 onClick: () => {
@@ -248,7 +250,7 @@ export default function FileContextMenu({
           danger: true,
           onClick: () => {
             if (item.type === 'folder') {
-              if (confirm(`Delete "${item.name}" and all its contents? This cannot be undone.`)) {
+              if (confirm(t('ui:FileContextMenu.deleteNameAndAllIts', { name: item.name }))) {
                 deleteFolderMutation.mutate(item.id)
                 onClose()
               }

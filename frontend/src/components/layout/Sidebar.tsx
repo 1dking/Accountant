@@ -61,6 +61,7 @@ import { useBranding } from '@/hooks/useBranding'
 import { cn, getInitials } from '@/lib/utils'
 import { hasFeature } from '@/lib/features'
 import type { LucideIcon } from 'lucide-react'
+import i18n from '@/i18n'
 
 interface NavItem {
   path: string
@@ -79,119 +80,120 @@ interface NavSection {
 
 const NAV_SECTIONS: NavSection[] = [
   {
-    title: 'MAIN',
+    title: i18n.t('ui:Sidebar.main'),
     items: [
-      { path: '/', label: 'Dashboard', icon: LayoutDashboard },
-      { path: '/conversations', label: 'Conversations', icon: MessageSquare, featureKey: 'inbox' },
+      { path: '/', label: i18n.t('ui:Sidebar.dashboard'), icon: LayoutDashboard },
+      { path: '/conversations', label: i18n.t('ui:Sidebar.conversations'), icon: MessageSquare, featureKey: 'inbox' },
     ],
   },
   {
-    title: 'CRM',
+    title: i18n.t('ui:Sidebar.crm'),
     items: [
-      { path: '/contacts', label: 'Contacts', icon: Users, featureKey: 'contacts' },
-      { path: '/pipelines', label: 'Pipelines', icon: Kanban, featureKey: 'pipeline' },
-      { path: '/tasks', label: 'Tasks', icon: ListTodo, featureKey: 'tasks' },
-      { path: '/business-card', label: 'Business Card', icon: Contact, featureKey: 'cards' },
+      { path: '/contacts', label: i18n.t('ui:Sidebar.contacts'), icon: Users, featureKey: 'contacts' },
+      { path: '/pipelines', label: i18n.t('ui:Sidebar.pipelines'), icon: Kanban, featureKey: 'pipeline' },
+      { path: '/tasks', label: i18n.t('ui:Sidebar.tasks'), icon: ListTodo, featureKey: 'tasks' },
+      { path: '/business-card', label: i18n.t('ui:Sidebar.businessCard'), icon: Contact, featureKey: 'cards' },
     ],
   },
   {
-    title: 'SALES',
+    title: i18n.t('ui:Sidebar.sales'),
     items: [
-      { path: '/proposals', label: 'Proposals', icon: FileSignature, featureKey: 'proposals' },
-      { path: '/invoices', label: 'Invoices', icon: FileOutput, featureKey: 'invoices' },
-      { path: '/estimates', label: 'Estimates', icon: ClipboardList, featureKey: 'estimates' },
+      { path: '/proposals', label: i18n.t('ui:Sidebar.proposals'), icon: FileSignature, featureKey: 'proposals' },
+      { path: '/invoices', label: i18n.t('ui:Sidebar.invoices'), icon: FileOutput, featureKey: 'invoices' },
+      { path: '/estimates', label: i18n.t('ui:Sidebar.estimates'), icon: ClipboardList, featureKey: 'estimates' },
     ],
   },
   {
-    title: 'PERSONAL',
+    title: i18n.t('ui:Sidebar.personal'),
     mode: 'personal',
     items: [
-      { path: '/personal', label: 'Personal Finances', icon: Wallet },
+      { path: '/personal', label: i18n.t('ui:Sidebar.personalFinances'), icon: Wallet },
     ],
   },
   {
-    title: 'ACCOUNTING',
+    title: i18n.t('ui:Sidebar.accounting'),
     mode: 'business',
     items: [
-      { path: '/cashbook', label: 'Cashbook', icon: BookOpen, featureKey: 'cashbook' },
-      { path: '/expenses', label: 'Expenses', icon: Receipt, featureKey: 'expenses' },
-      { path: '/accounting/chart-of-accounts', label: 'Chart of Accounts', icon: ListTree, featureKey: 'expenses' },
-      { path: '/accounting/journal', label: 'Journal', icon: BookText, featureKey: 'expenses' },
-      { path: '/accounting/bills', label: 'Bills (A/P)', icon: ReceiptText, featureKey: 'expenses' },
-      { path: '/accounting/1099', label: '1099 Contractors', icon: FileBadge, featureKey: 'expenses' },
-      { path: '/payroll', label: 'Payroll', icon: Wallet, featureKey: 'expenses' },
-      { path: '/filing', label: 'Tax filing', icon: FileBadge, featureKey: 'expenses' },
-      { path: '/accounting/ledger-reports', label: 'Financial Statements', icon: Scale, featureKey: 'expenses' },
-      { path: '/cashbook/reconcile', label: 'Reconcile', icon: Scale, featureKey: 'cashbook' },
-      { path: '/smart-import', label: 'Smart Import', icon: Zap, featureKey: 'smart_import' },
-      { path: '/email-scan', label: 'Email Scanner', icon: MailSearch, featureKey: 'email_scanner' },
-      { path: '/bank-transactions', label: 'Bank Scanner', icon: Landmark, featureKey: 'cashbook' },
-      { path: '/recurring', label: 'Recurring', icon: RefreshCw, featureKey: 'recurring' },
-      { path: '/reports', label: 'Reports', icon: BarChart3, featureKey: 'reports' },
-      { path: '/cashbook/trash', label: 'Trash', icon: Trash2, featureKey: 'cashbook' },
+      { path: '/cashbook', label: i18n.t('ui:Sidebar.cashbook'), icon: BookOpen, featureKey: 'cashbook' },
+      { path: '/expenses', label: i18n.t('ui:Sidebar.expenses'), icon: Receipt, featureKey: 'expenses' },
+      { path: '/accounting/chart-of-accounts', label: i18n.t('ui:Sidebar.chartOfAccounts'), icon: ListTree, featureKey: 'expenses' },
+      { path: '/accounting/journal', label: i18n.t('ui:Sidebar.journal'), icon: BookText, featureKey: 'expenses' },
+      { path: '/accounting/bills', label: i18n.t('ui:Sidebar.billsAP'), icon: ReceiptText, featureKey: 'expenses' },
+      { path: '/accounting/1099', label: i18n.t('ui:Sidebar.n1099Contractors'), icon: FileBadge, featureKey: 'expenses' },
+      { path: '/payroll', label: i18n.t('ui:Sidebar.payroll'), icon: Wallet, featureKey: 'expenses' },
+      { path: '/filing', label: i18n.t('ui:Sidebar.taxFiling'), icon: FileBadge, featureKey: 'expenses' },
+      { path: '/accounting/ledger-reports', label: i18n.t('ui:Sidebar.financialStatements'), icon: Scale, featureKey: 'expenses' },
+      { path: '/cashbook/reconcile', label: i18n.t('ui:Sidebar.reconcile'), icon: Scale, featureKey: 'cashbook' },
+      { path: '/smart-import', label: i18n.t('ui:Sidebar.smartImport'), icon: Zap, featureKey: 'smart_import' },
+      { path: '/email-scan', label: i18n.t('ui:Sidebar.emailScanner'), icon: MailSearch, featureKey: 'email_scanner' },
+      { path: '/bank-transactions', label: i18n.t('ui:Sidebar.bankScanner'), icon: Landmark, featureKey: 'cashbook' },
+      { path: '/recurring', label: i18n.t('ui:Sidebar.recurring'), icon: RefreshCw, featureKey: 'recurring' },
+      { path: '/reports', label: i18n.t('ui:Sidebar.reports'), icon: BarChart3, featureKey: 'reports' },
+      { path: '/cashbook/trash', label: i18n.t('ui:Sidebar.trash'), icon: Trash2, featureKey: 'cashbook' },
     ],
   },
   {
-    title: 'COMMUNICATION',
+    title: i18n.t('ui:Sidebar.communication'),
     items: [
-      { path: '/communication?tab=phone-numbers', label: 'Phone Numbers', icon: Phone, featureKey: 'phone' },
-      { path: '/communication?tab=chat', label: 'Live Chat', icon: MessageCircle, featureKey: 'sms' },
+      { path: '/communication?tab=phone-numbers', label: i18n.t('ui:Sidebar.phoneNumbers'), icon: Phone, featureKey: 'phone' },
+      { path: '/communication?tab=chat', label: i18n.t('ui:Sidebar.liveChat'), icon: MessageCircle, featureKey: 'sms' },
     ],
   },
   {
-    title: 'AUTOMATION',
+    title: i18n.t('ui:Sidebar.automation'),
     items: [
-      { path: '/workflows', label: 'Workflows', icon: Zap, featureKey: 'workflows' },
-      { path: '/forms', label: 'Forms', icon: ClipboardCheck, featureKey: 'forms' },
+      { path: '/workflows', label: i18n.t('ui:Sidebar.workflows'), icon: Zap, featureKey: 'workflows' },
+      { path: '/forms', label: i18n.t('ui:Sidebar.forms'), icon: ClipboardCheck, featureKey: 'forms' },
     ],
   },
   {
-    title: 'CONTENT',
+    title: i18n.t('ui:Sidebar.content'),
     items: [
-      { path: '/page-builder', label: 'Pages', icon: Globe, featureKey: 'pages' },
-      { path: '/docs', label: 'Docs', icon: FileEdit, featureKey: 'docs' },
-      { path: '/sheets', label: 'Sheets', icon: Table2, featureKey: 'sheets' },
-      { path: '/slides', label: 'Slides', icon: Presentation, featureKey: 'slides' },
+      { path: '/page-builder', label: i18n.t('ui:Sidebar.pages'), icon: Globe, featureKey: 'pages' },
+      { path: '/docs', label: i18n.t('ui:Sidebar.docs'), icon: FileEdit, featureKey: 'docs' },
+      { path: '/sheets', label: i18n.t('ui:Sidebar.sheets'), icon: Table2, featureKey: 'sheets' },
+      { path: '/slides', label: i18n.t('ui:Sidebar.slides'), icon: Presentation, featureKey: 'slides' },
     ],
   },
   {
-    title: 'STORAGE',
+    title: i18n.t('ui:Sidebar.storage'),
     items: [
-      { path: '/drive', label: 'Drive', icon: HardDrive, featureKey: 'drive' },
+      { path: '/drive', label: i18n.t('ui:Sidebar.drive'), icon: HardDrive, featureKey: 'drive' },
     ],
   },
   {
-    title: 'MEETINGS',
+    title: i18n.t('ui:Sidebar.meetings'),
     items: [
-      { path: '/calendar', label: 'Calendar', icon: Calendar, featureKey: 'calendar' },
-      { path: '/bookings', label: 'Bookings', icon: CalendarDays, featureKey: 'calendar' },
-      { path: '/availability', label: 'Availability', icon: Clock3, featureKey: 'calendar' },
-      { path: '/meetings', label: 'Meetings', icon: Video, featureKey: 'meeting_rooms' },
-      { path: '/recordings', label: 'Recordings', icon: Film, featureKey: 'meeting_rooms' },
+      { path: '/calendar', label: i18n.t('ui:Sidebar.calendar'), icon: Calendar, featureKey: 'calendar' },
+      { path: '/bookings', label: i18n.t('ui:Sidebar.bookings'), icon: CalendarDays, featureKey: 'calendar' },
+      { path: '/availability', label: i18n.t('ui:Sidebar.availability'), icon: Clock3, featureKey: 'calendar' },
+      { path: '/meetings', label: i18n.t('ui:Sidebar.meetings_2'), icon: Video, featureKey: 'meeting_rooms' },
+      { path: '/recordings', label: i18n.t('ui:Sidebar.recordings'), icon: Film, featureKey: 'meeting_rooms' },
     ],
   },
   {
-    title: 'INTELLIGENCE',
+    title: i18n.t('ui:Sidebar.intelligence'),
     items: [
-      { path: '/intelligence', label: 'Coach Reports', icon: Lightbulb, featureKey: 'obrain_coach' },
+      { path: '/intelligence', label: i18n.t('ui:Sidebar.coachReports'), icon: Lightbulb, featureKey: 'obrain_coach' },
     ],
   },
   {
-    title: 'PORTAL MANAGEMENT',
+    title: i18n.t('ui:Sidebar.portalManagement'),
     items: [
-      { path: '/portal-admin', label: 'Portal Admin', icon: UserCog, featureKey: 'portal_admin' },
+      { path: '/portal-admin', label: i18n.t('ui:Sidebar.portalAdmin'), icon: UserCog, featureKey: 'portal_admin' },
     ],
   },
   {
-    title: 'ADMIN',
+    title: i18n.t('ui:Sidebar.admin'),
     items: [
-      { path: '/agency', label: 'Client Accounts', icon: Building2, featureKey: 'contacts' },
-      { path: '/platform-admin', label: 'Platform Admin', icon: Settings, featureKey: 'platform_admin' },
+      { path: '/agency', label: i18n.t('ui:Sidebar.clientAccounts'), icon: Building2, featureKey: 'contacts' },
+      { path: '/platform-admin', label: i18n.t('ui:Sidebar.platformAdmin'), icon: Settings, featureKey: 'platform_admin' },
     ],
   },
 ]
 
 export default function Sidebar() {
+  const { t } = useTranslation('ui')
   const navigate = useNavigate()
   const location = useLocation()
   const { sidebarOpen, isMobile, panelState, closePanel, theme, toggleTheme, mode, setMode } = useUiStore()
@@ -365,9 +367,9 @@ export default function Sidebar() {
                 ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
                 : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200',
             )}
-            title="Business books"
+            title={t('ui:Sidebar.businessBooks')}
           >
-            <Briefcase className="h-3.5 w-3.5" /> Business
+            <Briefcase className="h-3.5 w-3.5" /> {t('ui:Sidebar.business')}
           </button>
           <button
             onClick={() => handleSwitchMode('personal')}
@@ -377,9 +379,9 @@ export default function Sidebar() {
                 ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
                 : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200',
             )}
-            title="Personal finances (private to you)"
+            title={t('ui:Sidebar.personalFinancesPrivateToYou')}
           >
-            <Wallet className="h-3.5 w-3.5" /> Personal
+            <Wallet className="h-3.5 w-3.5" /> {t('ui:Sidebar.personal_2')}
           </button>
         </div>
 
@@ -407,17 +409,20 @@ export default function Sidebar() {
               'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100',
           )}
         >
-          <Settings className="h-4 w-4" /> Settings
+          <Settings className="h-4 w-4" /> {t('ui:Sidebar.settings')}
         </button>
 
         <button
           onClick={toggleTheme}
           className="w-full flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100"
         >
-          {theme === 'light' ? <><Moon className="h-4 w-4" /> Dark mode</> : <><Sun className="h-4 w-4" /> Light mode</>}
+          {theme === 'light' ? <><Moon className="h-4 w-4" /> {t('ui:Sidebar.darkMode')}</> : <><Sun className="h-4 w-4" /> {t('ui:Sidebar.lightMode')}</>}
         </button>
         <button
-          onClick={() => i18n.changeLanguage(nextLocale)}
+          // Reload after switching: module-level labels (nav arrays, settings
+          // tabs, constants) resolve through i18n.t at import time and would
+          // otherwise stay in the old language until the next full load.
+          onClick={() => i18n.changeLanguage(nextLocale).then(() => window.location.reload())}
           className="w-full flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100"
           aria-label={tc('locale.label')}
           lang={nextLocale}
@@ -436,13 +441,13 @@ export default function Sidebar() {
               'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100',
           )}
         >
-          <HelpCircle className="h-4 w-4" /> Help
+          <HelpCircle className="h-4 w-4" /> {t('ui:Sidebar.help')}
         </button>
         <button
           onClick={logout}
           className="w-full flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-red-600 dark:hover:text-red-400 transition-colors"
         >
-          <LogOut className="h-4 w-4" /> Log out
+          <LogOut className="h-4 w-4" /> {t('ui:Sidebar.logOut')}
         </button>
       </div>
     </aside>

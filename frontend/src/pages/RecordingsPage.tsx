@@ -4,9 +4,11 @@ import { Video, Search, Play, Download, Clock, Calendar, Loader2, Square, Trash2
 import { toast } from 'sonner'
 import { listRecordings, listRecordingsByContact, getRecordingStreamUrl, deleteRecording } from '@/api/meetings'
 import type { MeetingRecording } from '@/types/models'
+import { useTranslation } from 'react-i18next'
+import { uiLocale } from '@/lib/utils'
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', {
+  return new Date(iso).toLocaleDateString(uiLocale(), {
     month: 'short', day: 'numeric', year: 'numeric',
   })
 }
@@ -43,6 +45,7 @@ function RecordingStatusBadge({ status }: { status: string }) {
 }
 
 export default function RecordingsPage() {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const [selectedContact, setSelectedContact] = useState<string | null>(null)
   const [search, setSearch] = useState('')
@@ -52,7 +55,7 @@ export default function RecordingsPage() {
   const deleteRecordingMut = useMutation({
     mutationFn: (recordingId: string) => deleteRecording(recordingId),
     onSuccess: () => {
-      toast.success('Recording deleted')
+      toast.success(t('ui:RecordingsPage.recordingDeleted'))
       queryClient.invalidateQueries({ queryKey: ['recordings'] })
       queryClient.invalidateQueries({ queryKey: ['recordings-by-contact'] })
     },
@@ -116,14 +119,14 @@ export default function RecordingsPage() {
     <div className="p-6 h-full">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Recordings</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('ui:RecordingsPage.recordings')}</h1>
       </div>
 
       <div className="flex gap-6 h-[calc(100vh-10rem)]">
         {/* Left sidebar: contacts */}
         <div className="w-64 flex-shrink-0 bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col">
           <div className="p-3 border-b border-gray-100 dark:border-gray-700">
-            <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Contacts</h3>
+            <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('ui:RecordingsPage.contacts')}</h3>
           </div>
           <div className="flex-1 overflow-y-auto">
             <button
@@ -135,7 +138,7 @@ export default function RecordingsPage() {
               }`}
             >
               <div className="flex items-center justify-between">
-                <span>All Recordings</span>
+                <span>{t('ui:RecordingsPage.allRecordings')}</span>
                 <span className="text-xs text-gray-400 dark:text-gray-500">{allRecordings.length}</span>
               </div>
             </button>
@@ -156,7 +159,7 @@ export default function RecordingsPage() {
               </button>
             ))}
             {!loadingByContact && contactItems.length === 0 && (
-              <p className="px-4 py-6 text-xs text-gray-400 dark:text-gray-500 text-center">No contacts with recordings</p>
+              <p className="px-4 py-6 text-xs text-gray-400 dark:text-gray-500 text-center">{t('ui:RecordingsPage.noContactsWithRecordings')}</p>
             )}
           </div>
         </div>
@@ -171,7 +174,7 @@ export default function RecordingsPage() {
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search recordings..."
+                placeholder={t('ui:RecordingsPage.searchRecordings')}
                 className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -186,7 +189,7 @@ export default function RecordingsPage() {
                 onClick={() => setDateFilter('')}
                 className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700"
               >
-                Clear date
+               {t('ui:RecordingsPage.clearDate')}
               </button>
             )}
           </div>
@@ -202,8 +205,8 @@ export default function RecordingsPage() {
           {!isLoading && filteredRecordings.length === 0 && (
             <div className="text-center py-20">
               <Video className="h-10 w-10 mx-auto mb-3 text-gray-300" />
-              <p className="text-gray-500 dark:text-gray-400 text-sm">No recordings found</p>
-              <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">Recording will appear here after a meeting is recorded</p>
+              <p className="text-gray-500 dark:text-gray-400 text-sm">{t('ui:RecordingsPage.noRecordingsFound')}</p>
+              <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">{t('ui:RecordingsPage.recordingWillAppearHereAfter')}</p>
             </div>
           )}
 
@@ -222,7 +225,7 @@ export default function RecordingsPage() {
                           autoPlay
                           className="w-full aspect-video"
                         >
-                          Your browser does not support the video element.
+                         {t('ui:RecordingsPage.yourBrowserDoesNotSupport')}
                         </video>
                       </div>
                     ) : (
@@ -250,7 +253,7 @@ export default function RecordingsPage() {
                             onClick={() => setPlayingId(null)}
                             className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 flex items-center gap-1"
                           >
-                            <Square className="h-3 w-3" /> Close
+                            <Square className="h-3 w-3" /> {t('ui:RecordingsPage.close')}
                           </button>
                         )}
                       </div>
@@ -280,7 +283,7 @@ export default function RecordingsPage() {
                               className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 font-medium"
                             >
                               <Play className="h-3.5 w-3.5" />
-                              {playingId === rec.id ? 'Playing' : 'Play'}
+                              {playingId === rec.id ? t('ui:RecordingsPage.playing') : t('ui:RecordingsPage.play')}
                             </button>
                             <a
                               href={getRecordingStreamUrl(rec.id)}
@@ -288,17 +291,17 @@ export default function RecordingsPage() {
                               className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-800 font-medium"
                             >
                               <Download className="h-3.5 w-3.5" />
-                              Download
+                             {t('ui:RecordingsPage.download')}
                             </a>
                           </>
                         )}
                         <button
-                          onClick={() => { if (confirm('Delete this recording?')) deleteRecordingMut.mutate(rec.id) }}
+                          onClick={() => { if (confirm(t('ui:RecordingsPage.deleteThisRecording'))) deleteRecordingMut.mutate(rec.id) }}
                           disabled={deleteRecordingMut.isPending}
                           className="flex items-center gap-1 text-xs text-red-600 dark:text-red-400 hover:text-red-700 font-medium ml-auto"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
-                          Delete
+                         {t('ui:RecordingsPage.delete')}
                         </button>
                       </div>
                     </div>

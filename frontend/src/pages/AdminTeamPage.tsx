@@ -11,8 +11,10 @@ import {
   sendTeamMemberReminder,
   type AdminTeamMember,
 } from '@/api/auth'
+import { useTranslation } from 'react-i18next'
 
 export default function AdminTeamPage() {
+  const { t } = useTranslation('ui')
   const { user } = useAuthStore()
   const queryClient = useQueryClient()
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -31,12 +33,12 @@ export default function AdminTeamPage() {
     mutationFn: (id: string) => sendTeamMemberReminder(id),
     onSuccess: (resp: any) => {
       if (resp?.data?.sent) {
-        toast.success('Reminder sent')
+        toast.success(t('ui:AdminTeamPage.reminderSent'))
       } else {
         toast.message(resp?.data?.reason || 'No reminder needed')
       }
     },
-    onError: (e: any) => toast.error(`Failed: ${e.message || ''}`),
+    onError: (e: any) => toast.error(t('ui:AdminTeamPage.failedV0', { v0: e.message || '' })),
   })
 
   const members: AdminTeamMember[] = (data?.data ?? []) as AdminTeamMember[]
@@ -49,31 +51,31 @@ export default function AdminTeamPage() {
           <Users className="h-6 w-6 text-gray-600 dark:text-gray-400" />
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              Team
+             {t('ui:AdminTeamPage.team')}
             </h1>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-              Setup progress across everyone on the platform
+             {t('ui:AdminTeamPage.setupProgressAcrossEveryoneOn')}
             </p>
           </div>
         </div>
 
         {isLoading ? (
-          <div className="text-sm text-gray-500">Loading…</div>
+          <div className="text-sm text-gray-500">{t('ui:AdminTeamPage.loading')}</div>
         ) : members.length === 0 ? (
           <div className="text-sm text-gray-500 italic py-8">
-            No users yet.
+           {t('ui:AdminTeamPage.noUsersYet')}
           </div>
         ) : (
           <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-left">
-                  <th className="px-4 py-3 font-medium text-gray-500 dark:text-gray-400">User</th>
-                  <th className="px-4 py-3 font-medium text-gray-500 dark:text-gray-400">Role</th>
-                  <th className="px-4 py-3 font-medium text-gray-500 dark:text-gray-400">Phone</th>
-                  <th className="px-4 py-3 font-medium text-gray-500 dark:text-gray-400">Fallback</th>
-                  <th className="px-4 py-3 font-medium text-gray-500 dark:text-gray-400">Setup</th>
-                  <th className="px-4 py-3 font-medium text-gray-500 dark:text-gray-400 text-right">Actions</th>
+                  <th className="px-4 py-3 font-medium text-gray-500 dark:text-gray-400">{t('ui:AdminTeamPage.user')}</th>
+                  <th className="px-4 py-3 font-medium text-gray-500 dark:text-gray-400">{t('ui:AdminTeamPage.role')}</th>
+                  <th className="px-4 py-3 font-medium text-gray-500 dark:text-gray-400">{t('ui:AdminTeamPage.phone')}</th>
+                  <th className="px-4 py-3 font-medium text-gray-500 dark:text-gray-400">{t('ui:AdminTeamPage.fallback')}</th>
+                  <th className="px-4 py-3 font-medium text-gray-500 dark:text-gray-400">{t('ui:AdminTeamPage.setup')}</th>
+                  <th className="px-4 py-3 font-medium text-gray-500 dark:text-gray-400 text-right">{t('ui:AdminTeamPage.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -129,10 +131,10 @@ export default function AdminTeamPage() {
                           }}
                           disabled={remindMut.isPending}
                           className="inline-flex items-center gap-1 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded disabled:opacity-50"
-                          title="Send setup reminder notification"
+                          title={t('ui:AdminTeamPage.sendSetupReminderNotification')}
                         >
                           <Bell className="h-3 w-3" />
-                          Remind
+                         {t('ui:AdminTeamPage.remind')}
                         </button>
                       </td>
                     </tr>
@@ -168,6 +170,7 @@ function TeamMemberPanel({
   onClose: () => void
   onChange: () => void
 }) {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const { data, isLoading } = useQuery({
     queryKey: ['admin-team-onboarding', memberId],
@@ -182,12 +185,12 @@ function TeamMemberPanel({
     mutationFn: (data: { fallback_phone?: string; voicemail_mode?: string }) =>
       overrideTeamMember(memberId, data),
     onSuccess: () => {
-      toast.success('Override saved')
+      toast.success(t('ui:AdminTeamPage.overrideSaved'))
       queryClient.invalidateQueries({ queryKey: ['admin-team'] })
       queryClient.invalidateQueries({ queryKey: ['admin-team-onboarding', memberId] })
       onChange()
     },
-    onError: (e: any) => toast.error(`Failed: ${e.message || ''}`),
+    onError: (e: any) => toast.error(t('ui:AdminTeamPage.failedV0', { v0: e.message || '' })),
   })
 
   const payload = data?.data
@@ -213,7 +216,7 @@ function TeamMemberPanel({
       <div className="p-4 space-y-4">
         <div>
           <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
-            Onboarding ({Math.round((payload.overall_progress ?? 0) * 100)}%)
+           {t('ui:AdminTeamPage.onboarding')}{Math.round((payload.overall_progress ?? 0) * 100)}%)
           </h3>
           <ul className="space-y-1.5">
             {payload.items.map((i: any) => (
@@ -246,12 +249,12 @@ function TeamMemberPanel({
 
         <div className="pt-3 border-t border-gray-100 dark:border-gray-700">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
-            Admin override
+           {t('ui:AdminTeamPage.adminOverride')}
           </h3>
           <div className="space-y-3">
             <div>
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                Fallback phone
+               {t('ui:AdminTeamPage.fallbackPhone')}
               </label>
               <input
                 type="tel"
@@ -263,17 +266,17 @@ function TeamMemberPanel({
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                Voicemail mode
+               {t('ui:AdminTeamPage.voicemailMode')}
               </label>
               <select
                 value={voicemailMode}
                 onChange={(e) => setVoicemailMode(e.target.value)}
                 className="w-full px-2 py-1 text-sm border rounded dark:bg-gray-900 dark:border-gray-700"
               >
-                <option value="">— no change —</option>
-                <option value="cell_then_voicemail">Cell, then voicemail</option>
-                <option value="voicemail_only">Voicemail only</option>
-                <option value="cell_only">Cell only</option>
+                <option value="">{t('ui:AdminTeamPage.noChange')}</option>
+                <option value="cell_then_voicemail">{t('ui:AdminTeamPage.cellThenVoicemail')}</option>
+                <option value="voicemail_only">{t('ui:AdminTeamPage.voicemailOnly')}</option>
+                <option value="cell_only">{t('ui:AdminTeamPage.cellOnly')}</option>
               </select>
             </div>
             <button
@@ -282,7 +285,7 @@ function TeamMemberPanel({
                 if (fallback) payload.fallback_phone = fallback
                 if (voicemailMode) payload.voicemail_mode = voicemailMode
                 if (Object.keys(payload).length === 0) {
-                  toast.message('Nothing to save')
+                  toast.message(t('ui:AdminTeamPage.nothingToSave'))
                   return
                 }
                 overrideMut.mutate(payload)
@@ -292,7 +295,7 @@ function TeamMemberPanel({
               disabled={overrideMut.isPending}
               className="w-full px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm disabled:opacity-50"
             >
-              {overrideMut.isPending ? 'Saving…' : 'Apply override'}
+              {overrideMut.isPending ? t('ui:AdminTeamPage.saving') : t('ui:AdminTeamPage.applyOverride')}
             </button>
           </div>
         </div>

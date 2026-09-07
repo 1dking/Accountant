@@ -1,8 +1,10 @@
 import { Mail, Phone, Globe, CalendarDays, QrCode, UserPlus } from 'lucide-react'
 import type { CardTemplateProps } from '../types'
+import { useTranslation } from 'react-i18next'
 
 /** Gradient — full accent→button gradient backdrop with a floating glass panel. */
 export default function GradientCard({ card, onSaveContact, onShowQr }: CardTemplateProps) {
+  const { t } = useTranslation('ui')
   const initials = card.display_name
     .split(' ')
     .map((w) => w[0])
@@ -62,7 +64,7 @@ export default function GradientCard({ card, onSaveContact, onShowQr }: CardTemp
               color: card.button_text_color,
             }}
           >
-            <UserPlus className="w-4 h-4" /> Save Contact
+            <UserPlus className="w-4 h-4" /> {t('ui:GradientCard.saveContact')}
           </button>
           {card.booking_url && (
             <a
@@ -70,7 +72,7 @@ export default function GradientCard({ card, onSaveContact, onShowQr }: CardTemp
               className="w-full flex items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-semibold border-2"
               style={{ borderColor: card.accent_color, color: card.accent_color }}
             >
-              <CalendarDays className="w-4 h-4" /> Book a meeting
+              <CalendarDays className="w-4 h-4" /> {t('ui:GradientCard.bookAMeeting')}
             </a>
           )}
         </div>
@@ -111,7 +113,7 @@ export default function GradientCard({ card, onSaveContact, onShowQr }: CardTemp
         )}
 
         <button onClick={onShowQr} className="mt-7 inline-flex items-center gap-1.5 text-xs opacity-50 hover:opacity-90">
-          <QrCode className="w-3.5 h-3.5" /> Share this card
+          <QrCode className="w-3.5 h-3.5" /> {t('ui:GradientCard.shareThisCard')}
         </button>
       </div>
     </div>

@@ -4,12 +4,14 @@ import { getEntry, deleteEntry } from '@/api/cashbook'
 import { useAuthStore } from '@/stores/authStore'
 import { formatDate } from '@/lib/utils'
 import { ArrowLeft, FileText, Trash2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 function formatAmount(amount: number): string {
   return `$${amount.toFixed(2)}`
 }
 
 export default function CashbookEntryDetailPage() {
+  const { t } = useTranslation('ui')
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -45,12 +47,12 @@ export default function CashbookEntryDetailPage() {
   if (isError || !data?.data) {
     return (
       <div className="p-6 text-center">
-        <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">Entry not found</h2>
+        <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">{t('ui:CashbookEntryDetailPage.entryNotFound')}</h2>
         <button
           onClick={() => navigate('/cashbook')}
           className="mt-2 text-blue-600 dark:text-blue-400 hover:underline"
         >
-          Back to cashbook
+         {t('ui:CashbookEntryDetailPage.backToCashbook')}
         </button>
       </div>
     )
@@ -67,7 +69,7 @@ export default function CashbookEntryDetailPage() {
           className="flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:underline mb-3"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to cashbook
+         {t('ui:CashbookEntryDetailPage.backToCashbook')}
         </button>
 
         {/* Header */}
@@ -84,7 +86,7 @@ export default function CashbookEntryDetailPage() {
                     : 'bg-red-100 text-red-800'
                 }`}
               >
-                {entry.entry_type === 'income' ? 'Income' : 'Expense'}
+                {entry.entry_type === 'income' ? t('ui:CashbookEntryDetailPage.income') : t('ui:CashbookEntryDetailPage.expense')}
               </span>
             </div>
           </div>
@@ -106,18 +108,18 @@ export default function CashbookEntryDetailPage() {
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white dark:bg-gray-900 rounded-lg border p-5 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100">Details</h3>
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100">{t('ui:CashbookEntryDetailPage.details')}</h3>
               <div className="flex gap-2">
                 {canDelete && (
                   <button
                     onClick={() => {
-                      if (confirm('Delete this cashbook entry?'))
+                      if (confirm(t('ui:CashbookEntryDetailPage.deleteThisCashbookEntry')))
                         deleteMutation.mutate()
                     }}
                     className="flex items-center gap-1 text-sm text-red-600 hover:text-red-700"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
-                    Delete
+                   {t('ui:CashbookEntryDetailPage.delete')}
                   </button>
                 )}
               </div>
@@ -125,34 +127,34 @@ export default function CashbookEntryDetailPage() {
 
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <span className="text-gray-500 dark:text-gray-400">Date</span>
+                <span className="text-gray-500 dark:text-gray-400">{t('ui:CashbookEntryDetailPage.date')}</span>
                 <p className="text-gray-900 dark:text-gray-100 font-medium">
                   {formatDate(entry.date)}
                 </p>
               </div>
               <div>
-                <span className="text-gray-500 dark:text-gray-400">Amount</span>
+                <span className="text-gray-500 dark:text-gray-400">{t('ui:CashbookEntryDetailPage.amount')}</span>
                 <p className="text-gray-900 dark:text-gray-100 font-medium">
                   {formatAmount(entry.total_amount)}
                 </p>
               </div>
               {entry.tax_amount != null && (
                 <div>
-                  <span className="text-gray-500 dark:text-gray-400">Tax</span>
+                  <span className="text-gray-500 dark:text-gray-400">{t('ui:CashbookEntryDetailPage.tax')}</span>
                   <p className="text-gray-900 dark:text-gray-100">
                     {formatAmount(entry.tax_amount)}
                   </p>
                 </div>
               )}
               <div>
-                <span className="text-gray-500 dark:text-gray-400">Category</span>
+                <span className="text-gray-500 dark:text-gray-400">{t('ui:CashbookEntryDetailPage.category')}</span>
                 <p className="text-gray-900 dark:text-gray-100">
-                  {entry.category?.name ?? 'Uncategorized'}
+                  {entry.category?.name ?? t('ui:CashbookEntryDetailPage.uncategorized')}
                 </p>
               </div>
               {entry.notes && (
                 <div className="col-span-2">
-                  <span className="text-gray-500 dark:text-gray-400">Notes</span>
+                  <span className="text-gray-500 dark:text-gray-400">{t('ui:CashbookEntryDetailPage.notes')}</span>
                   <p className="text-gray-700 dark:text-gray-300">{entry.notes}</p>
                 </div>
               )}
@@ -165,14 +167,14 @@ export default function CashbookEntryDetailPage() {
           {entry.document_id && (
             <div className="bg-white dark:bg-gray-900 rounded-lg border p-4">
               <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm mb-2">
-                Linked Document
+               {t('ui:CashbookEntryDetailPage.linkedDocument')}
               </h3>
               <button
                 onClick={() => navigate(`/documents/${entry.document_id}`)}
                 className="w-full flex items-center gap-2 px-3 py-2 text-sm text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 rounded-md hover:bg-blue-100"
               >
                 <FileText className="h-4 w-4" />
-                View Document
+               {t('ui:CashbookEntryDetailPage.viewDocument')}
               </button>
             </div>
           )}

@@ -10,21 +10,24 @@ import {
   Calendar,
 } from 'lucide-react'
 import { listProposals, type ProposalListItem, type ProposalStatus } from '@/api/proposals'
-import { formatDate } from '@/lib/utils'
+import { formatDate, uiLocale } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
+import i18n from '@/i18n'
 
 const PIPELINE_STAGES: { status: ProposalStatus; label: string; color: string }[] = [
-  { status: 'draft', label: 'Draft', color: 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700' },
-  { status: 'sent', label: 'Sent', color: 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' },
-  { status: 'viewed', label: 'Viewed', color: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800' },
-  { status: 'signed', label: 'Won', color: 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' },
-  { status: 'declined', label: 'Lost', color: 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800' },
+  { status: 'draft', label: i18n.t('ui:PipelinesPage.draft'), color: 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700' },
+  { status: 'sent', label: i18n.t('ui:PipelinesPage.sent'), color: 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' },
+  { status: 'viewed', label: i18n.t('ui:PipelinesPage.viewed'), color: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800' },
+  { status: 'signed', label: i18n.t('ui:PipelinesPage.won'), color: 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' },
+  { status: 'declined', label: i18n.t('ui:PipelinesPage.lost'), color: 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800' },
 ]
 
 function formatCurrency(value: number) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(value)
+  return new Intl.NumberFormat(uiLocale(), { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(value)
 }
 
 export default function PipelinesPage() {
+  const { t } = useTranslation('ui')
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
 
@@ -57,10 +60,10 @@ export default function PipelinesPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
             <Kanban className="h-6 w-6" />
-            Sales Pipeline
+           {t('ui:PipelinesPage.salesPipeline')}
           </h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">
-            Visual overview of your proposal pipeline
+           {t('ui:PipelinesPage.visualOverviewOfYourProposal')}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -70,7 +73,7 @@ export default function PipelinesPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm w-64"
-              placeholder="Search proposals..."
+              placeholder={t('ui:PipelinesPage.searchProposals')}
             />
           </div>
           <button
@@ -78,13 +81,13 @@ export default function PipelinesPage() {
             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition text-sm"
           >
             <Plus className="h-4 w-4" />
-            New Proposal
+           {t('ui:PipelinesPage.newProposal')}
           </button>
         </div>
       </div>
 
       {isLoading ? (
-        <div className="flex-1 flex items-center justify-center text-gray-400">Loading pipeline...</div>
+        <div className="flex-1 flex items-center justify-center text-gray-400">{t('ui:PipelinesPage.loadingPipeline')}</div>
       ) : (
         <div className="flex-1 overflow-x-auto">
           <div className="flex gap-4 h-full min-w-max pb-4">
@@ -114,7 +117,7 @@ export default function PipelinesPage() {
                   <div className="flex-1 overflow-y-auto space-y-2 p-2 bg-gray-50/50 dark:bg-gray-800/30 rounded-b-xl border border-t-0 border-gray-200 dark:border-gray-700">
                     {items.length === 0 ? (
                       <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-8">
-                        No proposals
+                       {t('ui:PipelinesPage.noProposals')}
                       </p>
                     ) : (
                       items.map((proposal) => (

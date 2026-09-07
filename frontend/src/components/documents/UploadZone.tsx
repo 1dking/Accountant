@@ -4,6 +4,7 @@ import { uploadDocuments, type UploadResult } from '@/api/documents'
 import { ACCEPTED_FILE_TYPES, MAX_FILE_SIZE } from '@/lib/constants'
 import { formatFileSize } from '@/lib/utils'
 import { FolderUp } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 interface UploadZoneProps {
   folderId?: string
@@ -19,6 +20,7 @@ interface UploadProgress {
 }
 
 export default function UploadZone({ folderId, onUploadComplete, onFilesSelected, compact }: UploadZoneProps) {
+  const { t } = useTranslation('ui')
   const [uploads, setUploads] = useState<UploadProgress[]>([])
   const [isUploading, setIsUploading] = useState(false)
   const [summary, setSummary] = useState<{ success: number; failed: number } | null>(null)
@@ -131,7 +133,7 @@ export default function UploadZone({ folderId, onUploadComplete, onFilesSelected
       >
         <input {...getInputProps()} />
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          {isDragActive ? 'Drop files here' : 'Drop files or click to upload'}
+          {isDragActive ? t('ui:UploadZone.dropFilesHere') : t('ui:UploadZone.dropFilesOrClickTo')}
         </p>
       </div>
     )
@@ -163,10 +165,10 @@ export default function UploadZone({ folderId, onUploadComplete, onFilesSelected
           <input {...getInputProps()} />
           <div className="text-4xl mb-2">{'\uD83D\uDCC1'}</div>
           <p className="text-gray-700 dark:text-gray-300 font-medium">
-            {isDragActive ? 'Drop files here...' : 'Drag & drop files here'}
+            {isDragActive ? t('ui:UploadZone.dropFilesHere_2') : t('ui:UploadZone.dragDropFilesHere')}
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            or click to select files (max {formatFileSize(MAX_FILE_SIZE)} each)
+           {t('ui:UploadZone.orClickToSelectFiles')} {formatFileSize(MAX_FILE_SIZE)} {t('ui:UploadZone.each')}
           </p>
         </div>
 
@@ -181,7 +183,7 @@ export default function UploadZone({ folderId, onUploadComplete, onFilesSelected
           }`}
         >
           <FolderUp className="h-8 w-8 text-gray-400 dark:text-gray-500" />
-          <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Upload Folder</span>
+          <span className="text-sm font-medium text-gray-600 dark:text-gray-400">{t('ui:UploadZone.uploadFolder')}</span>
         </button>
       </div>
 
@@ -198,10 +200,10 @@ export default function UploadZone({ folderId, onUploadComplete, onFilesSelected
                   : 'bg-yellow-50 dark:bg-yellow-950 text-yellow-700 dark:text-yellow-400'
             }`}>
               {summary.failed === 0
-                ? `${summary.success} file${summary.success > 1 ? 's' : ''} uploaded successfully`
+                ? t('ui:UploadZone.successFileV1UploadedSuccessfully', { success: summary.success, v1: summary.success > 1 ? 's' : '' })
                 : summary.success === 0
-                  ? `All ${summary.failed} upload${summary.failed > 1 ? 's' : ''} failed`
-                  : `${summary.success} uploaded, ${summary.failed} failed`}
+                  ? t('ui:UploadZone.allFailedUploadV1Failed', { failed: summary.failed, v1: summary.failed > 1 ? 's' : '' })
+                  : t('ui:UploadZone.successUploadedFailedFailed', { success: summary.success, failed: summary.failed })}
             </div>
           )}
 
@@ -214,17 +216,17 @@ export default function UploadZone({ folderId, onUploadComplete, onFilesSelected
               <span className="flex-1 truncate text-gray-700 dark:text-gray-300">{u.file.name}</span>
               <span className="text-gray-400 dark:text-gray-500 shrink-0">{formatFileSize(u.file.size)}</span>
               {u.status === 'pending' && (
-                <span className="text-gray-400 dark:text-gray-500 shrink-0">Waiting...</span>
+                <span className="text-gray-400 dark:text-gray-500 shrink-0">{t('ui:UploadZone.waiting')}</span>
               )}
               {u.status === 'uploading' && (
-                <span className="text-blue-600 dark:text-blue-400 shrink-0">Uploading...</span>
+                <span className="text-blue-600 dark:text-blue-400 shrink-0">{t('ui:UploadZone.uploading')}</span>
               )}
               {u.status === 'done' && (
-                <span className="text-green-600 dark:text-green-400 shrink-0">Done</span>
+                <span className="text-green-600 dark:text-green-400 shrink-0">{t('ui:UploadZone.done')}</span>
               )}
               {u.status === 'error' && (
                 <span className="text-red-600 dark:text-red-400 shrink-0" title={u.error}>
-                  Failed{u.error ? `: ${u.error}` : ''}
+                 {t('ui:UploadZone.failed')}{u.error ? `: ${u.error}` : ''}
                 </span>
               )}
             </div>

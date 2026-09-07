@@ -12,6 +12,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { CalendarDays, Mail, Phone as PhoneIcon, XCircle } from 'lucide-react'
 import { schedulingApi } from '@/api/scheduling'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 
 interface BookingItem {
   id: string
@@ -35,6 +36,7 @@ const STATUS_STYLES: Record<string, string> = {
 }
 
 export default function BookingsPage() {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const [tab, setTab] = useState<'upcoming' | 'past'>('upcoming')
 
@@ -48,10 +50,10 @@ export default function BookingsPage() {
     mutationFn: ({ calendarId, bookingId }: { calendarId: string; bookingId: string }) =>
       schedulingApi.cancelBooking(calendarId, bookingId),
     onSuccess: () => {
-      toast.success('Booking cancelled')
+      toast.success(t('ui:BookingsPage.bookingCancelled'))
       queryClient.invalidateQueries({ queryKey: ['bookings-all'] })
     },
-    onError: () => toast.error('Failed to cancel booking'),
+    onError: () => toast.error(t('ui:BookingsPage.failedToCancelBooking')),
   })
 
   // Snapshotted once per mount — a stable "now" keeps the upcoming/past
@@ -65,9 +67,9 @@ export default function BookingsPage() {
   return (
     <div className="p-6 max-w-3xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Bookings</h1>
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">{t('ui:BookingsPage.bookings')}</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Meetings your clients booked through your public calendar.
+         {t('ui:BookingsPage.meetingsYourClientsBookedThrough')}
         </p>
       </div>
 
@@ -88,12 +90,12 @@ export default function BookingsPage() {
       </div>
 
       {isLoading ? (
-        <p className="text-gray-400 text-sm py-8">Loading bookings…</p>
+        <p className="text-gray-400 text-sm py-8">{t('ui:BookingsPage.loadingBookings')}</p>
       ) : bookings.length === 0 ? (
         <div className="text-center py-16 bg-white dark:bg-gray-900 border rounded-lg">
           <CalendarDays className="w-10 h-10 text-gray-300 mx-auto mb-3" />
           <p className="text-gray-500 dark:text-gray-400 text-sm">
-            No {tab} bookings.
+           {t('ui:BookingsPage.no')} {tab} {t('ui:BookingsPage.bookings_2')}
           </p>
         </div>
       ) : (
@@ -137,7 +139,7 @@ export default function BookingsPage() {
               {tab === 'upcoming' && b.status !== 'cancelled' && (
                 <button
                   onClick={() => {
-                    if (confirm(`Cancel the booking with ${b.guest_name}?`)) {
+                    if (confirm(t('ui:BookingsPage.cancelTheBookingWithGuest', { guest_name: b.guest_name }))) {
                       cancelMutation.mutate({ calendarId: b.calendar_id, bookingId: b.id })
                     }
                   }}
@@ -145,7 +147,7 @@ export default function BookingsPage() {
                   className="flex items-center gap-1 px-2 py-1 text-sm text-red-600 border border-red-200 rounded hover:bg-red-50 dark:hover:bg-red-950 disabled:opacity-50 shrink-0"
                 >
                   <XCircle className="w-3.5 h-3.5" />
-                  Cancel
+                 {t('ui:BookingsPage.cancel')}
                 </button>
               )}
             </div>

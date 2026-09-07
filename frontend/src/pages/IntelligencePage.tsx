@@ -8,10 +8,12 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { coachApi } from '@/api/coach'
+import { useTranslation } from 'react-i18next'
 
 /* ── Health Score Gauge ────────────────────────────────────────────────── */
 
 function HealthGauge({ score }: { score: number }) {
+  const { t } = useTranslation('ui')
   const circumference = 2 * Math.PI * 70
   const progress = (score / 100) * circumference
   const color = score >= 70 ? '#22c55e' : score >= 40 ? '#eab308' : '#ef4444'
@@ -27,7 +29,7 @@ function HealthGauge({ score }: { score: number }) {
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-4xl font-bold text-gray-900 dark:text-gray-100">{score}</span>
-        <span className="text-xs text-gray-500 dark:text-gray-400">Health Score</span>
+        <span className="text-xs text-gray-500 dark:text-gray-400">{t('ui:IntelligencePage.healthScore')}</span>
       </div>
     </div>
   )
@@ -87,6 +89,7 @@ function NudgeCard({ nudge, onRead, onActed }: {
   onRead: (id: string) => void
   onActed: (id: string) => void
 }) {
+  const { t } = useTranslation('ui')
   const typeConfig: Record<string, { bg: string; icon: any }> = {
     meeting_followup: { bg: 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800', icon: Calendar },
     proposal_followup: { bg: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800', icon: FileSignature },
@@ -107,12 +110,12 @@ function NudgeCard({ nudge, onRead, onActed }: {
           <div className="flex items-center gap-2 mt-2">
             {!nudge.is_read && (
               <button onClick={() => onRead(nudge.id)} className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1">
-                <Eye className="h-3 w-3" /> Mark read
+                <Eye className="h-3 w-3" /> {t('ui:IntelligencePage.markRead')}
               </button>
             )}
             {!nudge.is_acted_on && (
               <button onClick={() => onActed(nudge.id)} className="text-xs text-green-600 dark:text-green-400 hover:underline flex items-center gap-1">
-                <CheckCircle2 className="h-3 w-3" /> Done
+                <CheckCircle2 className="h-3 w-3" /> {t('ui:IntelligencePage.done')}
               </button>
             )}
             <span className="text-[10px] text-gray-400 dark:text-gray-500 ml-auto">
@@ -128,6 +131,7 @@ function NudgeCard({ nudge, onRead, onActed }: {
 /* ── Main Intelligence Page ────────────────────────────────────────────── */
 
 export default function IntelligencePage() {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null)
 
@@ -164,7 +168,7 @@ export default function IntelligencePage() {
   const generateMut = useMutation({
     mutationFn: (month?: string) => coachApi.generateReport(month),
     onSuccess: () => {
-      toast.success('Intelligence report generated')
+      toast.success(t('ui:IntelligencePage.intelligenceReportGenerated'))
       queryClient.invalidateQueries({ queryKey: ['coach-reports'] })
       queryClient.invalidateQueries({ queryKey: ['coach-report'] })
     },
@@ -195,8 +199,8 @@ export default function IntelligencePage() {
             <Lightbulb className="h-6 w-6 text-amber-600" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">O-Brain Coach</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Monthly Intelligence Report</p>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('ui:IntelligencePage.oBrainCoach')}</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{t('ui:IntelligencePage.monthlyIntelligenceReport')}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -218,7 +222,7 @@ export default function IntelligencePage() {
             className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-amber-500 rounded-lg hover:bg-amber-600 disabled:opacity-50 transition-colors"
           >
             {generateMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            {generateMut.isPending ? 'Generating...' : 'Generate Report'}
+            {generateMut.isPending ? t('ui:IntelligencePage.generating') : t('ui:IntelligencePage.generateReport')}
           </button>
         </div>
       </div>
@@ -228,7 +232,7 @@ export default function IntelligencePage() {
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-3">
             <Bell className="h-4 w-4 text-amber-500" />
-            <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Coaching Nudges ({unreadNudges.length} new)</h2>
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{t('ui:IntelligencePage.coachingNudges')}{unreadNudges.length} {t('ui:IntelligencePage.new')}</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {unreadNudges.slice(0, 4).map((n: any) => (
@@ -245,17 +249,16 @@ export default function IntelligencePage() {
       ) : !report ? (
         <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-12 text-center">
           <Lightbulb className="h-12 w-12 text-amber-300 mx-auto mb-4" />
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">No Reports Yet</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">{t('ui:IntelligencePage.noReportsYet')}</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-            Click "Generate Report" to create your first monthly intelligence report.
-            Reports are also generated automatically on the 1st of each month.
+           {t('ui:IntelligencePage.clickGenerateReportToCreate')}
           </p>
           <button
             onClick={() => generateMut.mutate(undefined)}
             disabled={generateMut.isPending}
             className="px-4 py-2 text-sm font-medium text-white bg-amber-500 rounded-lg hover:bg-amber-600 disabled:opacity-50"
           >
-            {generateMut.isPending ? 'Generating...' : 'Generate First Report'}
+            {generateMut.isPending ? t('ui:IntelligencePage.generating') : t('ui:IntelligencePage.generateFirstReport')}
           </button>
         </div>
       ) : (
@@ -265,13 +268,13 @@ export default function IntelligencePage() {
             <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 p-6 flex flex-col items-center justify-center">
               <HealthGauge score={report.health_score} />
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
-                {report.health_score >= 70 ? 'Strong momentum' : report.health_score >= 40 ? 'Room for improvement' : 'Needs attention'}
+                {report.health_score >= 70 ? t('ui:IntelligencePage.strongMomentum') : report.health_score >= 40 ? t('ui:IntelligencePage.roomForImprovement') : t('ui:IntelligencePage.needsAttention')}
               </p>
             </div>
             <div className="lg:col-span-2 bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 p-6">
               <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
                 <MessageSquare className="h-4 w-4 text-amber-500" />
-                Executive Summary
+               {t('ui:IntelligencePage.executiveSummary')}
               </h2>
               <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{report.executive_summary}</p>
 
@@ -279,19 +282,19 @@ export default function IntelligencePage() {
               {report.revenue_insights && typeof report.revenue_insights === 'object' && (
                 <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 grid grid-cols-3 gap-4">
                   <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Revenue</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{t('ui:IntelligencePage.revenue')}</p>
                     <p className="text-lg font-bold text-gray-900 dark:text-gray-100">
                       ${((report.revenue_insights as any).total_income || 0).toLocaleString()}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Expenses</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{t('ui:IntelligencePage.expenses')}</p>
                     <p className="text-lg font-bold text-gray-900 dark:text-gray-100">
                       ${((report.revenue_insights as any).total_expenses || 0).toLocaleString()}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Net</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{t('ui:IntelligencePage.net')}</p>
                     <p className={`text-lg font-bold ${((report.revenue_insights as any).net || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                       ${((report.revenue_insights as any).net || 0).toLocaleString()}
                     </p>
@@ -307,10 +310,10 @@ export default function IntelligencePage() {
             <div className="bg-white dark:bg-gray-900 rounded-xl border border-green-200 dark:border-green-800 p-5">
               <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
                 <TrendingUp className="h-4 w-4 text-green-500" />
-                What's Working
+               {t('ui:IntelligencePage.whatSWorking')}
               </h2>
               {(report.whats_working || []).length === 0 ? (
-                <p className="text-sm text-gray-400">No insights available</p>
+                <p className="text-sm text-gray-400">{t('ui:IntelligencePage.noInsightsAvailable')}</p>
               ) : (
                 <div className="space-y-3">
                   {(report.whats_working as any[]).map((item, idx) => (
@@ -330,10 +333,10 @@ export default function IntelligencePage() {
             <div className="bg-white dark:bg-gray-900 rounded-xl border border-red-200 dark:border-red-800 p-5">
               <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4 text-red-500" />
-                Watch Out
+               {t('ui:IntelligencePage.watchOut')}
               </h2>
               {(report.watch_out || []).length === 0 ? (
-                <p className="text-sm text-gray-400">No concerns flagged</p>
+                <p className="text-sm text-gray-400">{t('ui:IntelligencePage.noConcernsFlagged')}</p>
               ) : (
                 <div className="space-y-3">
                   {(report.watch_out as any[]).map((item, idx) => (
@@ -357,7 +360,7 @@ export default function IntelligencePage() {
             <div className="bg-white dark:bg-gray-900 rounded-xl border border-amber-200 dark:border-amber-800 p-5 mb-6">
               <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
                 <Lightbulb className="h-4 w-4 text-amber-500" />
-                Coach Recommendations
+               {t('ui:IntelligencePage.coachRecommendations')}
               </h2>
               <div className="space-y-2">
                 {(report.recommendations as any[]).map((rec, idx) => (
@@ -379,19 +382,19 @@ export default function IntelligencePage() {
           {report.trend_data && typeof report.trend_data === 'object' && (report.trend_data as any).months?.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
               <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 p-5">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Revenue Trend</h3>
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">{t('ui:IntelligencePage.revenueTrend')}</h3>
                 <TrendChart data={(report.trend_data as any).revenue || []} labels={(report.trend_data as any).months || []} color="#22c55e" />
               </div>
               <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 p-5">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Proposals Won</h3>
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">{t('ui:IntelligencePage.proposalsWon')}</h3>
                 <TrendChart data={(report.trend_data as any).proposals_won || []} labels={(report.trend_data as any).months || []} color="#3b82f6" />
               </div>
               <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 p-5">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">New Contacts</h3>
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">{t('ui:IntelligencePage.newContacts')}</h3>
                 <TrendChart data={(report.trend_data as any).contacts || []} labels={(report.trend_data as any).months || []} color="#8b5cf6" />
               </div>
               <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 p-5">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Health Score</h3>
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">{t('ui:IntelligencePage.healthScore')}</h3>
                 <TrendChart data={(report.trend_data as any).health_scores || []} labels={(report.trend_data as any).months || []} color="#f59e0b" />
               </div>
             </div>
@@ -402,33 +405,33 @@ export default function IntelligencePage() {
             <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 p-5 mb-6">
               <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
                 <Target className="h-4 w-4 text-amber-500" />
-                Win/Loss Overview
+               {t('ui:IntelligencePage.winLossOverview')}
               </h2>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                <MetricCard label="Total Deals" value={deals.total_deals} icon={FileSignature} color="text-blue-500" />
-                <MetricCard label="Win Rate" value={`${deals.win_rate}%`} icon={TrendingUp} color="text-green-500" />
-                <MetricCard label="Avg Deal Value" value={`$${(deals.avg_deal_value || 0).toLocaleString()}`} icon={DollarSign} color="text-amber-500" />
-                <MetricCard label="Avg Cycle" value={`${deals.avg_cycle_days}d`} icon={Calendar} color="text-purple-500" />
+                <MetricCard label={t('ui:IntelligencePage.totalDeals')} value={deals.total_deals} icon={FileSignature} color="text-blue-500" />
+                <MetricCard label={t('ui:IntelligencePage.winRate')} value={`${deals.win_rate}%`} icon={TrendingUp} color="text-green-500" />
+                <MetricCard label={t('ui:IntelligencePage.avgDealValue')} value={`$${(deals.avg_deal_value || 0).toLocaleString()}`} icon={DollarSign} color="text-amber-500" />
+                <MetricCard label={t('ui:IntelligencePage.avgCycle')} value={`${deals.avg_cycle_days}d`} icon={Calendar} color="text-purple-500" />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg text-center">
                   <p className="text-2xl font-bold text-green-600">{deals.wins}</p>
-                  <p className="text-xs text-gray-500">Wins</p>
+                  <p className="text-xs text-gray-500">{t('ui:IntelligencePage.wins')}</p>
                 </div>
                 <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg text-center">
                   <p className="text-2xl font-bold text-red-600">{deals.losses}</p>
-                  <p className="text-xs text-gray-500">Losses</p>
+                  <p className="text-xs text-gray-500">{t('ui:IntelligencePage.losses')}</p>
                 </div>
                 <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg text-center">
                   <p className="text-2xl font-bold text-yellow-600">{deals.pending}</p>
-                  <p className="text-xs text-gray-500">Pending</p>
+                  <p className="text-xs text-gray-500">{t('ui:IntelligencePage.pending')}</p>
                 </div>
               </div>
 
               {deals.total_revenue > 0 && (
                 <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 text-center">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Total Revenue from Won Deals</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('ui:IntelligencePage.totalRevenueFromWonDeals')}</p>
                   <p className="text-xl font-bold text-green-600">${deals.total_revenue.toLocaleString()}</p>
                 </div>
               )}
@@ -440,23 +443,23 @@ export default function IntelligencePage() {
             <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 p-5 mb-6">
               <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
                 <Users className="h-4 w-4 text-amber-500" />
-                Meeting Patterns
+               {t('ui:IntelligencePage.meetingPatterns')}
               </h2>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Total Meetings</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('ui:IntelligencePage.totalMeetings')}</p>
                   <p className="text-xl font-bold text-gray-900 dark:text-gray-100">{(report.meeting_patterns as any).total_meetings || 0}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Avg Duration</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('ui:IntelligencePage.avgDuration')}</p>
                   <p className="text-xl font-bold text-gray-900 dark:text-gray-100">{(report.meeting_patterns as any).avg_duration_minutes || 0}m</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Action Completion</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('ui:IntelligencePage.actionCompletion')}</p>
                   <p className="text-xl font-bold text-gray-900 dark:text-gray-100">{(report.meeting_patterns as any).action_completion_rate || 0}%</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Insight</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('ui:IntelligencePage.insight')}</p>
                   <p className="text-sm text-gray-700 dark:text-gray-300">{(report.meeting_patterns as any).insight || '-'}</p>
                 </div>
               </div>
@@ -468,7 +471,7 @@ export default function IntelligencePage() {
             <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 p-5">
               <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
                 <Bell className="h-4 w-4 text-amber-500" />
-                All Coaching Nudges ({nudges.length})
+               {t('ui:IntelligencePage.allCoachingNudges')}{nudges.length})
               </h2>
               <div className="space-y-2 max-h-80 overflow-y-auto">
                 {nudges.map((n: any) => (

@@ -13,6 +13,7 @@ import {
 import { api } from '@/api/client'
 import { wsClient } from '@/api/websocket'
 import { useAuthStore } from '@/stores/authStore'
+import { useTranslation } from 'react-i18next'
 
 interface Props {
   contactId: string
@@ -70,6 +71,7 @@ export default function ContactConversationThread({
   contactEngineEnabled,
   contactEnginePausedUntil,
 }: Props) {
+  const { t } = useTranslation('ui')
   const { user } = useAuthStore()
   const queryClient = useQueryClient()
   const [smsText, setSmsText] = useState('')
@@ -94,7 +96,7 @@ export default function ContactConversationThread({
       queryClient.invalidateQueries({ queryKey: ['contact', contactId] })
       const wasPaused = !!pauseRelativeLabel(contactEnginePausedUntil)
       if (vars === true && wasPaused) {
-        toast.success('Pause cleared — AI will respond to next inbound')
+        toast.success(t('ui:ContactConversationThread.pauseClearedAiWillRespond'))
       } else {
         toast.success(
           vars === true ? 'AI auto-reply: ON for this contact'
@@ -103,7 +105,7 @@ export default function ContactConversationThread({
         )
       }
     },
-    onError: (e: any) => toast.error(`Toggle failed: ${e.message || ''}`),
+    onError: (e: any) => toast.error(t('ui:ContactConversationThread.toggleFailedV0', { v0: e.message || '' })),
   })
   const [isTabVisible, setIsTabVisible] = useState(
     typeof document !== 'undefined' ? document.visibilityState === 'visible' : true,
@@ -159,7 +161,7 @@ export default function ContactConversationThread({
       queryClient.invalidateQueries({ queryKey: ['contact-conversations', contactId] })
       queryClient.invalidateQueries({ queryKey: ['contact-activities', contactId] })
     },
-    onError: (e: any) => toast.error(`Failed: ${e.message || 'SMS send failed'}`),
+    onError: (e: any) => toast.error(t('ui:ContactConversationThread.failedV0', { v0: e.message || 'SMS send failed' })),
   })
 
   return (
@@ -172,17 +174,17 @@ export default function ContactConversationThread({
           <div className="flex items-center justify-between px-3 py-2 bg-indigo-50/50 dark:bg-indigo-900/10 border-b border-indigo-100 dark:border-indigo-900/30 text-xs">
             <span className="flex items-center gap-1.5 text-indigo-700 dark:text-indigo-300">
               <Bot className="h-3.5 w-3.5" />
-              AI auto-reply:{' '}
+             {t('ui:ContactConversationThread.aiAutoReply')}{' '}
               <span className={effectiveEngineOn ? 'font-semibold' : ''}>
                 {effectiveEngineOn ? 'ON' : 'OFF'}
               </span>
               {engineEnabled === null && (
-                <span className="text-indigo-400">(using default)</span>
+                <span className="text-indigo-400">{t('ui:ContactConversationThread.usingDefault')}</span>
               )}
               {isPaused && (
                 <span className="flex items-center gap-1 ml-2 text-amber-600 dark:text-amber-400">
                   <Pause className="h-3 w-3" />
-                  Paused for {pauseLabel}
+                 {t('ui:ContactConversationThread.pausedFor')} {pauseLabel}
                 </span>
               )}
             </span>
@@ -191,9 +193,9 @@ export default function ContactConversationThread({
                 onClick={() => toggleEngineMut.mutate(true)}
                 disabled={toggleEngineMut.isPending}
                 className="px-2 py-0.5 rounded text-[11px] bg-amber-500 hover:bg-amber-600 text-white disabled:opacity-50"
-                title="Clear the manual-reply pause so AI responds to the next inbound"
+                title={t('ui:ContactConversationThread.clearTheManualReplyPause')}
               >
-                {toggleEngineMut.isPending ? 'Resuming…' : 'Resume now'}
+                {toggleEngineMut.isPending ? t('ui:ContactConversationThread.resuming') : t('ui:ContactConversationThread.resumeNow')}
               </button>
             ) : (
               <div className="flex gap-1">
@@ -206,7 +208,7 @@ export default function ContactConversationThread({
                       : 'text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/30'
                   }`}
                 >
-                  On
+                 {t('ui:ContactConversationThread.on')}
                 </button>
                 <button
                   onClick={() => toggleEngineMut.mutate(false)}
@@ -217,7 +219,7 @@ export default function ContactConversationThread({
                       : 'text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/30'
                   }`}
                 >
-                  Off
+                 {t('ui:ContactConversationThread.off')}
                 </button>
                 <button
                   onClick={() => toggleEngineMut.mutate(null)}
@@ -228,7 +230,7 @@ export default function ContactConversationThread({
                       : 'text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/30'
                   }`}
                 >
-                  Default
+                 {t('ui:ContactConversationThread.default')}
                 </button>
               </div>
             )}
@@ -242,11 +244,11 @@ export default function ContactConversationThread({
         style={{ maxHeight: '60vh' }}
       >
         {isLoading ? (
-          <div className="text-center text-sm text-gray-400 py-12">Loading…</div>
+          <div className="text-center text-sm text-gray-400 py-12">{t('ui:ContactConversationThread.loading')}</div>
         ) : events.length === 0 ? (
           <div className="text-center text-sm text-gray-400 dark:text-gray-500 py-12">
             <Phone className="h-8 w-8 mx-auto mb-2 opacity-40" />
-            No messages yet. Start the thread below.
+           {t('ui:ContactConversationThread.noMessagesYetStartThe')}
           </div>
         ) : (
           events.map((ev) => {
@@ -259,7 +261,7 @@ export default function ContactConversationThread({
                   <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-3 w-full">
                     <div className="flex items-center gap-2 text-xs text-purple-700 dark:text-purple-300 mb-1">
                       <Voicemail className="h-3.5 w-3.5" />
-                      <span className="font-medium">Voicemail</span>
+                      <span className="font-medium">{t('ui:ContactConversationThread.voicemail')}</span>
                       {ev.recording_duration_seconds != null && (
                         <span className="text-purple-500">
                           · {ev.recording_duration_seconds}s
@@ -286,10 +288,10 @@ export default function ContactConversationThread({
                         "{ev.body}"
                       </div>
                     ) : ev.status === 'pending' ? (
-                      <div className="text-xs text-gray-500 italic">Transcribing…</div>
+                      <div className="text-xs text-gray-500 italic">{t('ui:ContactConversationThread.transcribing')}</div>
                     ) : ev.status === 'failed' ? (
                       <div className="text-xs text-gray-400 italic">
-                        Transcript unavailable
+                       {t('ui:ContactConversationThread.transcriptUnavailable')}
                       </div>
                     ) : null}
                   </div>
@@ -314,7 +316,7 @@ export default function ContactConversationThread({
                       : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-bl-sm'
                   }`}
                 >
-                  {ev.body || <span className="italic opacity-70">(empty)</span>}
+                  {ev.body || <span className="italic opacity-70">{t('ui:ContactConversationThread.empty')}</span>}
                 </div>
                 <div
                   className={`flex items-center gap-1 text-[10px] text-gray-400 mt-1 px-1 ${
@@ -334,14 +336,14 @@ export default function ContactConversationThread({
       <div className="border-t border-gray-200 dark:border-gray-700 p-3 bg-gray-50 dark:bg-gray-900/50">
         {!contactPhone ? (
           <div className="text-xs text-gray-500 dark:text-gray-400 italic">
-            Add a phone number to this contact to send SMS.
+           {t('ui:ContactConversationThread.addAPhoneNumberTo')}
           </div>
         ) : (
           <div className="flex gap-2 items-end">
             <textarea
               value={smsText}
               onChange={(e) => setSmsText(e.target.value)}
-              placeholder="Type a message…"
+              placeholder={t('ui:ContactConversationThread.typeAMessage')}
               rows={2}
               maxLength={1600}
               className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-lg resize-none bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -357,7 +359,7 @@ export default function ContactConversationThread({
               className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Send className="h-4 w-4" />
-              {sendMut.isPending ? 'Sending…' : 'Send'}
+              {sendMut.isPending ? t('ui:ContactConversationThread.sending') : t('ui:ContactConversationThread.send')}
             </button>
           </div>
         )}
@@ -377,6 +379,7 @@ export default function ContactConversationThread({
  * web URL accepts the thread_id directly).
  */
 function EmailEvent({ ev }: { ev: ConversationEvent }) {
+  const { t } = useTranslation('ui')
   const [expanded, setExpanded] = useState(false)
   const isOut = ev.direction === 'outbound'
   const snippet = ev.snippet || ''
@@ -413,11 +416,11 @@ function EmailEvent({ ev }: { ev: ConversationEvent }) {
                 : 'text-emerald-700 dark:text-emerald-300'
             }`}
           >
-            Email
+           {t('ui:ContactConversationThread.email')}
           </span>
           <span className="text-gray-400 dark:text-gray-500">·</span>
           <span className="text-gray-500 dark:text-gray-400 text-[11px]">
-            {isOut ? 'Sent' : 'Received'}
+            {isOut ? t('ui:ContactConversationThread.sent') : t('ui:ContactConversationThread.received')}
           </span>
         </div>
 
@@ -441,7 +444,7 @@ function EmailEvent({ ev }: { ev: ConversationEvent }) {
             onClick={() => setExpanded((e) => !e)}
             className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline mt-1"
           >
-            {expanded ? 'Show less' : 'Show more'}
+            {expanded ? t('ui:ContactConversationThread.showLess') : t('ui:ContactConversationThread.showMore')}
           </button>
         )}
 
@@ -451,7 +454,7 @@ function EmailEvent({ ev }: { ev: ConversationEvent }) {
               <Sparkles className="h-3 w-3 mt-0.5 shrink-0 text-indigo-500 dark:text-indigo-400 not-italic" />
               <span>
                 <span className="font-medium not-italic text-gray-500 dark:text-gray-500 mr-1">
-                  AI summary:
+                 {t('ui:ContactConversationThread.aiSummary')}
                 </span>
                 {ev.body_summary}
               </span>
@@ -467,7 +470,7 @@ function EmailEvent({ ev }: { ev: ConversationEvent }) {
               rel="noopener noreferrer"
               className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline"
             >
-              View in Gmail ↗
+             {t('ui:ContactConversationThread.viewInGmail')}
             </a>
           </div>
         )}

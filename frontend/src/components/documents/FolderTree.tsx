@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Folder } from '@/types/models'
+import { useTranslation } from 'react-i18next'
 
 interface FolderTreeProps {
   folders: Folder[]
@@ -61,6 +62,7 @@ function FolderNode({ folder, selectedFolderId, onSelect, depth }: FolderNodePro
 }
 
 export default function FolderTree({ folders, selectedFolderId, onSelect }: FolderTreeProps) {
+  const { t } = useTranslation('ui')
   return (
     <div className="space-y-0.5">
       <button
@@ -70,7 +72,7 @@ export default function FolderTree({ folders, selectedFolderId, onSelect }: Fold
         }`}
       >
         <span>{'\uD83C\uDFE0'}</span>
-        <span>All Documents</span>
+        <span>{t('ui:FolderTree.allDocuments')}</span>
       </button>
       {folders.map((folder) => (
         <FolderNode

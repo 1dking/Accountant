@@ -7,6 +7,8 @@ import {
   PaymentElement,
 } from '@stripe/react-stripe-js'
 import { Loader2, CheckCircle, AlertCircle } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { uiLocale } from '@/lib/utils'
 
 interface PaymentFormProps {
   clientSecret: string
@@ -18,7 +20,7 @@ interface PaymentFormProps {
 }
 
 const formatCurrency = (amountCents: number, currency: string) =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(
+  new Intl.NumberFormat(uiLocale(), { style: 'currency', currency }).format(
     amountCents / 100
   )
 
@@ -31,6 +33,7 @@ function CheckoutForm({
   currency: string
   onSuccess: () => void
 }) {
+  const { t } = useTranslation('ui')
   const stripe = useStripe()
   const elements = useElements()
   const [processing, setProcessing] = useState(false)
@@ -68,11 +71,10 @@ function CheckoutForm({
       <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 rounded-lg p-6 text-center">
         <CheckCircle className="h-10 w-10 text-green-600 mx-auto mb-3" />
         <h3 className="text-lg font-semibold text-green-800 dark:text-green-300 mb-1">
-          Payment Successful
+         {t('ui:PaymentForm.paymentSuccessful')}
         </h3>
         <p className="text-sm text-green-700 dark:text-green-400">
-          Thank you! Your payment of {formatCurrency(amount, currency)} has been
-          received.
+         {t('ui:PaymentForm.thankYouYourPaymentOf')} {formatCurrency(amount, currency)} {t('ui:PaymentForm.hasBeenReceived')}
         </p>
       </div>
     )
@@ -97,10 +99,10 @@ function CheckoutForm({
         {processing ? (
           <span className="flex items-center justify-center gap-2">
             <Loader2 className="h-4 w-4 animate-spin" />
-            Processing...
+           {t('ui:PaymentForm.processing')}
           </span>
         ) : (
-          `Pay ${formatCurrency(amount, currency)}`
+          t('ui:PaymentForm.payV0', { v0: formatCurrency(amount, currency) })
         )}
       </button>
     </form>

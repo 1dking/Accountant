@@ -14,6 +14,7 @@ import {
   ArrowDownAZ,
   Eraser,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 interface SheetContextMenuProps {
   x: number
@@ -86,6 +87,7 @@ export default function SheetContextMenu({
   hasHiddenRows,
   hasHiddenCols,
 }: SheetContextMenuProps) {
+  const { t } = useTranslation('ui')
   const menuRef = useRef<HTMLDivElement>(null)
 
   const handleAction = useCallback(
@@ -163,17 +165,17 @@ export default function SheetContextMenu({
       {/* Cut / Copy / Paste */}
       <MenuItem
         icon={<Scissors className={iconSize} />}
-        label="Cut"
+        label={t('ui:SheetContextMenu.cut')}
         onClick={() => handleAction(onCut)}
       />
       <MenuItem
         icon={<Copy className={iconSize} />}
-        label="Copy"
+        label={t('ui:SheetContextMenu.copy')}
         onClick={() => handleAction(onCopy)}
       />
       <MenuItem
         icon={<ClipboardPaste className={iconSize} />}
-        label="Paste"
+        label={t('ui:SheetContextMenu.paste')}
         onClick={() => handleAction(onPaste)}
       />
 
@@ -182,24 +184,24 @@ export default function SheetContextMenu({
       {/* Insert rows */}
       <MenuItem
         icon={<ArrowUp className={iconSize} />}
-        label="Insert row above"
+        label={t('ui:SheetContextMenu.insertRowAbove')}
         onClick={() => handleAction(onInsertRowAbove)}
       />
       <MenuItem
         icon={<ArrowDown className={iconSize} />}
-        label="Insert row below"
+        label={t('ui:SheetContextMenu.insertRowBelow')}
         onClick={() => handleAction(onInsertRowBelow)}
       />
 
       {/* Insert columns */}
       <MenuItem
         icon={<ArrowLeft className={iconSize} />}
-        label="Insert column left"
+        label={t('ui:SheetContextMenu.insertColumnLeft')}
         onClick={() => handleAction(onInsertColLeft)}
       />
       <MenuItem
         icon={<ArrowRight className={iconSize} />}
-        label="Insert column right"
+        label={t('ui:SheetContextMenu.insertColumnRight')}
         onClick={() => handleAction(onInsertColRight)}
       />
 
@@ -208,12 +210,12 @@ export default function SheetContextMenu({
       {/* Delete */}
       <MenuItem
         icon={<Trash2 className={iconSize} />}
-        label="Delete row"
+        label={t('ui:SheetContextMenu.deleteRow')}
         onClick={() => handleAction(onDeleteRow)}
       />
       <MenuItem
         icon={<Trash2 className={iconSize} />}
-        label="Delete column"
+        label={t('ui:SheetContextMenu.deleteColumn')}
         onClick={() => handleAction(onDeleteCol)}
       />
 
@@ -222,12 +224,12 @@ export default function SheetContextMenu({
       {/* Hide */}
       <MenuItem
         icon={<EyeOff className={iconSize} />}
-        label="Hide row"
+        label={t('ui:SheetContextMenu.hideRow')}
         onClick={() => handleAction(onHideRow)}
       />
       <MenuItem
         icon={<EyeOff className={iconSize} />}
-        label="Hide column"
+        label={t('ui:SheetContextMenu.hideColumn')}
         onClick={() => handleAction(onHideCol)}
       />
 
@@ -235,14 +237,14 @@ export default function SheetContextMenu({
       {hasHiddenRows && (
         <MenuItem
           icon={<Eye className={iconSize} />}
-          label="Show hidden rows"
+          label={t('ui:SheetContextMenu.showHiddenRows')}
           onClick={() => handleAction(onUnhideRows)}
         />
       )}
       {hasHiddenCols && (
         <MenuItem
           icon={<Eye className={iconSize} />}
-          label="Show hidden columns"
+          label={t('ui:SheetContextMenu.showHiddenColumns')}
           onClick={() => handleAction(onUnhideCols)}
         />
       )}
@@ -252,12 +254,12 @@ export default function SheetContextMenu({
       {/* Sort */}
       <MenuItem
         icon={<ArrowUpAZ className={iconSize} />}
-        label="Sort A \u2192 Z"
+        label={t('ui:SheetContextMenu.sortAU2192Z')}
         onClick={() => handleAction(onSortAsc)}
       />
       <MenuItem
         icon={<ArrowDownAZ className={iconSize} />}
-        label="Sort Z \u2192 A"
+        label={t('ui:SheetContextMenu.sortZU2192A')}
         onClick={() => handleAction(onSortDesc)}
       />
 
@@ -266,7 +268,7 @@ export default function SheetContextMenu({
       {/* Clear */}
       <MenuItem
         icon={<Eraser className={iconSize} />}
-        label="Clear contents"
+        label={t('ui:SheetContextMenu.clearContents')}
         onClick={() => handleAction(onClearContents)}
       />
     </div>

@@ -4,12 +4,14 @@ import { Video, Loader2 } from 'lucide-react'
 import { LiveKitRoom, VideoConference } from '@livekit/components-react'
 import '@livekit/components-styles'
 import { joinMeetingAsGuest } from '@/api/meetings'
+import { useTranslation } from 'react-i18next'
 
 const LIVEKIT_URL =
   import.meta.env.VITE_LIVEKIT_URL ||
   `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/api/meetings/livekit-proxy`
 
 export default function MeetingGuestJoinPage() {
+  const { t } = useTranslation('ui')
   const { id } = useParams<{ id: string }>()
   const [searchParams] = useSearchParams()
   const guestToken = searchParams.get('token') || ''
@@ -25,9 +27,9 @@ export default function MeetingGuestJoinPage() {
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-8 max-w-sm w-full text-center">
           <Video className="h-10 w-10 mx-auto mb-4 text-red-400" />
-          <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">Invalid Invite Link</h1>
+          <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">{t('ui:MeetingGuestJoinPage.invalidInviteLink')}</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            This meeting invite link is missing a required token. Please ask the host for a new link.
+           {t('ui:MeetingGuestJoinPage.thisMeetingInviteLinkIs')}
           </p>
         </div>
       </div>
@@ -70,19 +72,19 @@ export default function MeetingGuestJoinPage() {
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-8 max-w-sm w-full">
         <div className="text-center mb-6">
           <Video className="h-10 w-10 mx-auto mb-3 text-blue-500" />
-          <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100">Join Meeting</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Enter your name to join as a guest</p>
+          <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100">{t('ui:MeetingGuestJoinPage.joinMeeting')}</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('ui:MeetingGuestJoinPage.enterYourNameToJoin')}</p>
         </div>
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Your Name</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:MeetingGuestJoinPage.yourName')}</label>
             <input
               type="text"
               value={guestName}
               onChange={(e) => setGuestName(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleJoin() }}
-              placeholder="Enter your name"
+              placeholder={t('ui:MeetingGuestJoinPage.enterYourName')}
               autoFocus
               className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100"
             />
@@ -100,12 +102,12 @@ export default function MeetingGuestJoinPage() {
             {joining ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Joining...
+               {t('ui:MeetingGuestJoinPage.joining')}
               </>
             ) : (
               <>
                 <Video className="h-4 w-4" />
-                Join Meeting
+               {t('ui:MeetingGuestJoinPage.joinMeeting')}
               </>
             )}
           </button>

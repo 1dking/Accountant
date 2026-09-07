@@ -24,6 +24,7 @@ import {
   ArrowRight, Check, Loader2, Pencil, RotateCcw, Sparkles, X,
 } from 'lucide-react'
 import { pagesApi } from '@/api/pages'
+import { useTranslation } from 'react-i18next'
 
 interface SessionData {
   id: string
@@ -47,6 +48,7 @@ interface Props {
 }
 
 export default function PageAIGenerateModal({ open, onClose, onComplete }: Props) {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [prompt, setPrompt] = useState('')
@@ -60,7 +62,7 @@ export default function PageAIGenerateModal({ open, onClose, onComplete }: Props
       const id = resp?.data?.id
       if (id) setSessionId(id)
     },
-    onError: () => toast.error('Couldn\'t start generation session'),
+    onError: () => toast.error(t('ui:PageAIGenerateModal.couldnTStartGenerationSession')),
   })
   useEffect(() => {
     if (open && !sessionId && !createSessionMut.isPending) {
@@ -116,7 +118,7 @@ export default function PageAIGenerateModal({ open, onClose, onComplete }: Props
       queryClient.setQueryData(['ai-page-session', sessionId], { data: s })
     },
     onError: (e: any) =>
-      toast.error(`Generation failed: ${e?.message || ''}`),
+      toast.error(t('ui:PageAIGenerateModal.generationFailedV0', { v0: e?.message || '' })),
   })
 
   const approveMut = useMutation({
@@ -125,11 +127,11 @@ export default function PageAIGenerateModal({ open, onClose, onComplete }: Props
       return pagesApi.aiTriggerGenerate(sessionId!)
     },
     onSuccess: () => {
-      toast.success('Generating your page…')
+      toast.success(t('ui:PageAIGenerateModal.generatingYourPage'))
       queryClient.invalidateQueries({ queryKey: ['ai-page-session', sessionId] })
     },
     onError: (e: any) =>
-      toast.error(`Couldn\'t kick off generation: ${e?.message || ''}`),
+      toast.error(t('ui:PageAIGenerateModal.couldnTKickOffGeneration', { v0: e?.message || '' })),
   })
 
   if (!open) return null
@@ -167,7 +169,7 @@ export default function PageAIGenerateModal({ open, onClose, onComplete }: Props
           <div className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-indigo-500" />
             <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">
-              Generate a new page with AI
+             {t('ui:PageAIGenerateModal.generateANewPageWith')}
             </h2>
           </div>
           <button
@@ -245,12 +247,13 @@ function PromptStep({
   onSubmit: () => void
   onCancel: () => void
 }) {
+  const { t } = useTranslation('ui')
   return (
     <div className="space-y-4">
       {clarifyingQuestion ? (
         <div className="p-3 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50/70 dark:bg-indigo-950/30">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-indigo-700 dark:text-indigo-300 mb-1">
-            AI needs a bit more info
+           {t('ui:PageAIGenerateModal.aiNeedsABitMore')}
           </p>
           <p className="text-sm text-gray-800 dark:text-gray-100">
             {clarifyingQuestion}
@@ -260,20 +263,18 @@ function PromptStep({
         <div>
           <p className="text-sm text-gray-700 dark:text-gray-300">
             {isIteration
-              ? "Tell AI what to change about the proposed page structure."
-              : "Describe the page you want. Be specific about audience, goals, and what should be on the page."}
+              ? t('ui:PageAIGenerateModal.tellAiWhatToChange')
+              : t('ui:PageAIGenerateModal.describeThePageYouWant')}
           </p>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            Example: "Landing page for a small-business accounting firm in Ontario.
-            Hero with phone-call CTA, three services, two testimonials, simple
-            pricing, contact form."
+           {t('ui:PageAIGenerateModal.exampleLandingPageForA')}
           </p>
         </div>
       )}
       <textarea
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
-        placeholder={isIteration ? "What should change?" : "Describe your page…"}
+        placeholder={isIteration ? t('ui:PageAIGenerateModal.whatShouldChange') : t('ui:PageAIGenerateModal.describeYourPage')}
         rows={6}
         maxLength={4000}
         className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
@@ -294,7 +295,7 @@ function PromptStep({
               onClick={onCancel}
               className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
             >
-              Cancel
+             {t('ui:PageAIGenerateModal.cancel')}
             </button>
           )}
           <button
@@ -304,11 +305,11 @@ function PromptStep({
           >
             {isLoading ? (
               <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Thinking…
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> {t('ui:PageAIGenerateModal.thinking')}
               </>
             ) : (
               <>
-                Generate plan <ArrowRight className="h-3.5 w-3.5" />
+               {t('ui:PageAIGenerateModal.generatePlan')} <ArrowRight className="h-3.5 w-3.5" />
               </>
             )}
           </button>
@@ -329,19 +330,20 @@ function PrdStep({
   onApprove: () => void
   isApproving: boolean
 }) {
+  const { t } = useTranslation('ui')
   if (!prd) return null
   return (
     <div className="space-y-4">
       <div>
         <h3 className="text-xs font-semibold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 mb-1">
-          Proposed page
+         {t('ui:PageAIGenerateModal.proposedPage')}
         </h3>
         <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-          {prd.title || 'Untitled'}
+          {prd.title || t('ui:PageAIGenerateModal.untitled')}
         </h4>
         {prd.audience && (
           <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-            <span className="font-medium text-gray-500 dark:text-gray-500">For: </span>
+            <span className="font-medium text-gray-500 dark:text-gray-500">{t('ui:PageAIGenerateModal.for')} </span>
             {prd.audience}
           </p>
         )}
@@ -350,7 +352,7 @@ function PrdStep({
       {prd.goals?.length ? (
         <div>
           <h5 className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
-            Goals
+           {t('ui:PageAIGenerateModal.goals')}
           </h5>
           <ul className="space-y-1">
             {prd.goals.map((g, i) => (
@@ -366,7 +368,7 @@ function PrdStep({
       {prd.sections?.length ? (
         <div>
           <h5 className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
-            Sections ({prd.sections.length})
+           {t('ui:PageAIGenerateModal.sections')}{prd.sections.length})
           </h5>
           <ol className="space-y-1.5">
             {prd.sections.map((s, i) => (
@@ -404,7 +406,7 @@ function PrdStep({
           disabled={isApproving}
           className="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md"
         >
-          <Pencil className="h-3.5 w-3.5" /> Refine plan
+          <Pencil className="h-3.5 w-3.5" /> {t('ui:PageAIGenerateModal.refinePlan')}
         </button>
         <button
           onClick={onApprove}
@@ -413,11 +415,11 @@ function PrdStep({
         >
           {isApproving ? (
             <>
-              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Queueing…
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> {t('ui:PageAIGenerateModal.queueing')}
             </>
           ) : (
             <>
-              Approve & generate <Sparkles className="h-3.5 w-3.5" />
+             {t('ui:PageAIGenerateModal.approveGenerate')} <Sparkles className="h-3.5 w-3.5" />
             </>
           )}
         </button>
@@ -427,6 +429,7 @@ function PrdStep({
 }
 
 function WorkingStep({ status }: { status: string }) {
+  const { t } = useTranslation('ui')
   return (
     <div className="py-12 text-center space-y-4">
       <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-800">
@@ -434,11 +437,10 @@ function WorkingStep({ status }: { status: string }) {
       </div>
       <div>
         <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
-          {status === 'approved' ? 'Queued…' : 'Generating sections…'}
+          {status === 'approved' ? t('ui:PageAIGenerateModal.queued') : t('ui:PageAIGenerateModal.generatingSections')}
         </h3>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          This usually takes 30-60 seconds. You can leave this dialog open
-          or come back to it from the page builder.
+         {t('ui:PageAIGenerateModal.thisUsuallyTakes3060')}
         </p>
       </div>
     </div>
@@ -452,6 +454,7 @@ function FailedStep({
   errorMessage: string | null
   onTryAgain: () => void
 }) {
+  const { t } = useTranslation('ui')
   return (
     <div className="py-8 text-center space-y-4">
       <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800">
@@ -459,17 +462,17 @@ function FailedStep({
       </div>
       <div>
         <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
-          Generation failed
+         {t('ui:PageAIGenerateModal.generationFailed')}
         </h3>
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 max-w-md mx-auto">
-          {errorMessage || 'Something went wrong. Try rephrasing the prompt.'}
+          {errorMessage || t('ui:PageAIGenerateModal.somethingWentWrongTryRephrasing')}
         </p>
       </div>
       <button
         onClick={onTryAgain}
         className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md"
       >
-        <RotateCcw className="h-3.5 w-3.5" /> Try again
+        <RotateCcw className="h-3.5 w-3.5" /> {t('ui:PageAIGenerateModal.tryAgain')}
       </button>
     </div>
   )

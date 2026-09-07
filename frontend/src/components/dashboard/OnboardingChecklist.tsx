@@ -7,8 +7,10 @@ import {
   dismissOnboardingItem,
   type OnboardingItem,
 } from '@/api/auth'
+import { useTranslation } from 'react-i18next'
 
 export default function OnboardingChecklist() {
+  const { t } = useTranslation('ui')
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
@@ -23,7 +25,7 @@ export default function OnboardingChecklist() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['onboarding'] })
     },
-    onError: (e: any) => toast.error(`Dismiss failed: ${e.message || ''}`),
+    onError: (e: any) => toast.error(t('ui:OnboardingChecklist.dismissFailedV0', { v0: e.message || '' })),
   })
 
   if (isLoading || !data?.data) return null
@@ -49,10 +51,10 @@ export default function OnboardingChecklist() {
           <Sparkles className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
           <div>
             <h2 className="font-semibold text-gray-900 dark:text-gray-100">
-              Set up your account
+             {t('ui:OnboardingChecklist.setUpYourAccount')}
             </h2>
             <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
-              {completedCount} of {totalCount} done ({Math.round(overall_progress * 100)}%)
+              {completedCount} of {totalCount} {t('ui:OnboardingChecklist.done')}{Math.round(overall_progress * 100)}%)
             </p>
           </div>
         </div>
@@ -111,7 +113,7 @@ export default function OnboardingChecklist() {
                       dismissMut.mutate(item.key)
                     }}
                     className="p-1 rounded text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 opacity-0 group-hover:opacity-100 transition-opacity"
-                    title="Skip this step"
+                    title={t('ui:OnboardingChecklist.skipThisStep')}
                   >
                     <X className="h-3 w-3" />
                   </button>

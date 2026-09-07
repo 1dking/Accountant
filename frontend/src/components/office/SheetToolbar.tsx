@@ -24,6 +24,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { CellData } from '@/lib/spreadsheet/types'
+import { useTranslation } from 'react-i18next'
 
 interface SheetToolbarProps {
   selectedCellData: CellData | null
@@ -185,6 +186,7 @@ export default function SheetToolbar({
   freezeRow,
   freezeCol,
 }: SheetToolbarProps) {
+  const { t } = useTranslation('ui')
   const [bordersOpen, setBordersOpen] = useState(false)
   const [freezeOpen, setFreezeOpen] = useState(false)
 
@@ -203,10 +205,10 @@ export default function SheetToolbar({
   return (
     <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-3 py-1 flex items-center gap-0.5 flex-wrap h-10">
       {/* Group 1: Undo/Redo */}
-      <ToolbarButton onClick={onUndo} disabled={!canUndo} title="Undo (Ctrl+Z)">
+      <ToolbarButton onClick={onUndo} disabled={!canUndo} title={t('ui:SheetToolbar.undoCtrlZ')}>
         <Undo2 className="h-4 w-4" />
       </ToolbarButton>
-      <ToolbarButton onClick={onRedo} disabled={!canRedo} title="Redo (Ctrl+Y)">
+      <ToolbarButton onClick={onRedo} disabled={!canRedo} title={t('ui:SheetToolbar.redoCtrlY')}>
         <Redo2 className="h-4 w-4" />
       </ToolbarButton>
 
@@ -216,7 +218,7 @@ export default function SheetToolbar({
       <select
         value={currentFontSize}
         onChange={(e) => onSetFontSize(Number(e.target.value))}
-        title="Font size"
+        title={t('ui:SheetToolbar.fontSize')}
         className="h-7 px-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
       >
         {FONT_SIZES.map((size) => (
@@ -229,28 +231,28 @@ export default function SheetToolbar({
       <ToolbarButton
         onClick={() => onToggleFormat('bold')}
         isActive={selectedCellData?.bold}
-        title="Bold (Ctrl+B)"
+        title={t('ui:SheetToolbar.boldCtrlB')}
       >
         <Bold className="h-4 w-4" />
       </ToolbarButton>
       <ToolbarButton
         onClick={() => onToggleFormat('italic')}
         isActive={selectedCellData?.italic}
-        title="Italic (Ctrl+I)"
+        title={t('ui:SheetToolbar.italicCtrlI')}
       >
         <Italic className="h-4 w-4" />
       </ToolbarButton>
       <ToolbarButton
         onClick={() => onToggleFormat('underline')}
         isActive={selectedCellData?.underline}
-        title="Underline (Ctrl+U)"
+        title={t('ui:SheetToolbar.underlineCtrlU')}
       >
         <Underline className="h-4 w-4" />
       </ToolbarButton>
       <ToolbarButton
         onClick={() => onToggleFormat('strikethrough')}
         isActive={selectedCellData?.strikethrough}
-        title="Strikethrough"
+        title={t('ui:SheetToolbar.strikethrough')}
       >
         <Strikethrough className="h-4 w-4" />
       </ToolbarButton>
@@ -260,7 +262,7 @@ export default function SheetToolbar({
       {/* Group 3: Colors */}
       <button
         onClick={() => bgColorRef.current?.click()}
-        title="Background color"
+        title={t('ui:SheetToolbar.backgroundColor')}
         className="p-1.5 rounded-md transition-colors text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-700"
       >
         <div
@@ -279,7 +281,7 @@ export default function SheetToolbar({
 
       <button
         onClick={() => textColorRef.current?.click()}
-        title="Text color"
+        title={t('ui:SheetToolbar.textColor')}
         className="p-1.5 rounded-md transition-colors text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-700"
       >
         <div className="h-4 w-4 flex flex-col items-center justify-center">
@@ -307,21 +309,21 @@ export default function SheetToolbar({
       <ToolbarButton
         onClick={() => onSetAlign('left')}
         isActive={currentAlign === 'left'}
-        title="Align left"
+        title={t('ui:SheetToolbar.alignLeft')}
       >
         <AlignLeft className="h-4 w-4" />
       </ToolbarButton>
       <ToolbarButton
         onClick={() => onSetAlign('center')}
         isActive={currentAlign === 'center'}
-        title="Align center"
+        title={t('ui:SheetToolbar.alignCenter')}
       >
         <AlignCenter className="h-4 w-4" />
       </ToolbarButton>
       <ToolbarButton
         onClick={() => onSetAlign('right')}
         isActive={currentAlign === 'right'}
-        title="Align right"
+        title={t('ui:SheetToolbar.alignRight')}
       >
         <AlignRight className="h-4 w-4" />
       </ToolbarButton>
@@ -332,14 +334,14 @@ export default function SheetToolbar({
       <select
         value={currentFormat}
         onChange={(e) => onSetFormat(e.target.value as 'plain' | 'number' | 'currency' | 'percent' | 'date')}
-        title="Number format"
+        title={t('ui:SheetToolbar.numberFormat')}
         className="h-7 px-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
       >
-        <option value="plain">Plain Text</option>
-        <option value="number">Number (1,234.50)</option>
-        <option value="currency">Currency ($1,234.50)</option>
-        <option value="percent">Percent (12.50%)</option>
-        <option value="date">Date</option>
+        <option value="plain">{t('ui:SheetToolbar.plainText')}</option>
+        <option value="number">{t('ui:SheetToolbar.number123450')}</option>
+        <option value="currency">{t('ui:SheetToolbar.currency123450')}</option>
+        <option value="percent">{t('ui:SheetToolbar.percent1250')}</option>
+        <option value="date">{t('ui:SheetToolbar.date')}</option>
       </select>
 
       <ToolbarSeparator />
@@ -348,7 +350,7 @@ export default function SheetToolbar({
       <ToolbarButton
         onClick={isMerged ? onUnmergeCells : onMergeCells}
         isActive={isMerged}
-        title={isMerged ? 'Unmerge cells' : 'Merge cells'}
+        title={isMerged ? t('ui:SheetToolbar.unmergeCells') : t('ui:SheetToolbar.mergeCells')}
       >
         <Merge className="h-4 w-4" />
       </ToolbarButton>
@@ -359,7 +361,7 @@ export default function SheetToolbar({
             setBordersOpen((prev) => !prev)
             setFreezeOpen(false)
           }}
-          title="Borders"
+          title={t('ui:SheetToolbar.borders')}
         >
           <span className="flex items-center gap-0.5">
             <Grid3x3 className="h-4 w-4" />
@@ -373,7 +375,7 @@ export default function SheetToolbar({
               setBordersOpen(false)
             }}
           >
-            All borders
+           {t('ui:SheetToolbar.allBorders')}
           </DropdownItem>
           <DropdownItem
             onClick={() => {
@@ -381,7 +383,7 @@ export default function SheetToolbar({
               setBordersOpen(false)
             }}
           >
-            No borders
+           {t('ui:SheetToolbar.noBorders')}
           </DropdownItem>
           <div className="h-px bg-gray-200 dark:bg-gray-700 my-1" />
           <DropdownItem
@@ -390,7 +392,7 @@ export default function SheetToolbar({
               setBordersOpen(false)
             }}
           >
-            Top
+           {t('ui:SheetToolbar.top')}
           </DropdownItem>
           <DropdownItem
             onClick={() => {
@@ -398,7 +400,7 @@ export default function SheetToolbar({
               setBordersOpen(false)
             }}
           >
-            Bottom
+           {t('ui:SheetToolbar.bottom')}
           </DropdownItem>
           <DropdownItem
             onClick={() => {
@@ -406,7 +408,7 @@ export default function SheetToolbar({
               setBordersOpen(false)
             }}
           >
-            Left
+           {t('ui:SheetToolbar.left')}
           </DropdownItem>
           <DropdownItem
             onClick={() => {
@@ -414,7 +416,7 @@ export default function SheetToolbar({
               setBordersOpen(false)
             }}
           >
-            Right
+           {t('ui:SheetToolbar.right')}
           </DropdownItem>
           <div className="h-px bg-gray-200 dark:bg-gray-700 my-1" />
           <DropdownItem
@@ -423,7 +425,7 @@ export default function SheetToolbar({
               setBordersOpen(false)
             }}
           >
-            Outer borders
+           {t('ui:SheetToolbar.outerBorders')}
           </DropdownItem>
         </Dropdown>
       </div>
@@ -431,20 +433,20 @@ export default function SheetToolbar({
       <ToolbarSeparator />
 
       {/* Group 7: Data */}
-      <ToolbarButton onClick={() => onSort('asc')} title="Sort ascending">
+      <ToolbarButton onClick={() => onSort('asc')} title={t('ui:SheetToolbar.sortAscending')}>
         <ArrowUpAZ className="h-4 w-4" />
       </ToolbarButton>
-      <ToolbarButton onClick={() => onSort('desc')} title="Sort descending">
+      <ToolbarButton onClick={() => onSort('desc')} title={t('ui:SheetToolbar.sortDescending')}>
         <ArrowDownAZ className="h-4 w-4" />
       </ToolbarButton>
-      <ToolbarButton onClick={onToggleFilter} isActive={filterEnabled} title="Toggle filter">
+      <ToolbarButton onClick={onToggleFilter} isActive={filterEnabled} title={t('ui:SheetToolbar.toggleFilter')}>
         <Filter className="h-4 w-4" />
       </ToolbarButton>
 
       <ToolbarSeparator />
 
       {/* Group 8: Tools */}
-      <ToolbarButton onClick={onToggleFindReplace} title="Find & Replace (Ctrl+H)">
+      <ToolbarButton onClick={onToggleFindReplace} title={t('ui:SheetToolbar.findReplaceCtrlH')}>
         <Search className="h-4 w-4" />
       </ToolbarButton>
 
@@ -455,7 +457,7 @@ export default function SheetToolbar({
             setBordersOpen(false)
           }}
           isActive={freezeRow > 0 || freezeCol > 0}
-          title="Freeze rows/columns"
+          title={t('ui:SheetToolbar.freezeRowsColumns')}
         >
           <span className="flex items-center gap-0.5">
             <Snowflake className="h-4 w-4" />
@@ -464,63 +466,63 @@ export default function SheetToolbar({
         </ToolbarButton>
         <Dropdown open={freezeOpen} onClose={closeFreeze} className="min-w-[180px]">
           <div className="px-3 py-1 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-            Freeze Rows
+           {t('ui:SheetToolbar.freezeRows')}
           </div>
           <DropdownItem active={freezeRow === 0} onClick={() => { onFreezeRow(0); setFreezeOpen(false) }}>
-            No frozen rows
+           {t('ui:SheetToolbar.noFrozenRows')}
           </DropdownItem>
           <DropdownItem active={freezeRow === 1} onClick={() => { onFreezeRow(1); setFreezeOpen(false) }}>
-            1 row
+           {t('ui:SheetToolbar.n1Row')}
           </DropdownItem>
           <DropdownItem active={freezeRow === 2} onClick={() => { onFreezeRow(2); setFreezeOpen(false) }}>
-            2 rows
+           {t('ui:SheetToolbar.n2Rows')}
           </DropdownItem>
           <DropdownItem active={freezeRow === 3} onClick={() => { onFreezeRow(3); setFreezeOpen(false) }}>
-            3 rows
+           {t('ui:SheetToolbar.n3Rows')}
           </DropdownItem>
           <div className="h-px bg-gray-200 dark:bg-gray-700 my-1" />
           <div className="px-3 py-1 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-            Freeze Columns
+           {t('ui:SheetToolbar.freezeColumns')}
           </div>
           <DropdownItem active={freezeCol === 0} onClick={() => { onFreezeCol(0); setFreezeOpen(false) }}>
-            No frozen columns
+           {t('ui:SheetToolbar.noFrozenColumns')}
           </DropdownItem>
           <DropdownItem active={freezeCol === 1} onClick={() => { onFreezeCol(1); setFreezeOpen(false) }}>
-            1 column
+           {t('ui:SheetToolbar.n1Column')}
           </DropdownItem>
           <DropdownItem active={freezeCol === 2} onClick={() => { onFreezeCol(2); setFreezeOpen(false) }}>
-            2 columns
+           {t('ui:SheetToolbar.n2Columns')}
           </DropdownItem>
           <DropdownItem active={freezeCol === 3} onClick={() => { onFreezeCol(3); setFreezeOpen(false) }}>
-            3 columns
+           {t('ui:SheetToolbar.n3Columns')}
           </DropdownItem>
         </Dropdown>
       </div>
 
-      <ToolbarButton onClick={onInsertChart} title="Insert chart">
+      <ToolbarButton onClick={onInsertChart} title={t('ui:SheetToolbar.insertChart')}>
         <BarChart3 className="h-4 w-4" />
       </ToolbarButton>
-      <ToolbarButton onClick={onImportCsv} title="Import CSV">
+      <ToolbarButton onClick={onImportCsv} title={t('ui:SheetToolbar.importCsv')}>
         <Upload className="h-4 w-4" />
       </ToolbarButton>
-      <ToolbarButton onClick={onExportCsv} title="Export CSV">
+      <ToolbarButton onClick={onExportCsv} title={t('ui:SheetToolbar.exportCsv')}>
         <Download className="h-4 w-4" />
       </ToolbarButton>
       {onExportXlsx && (
-        <ToolbarButton onClick={onExportXlsx} title="Download as XLSX">
+        <ToolbarButton onClick={onExportXlsx} title={t('ui:SheetToolbar.downloadAsXlsx')}>
           <span className="text-[9px] font-bold leading-none">XLS</span>
         </ToolbarButton>
       )}
       {onImportXlsx && (
-        <ToolbarButton onClick={onImportXlsx} title="Import XLSX">
-          <span className="text-[9px] font-bold leading-none">XLS↑</span>
+        <ToolbarButton onClick={onImportXlsx} title={t('ui:SheetToolbar.importXlsx')}>
+          <span className="text-[9px] font-bold leading-none">{t('ui:SheetToolbar.xls')}</span>
         </ToolbarButton>
       )}
 
       <ToolbarSeparator />
 
       {/* Group 9: Clear */}
-      <ToolbarButton onClick={onClearFormatting} title="Clear formatting">
+      <ToolbarButton onClick={onClearFormatting} title={t('ui:SheetToolbar.clearFormatting')}>
         <RemoveFormatting className="h-4 w-4" />
       </ToolbarButton>
     </div>

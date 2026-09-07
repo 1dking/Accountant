@@ -25,6 +25,7 @@ import {
   type PendingAction,
 } from '@/api/brain'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 
 interface DisplayMessage {
   id: string
@@ -47,10 +48,11 @@ function ToolBadge({ name }: { name: string }) {
 }
 
 function SourcesBadge({ sources }: { sources: Array<{ tool: string; count: number }> }) {
+  const { t } = useTranslation('ui')
   const total = sources.reduce((sum, s) => sum + s.count, 0)
   return (
     <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">
-      Based on {total} record{total !== 1 ? 's' : ''} from {sources.map((s) => s.tool.replace('query_', '')).join(', ')}
+     {t('ui:OBrainPage.basedOn')} {total} record{total !== 1 ? 's' : ''} from {sources.map((s) => s.tool.replace('query_', '')).join(', ')}
     </p>
   )
 }
@@ -73,6 +75,7 @@ function ActionCard({ action, onExecute, onCancel }: {
   onExecute: (id: string) => void
   onCancel: (id: string) => void
 }) {
+  const { t } = useTranslation('ui')
   const [status, setStatus] = useState<'pending' | 'executing' | 'done' | 'cancelled'>('pending')
   const Icon = ACTION_ICONS[action.action_type] || FileText
   const label = ACTION_LABELS[action.action_type] || action.action_type
@@ -97,7 +100,7 @@ function ActionCard({ action, onExecute, onCancel }: {
     return (
       <div className="mt-2 border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 rounded-lg p-2.5 text-xs">
         <div className="flex items-center gap-1.5 text-green-700 dark:text-green-400 font-medium">
-          <Check className="w-3.5 h-3.5" /> {label} — Sent
+          <Check className="w-3.5 h-3.5" /> {label} {t('ui:OBrainPage.sent')}
         </div>
       </div>
     )
@@ -105,7 +108,7 @@ function ActionCard({ action, onExecute, onCancel }: {
   if (status === 'cancelled') {
     return (
       <div className="mt-2 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 rounded-lg p-2.5 text-xs text-gray-400">
-        <div className="flex items-center gap-1.5"><XCircle className="w-3.5 h-3.5" /> {label} — Cancelled</div>
+        <div className="flex items-center gap-1.5"><XCircle className="w-3.5 h-3.5" /> {label} {t('ui:OBrainPage.cancelled')}</div>
       </div>
     )
   }
@@ -113,32 +116,32 @@ function ActionCard({ action, onExecute, onCancel }: {
   return (
     <div className="mt-2 border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 rounded-lg p-3 text-xs space-y-2">
       <div className="flex items-center gap-1.5 text-blue-700 dark:text-blue-400 font-medium">
-        <Icon className="w-3.5 h-3.5" /> {label} Preview
+        <Icon className="w-3.5 h-3.5" /> {label} {t('ui:OBrainPage.preview')}
       </div>
       {action.action_type === 'send_email' && (
         <div className="space-y-1 text-gray-700 dark:text-gray-300">
-          <p><span className="text-gray-500">To:</span> {d.to}</p>
-          <p><span className="text-gray-500">Subject:</span> {d.subject}</p>
+          <p><span className="text-gray-500">{t('ui:OBrainPage.to')}</span> {d.to}</p>
+          <p><span className="text-gray-500">{t('ui:OBrainPage.subject')}</span> {d.subject}</p>
           <div className="bg-white dark:bg-gray-900 border dark:border-gray-700 rounded p-2 mt-1 max-h-24 overflow-y-auto text-[11px]" dangerouslySetInnerHTML={{ __html: d.body || '' }} />
         </div>
       )}
       {action.action_type === 'send_sms' && (
         <div className="space-y-1 text-gray-700 dark:text-gray-300">
-          <p><span className="text-gray-500">To:</span> {d.to}</p>
+          <p><span className="text-gray-500">{t('ui:OBrainPage.to')}</span> {d.to}</p>
           <p className="bg-white dark:bg-gray-900 border dark:border-gray-700 rounded p-2">{d.message}</p>
           <p className="text-gray-400">{(d.message || '').length}/160 chars</p>
         </div>
       )}
       {action.action_type === 'create_document' && (
         <div className="space-y-1 text-gray-700 dark:text-gray-300">
-          <p><span className="text-gray-500">Title:</span> {d.title}</p>
+          <p><span className="text-gray-500">{t('ui:OBrainPage.title')}</span> {d.title}</p>
           <div className="bg-white dark:bg-gray-900 border dark:border-gray-700 rounded p-2 max-h-24 overflow-y-auto text-[11px]" dangerouslySetInnerHTML={{ __html: (d.content || '').slice(0, 500) }} />
         </div>
       )}
       {action.action_type === 'save_to_drive' && (
         <div className="space-y-1 text-gray-700 dark:text-gray-300">
-          <p><span className="text-gray-500">File:</span> {d.filename}</p>
-          {d.folder && <p><span className="text-gray-500">Folder:</span> {d.folder}</p>}
+          <p><span className="text-gray-500">{t('ui:OBrainPage.file')}</span> {d.filename}</p>
+          {d.folder && <p><span className="text-gray-500">{t('ui:OBrainPage.folder')}</span> {d.folder}</p>}
         </div>
       )}
       <div className="flex gap-2 pt-1">
@@ -148,14 +151,14 @@ function ActionCard({ action, onExecute, onCancel }: {
           className="flex items-center gap-1 px-2.5 py-1 bg-blue-600 text-white rounded text-[11px] font-medium hover:bg-blue-700 disabled:opacity-50"
         >
           {status === 'executing' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
-          {status === 'executing' ? 'Sending...' : 'Confirm'}
+          {status === 'executing' ? t('ui:OBrainPage.sending') : t('ui:OBrainPage.confirm')}
         </button>
         <button
           onClick={handleCancel}
           disabled={status === 'executing'}
           className="flex items-center gap-1 px-2.5 py-1 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded text-[11px] hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50"
         >
-          <XCircle className="w-3 h-3" /> Cancel
+          <XCircle className="w-3 h-3" /> {t('ui:OBrainPage.cancel')}
         </button>
       </div>
     </div>
@@ -169,6 +172,7 @@ function formatFileSize(bytes: number): string {
 }
 
 export default function OBrainPage() {
+  const { t } = useTranslation('ui')
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
@@ -522,7 +526,7 @@ export default function OBrainPage() {
               className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition"
             >
               <Plus className="h-4 w-4" />
-              New Chat
+             {t('ui:OBrainPage.newChat')}
             </button>
           </div>
           <div className="flex-1 overflow-y-auto scrollbar-thin">
@@ -567,14 +571,14 @@ export default function OBrainPage() {
           <button
             onClick={() => navigate('/')}
             className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
-            title="Back to app"
+            title={t('ui:OBrainPage.backToApp')}
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
-            title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+            title={sidebarOpen ? t('ui:OBrainPage.hideSidebar') : t('ui:OBrainPage.showSidebar')}
           >
             {sidebarOpen ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeft className="h-5 w-5" />}
           </button>
@@ -591,7 +595,7 @@ export default function OBrainPage() {
                   ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
                   : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
               )}
-              title="News"
+              title={t('ui:OBrainPage.news')}
             >
               <Newspaper className="h-5 w-5" />
             </button>
@@ -602,7 +606,7 @@ export default function OBrainPage() {
         {isDragging && (
           <div className="absolute inset-0 z-50 bg-purple-500/10 border-2 border-dashed border-purple-400 flex items-center justify-center pointer-events-none">
             <div className="bg-white dark:bg-gray-900 rounded-xl px-6 py-4 shadow-lg">
-              <p className="text-purple-600 dark:text-purple-400 font-medium">Drop files to attach</p>
+              <p className="text-purple-600 dark:text-purple-400 font-medium">{t('ui:OBrainPage.dropFilesToAttach')}</p>
             </div>
           </div>
         )}
@@ -612,7 +616,7 @@ export default function OBrainPage() {
           <div className="mx-4 mt-2 p-3 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border border-blue-200 dark:border-blue-800 rounded-lg flex items-center justify-between">
             <div className="flex items-center gap-3 flex-1">
               <div className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                Company Brain: {discoveryProgress}%
+               {t('ui:OBrainPage.companyBrain')} {discoveryProgress}%
               </div>
               <div className="flex-1 max-w-xs h-2 bg-blue-100 dark:bg-blue-900/40 rounded-full overflow-hidden">
                 <div
@@ -629,7 +633,7 @@ export default function OBrainPage() {
                 }}
                 className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline whitespace-nowrap"
               >
-                Continue Discovery
+               {t('ui:OBrainPage.continueDiscovery')}
               </button>
             </div>
             <button onClick={() => setDiscoveryDismissed(true)} className="ml-2 text-gray-400 hover:text-gray-600">
@@ -644,9 +648,9 @@ export default function OBrainPage() {
             {messages.length === 0 && (
               <div className="flex flex-col items-center justify-center py-24 text-center">
                 <Sparkles className="h-16 w-16 text-purple-300 dark:text-purple-700 mb-6" />
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Welcome to O-Brain</h2>
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">{t('ui:OBrainPage.welcomeToOBrain')}</h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md">
-                  Your AI business assistant. Ask about clients, finances, proposals, meetings — anything in your business data.
+                 {t('ui:OBrainPage.yourAiBusinessAssistantAsk')}
                 </p>
               </div>
             )}
@@ -709,7 +713,7 @@ export default function OBrainPage() {
                       }}
                       onCancel={async (id) => {
                         await cancelAction(id)
-                        toast.info('Cancelled')
+                        toast.info(t('ui:OBrainPage.cancelled_2'))
                       }}
                     />
                   ))}
@@ -751,7 +755,7 @@ export default function OBrainPage() {
             <button
               onClick={() => fileInputRef.current?.click()}
               className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition"
-              title="Attach file"
+              title={t('ui:OBrainPage.attachFile')}
             >
               <Paperclip className="h-5 w-5" />
             </button>
@@ -759,7 +763,7 @@ export default function OBrainPage() {
               <button
                 onClick={stopRecording}
                 className="flex items-center gap-1.5 px-2.5 py-1 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg transition animate-pulse"
-                title="Stop recording"
+                title={t('ui:OBrainPage.stopRecording')}
               >
                 <Square className="h-3.5 w-3.5 fill-current" />
                 <span className="text-xs font-medium">{formatRecordingTime(recordingTime)}</span>
@@ -768,7 +772,7 @@ export default function OBrainPage() {
               <button
                 onClick={startRecording}
                 className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition"
-                title="Record audio"
+                title={t('ui:OBrainPage.recordAudio')}
               >
                 <Mic className="h-5 w-5" />
               </button>
@@ -777,7 +781,7 @@ export default function OBrainPage() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={isRecording ? 'Recording...' : 'Ask O-Brain anything about your business...'}
+              placeholder={isRecording ? t('ui:OBrainPage.recording') : t('ui:OBrainPage.askOBrainAnythingAbout')}
               disabled={isStreaming || isRecording}
               className="flex-1 bg-transparent text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none disabled:opacity-50"
             />
@@ -798,13 +802,13 @@ export default function OBrainPage() {
           <div className="p-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Newspaper className="h-4 w-4 text-blue-600" />
-              <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">News</span>
+              <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{t('ui:OBrainPage.news')}</span>
             </div>
             <button
               onClick={handleRefreshNewsPage}
               disabled={newsRefreshing}
               className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50"
-              title="Refresh"
+              title={t('ui:OBrainPage.refresh')}
             >
               <RefreshCw className={cn('h-3.5 w-3.5', newsRefreshing && 'animate-spin')} />
             </button>
@@ -813,10 +817,10 @@ export default function OBrainPage() {
           {/* Filter pills */}
           <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-700 flex gap-1 overflow-x-auto">
             {[
-              { key: 'all', label: 'All' },
-              { key: 'industry', label: 'My Industry' },
-              { key: 'local', label: 'Local' },
-              { key: 'topic', label: 'AI & Tech' },
+              { key: 'all', label: t('ui:OBrainPage.all') },
+              { key: 'industry', label: t('ui:OBrainPage.myIndustry') },
+              { key: 'local', label: t('ui:OBrainPage.local') },
+              { key: 'topic', label: t('ui:OBrainPage.aiTech') },
             ].map((f) => (
               <button
                 key={f.key}
@@ -838,14 +842,14 @@ export default function OBrainPage() {
             {newsArticles.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
                 <Newspaper className="h-10 w-10 text-gray-300 dark:text-gray-600 mb-3" />
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">No news articles yet</p>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">Set preferences in Settings &gt; News</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">{t('ui:OBrainPage.noNewsArticlesYet')}</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">{t('ui:OBrainPage.setPreferencesInSettingsNews')}</p>
                 <button
                   onClick={handleRefreshNewsPage}
                   disabled={newsRefreshing}
                   className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline"
                 >
-                  {newsRefreshing ? 'Fetching...' : 'Fetch articles now'}
+                  {newsRefreshing ? t('ui:OBrainPage.fetching') : t('ui:OBrainPage.fetchArticlesNow')}
                 </button>
               </div>
             ) : (
@@ -871,7 +875,7 @@ export default function OBrainPage() {
                       onClick={() => handleDiscussArticlePage(article)}
                       className="text-[11px] font-medium text-purple-600 dark:text-purple-400 hover:underline"
                     >
-                      Discuss with O-Brain
+                     {t('ui:OBrainPage.discussWithOBrain')}
                     </button>
                     <a
                       href={article.url}
@@ -879,7 +883,7 @@ export default function OBrainPage() {
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-0.5 text-[11px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                     >
-                      Read <ExternalLink className="h-2.5 w-2.5" />
+                     {t('ui:OBrainPage.read')} <ExternalLink className="h-2.5 w-2.5" />
                     </a>
                   </div>
                 </div>

@@ -10,6 +10,7 @@
  */
 import { Delete, PhoneCall } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
 
 const DIALPAD = [
   ['1', '2', '3'],
@@ -37,6 +38,7 @@ export default function KeypadView({
   inputRef,
   disabled,
 }: Props) {
+  const { t } = useTranslation('ui')
   return (
     <div className="flex flex-col gap-5 px-6 py-6">
       {/* Number display */}
@@ -45,15 +47,15 @@ export default function KeypadView({
           ref={inputRef}
           value={number}
           onChange={(e) => setNumber(e.target.value.replace(/[^0-9+*#() -]/g, ''))}
-          placeholder="Enter number"
-          aria-label="Phone number"
+          placeholder={t('ui:KeypadView.enterNumber')}
+          aria-label={t('ui:KeypadView.phoneNumber')}
           className="flex-1 bg-transparent text-xl font-mono tabular-nums text-[color:var(--lg-text-primary)] placeholder:text-[color:var(--lg-text-muted)] outline-none text-center tracking-wider"
           disabled={disabled}
         />
         {number && (
           <button
             onClick={onBackspace}
-            aria-label="Delete last digit"
+            aria-label={t('ui:KeypadView.deleteLastDigit')}
             className="p-1.5 text-[color:var(--lg-text-secondary)] hover:text-[color:var(--lg-text-primary)] rounded-md"
           >
             <Delete className="h-4 w-4" />
@@ -68,7 +70,7 @@ export default function KeypadView({
             key={digit}
             onClick={() => onDigit(digit)}
             disabled={disabled}
-            aria-label={`Dial ${digit}`}
+            aria-label={t('ui:KeypadView.dialDigit', { digit })}
             className="lg-key h-14 rounded-xl text-xl font-medium disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {digit}
@@ -86,7 +88,7 @@ export default function KeypadView({
         )}
       >
         <PhoneCall className="h-5 w-5" />
-        {disabled ? 'Connecting…' : 'Call'}
+        {disabled ? t('ui:KeypadView.connecting') : t('ui:KeypadView.call')}
       </button>
     </div>
   )

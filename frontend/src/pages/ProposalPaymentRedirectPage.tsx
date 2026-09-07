@@ -3,8 +3,10 @@ import { useParams } from 'react-router'
 import { Loader2, AlertCircle } from 'lucide-react'
 import { createCheckout } from '@/api/proposals'
 import { ApiClientError } from '@/api/client'
+import { useTranslation } from 'react-i18next'
 
 export default function ProposalPaymentRedirectPage() {
+  const { t } = useTranslation('ui')
   const { id } = useParams<{ id: string }>()
   const [error, setError] = useState<string | null>(null)
 
@@ -35,7 +37,7 @@ export default function ProposalPaymentRedirectPage() {
           <>
             <AlertCircle className="w-10 h-10 text-red-500 mx-auto mb-4" />
             <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-              Couldn't start payment
+             {t('ui:ProposalPaymentRedirectPage.couldnTStartPayment')}
             </h1>
             <p className="text-sm text-gray-500 dark:text-gray-400">{error}</p>
           </>
@@ -43,9 +45,9 @@ export default function ProposalPaymentRedirectPage() {
           <>
             <Loader2 className="w-10 h-10 text-blue-600 mx-auto mb-4 animate-spin" />
             <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-              Taking you to secure checkout...
+             {t('ui:ProposalPaymentRedirectPage.takingYouToSecureCheckout')}
             </h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Please wait a moment.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{t('ui:ProposalPaymentRedirectPage.pleaseWaitAMoment')}</p>
           </>
         )}
       </div>

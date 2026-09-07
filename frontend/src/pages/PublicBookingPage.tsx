@@ -16,6 +16,7 @@ import { useParams } from 'react-router'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { Loader2, CheckCircle2, ArrowLeft, CalendarDays } from 'lucide-react'
 import { schedulingApi } from '@/api/scheduling'
+import { useTranslation } from 'react-i18next'
 
 interface Slot {
   start: string
@@ -45,6 +46,7 @@ function Center({ children }: { children: React.ReactNode }) {
 }
 
 export default function PublicBookingPage() {
+  const { t } = useTranslation('ui')
   const { slug } = useParams<{ slug: string }>()
   const [selected, setSelected] = useState<string | null>(null)
   const [name, setName] = useState('')
@@ -103,7 +105,7 @@ export default function PublicBookingPage() {
       <Center>
         <div className="text-center">
           <CalendarDays className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-          <p className="text-sm text-gray-500">This booking page doesn't exist or is no longer active.</p>
+          <p className="text-sm text-gray-500">{t('ui:PublicBookingPage.thisBookingPageDoesnT')}</p>
         </div>
       </Center>
     )
@@ -114,13 +116,13 @@ export default function PublicBookingPage() {
       <Center>
         <div className="text-center space-y-2">
           <CheckCircle2 className="mx-auto w-10 h-10 text-green-500" />
-          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">You're booked!</h2>
+          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{t('ui:PublicBookingPage.youReBooked')}</h2>
           <p className="text-sm text-gray-500">
             {selected &&
               new Date(selected).toLocaleString(undefined, { dateStyle: 'full', timeStyle: 'short' })}
           </p>
           <p className="text-xs text-gray-400">
-            A confirmation with a calendar invite is on its way to your email.
+           {t('ui:PublicBookingPage.aConfirmationWithACalendar')}
           </p>
         </div>
       </Center>
@@ -134,7 +136,7 @@ export default function PublicBookingPage() {
       <div className="mx-auto max-w-md p-4">
         <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100">{calendar.name}</h1>
         <p className="mt-0.5 text-xs text-gray-500">
-          {calendar.duration_minutes} min · times shown in your local timezone
+          {calendar.duration_minutes} {t('ui:PublicBookingPage.minTimesShownInYour')}
         </p>
         {calendar.description && (
           <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{calendar.description}</p>
@@ -143,7 +145,7 @@ export default function PublicBookingPage() {
         {!selected ? (
           <div className="mt-4 space-y-4">
             {groups.length === 0 ? (
-              <p className="text-sm text-gray-500">No open times in the next 2 weeks. Check back soon.</p>
+              <p className="text-sm text-gray-500">{t('ui:PublicBookingPage.noOpenTimesInThe')}</p>
             ) : (
               groups.map((g) => (
                 <div key={g.date}>
@@ -178,7 +180,7 @@ export default function PublicBookingPage() {
               onClick={() => setSelected(null)}
               className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
             >
-              <ArrowLeft className="w-3.5 h-3.5" /> Pick another time
+              <ArrowLeft className="w-3.5 h-3.5" /> {t('ui:PublicBookingPage.pickAnotherTime')}
             </button>
             <p
               className="rounded-md px-3 py-2 text-sm font-medium"
@@ -189,14 +191,14 @@ export default function PublicBookingPage() {
             >
               {new Date(selected).toLocaleString(undefined, { dateStyle: 'full', timeStyle: 'short' })}
             </p>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" className={INPUT} />
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className={INPUT} />
-            <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone (optional)" className={INPUT} />
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('ui:PublicBookingPage.yourName')} className={INPUT} />
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t('ui:PublicBookingPage.email')} className={INPUT} />
+            <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={t('ui:PublicBookingPage.phoneOptional')} className={INPUT} />
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
-              placeholder="Anything to share? (optional)"
+              placeholder={t('ui:PublicBookingPage.anythingToShareOptional')}
               className={INPUT}
             />
             {formError && <p className="text-xs text-red-500">{formError}</p>}
@@ -206,7 +208,7 @@ export default function PublicBookingPage() {
               className="w-full rounded-md px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60 hover:opacity-90 transition-opacity"
               style={{ background: 'var(--brand-primary)' }}
             >
-              {bookMutation.isPending ? 'Booking…' : 'Confirm booking'}
+              {bookMutation.isPending ? t('ui:PublicBookingPage.booking') : t('ui:PublicBookingPage.confirmBooking')}
             </button>
           </div>
         )}

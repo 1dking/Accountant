@@ -2,8 +2,10 @@ import { useQuery } from '@tanstack/react-query'
 import { getStorageUsage } from '@/api/documents'
 import { formatFileSize } from '@/lib/utils'
 import { HardDrive } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 export default function StorageUsage() {
+  const { t } = useTranslation('ui')
   const { data } = useQuery({
     queryKey: ['storage-usage'],
     queryFn: getStorageUsage,
@@ -21,7 +23,7 @@ export default function StorageUsage() {
     <div className="px-3 py-3 border-t border-gray-100 dark:border-gray-700">
       <div className="flex items-center gap-2 mb-2">
         <HardDrive className="h-4 w-4 text-gray-400 dark:text-gray-500" />
-        <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Storage</span>
+        <span className="text-xs font-medium text-gray-600 dark:text-gray-400">{t('ui:StorageUsage.storage')}</span>
       </div>
       <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 mb-1.5">
         <div
@@ -35,7 +37,7 @@ export default function StorageUsage() {
         {formatFileSize(totalBytes)} used
       </p>
       <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-        {usage.file_count} files, {usage.folder_count ?? 0} folders
+        {usage.file_count} {t('ui:StorageUsage.files')} {usage.folder_count ?? 0} folders
       </p>
     </div>
   )

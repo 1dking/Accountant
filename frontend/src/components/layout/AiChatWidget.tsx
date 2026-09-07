@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { MessageSquareText, X, Send, Bot, Loader2 } from 'lucide-react'
 import { streamHelpChat, type ChatMessage } from '@/api/ai'
+import { useTranslation } from 'react-i18next'
 
 const SUGGESTED_QUESTIONS = [
   'How do I create an invoice?',
@@ -10,6 +11,7 @@ const SUGGESTED_QUESTIONS = [
 ]
 
 export default function AiChatWidget() {
+  const { t } = useTranslation('ui')
   const [isOpen, setIsOpen] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
@@ -71,7 +73,7 @@ export default function AiChatWidget() {
         <button
           onClick={() => setIsOpen(true)}
           className="fixed bottom-6 right-6 z-50 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg w-14 h-14 flex items-center justify-center transition-colors cursor-pointer"
-          aria-label="Open AI chat"
+          aria-label={t('ui:AiChatWidget.openAiChat')}
         >
           <MessageSquareText className="w-6 h-6" />
         </button>
@@ -84,12 +86,12 @@ export default function AiChatWidget() {
           <div className="bg-blue-600 text-white px-4 py-3 rounded-t-2xl flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2">
               <Bot className="w-5 h-5" />
-              <span className="font-semibold">AI Assistant</span>
+              <span className="font-semibold">{t('ui:AiChatWidget.aiAssistant')}</span>
             </div>
             <button
               onClick={() => setIsOpen(false)}
               className="text-white/80 hover:text-white transition-colors cursor-pointer"
-              aria-label="Close chat"
+              aria-label={t('ui:AiChatWidget.closeChat')}
             >
               <X className="w-5 h-5" />
             </button>
@@ -101,7 +103,7 @@ export default function AiChatWidget() {
               <div className="flex flex-col items-center justify-center h-full gap-4">
                 <Bot className="w-10 h-10 text-gray-300" />
                 <p className="text-sm text-gray-500 text-center">
-                  Ask me anything about the app
+                 {t('ui:AiChatWidget.askMeAnythingAboutThe')}
                 </p>
                 <div className="flex flex-wrap gap-2 justify-center">
                   {SUGGESTED_QUESTIONS.map((q) => (
@@ -155,7 +157,7 @@ export default function AiChatWidget() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Type a message..."
+                placeholder={t('ui:AiChatWidget.typeAMessage')}
                 disabled={isStreaming}
                 className="flex-1 text-sm px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:border-blue-400 disabled:opacity-50 disabled:cursor-not-allowed"
               />
@@ -163,7 +165,7 @@ export default function AiChatWidget() {
                 onClick={() => handleSend()}
                 disabled={isStreaming || !input.trim()}
                 className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl p-2 transition-colors cursor-pointer"
-                aria-label="Send message"
+                aria-label={t('ui:AiChatWidget.sendMessage')}
               >
                 {isStreaming ? (
                   <Loader2 className="w-4 h-4 animate-spin" />

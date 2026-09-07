@@ -8,6 +8,7 @@ import {
   deleteReminderRule,
 } from '@/api/reminders'
 import type { ReminderRule, ReminderChannel } from '@/types/models'
+import { useTranslation } from 'react-i18next'
 
 interface RuleFormData {
   name: string
@@ -48,6 +49,7 @@ const channelColors: Record<ReminderChannel, string> = {
 }
 
 export default function ReminderSettings() {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -160,14 +162,14 @@ export default function ReminderSettings() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">Payment Reminders</h2>
+        <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">{t('ui:ReminderSettings.paymentReminders')}</h2>
         {!showForm && (
           <button
             onClick={() => { setForm(emptyForm); setEditingId(null); setShowForm(true) }}
             className="flex items-center gap-1.5 px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
             <Plus className="w-4 h-4" />
-            Add Rule
+           {t('ui:ReminderSettings.addRule')}
           </button>
         )}
       </div>
@@ -189,7 +191,7 @@ export default function ReminderSettings() {
         <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-900 border rounded-lg p-5 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              {editingId ? 'Edit Reminder Rule' : 'New Reminder Rule'}
+              {editingId ? t('ui:ReminderSettings.editReminderRule') : t('ui:ReminderSettings.newReminderRule')}
             </h3>
             <button type="button" onClick={cancelForm} className="text-gray-400 dark:text-gray-500 hover:text-gray-600">
               <X className="w-4 h-4" />
@@ -198,18 +200,18 @@ export default function ReminderSettings() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Rule Name</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:ReminderSettings.ruleName')}</label>
               <input
                 type="text"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="e.g. 3 Days Before Due"
+                placeholder={t('ui:ReminderSettings.eG3DaysBefore')}
                 required
                 className="w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Days Offset</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:ReminderSettings.daysOffset')}</label>
               <input
                 type="number"
                 value={form.days_offset}
@@ -219,15 +221,15 @@ export default function ReminderSettings() {
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{formatOffset(form.days_offset)}</p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Channel</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:ReminderSettings.channel')}</label>
               <select
                 value={form.channel}
                 onChange={(e) => setForm({ ...form, channel: e.target.value as ReminderChannel })}
                 className="w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="email">Email</option>
+                <option value="email">{t('ui:ReminderSettings.email')}</option>
                 <option value="sms">SMS</option>
-                <option value="both">Email + SMS</option>
+                <option value="both">{t('ui:ReminderSettings.emailSms')}</option>
               </select>
             </div>
           </div>
@@ -235,23 +237,23 @@ export default function ReminderSettings() {
           {/* Email fields */}
           {(form.channel === 'email' || form.channel === 'both') && (
             <div className="space-y-3">
-              <h4 className="text-sm font-medium text-gray-600 dark:text-gray-400">Email Template (optional - defaults will be used if empty)</h4>
+              <h4 className="text-sm font-medium text-gray-600 dark:text-gray-400">{t('ui:ReminderSettings.emailTemplateOptionalDefaultsWill')}</h4>
               <div>
-                <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">Subject</label>
+                <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">{t('ui:ReminderSettings.subject')}</label>
                 <input
                   type="text"
                   value={form.email_subject}
                   onChange={(e) => setForm({ ...form, email_subject: e.target.value })}
-                  placeholder="Payment Reminder: Invoice {{invoice_number}}"
+                  placeholder={t('ui:ReminderSettings.paymentReminderInvoiceInvoiceNumber')}
                   className="w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">Body (HTML)</label>
+                <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">{t('ui:ReminderSettings.bodyHtml')}</label>
                 <textarea
                   value={form.email_body}
                   onChange={(e) => setForm({ ...form, email_body: e.target.value })}
-                  placeholder="Dear {{contact_name}}, this is a reminder for invoice {{invoice_number}}..."
+                  placeholder={t('ui:ReminderSettings.dearContactNameThisIs')}
                   rows={3}
                   className="w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -262,13 +264,13 @@ export default function ReminderSettings() {
           {/* SMS fields */}
           {(form.channel === 'sms' || form.channel === 'both') && (
             <div className="space-y-3">
-              <h4 className="text-sm font-medium text-gray-600 dark:text-gray-400">SMS Template (optional - defaults will be used if empty)</h4>
+              <h4 className="text-sm font-medium text-gray-600 dark:text-gray-400">{t('ui:ReminderSettings.smsTemplateOptionalDefaultsWill')}</h4>
               <div>
-                <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">SMS Body</label>
+                <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">{t('ui:ReminderSettings.smsBody')}</label>
                 <textarea
                   value={form.sms_body}
                   onChange={(e) => setForm({ ...form, sms_body: e.target.value })}
-                  placeholder="Reminder: Invoice {{invoice_number}} for {{total}} is due on {{due_date}}."
+                  placeholder={t('ui:ReminderSettings.reminderInvoiceInvoiceNumberFor')}
                   rows={2}
                   className="w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -284,7 +286,7 @@ export default function ReminderSettings() {
               onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
               className="rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400 focus:ring-blue-500"
             />
-            <label htmlFor="is_active" className="text-sm text-gray-700 dark:text-gray-300">Active</label>
+            <label htmlFor="is_active" className="text-sm text-gray-700 dark:text-gray-300">{t('ui:ReminderSettings.active')}</label>
           </div>
 
           <div className="flex gap-2">
@@ -294,14 +296,14 @@ export default function ReminderSettings() {
               className="flex items-center gap-1.5 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
             >
               <Check className="w-4 h-4" />
-              {isPending ? 'Saving...' : editingId ? 'Update Rule' : 'Create Rule'}
+              {isPending ? t('ui:ReminderSettings.saving') : editingId ? t('ui:ReminderSettings.updateRule') : t('ui:ReminderSettings.createRule')}
             </button>
             <button
               type="button"
               onClick={cancelForm}
               className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
             >
-              Cancel
+             {t('ui:ReminderSettings.cancel')}
             </button>
           </div>
         </form>
@@ -309,9 +311,9 @@ export default function ReminderSettings() {
 
       {/* Template variables help */}
       <div className="bg-gray-50 dark:bg-gray-950 border rounded-lg p-4 text-sm text-gray-600 dark:text-gray-400">
-        <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-1">Template Variables</h4>
+        <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:ReminderSettings.templateVariables')}</h4>
         <p className="text-gray-500 dark:text-gray-400 mb-2">
-          Use these placeholders in your email/SMS templates. They will be replaced with actual values when sending.
+         {t('ui:ReminderSettings.useThesePlaceholdersInYour')}
         </p>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-1 text-xs font-mono">
           <span>{'{{invoice_number}}'}</span>
@@ -328,17 +330,17 @@ export default function ReminderSettings() {
         <div className="bg-white dark:bg-gray-900 border rounded-lg overflow-hidden">
           <div className="px-5 py-3 border-b">
             <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Configured Rules ({rules.length})
+             {t('ui:ReminderSettings.configuredRules')}{rules.length})
             </h3>
           </div>
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-gray-50 dark:bg-gray-950">
-                <th className="text-left px-4 py-2 text-gray-500 dark:text-gray-400 font-medium">Name</th>
-                <th className="text-left px-4 py-2 text-gray-500 dark:text-gray-400 font-medium">Timing</th>
-                <th className="text-left px-4 py-2 text-gray-500 dark:text-gray-400 font-medium">Channel</th>
-                <th className="text-left px-4 py-2 text-gray-500 dark:text-gray-400 font-medium">Status</th>
-                <th className="text-right px-4 py-2 text-gray-500 dark:text-gray-400 font-medium">Actions</th>
+                <th className="text-left px-4 py-2 text-gray-500 dark:text-gray-400 font-medium">{t('ui:ReminderSettings.name')}</th>
+                <th className="text-left px-4 py-2 text-gray-500 dark:text-gray-400 font-medium">{t('ui:ReminderSettings.timing')}</th>
+                <th className="text-left px-4 py-2 text-gray-500 dark:text-gray-400 font-medium">{t('ui:ReminderSettings.channel')}</th>
+                <th className="text-left px-4 py-2 text-gray-500 dark:text-gray-400 font-medium">{t('ui:ReminderSettings.status')}</th>
+                <th className="text-right px-4 py-2 text-gray-500 dark:text-gray-400 font-medium">{t('ui:ReminderSettings.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -369,7 +371,7 @@ export default function ReminderSettings() {
                           : 'bg-gray-100 dark:bg-gray-800 text-gray-500'
                       }`}
                     >
-                      {rule.is_active ? 'Active' : 'Inactive'}
+                      {rule.is_active ? t('ui:ReminderSettings.active') : t('ui:ReminderSettings.inactive')}
                     </button>
                   </td>
                   <td className="px-4 py-3 text-right">
@@ -377,19 +379,19 @@ export default function ReminderSettings() {
                       <button
                         onClick={() => startEdit(rule)}
                         className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-blue-600 rounded hover:bg-blue-50"
-                        title="Edit"
+                        title={t('ui:ReminderSettings.edit')}
                       >
                         <Pencil className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => {
-                          if (confirm('Delete this reminder rule?')) {
+                          if (confirm(t('ui:ReminderSettings.deleteThisReminderRule'))) {
                             deleteMutation.mutate(rule.id)
                           }
                         }}
                         disabled={deleteMutation.isPending}
                         className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-red-600 rounded hover:bg-red-50"
-                        title="Delete"
+                        title={t('ui:ReminderSettings.delete')}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -403,23 +405,23 @@ export default function ReminderSettings() {
       ) : (
         <div className="bg-white dark:bg-gray-900 border rounded-lg p-8 text-center text-gray-500 dark:text-gray-400">
           <Bell className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-          <p className="text-sm">No reminder rules configured yet.</p>
+          <p className="text-sm">{t('ui:ReminderSettings.noReminderRulesConfiguredYet')}</p>
           <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-            Create rules to automatically send payment reminders before or after invoice due dates.
+           {t('ui:ReminderSettings.createRulesToAutomaticallySend')}
           </p>
         </div>
       )}
 
       {/* Info section */}
       <div className="bg-gray-50 dark:bg-gray-950 border rounded-lg p-4 text-sm text-gray-600 dark:text-gray-400">
-        <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-1">How Payment Reminders Work</h4>
+        <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:ReminderSettings.howPaymentRemindersWork')}</h4>
         <ul className="list-disc list-inside space-y-1 text-gray-500 dark:text-gray-400">
-          <li>Reminders are checked daily at 8:00 AM and sent automatically</li>
-          <li>Set negative days offset to send before the due date (e.g. -3 = 3 days before)</li>
-          <li>Set 0 to send on the due date, positive numbers for after due date</li>
-          <li>Each reminder is sent only once per invoice per rule (no duplicates)</li>
-          <li>Only unpaid invoices (sent, viewed, overdue, partially paid) receive reminders</li>
-          <li>You can also manually send reminders from the invoice detail page</li>
+          <li>{t('ui:ReminderSettings.remindersAreCheckedDailyAt')}</li>
+          <li>{t('ui:ReminderSettings.setNegativeDaysOffsetTo')}</li>
+          <li>{t('ui:ReminderSettings.set0ToSendOn')}</li>
+          <li>{t('ui:ReminderSettings.eachReminderIsSentOnly')}</li>
+          <li>{t('ui:ReminderSettings.onlyUnpaidInvoicesSentViewed')}</li>
+          <li>{t('ui:ReminderSettings.youCanAlsoManuallySend')}</li>
         </ul>
       </div>
     </div>

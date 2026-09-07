@@ -4,6 +4,8 @@ import { X, Loader2, Check } from 'lucide-react'
 import { updateEntry, listCategories, listAccounts } from '@/api/cashbook'
 import type { CashbookEntry, TransactionCategory, PaymentAccount, EntryStatusType } from '@/types/models'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
+import i18n from '@/i18n'
 
 interface EditEntryModalProps {
   entry: CashbookEntry
@@ -12,13 +14,14 @@ interface EditEntryModalProps {
 }
 
 const STATUS_OPTIONS: { value: EntryStatusType; label: string; color: string }[] = [
-  { value: 'pending', label: 'Pending', color: 'text-yellow-600' },
-  { value: 'cleared', label: 'Cleared', color: 'text-blue-600' },
-  { value: 'reconciled', label: 'Reconciled', color: 'text-green-600' },
-  { value: 'voided', label: 'Voided', color: 'text-red-600' },
+  { value: 'pending', label: i18n.t('ui:EditEntryModal.pending'), color: 'text-yellow-600' },
+  { value: 'cleared', label: i18n.t('ui:EditEntryModal.cleared'), color: 'text-blue-600' },
+  { value: 'reconciled', label: i18n.t('ui:EditEntryModal.reconciled'), color: 'text-green-600' },
+  { value: 'voided', label: i18n.t('ui:EditEntryModal.voided'), color: 'text-red-600' },
 ]
 
 export default function EditEntryModal({ entry, onClose, onSaved }: EditEntryModalProps) {
+  const { t: tr } = useTranslation('ui')
   const queryClient = useQueryClient()
 
   const [entryType, setEntryType] = useState(entry.entry_type)
@@ -67,7 +70,7 @@ export default function EditEntryModal({ entry, onClose, onSaved }: EditEntryMod
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cashbook-entries'] })
       queryClient.invalidateQueries({ queryKey: ['cashbook-summary'] })
-      toast.success('Entry updated')
+      toast.success(tr('ui:EditEntryModal.entryUpdated'))
       onSaved?.()
       onClose()
     },
@@ -83,7 +86,7 @@ export default function EditEntryModal({ entry, onClose, onSaved }: EditEntryMod
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-4 border-b dark:border-gray-700">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Edit Entry</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{tr('ui:EditEntryModal.editEntry')}</h2>
           <button onClick={onClose} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded">
             <X className="w-5 h-5" />
           </button>
@@ -92,7 +95,7 @@ export default function EditEntryModal({ entry, onClose, onSaved }: EditEntryMod
         <div className="p-4 space-y-4">
           {/* Type */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr('ui:EditEntryModal.type')}</label>
             <div className="flex gap-2">
               {(['income', 'expense'] as const).map(t => (
                 <button
@@ -107,7 +110,7 @@ export default function EditEntryModal({ entry, onClose, onSaved }: EditEntryMod
                       : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
                   }`}
                 >
-                  {t === 'income' ? 'Income' : 'Expense'}
+                  {t === 'income' ? tr('ui:EditEntryModal.income') : tr('ui:EditEntryModal.expense')}
                 </button>
               ))}
             </div>
@@ -115,7 +118,7 @@ export default function EditEntryModal({ entry, onClose, onSaved }: EditEntryMod
 
           {/* Account */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Account</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr('ui:EditEntryModal.account')}</label>
             <select
               value={accountId}
               onChange={e => setAccountId(e.target.value)}
@@ -129,7 +132,7 @@ export default function EditEntryModal({ entry, onClose, onSaved }: EditEntryMod
 
           {/* Date */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr('ui:EditEntryModal.date')}</label>
             <input
               type="date"
               value={date}
@@ -140,7 +143,7 @@ export default function EditEntryModal({ entry, onClose, onSaved }: EditEntryMod
 
           {/* Description */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr('ui:EditEntryModal.description')}</label>
             <input
               type="text"
               value={description}
@@ -152,7 +155,7 @@ export default function EditEntryModal({ entry, onClose, onSaved }: EditEntryMod
           {/* Amount */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Total Amount</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr('ui:EditEntryModal.totalAmount')}</label>
               <input
                 type="number"
                 step="0.01"
@@ -163,7 +166,7 @@ export default function EditEntryModal({ entry, onClose, onSaved }: EditEntryMod
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Tax Amount
+               {tr('ui:EditEntryModal.taxAmount')}
                 <label className="ml-2 inline-flex items-center gap-1 text-xs text-gray-400">
                   <input
                     type="checkbox"
@@ -171,7 +174,7 @@ export default function EditEntryModal({ entry, onClose, onSaved }: EditEntryMod
                     onChange={e => setTaxOverride(e.target.checked)}
                     className="rounded border-gray-300"
                   />
-                  Override
+                 {tr('ui:EditEntryModal.override')}
                 </label>
               </label>
               <input
@@ -187,13 +190,13 @@ export default function EditEntryModal({ entry, onClose, onSaved }: EditEntryMod
 
           {/* Category */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Category</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr('ui:EditEntryModal.category')}</label>
             <select
               value={categoryId}
               onChange={e => setCategoryId(e.target.value)}
               className="w-full px-3 py-2 border rounded-lg text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
             >
-              <option value="">Uncategorized</option>
+              <option value="">{tr('ui:EditEntryModal.uncategorized')}</option>
               {filteredCategories.map(c => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
@@ -202,7 +205,7 @@ export default function EditEntryModal({ entry, onClose, onSaved }: EditEntryMod
 
           {/* Status */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr('ui:EditEntryModal.status')}</label>
             <select
               value={status}
               onChange={e => setStatus(e.target.value as EntryStatusType)}
@@ -216,7 +219,7 @@ export default function EditEntryModal({ entry, onClose, onSaved }: EditEntryMod
 
           {/* Notes */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr('ui:EditEntryModal.notes')}</label>
             <textarea
               value={notes}
               onChange={e => setNotes(e.target.value)}
@@ -231,7 +234,7 @@ export default function EditEntryModal({ entry, onClose, onSaved }: EditEntryMod
             onClick={onClose}
             className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
           >
-            Cancel
+           {tr('ui:EditEntryModal.cancel')}
           </button>
           <button
             onClick={() => mutation.mutate()}
@@ -239,7 +242,7 @@ export default function EditEntryModal({ entry, onClose, onSaved }: EditEntryMod
             className="flex items-center gap-1.5 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
           >
             {mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-            {mutation.isPending ? 'Saving...' : 'Save Changes'}
+            {mutation.isPending ? tr('ui:EditEntryModal.saving') : tr('ui:EditEntryModal.saveChanges')}
           </button>
         </div>
       </div>

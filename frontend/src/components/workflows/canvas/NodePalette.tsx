@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Play, GitBranch, Clock, Search } from 'lucide-react'
 import { ACTION_LIBRARY } from './graph'
+import { useTranslation } from 'react-i18next'
 
 export type PaletteDragPayload =
   | { kind: 'action'; action_type: string }
@@ -26,6 +27,7 @@ function DraggableItem({ payload, icon, label }: { payload: PaletteDragPayload; 
 }
 
 export default function NodePalette() {
+  const { t } = useTranslation('ui')
   const [search, setSearch] = useState('')
   const filtered = ACTION_LIBRARY.filter((a) =>
     a.label.toLowerCase().includes(search.toLowerCase())
@@ -34,30 +36,30 @@ export default function NodePalette() {
   return (
     <div className="w-64 shrink-0 border-r border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 h-full overflow-y-auto p-3">
       <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
-        Logic
+       {t('ui:NodePalette.logic')}
       </p>
       <div className="space-y-1.5 mb-4">
         <DraggableItem
           payload={{ kind: 'condition' }}
           icon={<GitBranch className="h-3.5 w-3.5 text-purple-500 shrink-0" />}
-          label="Condition"
+          label={t('ui:NodePalette.condition')}
         />
         <DraggableItem
           payload={{ kind: 'delay' }}
           icon={<Clock className="h-3.5 w-3.5 text-gray-500 shrink-0" />}
-          label="Delay"
+          label={t('ui:NodePalette.delay')}
         />
       </div>
 
       <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
-        Actions
+       {t('ui:NodePalette.actions')}
       </p>
       <div className="relative mb-2">
         <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search actions…"
+          placeholder={t('ui:NodePalette.searchActions')}
           className="w-full pl-7 pr-2 py-1.5 text-xs border border-gray-200 dark:border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100"
         />
       </div>

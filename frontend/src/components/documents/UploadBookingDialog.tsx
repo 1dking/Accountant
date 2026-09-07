@@ -5,7 +5,7 @@ import { listAccounts } from '@/api/cashbook'
 import { cashbookCapture } from '@/api/cashbook'
 import type { CashbookCaptureResult } from '@/api/cashbook'
 import { uploadDocuments } from '@/api/documents'
-import { formatFileSize } from '@/lib/utils'
+import { formatFileSize, uiLocale } from '@/lib/utils'
 import {
   X,
   TrendingUp,
@@ -15,6 +15,7 @@ import {
   AlertCircle,
   Loader2,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 interface UploadBookingDialogProps {
   isOpen: boolean
@@ -40,6 +41,7 @@ export default function UploadBookingDialog({
   onClose,
   onComplete,
 }: UploadBookingDialogProps) {
+  const { t } = useTranslation('ui')
   const navigate = useNavigate()
   const [step, setStep] = useState<'select_type' | 'processing' | 'results'>(
     'select_type'
@@ -165,9 +167,9 @@ export default function UploadBookingDialog({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            {step === 'select_type' && 'Upload Document'}
-            {step === 'processing' && 'Processing...'}
-            {step === 'results' && 'Upload Complete'}
+            {step === 'select_type' && t('ui:UploadBookingDialog.uploadDocument')}
+            {step === 'processing' && t('ui:UploadBookingDialog.processing')}
+            {step === 'results' && t('ui:UploadBookingDialog.uploadComplete')}
           </h2>
           <button
             onClick={onClose}
@@ -186,8 +188,8 @@ export default function UploadBookingDialog({
               <div>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
                   {files.length === 1
-                    ? '1 file selected'
-                    : `${files.length} files selected`}
+                    ? t('ui:UploadBookingDialog.n1FileSelected')
+                    : t('ui:UploadBookingDialog.lengthFilesSelected', { length: files.length })}
                 </p>
                 <div className="space-y-1 max-h-32 overflow-y-auto">
                   {files.map((f, i) => (
@@ -208,7 +210,7 @@ export default function UploadBookingDialog({
               {/* Type selection */}
               <div>
                 <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  What type of document is this?
+                 {t('ui:UploadBookingDialog.whatTypeOfDocumentIs')}
                 </p>
                 <div className="grid grid-cols-3 gap-2">
                   <button
@@ -221,7 +223,7 @@ export default function UploadBookingDialog({
                     }`}
                   >
                     <TrendingDown className="h-5 w-5" />
-                    <span className="text-sm font-medium">Expense</span>
+                    <span className="text-sm font-medium">{t('ui:UploadBookingDialog.expense')}</span>
                   </button>
                   <button
                     type="button"
@@ -233,7 +235,7 @@ export default function UploadBookingDialog({
                     }`}
                   >
                     <TrendingUp className="h-5 w-5" />
-                    <span className="text-sm font-medium">Income</span>
+                    <span className="text-sm font-medium">{t('ui:UploadBookingDialog.income')}</span>
                   </button>
                   <button
                     type="button"
@@ -245,7 +247,7 @@ export default function UploadBookingDialog({
                     }`}
                   >
                     <FileText className="h-5 w-5" />
-                    <span className="text-sm font-medium">Other</span>
+                    <span className="text-sm font-medium">{t('ui:UploadBookingDialog.other')}</span>
                   </button>
                 </div>
               </div>
@@ -254,11 +256,11 @@ export default function UploadBookingDialog({
               {(bookingType === 'expense' || bookingType === 'income') && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Payment Account
+                   {t('ui:UploadBookingDialog.paymentAccount')}
                   </label>
                   {accounts.length === 0 ? (
                     <p className="text-sm text-amber-600">
-                      No payment accounts found.{' '}
+                     {t('ui:UploadBookingDialog.noPaymentAccountsFound')}{' '}
                       <button
                         type="button"
                         onClick={() => {
@@ -267,7 +269,7 @@ export default function UploadBookingDialog({
                         }}
                         className="underline hover:no-underline"
                       >
-                        Create one in Cashbook
+                       {t('ui:UploadBookingDialog.createOneInCashbook')}
                       </button>
                     </p>
                   ) : (
@@ -277,7 +279,7 @@ export default function UploadBookingDialog({
                       className="w-full px-3 py-2 text-sm border rounded-md bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       {accounts.length > 1 && (
-                        <option value="">Select account...</option>
+                        <option value="">{t('ui:UploadBookingDialog.selectAccount')}</option>
                       )}
                       {accounts.map((a) => (
                         <option key={a.id} value={a.id}>
@@ -291,7 +293,7 @@ export default function UploadBookingDialog({
 
               {bookingType === 'other' && (
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Document will be uploaded without creating a cashbook entry.
+                 {t('ui:UploadBookingDialog.documentWillBeUploadedWithout')}
                 </p>
               )}
             </div>
@@ -323,7 +325,7 @@ export default function UploadBookingDialog({
                     </p>
                     {r.status === 'uploading' && (
                       <p className="text-xs text-blue-500">
-                        Uploading & processing...
+                       {t('ui:UploadBookingDialog.uploadingProcessing')}
                       </p>
                     )}
                   </div>
@@ -339,7 +341,7 @@ export default function UploadBookingDialog({
                 {successCount} of {files.length} file
                 {files.length !== 1 ? 's' : ''} uploaded
                 {entryCount > 0 &&
-                  `, ${entryCount} cashbook entr${entryCount !== 1 ? 'ies' : 'y'} created`}
+                  t('ui:UploadBookingDialog.entrycountCashbookEntrV1Created', { entryCount, v1: entryCount !== 1 ? 'ies' : 'y' })}
               </p>
 
               <div className="space-y-2 max-h-64 overflow-y-auto">
@@ -374,13 +376,13 @@ export default function UploadBookingDialog({
                             )}
                             <p>
                               {r.captureResult.entry_type === 'expense'
-                                ? 'Expense'
-                                : 'Income'}
+                                ? t('ui:UploadBookingDialog.expense')
+                                : t('ui:UploadBookingDialog.income')}
                               :{' '}
                               <span className="font-medium">
                                 $
                                 {r.captureResult.entry_amount?.toLocaleString(
-                                  'en-US',
+                                  uiLocale(),
                                   {
                                     minimumFractionDigits: 2,
                                     maximumFractionDigits: 2,
@@ -388,7 +390,7 @@ export default function UploadBookingDialog({
                                 )}
                               </span>
                               {r.captureResult.entry_date &&
-                                ` on ${r.captureResult.entry_date}`}
+                                t('ui:UploadBookingDialog.onEntryDate', { entry_date: r.captureResult.entry_date })}
                             </p>
                           </div>
                         )}
@@ -396,8 +398,7 @@ export default function UploadBookingDialog({
                           !r.captureResult.entry_id &&
                           r.status === 'done' && (
                             <p className="text-xs text-amber-600 mt-1">
-                              Uploaded, but no entry created (AI could not
-                              extract amount)
+                             {t('ui:UploadBookingDialog.uploadedButNoEntryCreated')}
                             </p>
                           )}
                       </div>
@@ -415,7 +416,7 @@ export default function UploadBookingDialog({
                   }}
                   className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
                 >
-                  View in Cashbook
+                 {t('ui:UploadBookingDialog.viewInCashbook')}
                 </button>
               )}
             </div>
@@ -431,7 +432,7 @@ export default function UploadBookingDialog({
                 onClick={onClose}
                 className="px-4 py-2 text-sm border rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
               >
-                Cancel
+               {t('ui:UploadBookingDialog.cancel')}
               </button>
               <button
                 type="button"
@@ -440,8 +441,8 @@ export default function UploadBookingDialog({
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
               >
                 {bookingType === 'other'
-                  ? 'Upload'
-                  : 'Upload & Book'}
+                  ? t('ui:UploadBookingDialog.upload')
+                  : t('ui:UploadBookingDialog.uploadBook')}
               </button>
             </>
           )}
@@ -451,7 +452,7 @@ export default function UploadBookingDialog({
               onClick={handleDone}
               className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
             >
-              Done
+             {t('ui:UploadBookingDialog.done')}
             </button>
           )}
         </div>

@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft } from 'lucide-react';
 import { createRule } from '@/api/recurring';
 import { RECURRING_TYPES, FREQUENCIES } from '@/lib/constants';
+import { useTranslation } from 'react-i18next'
 
 const defaultTemplateData: Record<string, string> = {
   expense: JSON.stringify({ vendor_name: '', description: '', amount: 0, category: '' }, null, 2),
@@ -12,6 +13,7 @@ const defaultTemplateData: Record<string, string> = {
 };
 
 export default function NewRecurringRulePage() {
+  const { t } = useTranslation('ui')
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -66,17 +68,17 @@ export default function NewRecurringRulePage() {
         className="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 mb-4"
       >
         <ArrowLeft className="w-4 h-4" />
-        Back to Recurring Transactions
+       {t('ui:NewRecurringRulePage.backToRecurringTransactions')}
       </button>
 
-      <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-6">New Recurring Rule</h1>
+      <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-6">{t('ui:NewRecurringRulePage.newRecurringRule')}</h1>
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 space-y-5">
           {/* Name */}
           <div>
             <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Name <span className="text-red-500">*</span>
+             {t('ui:NewRecurringRulePage.name')} <span className="text-red-500">*</span>
             </label>
             <input
               id="name"
@@ -84,7 +86,7 @@ export default function NewRecurringRulePage() {
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Monthly Rent"
+              placeholder={t('ui:NewRecurringRulePage.eGMonthlyRent')}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
@@ -92,7 +94,7 @@ export default function NewRecurringRulePage() {
           {/* Type */}
           <div>
             <label htmlFor="type" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Type
+             {t('ui:NewRecurringRulePage.type')}
             </label>
             <select
               id="type"
@@ -111,7 +113,7 @@ export default function NewRecurringRulePage() {
           {/* Frequency */}
           <div>
             <label htmlFor="frequency" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Frequency
+             {t('ui:NewRecurringRulePage.frequency')}
             </label>
             <select
               id="frequency"
@@ -130,7 +132,7 @@ export default function NewRecurringRulePage() {
           {/* Next Run Date */}
           <div>
             <label htmlFor="next_run_date" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Next Run Date <span className="text-red-500">*</span>
+             {t('ui:NewRecurringRulePage.nextRunDate')} <span className="text-red-500">*</span>
             </label>
             <input
               id="next_run_date"
@@ -145,7 +147,7 @@ export default function NewRecurringRulePage() {
           {/* End Date */}
           <div>
             <label htmlFor="end_date" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              End Date <span className="text-gray-400 dark:text-gray-500">(optional)</span>
+             {t('ui:NewRecurringRulePage.endDate')} <span className="text-gray-400 dark:text-gray-500">{t('ui:NewRecurringRulePage.optional')}</span>
             </label>
             <input
               id="end_date"
@@ -159,7 +161,7 @@ export default function NewRecurringRulePage() {
           {/* Template Data */}
           <div>
             <label htmlFor="template_data" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Template Data (JSON)
+             {t('ui:NewRecurringRulePage.templateDataJson')}
             </label>
             <textarea
               id="template_data"
@@ -182,19 +184,19 @@ export default function NewRecurringRulePage() {
             disabled={mutation.isPending}
             className="px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
           >
-            {mutation.isPending ? 'Creating...' : 'Create Rule'}
+            {mutation.isPending ? t('ui:NewRecurringRulePage.creating') : t('ui:NewRecurringRulePage.createRule')}
           </button>
           <button
             type="button"
             onClick={() => navigate('/recurring')}
             className="px-5 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
           >
-            Cancel
+           {t('ui:NewRecurringRulePage.cancel')}
           </button>
         </div>
 
         {mutation.isError && (
-          <p className="text-sm text-red-600">Failed to create rule. Please try again.</p>
+          <p className="text-sm text-red-600">{t('ui:NewRecurringRulePage.failedToCreateRulePlease')}</p>
         )}
       </form>
     </div>

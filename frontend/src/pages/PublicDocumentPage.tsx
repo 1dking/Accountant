@@ -6,11 +6,14 @@ import type { PaymentIntentResponse } from '@/api/public'
 import PaymentForm from '@/components/public/PaymentForm'
 import SignaturePad from '@/components/public/SignaturePad'
 import { CheckCircle, Loader2, AlertCircle } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { uiLocale } from '@/lib/utils'
 
 const formatCurrency = (amount: number, currency = 'USD') =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount)
+  new Intl.NumberFormat(uiLocale(), { style: 'currency', currency }).format(amount)
 
 export default function PublicDocumentPage() {
+  const { t } = useTranslation('ui')
   const { token } = useParams<{ token: string }>()
   const [signatureData, setSignatureData] = useState<string | null>(null)
   const [signerName, setSignerName] = useState('')
@@ -58,10 +61,10 @@ export default function PublicDocumentPage() {
         <div className="text-center">
           <AlertCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
           <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
-            Link not found
+           {t('ui:PublicDocumentPage.linkNotFound')}
           </h1>
           <p className="text-gray-500 dark:text-gray-400">
-            This link may have expired or is no longer valid.
+           {t('ui:PublicDocumentPage.thisLinkMayHaveExpired')}
           </p>
         </div>
       </div>
@@ -99,7 +102,7 @@ export default function PublicDocumentPage() {
                 {company?.has_logo && (
                   <img
                     src="/api/settings/company/logo"
-                    alt="Logo"
+                    alt={t('ui:PublicDocumentPage.logo')}
                     className="h-12 w-auto object-contain"
                   />
                 )}
@@ -128,7 +131,7 @@ export default function PublicDocumentPage() {
               </div>
               <div className="text-right">
                 <h2 className="text-2xl font-bold text-gray-400 dark:text-gray-500 uppercase">
-                  {isEstimate ? 'Estimate' : 'Invoice'}
+                  {isEstimate ? t('ui:PublicDocumentPage.estimate') : t('ui:PublicDocumentPage.invoice')}
                 </h2>
                 <p className="text-lg font-semibold text-gray-900 dark:text-gray-100 mt-1">
                   {doc.number}
@@ -142,7 +145,7 @@ export default function PublicDocumentPage() {
             <div className="grid grid-cols-2 gap-8 mb-8">
               <div>
                 <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
-                  {isEstimate ? 'Prepared For' : 'Bill To'}
+                  {isEstimate ? t('ui:PublicDocumentPage.preparedFor') : t('ui:PublicDocumentPage.billTo')}
                 </h3>
                 {doc.contact ? (
                   <div className="text-sm text-gray-700 dark:text-gray-300">
@@ -161,23 +164,23 @@ export default function PublicDocumentPage() {
               <div className="text-right">
                 <div className="text-sm space-y-1">
                   <div className="flex justify-end gap-4">
-                    <span className="text-gray-500 dark:text-gray-400">Date:</span>
+                    <span className="text-gray-500 dark:text-gray-400">{t('ui:PublicDocumentPage.date')}</span>
                     <span className="text-gray-900 dark:text-gray-100">{doc.issue_date}</span>
                   </div>
                   {isEstimate && doc.expiry_date && (
                     <div className="flex justify-end gap-4">
-                      <span className="text-gray-500 dark:text-gray-400">Valid Until:</span>
+                      <span className="text-gray-500 dark:text-gray-400">{t('ui:PublicDocumentPage.validUntil')}</span>
                       <span className="text-gray-900 dark:text-gray-100">{doc.expiry_date}</span>
                     </div>
                   )}
                   {isInvoice && doc.due_date && (
                     <div className="flex justify-end gap-4">
-                      <span className="text-gray-500 dark:text-gray-400">Due Date:</span>
+                      <span className="text-gray-500 dark:text-gray-400">{t('ui:PublicDocumentPage.dueDate')}</span>
                       <span className="text-gray-900 dark:text-gray-100">{doc.due_date}</span>
                     </div>
                   )}
                   <div className="flex justify-end gap-4">
-                    <span className="text-gray-500 dark:text-gray-400">Status:</span>
+                    <span className="text-gray-500 dark:text-gray-400">{t('ui:PublicDocumentPage.status')}</span>
                     <span className="text-gray-900 dark:text-gray-100 capitalize">
                       {doc.status.replace('_', ' ')}
                     </span>
@@ -191,19 +194,19 @@ export default function PublicDocumentPage() {
               <thead>
                 <tr className="border-b border-gray-200 dark:border-gray-700">
                   <th className="text-left py-3 font-medium text-gray-500 dark:text-gray-400">
-                    Description
+                   {t('ui:PublicDocumentPage.description')}
                   </th>
-                  <th className="text-right py-3 font-medium text-gray-500 dark:text-gray-400">Qty</th>
+                  <th className="text-right py-3 font-medium text-gray-500 dark:text-gray-400">{t('ui:PublicDocumentPage.qty')}</th>
                   <th className="text-right py-3 font-medium text-gray-500 dark:text-gray-400">
-                    Unit Price
+                   {t('ui:PublicDocumentPage.unitPrice')}
                   </th>
                   {doc.line_items.some((li) => li.tax_rate) && (
                     <th className="text-right py-3 font-medium text-gray-500 dark:text-gray-400">
-                      Tax
+                     {t('ui:PublicDocumentPage.tax')}
                     </th>
                   )}
                   <th className="text-right py-3 font-medium text-gray-500 dark:text-gray-400">
-                    Total
+                   {t('ui:PublicDocumentPage.total')}
                   </th>
                 </tr>
               </thead>
@@ -239,14 +242,14 @@ export default function PublicDocumentPage() {
             {/* Totals */}
             <div className="flex flex-col items-end gap-1 mb-8">
               <div className="flex justify-between w-56">
-                <span className="text-sm text-gray-500 dark:text-gray-400">Subtotal</span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">{t('ui:PublicDocumentPage.subtotal')}</span>
                 <span className="text-sm text-gray-900 dark:text-gray-100">
                   {formatCurrency(subtotal, doc.currency)}
                 </span>
               </div>
               {taxTotal > 0 && (
                 <div className="flex justify-between w-56">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">Tax</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">{t('ui:PublicDocumentPage.tax')}</span>
                   <span className="text-sm text-gray-900 dark:text-gray-100">
                     {formatCurrency(taxTotal, doc.currency)}
                   </span>
@@ -254,14 +257,14 @@ export default function PublicDocumentPage() {
               )}
               {discountAmount > 0 && (
                 <div className="flex justify-between w-56">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">Discount</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">{t('ui:PublicDocumentPage.discount')}</span>
                   <span className="text-sm text-red-600">
                     -{formatCurrency(discountAmount, doc.currency)}
                   </span>
                 </div>
               )}
               <div className="flex justify-between w-56 pt-2 border-t border-gray-300 dark:border-gray-600 mt-1">
-                <span className="text-sm font-bold text-gray-900 dark:text-gray-100">Total</span>
+                <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{t('ui:PublicDocumentPage.total')}</span>
                 <span className="text-sm font-bold text-gray-900 dark:text-gray-100">
                   {formatCurrency(total, doc.currency)}
                 </span>
@@ -269,14 +272,14 @@ export default function PublicDocumentPage() {
               {isInvoice && totalPaid > 0 && (
                 <>
                   <div className="flex justify-between w-56">
-                    <span className="text-sm text-gray-500 dark:text-gray-400">Paid</span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">{t('ui:PublicDocumentPage.paid')}</span>
                     <span className="text-sm text-green-600">
                       -{formatCurrency(totalPaid, doc.currency)}
                     </span>
                   </div>
                   <div className="flex justify-between w-56 pt-1 border-t">
                     <span className="text-sm font-bold text-gray-900 dark:text-gray-100">
-                      Balance Due
+                     {t('ui:PublicDocumentPage.balanceDue')}
                     </span>
                     <span className="text-sm font-bold text-gray-900 dark:text-gray-100">
                       {formatCurrency(balanceDue, doc.currency)}
@@ -289,7 +292,7 @@ export default function PublicDocumentPage() {
             {/* Notes */}
             {doc.notes && (
               <div className="bg-gray-50 dark:bg-gray-950 rounded-lg p-4 mb-6">
-                <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Notes</h3>
+                <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">{t('ui:PublicDocumentPage.notes')}</h3>
                 <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
                   {doc.notes}
                 </p>
@@ -300,7 +303,7 @@ export default function PublicDocumentPage() {
             {isInvoice && doc.payments && doc.payments.length > 0 && (
               <div className="mb-6">
                 <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
-                  Payment History
+                 {t('ui:PublicDocumentPage.paymentHistory')}
                 </h3>
                 <div className="space-y-1">
                   {doc.payments.map((p, i) => (
@@ -327,7 +330,7 @@ export default function PublicDocumentPage() {
                 <CheckCircle className="h-5 w-5 text-green-600 shrink-0" />
                 <div>
                   <p className="text-sm font-medium text-green-800">
-                    Accepted by {doc.signed_by_name}
+                   {t('ui:PublicDocumentPage.acceptedBy')} {doc.signed_by_name}
                   </p>
                   {doc.signed_at && (
                     <p className="text-xs text-green-600">
@@ -345,24 +348,24 @@ export default function PublicDocumentPage() {
               !accepted && (
                 <div className="border-t pt-6">
                   <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
-                    Accept This Estimate
+                   {t('ui:PublicDocumentPage.acceptThisEstimate')}
                   </h3>
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Your Name
+                       {t('ui:PublicDocumentPage.yourName')}
                       </label>
                       <input
                         type="text"
                         value={signerName}
                         onChange={(e) => setSignerName(e.target.value)}
-                        placeholder="Full name"
+                        placeholder={t('ui:PublicDocumentPage.fullName')}
                         className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Signature
+                       {t('ui:PublicDocumentPage.signature')}
                       </label>
                       <SignaturePad onSignatureChange={setSignatureData} />
                     </div>
@@ -377,13 +380,13 @@ export default function PublicDocumentPage() {
                         className="px-6 py-2.5 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
                       >
                         {acceptMutation.isPending
-                          ? 'Accepting...'
-                          : 'Accept Estimate'}
+                          ? t('ui:PublicDocumentPage.accepting')
+                          : t('ui:PublicDocumentPage.acceptEstimate')}
                       </button>
                     </div>
                     {acceptMutation.isError && (
                       <p className="text-sm text-red-600">
-                        Failed to accept. Please try again.
+                       {t('ui:PublicDocumentPage.failedToAcceptPleaseTry')}
                       </p>
                     )}
                   </div>
@@ -395,7 +398,7 @@ export default function PublicDocumentPage() {
               <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 rounded-lg p-4 flex items-center gap-3">
                 <CheckCircle className="h-5 w-5 text-green-600" />
                 <p className="text-sm font-medium text-green-800">
-                  Estimate accepted successfully. Thank you!
+                 {t('ui:PublicDocumentPage.estimateAcceptedSuccessfullyThankYou')}
                 </p>
               </div>
             )}
@@ -406,7 +409,7 @@ export default function PublicDocumentPage() {
                 {showPaymentForm && paymentData ? (
                   <div>
                     <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
-                      Payment
+                     {t('ui:PublicDocumentPage.payment')}
                     </h3>
                     <PaymentForm
                       clientSecret={paymentData.client_secret}
@@ -430,15 +433,15 @@ export default function PublicDocumentPage() {
                       {payMutation.isPending ? (
                         <span className="flex items-center justify-center gap-2">
                           <Loader2 className="h-4 w-4 animate-spin" />
-                          Preparing payment...
+                         {t('ui:PublicDocumentPage.preparingPayment')}
                         </span>
                       ) : (
-                        `Pay ${formatCurrency(balanceDue, doc.currency)}`
+                        t('ui:PublicDocumentPage.payV0', { v0: formatCurrency(balanceDue, doc.currency) })
                       )}
                     </button>
                     {payMutation.isError && (
                       <p className="text-sm text-red-600 mt-2">
-                        Failed to initiate payment. Please try again.
+                       {t('ui:PublicDocumentPage.failedToInitiatePaymentPlease')}
                       </p>
                     )}
                   </>
@@ -453,7 +456,7 @@ export default function PublicDocumentPage() {
           <div className="flex justify-center mt-6">
             <img
               src="/api/settings/company/logo"
-              alt="Logo"
+              alt={t('ui:PublicDocumentPage.logo')}
               className="h-8 w-auto object-contain opacity-50"
             />
           </div>

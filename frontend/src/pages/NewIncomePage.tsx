@@ -8,8 +8,10 @@ import { INCOME_CATEGORIES, PAYMENT_METHODS } from '@/lib/constants';
 import DocumentAttachment from '@/components/shared/DocumentAttachment';
 import type { IncomeCreateData } from '@/api/income';
 import type { DocumentListItem } from '@/types/models';
+import { useTranslation } from 'react-i18next'
 
 export default function NewIncomePage() {
+  const { t } = useTranslation('ui')
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -61,15 +63,15 @@ export default function NewIncomePage() {
     setError('');
 
     if (!form.description.trim()) {
-      setError('Description is required.');
+      setError(t('ui:NewIncomePage.descriptionIsRequired'));
       return;
     }
     if (!form.amount || form.amount <= 0) {
-      setError('Amount must be greater than zero.');
+      setError(t('ui:NewIncomePage.amountMustBeGreaterThan'));
       return;
     }
     if (!form.date) {
-      setError('Date is required.');
+      setError(t('ui:NewIncomePage.dateIsRequired'));
       return;
     }
 
@@ -96,10 +98,10 @@ export default function NewIncomePage() {
         className="inline-flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 mb-4 transition-colors"
       >
         <ArrowLeft className="w-4 h-4" />
-        Back to Income
+       {t('ui:NewIncomePage.backToIncome')}
       </button>
 
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">New Income</h1>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">{t('ui:NewIncomePage.newIncome')}</h1>
 
       {/* Error Display */}
       {error && (
@@ -113,7 +115,7 @@ export default function NewIncomePage() {
           {/* Description */}
           <div>
             <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Description <span className="text-red-500">*</span>
+             {t('ui:NewIncomePage.description')} <span className="text-red-500">*</span>
             </label>
             <input
               id="description"
@@ -122,7 +124,7 @@ export default function NewIncomePage() {
               required
               value={form.description}
               onChange={handleChange}
-              placeholder="Enter description"
+              placeholder={t('ui:NewIncomePage.enterDescription')}
               className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
@@ -131,7 +133,7 @@ export default function NewIncomePage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label htmlFor="amount" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Amount <span className="text-red-500">*</span>
+               {t('ui:NewIncomePage.amount')} <span className="text-red-500">*</span>
               </label>
               <input
                 id="amount"
@@ -148,7 +150,7 @@ export default function NewIncomePage() {
             </div>
             <div>
               <label htmlFor="date" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Date <span className="text-red-500">*</span>
+               {t('ui:NewIncomePage.date')} <span className="text-red-500">*</span>
               </label>
               <input
                 id="date"
@@ -166,7 +168,7 @@ export default function NewIncomePage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label htmlFor="category" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Category
+               {t('ui:NewIncomePage.category')}
               </label>
               <select
                 id="category"
@@ -187,7 +189,7 @@ export default function NewIncomePage() {
                 htmlFor="payment_method"
                 className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
               >
-                Payment Method
+               {t('ui:NewIncomePage.paymentMethod')}
               </label>
               <select
                 id="payment_method"
@@ -196,7 +198,7 @@ export default function NewIncomePage() {
                 onChange={handleChange}
                 className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-900"
               >
-                <option value="">Select method</option>
+                <option value="">{t('ui:NewIncomePage.selectMethod')}</option>
                 {PAYMENT_METHODS.map((method) => (
                   <option key={method.value} value={method.value}>
                     {method.label}
@@ -209,7 +211,7 @@ export default function NewIncomePage() {
           {/* Contact */}
           <div>
             <label htmlFor="contact_id" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Contact
+             {t('ui:NewIncomePage.contact')}
             </label>
             <select
               id="contact_id"
@@ -218,7 +220,7 @@ export default function NewIncomePage() {
               onChange={handleChange}
               className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-900"
             >
-              <option value="">None</option>
+              <option value="">{t('ui:NewIncomePage.none')}</option>
               {contacts.map((contact: any) => (
                 <option key={contact.id} value={contact.id}>
                   {contact.name}
@@ -230,7 +232,7 @@ export default function NewIncomePage() {
           {/* Reference */}
           <div>
             <label htmlFor="reference" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Reference
+             {t('ui:NewIncomePage.reference')}
             </label>
             <input
               id="reference"
@@ -238,7 +240,7 @@ export default function NewIncomePage() {
               type="text"
               value={form.reference}
               onChange={handleChange}
-              placeholder="e.g. Invoice #1234"
+              placeholder={t('ui:NewIncomePage.eGInvoice1234')}
               className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
@@ -251,18 +253,18 @@ export default function NewIncomePage() {
                 ...prev,
                 ...(meta.total_amount && { amount: Number(meta.total_amount) }),
                 ...(meta.date && { date: String(meta.date) }),
-                ...(meta.vendor_name && { description: `Income from ${meta.vendor_name}` }),
+                ...(meta.vendor_name && { description: t('ui:NewIncomePage.incomeFromVendorName', { vendor_name: meta.vendor_name }) }),
                 ...(meta.payment_method && { payment_method: String(meta.payment_method) }),
                 ...(meta.receipt_number && { reference: String(meta.receipt_number) }),
               }))
             }}
-            label="Receipt / Invoice"
+            label={t('ui:NewIncomePage.receiptInvoice')}
           />
 
           {/* Notes */}
           <div>
             <label htmlFor="notes" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Notes
+             {t('ui:NewIncomePage.notes')}
             </label>
             <textarea
               id="notes"
@@ -270,7 +272,7 @@ export default function NewIncomePage() {
               rows={3}
               value={form.notes}
               onChange={handleChange}
-              placeholder="Additional notes..."
+              placeholder={t('ui:NewIncomePage.additionalNotes')}
               className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
             />
           </div>
@@ -283,7 +285,7 @@ export default function NewIncomePage() {
               className="inline-flex items-center gap-2 px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
             >
               {mutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-              Create Income
+             {t('ui:NewIncomePage.createIncome')}
             </button>
           </div>
         </form>

@@ -3,8 +3,10 @@ import { Link, useNavigate, useParams } from 'react-router'
 import { api } from '@/api/client'
 import { useAuthStore } from '@/stores/authStore'
 import { usePublicBranding } from '@/hooks/useBranding'
+import { useTranslation } from 'react-i18next'
 
 export default function PasswordResetConfirmPage() {
+  const { t } = useTranslation('ui')
   const { token } = useParams<{ token: string }>()
   const navigate = useNavigate()
   const { fetchMe } = useAuthStore()
@@ -20,15 +22,15 @@ export default function PasswordResetConfirmPage() {
     setError('')
 
     if (!token) {
-      setError('This reset link is missing its token. Request a new one.')
+      setError(t('ui:PasswordResetConfirmPage.thisResetLinkIsMissing'))
       return
     }
     if (password.length < 8) {
-      setError('Password must be at least 8 characters.')
+      setError(t('ui:PasswordResetConfirmPage.passwordMustBeAtLeast'))
       return
     }
     if (password !== confirm) {
-      setError('Passwords do not match.')
+      setError(t('ui:PasswordResetConfirmPage.passwordsDoNotMatch'))
       return
     }
 
@@ -64,13 +66,13 @@ export default function PasswordResetConfirmPage() {
               {orgName}
             </h1>
           )}
-          <p className="text-sm text-gray-500 dark:text-gray-400">Choose a new password</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{t('ui:PasswordResetConfirmPage.chooseANewPassword')}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              New password
+             {t('ui:PasswordResetConfirmPage.newPassword')}
             </label>
             <input
               id="password"
@@ -81,16 +83,16 @@ export default function PasswordResetConfirmPage() {
               minLength={8}
               autoFocus
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100 dark:bg-gray-800"
-              placeholder="At least 8 characters"
+              placeholder={t('ui:PasswordResetConfirmPage.atLeast8Characters')}
             />
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Must include uppercase, lowercase, and a digit.
+             {t('ui:PasswordResetConfirmPage.mustIncludeUppercaseLowercaseAnd')}
             </p>
           </div>
 
           <div>
             <label htmlFor="confirm" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Confirm new password
+             {t('ui:PasswordResetConfirmPage.confirmNewPassword')}
             </label>
             <input
               id="confirm"
@@ -100,7 +102,7 @@ export default function PasswordResetConfirmPage() {
               required
               minLength={8}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100 dark:bg-gray-800"
-              placeholder="Re-enter to confirm"
+              placeholder={t('ui:PasswordResetConfirmPage.reEnterToConfirm')}
             />
           </div>
 
@@ -115,14 +117,14 @@ export default function PasswordResetConfirmPage() {
             disabled={isLoading}
             className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
           >
-            {isLoading ? 'Setting password…' : 'Set new password & sign in'}
+            {isLoading ? t('ui:PasswordResetConfirmPage.settingPassword') : t('ui:PasswordResetConfirmPage.setNewPasswordSignIn')}
           </button>
 
           <Link
             to="/login"
             className="block text-center text-sm text-blue-600 hover:text-blue-700"
           >
-            Back to sign in
+           {t('ui:PasswordResetConfirmPage.backToSignIn')}
           </Link>
         </form>
       </div>

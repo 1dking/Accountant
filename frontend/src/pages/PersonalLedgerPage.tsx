@@ -10,6 +10,7 @@ import {
   deletePersonalTransaction,
   getPersonalCashflow,
 } from '@/api/personal'
+import { useTranslation } from 'react-i18next'
 
 function money(v: string | null | undefined): string {
   const n = parseFloat(v ?? '0')
@@ -19,6 +20,7 @@ function money(v: string | null | undefined): string {
 const today = () => new Date().toISOString().slice(0, 10)
 
 export default function PersonalLedgerPage() {
+  const { t } = useTranslation('ui')
   const qc = useQueryClient()
   const [showAccount, setShowAccount] = useState(false)
   const [showTxn, setShowTxn] = useState(false)
@@ -45,26 +47,26 @@ export default function PersonalLedgerPage() {
       <div>
         <div className="flex items-center gap-2">
           <Wallet className="w-6 h-6 text-gray-700 dark:text-gray-300" />
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Personal Finances</h1>
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">{t('ui:PersonalLedgerPage.personalFinances')}</h1>
         </div>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1.5">
           <Lock className="w-3.5 h-3.5" />
-          Private to you, encrypted, and completely separate from your business books &amp; taxes.
+         {t('ui:PersonalLedgerPage.privateToYouEncryptedAnd')}
         </p>
       </div>
 
       {/* Cashflow summary */}
       <div className="grid grid-cols-3 gap-3">
         <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-3">
-          <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1"><TrendingUp className="w-3.5 h-3.5 text-green-600" /> Money in</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1"><TrendingUp className="w-3.5 h-3.5 text-green-600" /> {t('ui:PersonalLedgerPage.moneyIn')}</div>
           <div className="text-lg font-semibold tabular-nums">${money(cashflow?.total_in)}</div>
         </div>
         <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-3">
-          <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1"><TrendingDown className="w-3.5 h-3.5 text-red-600" /> Money out</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1"><TrendingDown className="w-3.5 h-3.5 text-red-600" /> {t('ui:PersonalLedgerPage.moneyOut')}</div>
           <div className="text-lg font-semibold tabular-nums">${money(cashflow?.total_out)}</div>
         </div>
         <div className="rounded-xl border border-gray-900 dark:border-gray-100 p-3">
-          <div className="text-xs text-gray-500 dark:text-gray-400">Net</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400">{t('ui:PersonalLedgerPage.net')}</div>
           <div className={`text-lg font-semibold tabular-nums ${parseFloat(cashflow?.net ?? '0') >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>${money(cashflow?.net)}</div>
         </div>
       </div>
@@ -72,9 +74,9 @@ export default function PersonalLedgerPage() {
       {/* Accounts */}
       <section className="space-y-2">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Accounts</h2>
+          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('ui:PersonalLedgerPage.accounts')}</h2>
           <button onClick={() => setShowAccount(true)} className="inline-flex items-center gap-1 text-sm px-2.5 py-1 rounded-lg bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900">
-            <Plus className="w-3.5 h-3.5" /> Account
+            <Plus className="w-3.5 h-3.5" /> {t('ui:PersonalLedgerPage.account')}
           </button>
         </div>
         {accountsQ.isLoading ? <Spinner /> : accounts.length === 0 ? (
@@ -97,13 +99,13 @@ export default function PersonalLedgerPage() {
       {/* Transactions */}
       <section className="space-y-2">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Transactions</h2>
+          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('ui:PersonalLedgerPage.transactions')}</h2>
           <button
             onClick={() => setShowTxn(true)}
             disabled={accounts.length === 0}
             className="inline-flex items-center gap-1 text-sm px-2.5 py-1 rounded-lg bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900 disabled:opacity-40"
           >
-            <Plus className="w-3.5 h-3.5" /> Transaction
+            <Plus className="w-3.5 h-3.5" /> {t('ui:PersonalLedgerPage.transaction')}
           </button>
         </div>
         {txnsQ.isLoading ? <Spinner /> : txns.length === 0 ? (
@@ -140,6 +142,7 @@ function Empty({ text }: { text: string }) {
 }
 
 function AccountModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  const { t } = useTranslation('ui')
   const [name, setName] = useState('')
   const [opening, setOpening] = useState('0.00')
   const m = useMutation({
@@ -147,10 +150,10 @@ function AccountModal({ onClose, onDone }: { onClose: () => void; onDone: () => 
     onSuccess: onDone,
   })
   return (
-    <Modal title="Add personal account" onClose={onClose}>
-      <label className="block text-xs text-gray-500 mb-1">Name</label>
-      <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Personal Chequing" className={inputCls} />
-      <label className="block text-xs text-gray-500 mb-1 mt-3">Opening balance</label>
+    <Modal title={t('ui:PersonalLedgerPage.addPersonalAccount')} onClose={onClose}>
+      <label className="block text-xs text-gray-500 mb-1">{t('ui:PersonalLedgerPage.name')}</label>
+      <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('ui:PersonalLedgerPage.eGPersonalChequing')} className={inputCls} />
+      <label className="block text-xs text-gray-500 mb-1 mt-3">{t('ui:PersonalLedgerPage.openingBalance')}</label>
       <input value={opening} onChange={(e) => setOpening(e.target.value)} inputMode="decimal" className={inputCls} />
       <ModalActions onClose={onClose} onSave={() => m.mutate()} saving={m.isPending} disabled={!name} />
     </Modal>
@@ -158,6 +161,7 @@ function AccountModal({ onClose, onDone }: { onClose: () => void; onDone: () => 
 }
 
 function TxnModal({ accounts, onClose, onDone }: { accounts: { id: string; name: string }[]; onClose: () => void; onDone: () => void }) {
+  const { t } = useTranslation('ui')
   const [accountId, setAccountId] = useState(accounts[0]?.id ?? '')
   const [direction, setDirection] = useState<'in' | 'out'>('out')
   const [amount, setAmount] = useState('')
@@ -168,27 +172,27 @@ function TxnModal({ accounts, onClose, onDone }: { accounts: { id: string; name:
     onSuccess: onDone,
   })
   return (
-    <Modal title="Add transaction" onClose={onClose}>
-      <label className="block text-xs text-gray-500 mb-1">Account</label>
+    <Modal title={t('ui:PersonalLedgerPage.addTransaction')} onClose={onClose}>
+      <label className="block text-xs text-gray-500 mb-1">{t('ui:PersonalLedgerPage.account')}</label>
       <select value={accountId} onChange={(e) => setAccountId(e.target.value)} className={inputCls}>
         {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
       </select>
       <div className="grid grid-cols-2 gap-2 mt-3">
         <div>
-          <label className="block text-xs text-gray-500 mb-1">Direction</label>
+          <label className="block text-xs text-gray-500 mb-1">{t('ui:PersonalLedgerPage.direction')}</label>
           <select value={direction} onChange={(e) => setDirection(e.target.value as 'in' | 'out')} className={inputCls}>
-            <option value="out">Money out</option>
-            <option value="in">Money in</option>
+            <option value="out">{t('ui:PersonalLedgerPage.moneyOut')}</option>
+            <option value="in">{t('ui:PersonalLedgerPage.moneyIn')}</option>
           </select>
         </div>
         <div>
-          <label className="block text-xs text-gray-500 mb-1">Amount</label>
+          <label className="block text-xs text-gray-500 mb-1">{t('ui:PersonalLedgerPage.amount')}</label>
           <input value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="decimal" placeholder="0.00" className={inputCls} />
         </div>
       </div>
-      <label className="block text-xs text-gray-500 mb-1 mt-3">Description</label>
-      <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="e.g. Groceries" className={inputCls} />
-      <label className="block text-xs text-gray-500 mb-1 mt-3">Date</label>
+      <label className="block text-xs text-gray-500 mb-1 mt-3">{t('ui:PersonalLedgerPage.description')}</label>
+      <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t('ui:PersonalLedgerPage.eGGroceries')} className={inputCls} />
+      <label className="block text-xs text-gray-500 mb-1 mt-3">{t('ui:PersonalLedgerPage.date')}</label>
       <input type="date" value={d} onChange={(e) => setD(e.target.value)} className={inputCls} />
       <ModalActions onClose={onClose} onSave={() => m.mutate()} saving={m.isPending} disabled={!accountId || !amount || !description} />
     </Modal>
@@ -209,11 +213,12 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
 }
 
 function ModalActions({ onClose, onSave, saving, disabled }: { onClose: () => void; onSave: () => void; saving: boolean; disabled: boolean }) {
+  const { t } = useTranslation('ui')
   return (
     <div className="flex justify-end gap-2 mt-5">
-      <button onClick={onClose} className="px-3 py-1.5 text-sm rounded-lg text-gray-600 dark:text-gray-400">Cancel</button>
+      <button onClick={onClose} className="px-3 py-1.5 text-sm rounded-lg text-gray-600 dark:text-gray-400">{t('ui:PersonalLedgerPage.cancel')}</button>
       <button onClick={onSave} disabled={disabled || saving} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900 disabled:opacity-40">
-        {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Save
+        {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />} {t('ui:PersonalLedgerPage.save')}
       </button>
     </div>
   )

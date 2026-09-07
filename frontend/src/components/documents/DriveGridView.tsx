@@ -3,6 +3,7 @@ import { Folder as FolderIcon, FileText, Image, FileSpreadsheet, File, Star } fr
 import { formatFileSize, formatRelativeTime, cn } from '@/lib/utils'
 import type { Folder } from '@/types/models'
 import type { ContextMenuItem } from './FileContextMenu'
+import { useTranslation } from 'react-i18next'
 
 // A union type for items displayed in the grid/list
 export interface DriveItem {
@@ -124,6 +125,7 @@ function GridCard({
   onItemDoubleClick: (item: DriveItem) => void
   onContextMenu: (e: React.MouseEvent, item: ContextMenuItem) => void
 }) {
+  const { t } = useTranslation('ui')
   const Icon = getFileIcon(item.type === 'folder' ? 'folder' : item.mime_type)
   const iconColor = getFileIconColor(item.type === 'folder' ? 'folder' : item.mime_type)
 
@@ -161,7 +163,7 @@ function GridCard({
         {item.name}
       </p>
       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-        {item.type === 'folder' ? 'Folder' : formatFileSize(item.file_size ?? 0)}
+        {item.type === 'folder' ? t('ui:DriveGridView.folder') : formatFileSize(item.file_size ?? 0)}
         {' \u00B7 '}
         {formatRelativeTime(item.updated_at)}
       </p>
@@ -265,12 +267,13 @@ export default function DriveGridView({
   onItemDoubleClick,
   onContextMenu,
 }: DriveGridViewProps) {
+  const { t } = useTranslation('ui')
   if (items.length === 0) {
     return (
       <div className="text-center py-16">
         <FolderIcon className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-        <h3 className="text-gray-500 dark:text-gray-400 font-medium">No files here</h3>
-        <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Upload files or create a folder to get started</p>
+        <h3 className="text-gray-500 dark:text-gray-400 font-medium">{t('ui:DriveGridView.noFilesHere')}</h3>
+        <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">{t('ui:DriveGridView.uploadFilesOrCreateA')}</p>
       </div>
     )
   }
@@ -286,7 +289,7 @@ export default function DriveGridView({
         {folders.length > 0 && (
           <div className="mb-4">
             <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 px-1">
-              Folders
+             {t('ui:DriveGridView.folders')}
             </h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
               {folders.map((item) => (
@@ -305,7 +308,7 @@ export default function DriveGridView({
         {files.length > 0 && (
           <div>
             <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 px-1">
-              Files
+             {t('ui:DriveGridView.files')}
             </h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
               {files.map((item) => (
@@ -331,9 +334,9 @@ export default function DriveGridView({
       {/* Header row */}
       <div className="flex items-center gap-3 px-4 py-2 bg-gray-50 dark:bg-gray-950 border-b border-gray-200 dark:border-gray-700 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
         <span className="w-5" />
-        <span className="flex-1">Name</span>
-        <span className="w-20 text-right">Size</span>
-        <span className="w-28 text-right">Modified</span>
+        <span className="flex-1">{t('ui:DriveGridView.name')}</span>
+        <span className="w-20 text-right">{t('ui:DriveGridView.size')}</span>
+        <span className="w-28 text-right">{t('ui:DriveGridView.modified')}</span>
       </div>
       {sorted.map((item) => (
         <ListRow

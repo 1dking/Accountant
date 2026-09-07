@@ -1,8 +1,10 @@
 import { Mail, Phone, Globe, CalendarDays, QrCode, UserPlus } from 'lucide-react'
 import type { CardTemplateProps } from '../types'
+import { useTranslation } from 'react-i18next'
 
 /** Modern — accent banner, left-aligned overlap layout (Arivio modern.tsx). */
 export default function ModernCard({ card, onSaveContact, onShowQr }: CardTemplateProps) {
+  const { t } = useTranslation('ui')
   const initials = card.display_name
     .split(' ')
     .map((w) => w[0])
@@ -53,7 +55,7 @@ export default function ModernCard({ card, onSaveContact, onShowQr }: CardTempla
             className="flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold"
             style={{ background: card.button_color, color: card.button_text_color }}
           >
-            <UserPlus className="w-4 h-4" /> Save
+            <UserPlus className="w-4 h-4" /> {t('ui:ModernCard.save')}
           </button>
           {card.booking_url ? (
             <a
@@ -61,7 +63,7 @@ export default function ModernCard({ card, onSaveContact, onShowQr }: CardTempla
               className="flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold border"
               style={{ borderColor: card.accent_color, color: card.accent_color }}
             >
-              <CalendarDays className="w-4 h-4" /> Book
+              <CalendarDays className="w-4 h-4" /> {t('ui:ModernCard.book')}
             </a>
           ) : (
             <button
@@ -69,7 +71,7 @@ export default function ModernCard({ card, onSaveContact, onShowQr }: CardTempla
               className="flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold border"
               style={{ borderColor: card.accent_color, color: card.accent_color }}
             >
-              <QrCode className="w-4 h-4" /> Share
+              <QrCode className="w-4 h-4" /> {t('ui:ModernCard.share')}
             </button>
           )}
         </div>
@@ -112,7 +114,7 @@ export default function ModernCard({ card, onSaveContact, onShowQr }: CardTempla
 
         {card.booking_url && (
           <button onClick={onShowQr} className="mt-8 inline-flex items-center gap-1.5 text-xs opacity-50 hover:opacity-90">
-            <QrCode className="w-3.5 h-3.5" /> Share this card
+            <QrCode className="w-3.5 h-3.5" /> {t('ui:ModernCard.shareThisCard')}
           </button>
         )}
       </div>

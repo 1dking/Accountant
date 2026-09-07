@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { pagesApi } from '@/api/pages'
 import './section-editor.css'
+import { useTranslation } from 'react-i18next'
 
 export type MediaSlotKind = 'video' | 'image' | 'logo' | 'any'
 
@@ -38,6 +39,7 @@ type Tab = 'video' | 'image' | 'stock' | 'ai'
 export default function MediaPickerModal({
   open, tokenName, slotKind, currentValue, onClose, onPick,
 }: Props) {
+  const { t } = useTranslation('ui')
   // Default tab depends on slot kind. VIDEO_URL → video; IMAGE_URL → image.
   const initialTab: Tab = slotKind === 'video' ? 'video' : 'image'
   const [tab, setTab] = useState<Tab>(initialTab)
@@ -58,10 +60,10 @@ export default function MediaPickerModal({
     mutationFn: (file: File) =>
       pagesApi.uploadMedia(file) as Promise<{ data: { url: string } }>,
     onSuccess: (resp) => {
-      toast.success('Uploaded')
+      toast.success(t('ui:MediaPickerModal.uploaded'))
       onPick(resp.data.url)
     },
-    onError: (e: any) => toast.error(`Upload failed: ${e?.message || 'unknown'}`),
+    onError: (e: any) => toast.error(t('ui:MediaPickerModal.uploadFailedV0', { v0: e?.message || 'unknown' })),
   })
 
   const handleFile = (file: File | null) => {
@@ -98,10 +100,10 @@ export default function MediaPickerModal({
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
           <div>
             <h2 className="text-base font-semibold text-white/96">
-              Choose media
+             {t('ui:MediaPickerModal.chooseMedia')}
             </h2>
             <p className="text-xs text-white/46 mt-0.5">
-              Slot: <span className="font-mono">{tokenName}</span>
+             {t('ui:MediaPickerModal.slot')} <span className="font-mono">{tokenName}</span>
             </p>
           </div>
           <button
@@ -116,16 +118,16 @@ export default function MediaPickerModal({
         <div className="flex items-center gap-1 px-4 pt-3 border-b border-white/10">
           {showVideoTab && (
             <TabButton active={tab === 'video'} onClick={() => setTab('video')}>
-              <Film className="h-3.5 w-3.5" /> Video
+              <Film className="h-3.5 w-3.5" /> {t('ui:MediaPickerModal.video')}
             </TabButton>
           )}
           {showImageTab && (
             <TabButton active={tab === 'image'} onClick={() => setTab('image')}>
-              <ImageIcon className="h-3.5 w-3.5" /> Image
+              <ImageIcon className="h-3.5 w-3.5" /> {t('ui:MediaPickerModal.image')}
             </TabButton>
           )}
           <TabButton active={tab === 'stock'} onClick={() => setTab('stock')}>
-            <Library className="h-3.5 w-3.5" /> Stock
+            <Library className="h-3.5 w-3.5" /> {t('ui:MediaPickerModal.stock')}
           </TabButton>
           <TabButton active={tab === 'ai'} onClick={() => setTab('ai')}>
             <Sparkles className="h-3.5 w-3.5" /> AI
@@ -138,7 +140,7 @@ export default function MediaPickerModal({
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-white/86 mb-2">
-                  YouTube or direct video URL
+                 {t('ui:MediaPickerModal.youtubeOrDirectVideoUrl')}
                 </label>
                 <textarea
                   value={videoUrl}
@@ -149,9 +151,7 @@ export default function MediaPickerModal({
                   className="w-full px-3 py-2 text-sm bg-white/5 border border-white/10 rounded-lg text-white/96 placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
                 />
                 <p className="text-xs text-white/46 mt-1.5">
-                  YouTube watch / youtu.be / embed URLs are all accepted —
-                  we normalize to a looping autoplay embed automatically.
-                  Direct mp4 URLs work for self-hosted video.
+                 {t('ui:MediaPickerModal.youtubeWatchYoutuBeEmbed')}
                 </p>
               </div>
               <div className="flex items-center justify-between">
@@ -162,7 +162,7 @@ export default function MediaPickerModal({
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1 text-xs text-white/46 hover:text-white/86"
                   >
-                    <ExternalLink className="h-3 w-3" /> Current
+                    <ExternalLink className="h-3 w-3" /> {t('ui:MediaPickerModal.current')}
                   </a>
                 )}
                 <button
@@ -170,7 +170,7 @@ export default function MediaPickerModal({
                   disabled={!videoUrl.trim()}
                   className="ml-auto inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md disabled:opacity-40"
                 >
-                  <Check className="h-3.5 w-3.5" /> Use this video
+                  <Check className="h-3.5 w-3.5" /> {t('ui:MediaPickerModal.useThisVideo')}
                 </button>
               </div>
             </div>
@@ -181,7 +181,7 @@ export default function MediaPickerModal({
               {/* Upload */}
               <div>
                 <label className="block text-sm font-medium text-white/86 mb-2">
-                  Upload from your computer
+                 {t('ui:MediaPickerModal.uploadFromYourComputer')}
                 </label>
                 <input
                   ref={fileInputRef}
@@ -196,20 +196,20 @@ export default function MediaPickerModal({
                   className="w-full flex flex-col items-center justify-center gap-2 py-8 border-2 border-dashed border-white/15 rounded-lg text-white/68 hover:border-indigo-400/60 hover:bg-indigo-500/5 transition disabled:opacity-50"
                 >
                   {uploadMut.isPending ? (
-                    <><Loader2 className="h-6 w-6 animate-spin" /> <span className="text-sm">Uploading…</span></>
+                    <><Loader2 className="h-6 w-6 animate-spin" /> <span className="text-sm">{t('ui:MediaPickerModal.uploading')}</span></>
                   ) : (
-                    <><Upload className="h-6 w-6" /> <span className="text-sm">Click to upload (max 25 MB)</span></>
+                    <><Upload className="h-6 w-6" /> <span className="text-sm">{t('ui:MediaPickerModal.clickToUploadMax25')}</span></>
                   )}
                 </button>
                 <p className="text-xs text-white/46 mt-1.5">
-                  Uploads land in R2 and are referenced directly from the page.
+                 {t('ui:MediaPickerModal.uploadsLandInR2And')}
                 </p>
               </div>
 
               {/* Or paste a URL */}
               <div>
                 <label className="block text-sm font-medium text-white/86 mb-2">
-                  Or paste a direct image URL
+                 {t('ui:MediaPickerModal.orPasteADirectImage')}
                 </label>
                 <input
                   type="text"
@@ -224,7 +224,7 @@ export default function MediaPickerModal({
                     disabled={!imageUrl.trim()}
                     className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md disabled:opacity-40"
                   >
-                    <Check className="h-3.5 w-3.5" /> Use this URL
+                    <Check className="h-3.5 w-3.5" /> {t('ui:MediaPickerModal.useThisUrl')}
                   </button>
                 </div>
               </div>
@@ -234,13 +234,11 @@ export default function MediaPickerModal({
           {tab === 'stock' && (
             <EmptyState
               icon={<Library className="h-8 w-8" />}
-              title="Stock images — coming soon"
+              title={t('ui:MediaPickerModal.stockImagesComingSoon')}
               detail={
                 <>
-                  Add an <span className="font-mono">UNSPLASH_ACCESS_KEY</span>{' '}
-                  to the VPS <span className="font-mono">.env</span> to enable
-                  the Unsplash stock search here. Free tier is 50 requests/hour;
-                  plenty for editing.
+                 {t('ui:MediaPickerModal.addAn')} <span className="font-mono">{t('ui:MediaPickerModal.unsplashAccessKey')}</span>{' '}
+                 {t('ui:MediaPickerModal.toTheVps')} <span className="font-mono">{t('ui:MediaPickerModal.env')}</span> {t('ui:MediaPickerModal.toEnableTheUnsplashStock')}
                 </>
               }
             />
@@ -249,12 +247,10 @@ export default function MediaPickerModal({
           {tab === 'ai' && (
             <EmptyState
               icon={<Sparkles className="h-8 w-8" />}
-              title="AI-generated images — coming soon"
+              title={t('ui:MediaPickerModal.aiGeneratedImagesComingSoon')}
               detail={
                 <>
-                  Ships after Imagen auth is sorted. Either via a Gemini API
-                  key with Imagen access, or via Vertex AI service auth.
-                  Tracked for Commit 4.
+                 {t('ui:MediaPickerModal.shipsAfterImagenAuthIs')}
                 </>
               }
             />

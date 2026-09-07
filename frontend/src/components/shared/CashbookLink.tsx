@@ -2,7 +2,8 @@ import { useQuery } from '@tanstack/react-query'
 import { BookOpen, ExternalLink } from 'lucide-react'
 import { useNavigate } from 'react-router'
 import { api } from '@/api/client'
-import { formatDate } from '@/lib/utils'
+import { formatDate, uiLocale } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
 
 interface CashbookLinkProps {
   source: 'expense' | 'income'
@@ -10,10 +11,11 @@ interface CashbookLinkProps {
 }
 
 function formatCurrency(amount: number, currency: string = 'USD'): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount)
+  return new Intl.NumberFormat(uiLocale(), { style: 'currency', currency }).format(amount)
 }
 
 export default function CashbookLink({ source, sourceId }: CashbookLinkProps) {
+  const { t } = useTranslation('ui')
   const navigate = useNavigate()
 
   const { data, isLoading } = useQuery({
@@ -49,13 +51,13 @@ export default function CashbookLink({ source, sourceId }: CashbookLinkProps) {
       <div className="bg-gray-50 dark:bg-gray-950 border rounded-lg p-4">
         <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
           <BookOpen className="h-4 w-4" />
-          <span>Not booked to cashbook</span>
+          <span>{t('ui:CashbookLink.notBookedToCashbook')}</span>
         </div>
         <button
           onClick={() => navigate('/cashbook/new')}
           className="mt-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 hover:underline flex items-center gap-1"
         >
-          Book to cashbook
+         {t('ui:CashbookLink.bookToCashbook')}
           <ExternalLink className="h-3.5 w-3.5" />
         </button>
       </div>
@@ -66,19 +68,19 @@ export default function CashbookLink({ source, sourceId }: CashbookLinkProps) {
     <div className="bg-gray-50 dark:bg-gray-950 border rounded-lg p-4">
       <div className="flex items-center gap-2 mb-3">
         <BookOpen className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Cashbook Entry</h3>
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{t('ui:CashbookLink.cashbookEntry')}</h3>
       </div>
 
       <div className="space-y-2 text-sm">
         {entry.account_name && (
           <div className="flex justify-between">
-            <span className="text-gray-500 dark:text-gray-400">Account</span>
+            <span className="text-gray-500 dark:text-gray-400">{t('ui:CashbookLink.account')}</span>
             <span className="text-gray-900 dark:text-gray-100 font-medium">{entry.account_name}</span>
           </div>
         )}
 
         <div className="flex justify-between items-center">
-          <span className="text-gray-500 dark:text-gray-400">Type</span>
+          <span className="text-gray-500 dark:text-gray-400">{t('ui:CashbookLink.type')}</span>
           <span
             className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium ${
               entry.entry_type === 'income'
@@ -86,17 +88,17 @@ export default function CashbookLink({ source, sourceId }: CashbookLinkProps) {
                 : 'bg-red-50 dark:bg-red-900/30 text-red-700'
             }`}
           >
-            {entry.entry_type === 'income' ? 'Income' : 'Expense'}
+            {entry.entry_type === 'income' ? t('ui:CashbookLink.income') : t('ui:CashbookLink.expense')}
           </span>
         </div>
 
         <div className="flex justify-between">
-          <span className="text-gray-500 dark:text-gray-400">Amount</span>
+          <span className="text-gray-500 dark:text-gray-400">{t('ui:CashbookLink.amount')}</span>
           <span className="text-gray-900 dark:text-gray-100 font-medium">{formatCurrency(entry.total_amount)}</span>
         </div>
 
         <div className="flex justify-between">
-          <span className="text-gray-500 dark:text-gray-400">Date</span>
+          <span className="text-gray-500 dark:text-gray-400">{t('ui:CashbookLink.date')}</span>
           <span className="text-gray-900 dark:text-gray-100">{formatDate(entry.date)}</span>
         </div>
       </div>
@@ -105,7 +107,7 @@ export default function CashbookLink({ source, sourceId }: CashbookLinkProps) {
         onClick={() => navigate(`/cashbook/entries/${entry.id}`)}
         className="mt-3 w-full flex items-center justify-center gap-1.5 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 font-medium py-1.5 rounded-md hover:bg-blue-50 transition-colors"
       >
-        View in Cashbook
+       {t('ui:CashbookLink.viewInCashbook')}
         <ExternalLink className="h-3.5 w-3.5" />
       </button>
     </div>

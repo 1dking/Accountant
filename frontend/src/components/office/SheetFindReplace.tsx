@@ -11,6 +11,7 @@ import {
 import { cn } from '@/lib/utils'
 import type { CellData } from '@/lib/spreadsheet/types'
 import { parseCellRef } from '@/lib/spreadsheet/types'
+import { useTranslation } from 'react-i18next'
 
 interface SheetFindReplaceProps {
   visible: boolean
@@ -35,6 +36,7 @@ export default function SheetFindReplace({
   onReplace,
   onReplaceAll,
 }: SheetFindReplaceProps) {
+  const { t } = useTranslation('ui')
   const [searchTerm, setSearchTerm] = useState('')
   const [replaceTerm, setReplaceTerm] = useState('')
   const [matchCase, setMatchCase] = useState(false)
@@ -169,7 +171,7 @@ export default function SheetFindReplace({
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           onKeyDown={handleFindKeyDown}
-          placeholder="Find"
+          placeholder={t('ui:SheetFindReplace.find')}
           className="h-7 w-48 px-2 pr-16 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
         />
         {/* Match count inside the input area */}
@@ -187,7 +189,7 @@ export default function SheetFindReplace({
             ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
             : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
         )}
-        title="Match case"
+        title={t('ui:SheetFindReplace.matchCase')}
       >
         <CaseSensitive className="h-4 w-4" />
       </button>
@@ -201,7 +203,7 @@ export default function SheetFindReplace({
             ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
             : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
         )}
-        title="Match entire cell"
+        title={t('ui:SheetFindReplace.matchEntireCell')}
       >
         <WholeWord className="h-4 w-4" />
       </button>
@@ -216,7 +218,7 @@ export default function SheetFindReplace({
             ? 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
             : 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
         )}
-        title="Previous match (Shift+Enter)"
+        title={t('ui:SheetFindReplace.previousMatchShiftEnter')}
       >
         <ChevronUp className="h-4 w-4" />
       </button>
@@ -229,7 +231,7 @@ export default function SheetFindReplace({
             ? 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
             : 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
         )}
-        title="Next match (Enter)"
+        title={t('ui:SheetFindReplace.nextMatchEnter')}
       >
         <ChevronDown className="h-4 w-4" />
       </button>
@@ -246,10 +248,10 @@ export default function SheetFindReplace({
             ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
             : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
         )}
-        title="Toggle replace"
+        title={t('ui:SheetFindReplace.toggleReplace')}
       >
         <Replace className="h-3.5 w-3.5" />
-        Replace
+       {t('ui:SheetFindReplace.replace')}
       </button>
 
       {/* Replace input and buttons */}
@@ -259,7 +261,7 @@ export default function SheetFindReplace({
             type="text"
             value={replaceTerm}
             onChange={(e) => setReplaceTerm(e.target.value)}
-            placeholder="Replace with"
+            placeholder={t('ui:SheetFindReplace.replaceWith')}
             className="h-7 w-40 px-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
           />
           <button
@@ -271,7 +273,7 @@ export default function SheetFindReplace({
                 ? 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
                 : 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
             )}
-            title="Replace current match"
+            title={t('ui:SheetFindReplace.replaceCurrentMatch')}
           >
             <Replace className="h-3.5 w-3.5" />
           </button>
@@ -284,10 +286,10 @@ export default function SheetFindReplace({
                 ? 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
                 : 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
             )}
-            title="Replace all matches"
+            title={t('ui:SheetFindReplace.replaceAllMatches')}
           >
             <ReplaceAll className="h-3.5 w-3.5" />
-            All
+           {t('ui:SheetFindReplace.all')}
           </button>
         </>
       )}
@@ -299,7 +301,7 @@ export default function SheetFindReplace({
       <button
         onClick={onClose}
         className="h-7 w-7 flex items-center justify-center rounded text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-        title="Close (Escape)"
+        title={t('ui:SheetFindReplace.closeEscape')}
       >
         <X className="h-4 w-4" />
       </button>

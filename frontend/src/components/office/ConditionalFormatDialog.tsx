@@ -3,6 +3,8 @@ import { X, Plus, Pencil, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ConditionalRule } from '@/lib/spreadsheet/types'
 import { colLabel } from '@/lib/spreadsheet/types'
+import { useTranslation } from 'react-i18next'
+import i18n from '@/i18n'
 
 interface ConditionalFormatDialogProps {
   open: boolean
@@ -13,14 +15,14 @@ interface ConditionalFormatDialogProps {
 }
 
 const RULE_TYPES: { value: ConditionalRule['type']; label: string }[] = [
-  { value: 'greater_than', label: 'Greater than' },
-  { value: 'less_than', label: 'Less than' },
-  { value: 'equal_to', label: 'Equal to' },
-  { value: 'between', label: 'Between' },
-  { value: 'text_contains', label: 'Text contains' },
-  { value: 'text_starts_with', label: 'Text starts with' },
-  { value: 'is_empty', label: 'Is empty' },
-  { value: 'is_not_empty', label: 'Is not empty' },
+  { value: 'greater_than', label: i18n.t('ui:ConditionalFormatDialog.greaterThan') },
+  { value: 'less_than', label: i18n.t('ui:ConditionalFormatDialog.lessThan') },
+  { value: 'equal_to', label: i18n.t('ui:ConditionalFormatDialog.equalTo') },
+  { value: 'between', label: i18n.t('ui:ConditionalFormatDialog.between') },
+  { value: 'text_contains', label: i18n.t('ui:ConditionalFormatDialog.textContains') },
+  { value: 'text_starts_with', label: i18n.t('ui:ConditionalFormatDialog.textStartsWith') },
+  { value: 'is_empty', label: i18n.t('ui:ConditionalFormatDialog.isEmpty') },
+  { value: 'is_not_empty', label: i18n.t('ui:ConditionalFormatDialog.isNotEmpty') },
 ]
 
 function getRuleTypeLabel(type: ConditionalRule['type']): string {
@@ -141,6 +143,7 @@ export default function ConditionalFormatDialog({
   onSaveRules,
   selectionRange,
 }: ConditionalFormatDialogProps) {
+  const { t } = useTranslation('ui')
   const [localRules, setLocalRules] = useState<ConditionalRule[]>(rules)
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null)
   const [isAddingNew, setIsAddingNew] = useState(false)
@@ -231,7 +234,7 @@ export default function ConditionalFormatDialog({
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700 shrink-0">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            Conditional Formatting
+           {t('ui:ConditionalFormatDialog.conditionalFormatting')}
           </h2>
           <button
             onClick={onClose}
@@ -246,7 +249,7 @@ export default function ConditionalFormatDialog({
           {/* Rules list */}
           {localRules.length === 0 && !isEditing && (
             <p className="text-sm text-gray-500 dark:text-gray-400 py-2">
-              No conditional formatting rules. Click "Add Rule" to create one.
+             {t('ui:ConditionalFormatDialog.noConditionalFormattingRulesClick')}
             </p>
           )}
 
@@ -283,14 +286,14 @@ export default function ConditionalFormatDialog({
                   <button
                     onClick={() => handleEditRule(rule)}
                     className="p-1 text-gray-400 dark:text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:text-blue-400 dark:hover:bg-blue-900/30 rounded"
-                    title="Edit rule"
+                    title={t('ui:ConditionalFormatDialog.editRule')}
                   >
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
                   <button
                     onClick={() => handleDeleteRule(rule.id)}
                     className="p-1 text-gray-400 dark:text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:text-red-400 dark:hover:bg-red-900/30 rounded"
-                    title="Delete rule"
+                    title={t('ui:ConditionalFormatDialog.deleteRule')}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
@@ -303,13 +306,13 @@ export default function ConditionalFormatDialog({
           {isEditing && (
             <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3 bg-gray-50 dark:bg-gray-950">
               <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                {editingRuleId ? 'Edit Rule' : 'New Rule'}
+                {editingRuleId ? t('ui:ConditionalFormatDialog.editRule_2') : t('ui:ConditionalFormatDialog.newRule')}
               </h3>
 
               {/* Range */}
               <div>
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                  Range
+                 {t('ui:ConditionalFormatDialog.range')}
                 </label>
                 <input
                   type="text"
@@ -334,7 +337,7 @@ export default function ConditionalFormatDialog({
               {/* Rule type */}
               <div>
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                  Condition
+                 {t('ui:ConditionalFormatDialog.condition')}
                 </label>
                 <select
                   value={editor.type}
@@ -359,13 +362,13 @@ export default function ConditionalFormatDialog({
                 <div className="flex gap-2">
                   <div className="flex-1">
                     <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                      {needsTwoValues(editor.type) ? 'Min value' : 'Value'}
+                      {needsTwoValues(editor.type) ? t('ui:ConditionalFormatDialog.minValue') : t('ui:ConditionalFormatDialog.value')}
                     </label>
                     <input
                       type="text"
                       value={editor.value}
                       onChange={(e) => setEditor((prev) => ({ ...prev, value: e.target.value }))}
-                      placeholder="Enter value..."
+                      placeholder={t('ui:ConditionalFormatDialog.enterValue')}
                       className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
                     />
                   </div>
@@ -373,7 +376,7 @@ export default function ConditionalFormatDialog({
                   {needsTwoValues(editor.type) && (
                     <div className="flex-1">
                       <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                        Max value
+                       {t('ui:ConditionalFormatDialog.maxValue')}
                       </label>
                       <input
                         type="text"
@@ -381,7 +384,7 @@ export default function ConditionalFormatDialog({
                         onChange={(e) =>
                           setEditor((prev) => ({ ...prev, value2: e.target.value }))
                         }
-                        placeholder="Enter value..."
+                        placeholder={t('ui:ConditionalFormatDialog.enterValue')}
                         className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
                       />
                     </div>
@@ -392,11 +395,11 @@ export default function ConditionalFormatDialog({
               {/* Style options */}
               <div>
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
-                  Formatting style
+                 {t('ui:ConditionalFormatDialog.formattingStyle')}
                 </label>
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2">
-                    <label className="text-xs text-gray-600 dark:text-gray-400">Background:</label>
+                    <label className="text-xs text-gray-600 dark:text-gray-400">{t('ui:ConditionalFormatDialog.background')}</label>
                     <input
                       type="color"
                       value={editor.bgColor}
@@ -405,7 +408,7 @@ export default function ConditionalFormatDialog({
                     />
                   </div>
                   <div className="flex items-center gap-2">
-                    <label className="text-xs text-gray-600 dark:text-gray-400">Text:</label>
+                    <label className="text-xs text-gray-600 dark:text-gray-400">{t('ui:ConditionalFormatDialog.text')}</label>
                     <input
                       type="color"
                       value={editor.textColor}
@@ -422,13 +425,13 @@ export default function ConditionalFormatDialog({
                       onChange={(e) => setEditor((prev) => ({ ...prev, bold: e.target.checked }))}
                       className="rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400 focus:ring-blue-500"
                     />
-                    Bold
+                   {t('ui:ConditionalFormatDialog.bold')}
                   </label>
                 </div>
 
                 {/* Style preview */}
                 <div className="mt-2 flex items-center gap-2">
-                  <span className="text-xs text-gray-500 dark:text-gray-400">Preview:</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">{t('ui:ConditionalFormatDialog.preview')}</span>
                   <span
                     className="px-3 py-1 rounded text-sm border border-gray-200 dark:border-gray-700"
                     style={{
@@ -437,7 +440,7 @@ export default function ConditionalFormatDialog({
                       fontWeight: editor.bold ? 700 : 400,
                     }}
                   >
-                    Sample Text
+                   {t('ui:ConditionalFormatDialog.sampleText')}
                   </span>
                 </div>
               </div>
@@ -448,13 +451,13 @@ export default function ConditionalFormatDialog({
                   onClick={handleSaveEditor}
                   className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
                 >
-                  {editingRuleId ? 'Update Rule' : 'Add Rule'}
+                  {editingRuleId ? t('ui:ConditionalFormatDialog.updateRule') : t('ui:ConditionalFormatDialog.addRule')}
                 </button>
                 <button
                   onClick={handleCancelEditor}
                   className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-1"
                 >
-                  Cancel
+                 {t('ui:ConditionalFormatDialog.cancel')}
                 </button>
               </div>
             </div>
@@ -467,7 +470,7 @@ export default function ConditionalFormatDialog({
               className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors"
             >
               <Plus className="h-4 w-4" />
-              Add Rule
+             {t('ui:ConditionalFormatDialog.addRule')}
             </button>
           )}
         </div>
@@ -478,13 +481,13 @@ export default function ConditionalFormatDialog({
             onClick={onClose}
             className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
           >
-            Cancel
+           {t('ui:ConditionalFormatDialog.cancel')}
           </button>
           <button
             onClick={handleSaveAll}
             className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
           >
-            Save
+           {t('ui:ConditionalFormatDialog.save')}
           </button>
         </div>
       </div>

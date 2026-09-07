@@ -3,6 +3,7 @@ import { listOfficeVersions, createOfficeVersion, restoreOfficeVersion } from '@
 import { History, RotateCcw, Save } from 'lucide-react'
 import { getInitials } from '@/lib/utils'
 import { useAuthStore } from '@/stores/authStore'
+import { useTranslation } from 'react-i18next'
 
 interface VersionHistoryPanelProps {
   docId: string
@@ -19,6 +20,7 @@ function formatWhen(iso: string): string {
 }
 
 export default function VersionHistoryPanel({ docId, onRestored }: VersionHistoryPanelProps) {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const currentUser = useAuthStore((s) => s.user)
 
@@ -32,7 +34,7 @@ export default function VersionHistoryPanel({ docId, onRestored }: VersionHistor
   const saveMutation = useMutation({
     mutationFn: () => createOfficeVersion(docId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['office-versions', docId] }),
-    onError: (err: Error) => alert(`Failed to save version: ${err.message}`),
+    onError: (err: Error) => alert(t('ui:VersionHistoryPanel.failedToSaveVersionMessage', { message: err.message })),
   })
 
   const restoreMutation = useMutation({
@@ -44,7 +46,7 @@ export default function VersionHistoryPanel({ docId, onRestored }: VersionHistor
         onRestored(res.data.content_json as Record<string, unknown>)
       }
     },
-    onError: (err: Error) => alert(`Failed to restore version: ${err.message}`),
+    onError: (err: Error) => alert(t('ui:VersionHistoryPanel.failedToRestoreVersionMessage', { message: err.message })),
   })
 
   return (
@@ -53,14 +55,14 @@ export default function VersionHistoryPanel({ docId, onRestored }: VersionHistor
         <div className="flex items-center gap-2">
           <History className="h-4 w-4 text-gray-500 dark:text-gray-400" />
           <span className="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
-            Version History
+           {t('ui:VersionHistoryPanel.versionHistory')}
           </span>
         </div>
         <button
           onClick={() => saveMutation.mutate()}
           disabled={saveMutation.isPending}
           className="p-1 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded disabled:opacity-50"
-          title="Save current version"
+          title={t('ui:VersionHistoryPanel.saveCurrentVersion')}
         >
           <Save className="h-3.5 w-3.5" />
         </button>
@@ -69,7 +71,7 @@ export default function VersionHistoryPanel({ docId, onRestored }: VersionHistor
       <div className="flex-1 overflow-y-auto py-1">
         {versions.length === 0 ? (
           <p className="px-3 py-4 text-xs text-gray-400 dark:text-gray-500 italic">
-            No saved versions yet. Versions are captured automatically as you edit, or click Save above.
+           {t('ui:VersionHistoryPanel.noSavedVersionsYetVersions')}
           </p>
         ) : (
           versions.map((v, idx) => (
@@ -82,20 +84,20 @@ export default function VersionHistoryPanel({ docId, onRestored }: VersionHistor
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                  Version {v.version_number}
+                 {t('ui:VersionHistoryPanel.version')} {v.version_number}
                   {idx === 0 && (
                     <span className="ml-1.5 text-[10px] font-normal text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded-full">
-                      Latest
+                     {t('ui:VersionHistoryPanel.latest')}
                     </span>
                   )}
                 </p>
                 <p className="text-[11px] text-gray-400 dark:text-gray-500">{formatWhen(v.created_at)}</p>
               </div>
               <button
-                onClick={() => confirm(`Restore version ${v.version_number}? Your current content will be saved as a new version first.`) && restoreMutation.mutate(v.id)}
+                onClick={() => confirm(t('ui:VersionHistoryPanel.restoreVersionVersionNumberYour', { version_number: v.version_number })) && restoreMutation.mutate(v.id)}
                 disabled={restoreMutation.isPending}
                 className="p-1 text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded disabled:opacity-50 shrink-0"
-                title="Restore this version"
+                title={t('ui:VersionHistoryPanel.restoreThisVersion')}
               >
                 <RotateCcw className="h-3.5 w-3.5" />
               </button>

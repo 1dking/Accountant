@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { listActivity } from '@/api/collaboration'
 import { getInitials, formatRelativeTime } from '@/lib/utils'
 import type { ActivityLogEntry } from '@/types/models'
+import { useTranslation } from 'react-i18next'
 
 const ACTION_COLORS: Record<string, string> = {
   create: 'bg-green-100 text-green-700',
@@ -19,6 +20,7 @@ function getActionColor(action: string): string {
 }
 
 function ActivityEntry({ entry }: { entry: ActivityLogEntry }) {
+  const { t } = useTranslation('ui')
   const colorClass = getActionColor(entry.action)
 
   return (
@@ -30,7 +32,7 @@ function ActivityEntry({ entry }: { entry: ActivityLogEntry }) {
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-sm text-gray-900 dark:text-gray-100">
-          <span className="font-medium">{entry.user_name || 'Unknown'}</span>{' '}
+          <span className="font-medium">{entry.user_name || t('ui:ActivityPanel.unknown')}</span>{' '}
           <span className="text-gray-600 dark:text-gray-400">
             {entry.action} {entry.resource_type}
           </span>
@@ -44,6 +46,7 @@ function ActivityEntry({ entry }: { entry: ActivityLogEntry }) {
 }
 
 export default function ActivityPanel() {
+  const { t } = useTranslation('ui')
   const { data } = useQuery({
     queryKey: ['activity', { page_size: 20 }],
     queryFn: () => listActivity({ page_size: 20 }),
@@ -54,11 +57,11 @@ export default function ActivityPanel() {
   return (
     <aside className="hidden xl:flex w-80 border-l border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-900 flex-col">
       <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
-        <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Activity</h2>
+        <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{t('ui:ActivityPanel.activity')}</h2>
       </div>
       <div className="flex-1 overflow-y-auto scrollbar-thin">
         {activities.length === 0 ? (
-          <p className="p-4 text-sm text-gray-400 dark:text-gray-500 text-center">No recent activity</p>
+          <p className="p-4 text-sm text-gray-400 dark:text-gray-500 text-center">{t('ui:ActivityPanel.noRecentActivity')}</p>
         ) : (
           <div className="divide-y divide-gray-50 dark:divide-gray-800">
             {activities.map((entry) => (

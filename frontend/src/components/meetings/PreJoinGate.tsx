@@ -23,6 +23,7 @@ import { useState } from 'react'
 import { type LocalUserChoices } from '@livekit/components-react'
 import { Loader2, ShieldCheck, Circle, Video as VideoIcon, Mic as MicIcon } from 'lucide-react'
 import { usePublicBranding } from '@/hooks/useBranding'
+import { useTranslation } from 'react-i18next'
 
 export interface Props {
   recordMeeting: boolean
@@ -34,6 +35,7 @@ export interface Props {
 export default function PreJoinGate({
   recordMeeting, defaultUserName, meetingTitle, onJoin,
 }: Props) {
+  const { t } = useTranslation('ui')
   const [name, setName] = useState(defaultUserName || '')
   const [showConsent, setShowConsent] = useState(false)
   const [consentChecked, setConsentChecked] = useState(false)
@@ -83,7 +85,7 @@ export default function PreJoinGate({
               {meetingTitle}
             </h1>
             <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', marginTop: 6 }}>
-              You'll join with your camera and microphone on. Use the toolbar to mute once you're in.
+             {t('ui:PreJoinGate.youLlJoinWithYour')}
             </p>
           </div>
         )}
@@ -97,12 +99,12 @@ export default function PreJoinGate({
           {defaultUserName === undefined && (
             <div style={{ marginBottom: 14 }}>
               <label style={{ display: 'block', fontSize: 12, color: 'rgba(255,255,255,0.65)', marginBottom: 6 }}>
-                Your name
+               {t('ui:PreJoinGate.yourName')}
               </label>
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Jane Smith"
+                placeholder={t('ui:PreJoinGate.janeSmith')}
                 autoFocus
                 style={{
                   width: '100%', padding: '10px 12px', fontSize: 14,
@@ -129,11 +131,10 @@ export default function PreJoinGate({
               />
               <div>
                 <div style={{ fontWeight: 600, color: '#fca5a5', marginBottom: 2 }}>
-                  This meeting will be recorded
+                 {t('ui:PreJoinGate.thisMeetingWillBeRecorded')}
                 </div>
                 <div style={{ fontSize: 12, color: 'rgba(252,165,165,0.78)' }}>
-                  Audio &amp; video of everyone in the room are captured. You'll
-                  confirm consent before joining.
+                 {t('ui:PreJoinGate.audioVideoOfEveryoneIn')}
                 </div>
               </div>
             </div>
@@ -149,7 +150,7 @@ export default function PreJoinGate({
           }}>
             <MicIcon className="h-4 w-4" />
             <VideoIcon className="h-4 w-4" />
-            <span>Microphone &amp; camera will start enabled.</span>
+            <span>{t('ui:PreJoinGate.microphoneCameraWillStartEnabled')}</span>
           </div>
 
           <button
@@ -167,7 +168,7 @@ export default function PreJoinGate({
             }}
           >
             {joining && <Loader2 className="h-4 w-4 animate-spin" />}
-            {recordMeeting ? 'Review & join' : 'Join meeting'}
+            {recordMeeting ? t('ui:PreJoinGate.reviewJoin') : t('ui:PreJoinGate.joinMeeting')}
           </button>
         </div>
 
@@ -194,6 +195,7 @@ function ConsentOverlay({
   onAccept: () => void
   onCancel: () => void
 }) {
+  const { t } = useTranslation('ui')
   return (
     <div
       style={{
@@ -226,16 +228,14 @@ function ConsentOverlay({
           textTransform: 'uppercase',
         }}>
           <ShieldCheck className="h-3 w-3" />
-          Recording consent
+         {t('ui:PreJoinGate.recordingConsent')}
         </div>
 
         <h2 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 600 }}>
-          This meeting will be recorded
+         {t('ui:PreJoinGate.thisMeetingWillBeRecorded')}
         </h2>
         <p style={{ margin: '0 0 16px', fontSize: 13.5, color: 'rgba(255,255,255,0.72)', lineHeight: 1.55 }}>
-          The host has enabled recording for this meeting. Both audio and
-          video of everyone in the room are captured by the server and stored
-          securely. The host can later transcribe and summarize it.
+         {t('ui:PreJoinGate.theHostHasEnabledRecording')}
         </p>
 
         <label
@@ -255,8 +255,7 @@ function ConsentOverlay({
             style={{ marginTop: 3, accentColor: '#6366f1' }}
           />
           <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.88)', lineHeight: 1.45 }}>
-            I understand this meeting is being recorded and I consent to my
-            video and audio being captured and stored.
+           {t('ui:PreJoinGate.iUnderstandThisMeetingIs')}
           </span>
         </label>
 
@@ -271,7 +270,7 @@ function ConsentOverlay({
               cursor: 'pointer',
             }}
           >
-            Cancel
+           {t('ui:PreJoinGate.cancel')}
           </button>
           <button
             onClick={onAccept}
@@ -286,7 +285,7 @@ function ConsentOverlay({
               opacity: checked ? 1 : 0.6,
             }}
           >
-            Join meeting
+           {t('ui:PreJoinGate.joinMeeting')}
           </button>
         </div>
       </div>

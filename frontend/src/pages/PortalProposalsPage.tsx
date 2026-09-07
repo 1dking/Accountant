@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { getPortalProposals } from '../api/portal'
+import { useTranslation } from 'react-i18next'
 
 function statusBadge(status: string) {
   const colors: Record<string, string> = {
@@ -16,6 +17,7 @@ function statusBadge(status: string) {
 }
 
 export default function PortalProposalsPage() {
+  const { t } = useTranslation('ui')
   const { data, isLoading } = useQuery({
     queryKey: ['portal', 'proposals'],
     queryFn: getPortalProposals,
@@ -27,23 +29,23 @@ export default function PortalProposalsPage() {
     <div className="min-h-screen bg-background">
       <header className="border-b px-6 py-4">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Proposals</h1>
+          <h1 className="text-2xl font-bold">{t('ui:PortalProposalsPage.proposals')}</h1>
           <nav className="flex gap-4 text-sm">
-            <Link to="/portal" className="text-muted-foreground hover:text-foreground">Dashboard</Link>
-            <Link to="/portal/invoices" className="text-muted-foreground hover:text-foreground">Invoices</Link>
-            <Link to="/portal/proposals" className="font-medium text-foreground">Proposals</Link>
-            <Link to="/portal/files" className="text-muted-foreground hover:text-foreground">Files</Link>
-            <Link to="/portal/meetings" className="text-muted-foreground hover:text-foreground">Meetings</Link>
+            <Link to="/portal" className="text-muted-foreground hover:text-foreground">{t('ui:PortalProposalsPage.dashboard')}</Link>
+            <Link to="/portal/invoices" className="text-muted-foreground hover:text-foreground">{t('ui:PortalProposalsPage.invoices')}</Link>
+            <Link to="/portal/proposals" className="font-medium text-foreground">{t('ui:PortalProposalsPage.proposals')}</Link>
+            <Link to="/portal/files" className="text-muted-foreground hover:text-foreground">{t('ui:PortalProposalsPage.files')}</Link>
+            <Link to="/portal/meetings" className="text-muted-foreground hover:text-foreground">{t('ui:PortalProposalsPage.meetings')}</Link>
           </nav>
         </div>
       </header>
 
       <main className="p-6 max-w-5xl mx-auto">
         {isLoading ? (
-          <p className="text-muted-foreground">Loading proposals...</p>
+          <p className="text-muted-foreground">{t('ui:PortalProposalsPage.loadingProposals')}</p>
         ) : proposals.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-muted-foreground">No proposals found.</p>
+            <p className="text-muted-foreground">{t('ui:PortalProposalsPage.noProposalsFound')}</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -53,7 +55,7 @@ export default function PortalProposalsPage() {
                   <div>
                     <h3 className="font-medium">{proposal.title}</h3>
                     <p className="text-sm text-muted-foreground mt-1">
-                      Created {new Date(proposal.created_at).toLocaleDateString()}
+                     {t('ui:PortalProposalsPage.created')} {new Date(proposal.created_at).toLocaleDateString()}
                       {proposal.total != null && (
                         <> -- ${proposal.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</>
                       )}
@@ -68,7 +70,7 @@ export default function PortalProposalsPage() {
                         to={`/proposals/sign/${proposal.signing_token}`}
                         className="inline-block px-3 py-1 bg-primary text-primary-foreground text-xs font-medium rounded hover:opacity-90"
                       >
-                        Review & Sign
+                       {t('ui:PortalProposalsPage.reviewSign')}
                       </Link>
                     )}
                   </div>

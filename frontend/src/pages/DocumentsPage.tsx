@@ -9,8 +9,10 @@ import UploadBookingDialog from '@/components/documents/UploadBookingDialog'
 import { useDebounce } from '@/hooks/useDebounce'
 import { DOCUMENT_TYPES, DOCUMENT_STATUSES } from '@/lib/constants'
 import type { DocumentFilters } from '@/types/api'
+import { useTranslation } from 'react-i18next'
 
 export default function DocumentsPage() {
+  const { t } = useTranslation('ui')
   const [searchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -89,7 +91,7 @@ export default function DocumentsPage() {
       {/* Folder sidebar */}
       <div className="w-56 border-r bg-white dark:bg-gray-900 p-3 overflow-y-auto">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Folders</h3>
+          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('ui:DocumentsPage.folders')}</h3>
         </div>
         <FolderTree
           folders={folders}
@@ -109,7 +111,7 @@ export default function DocumentsPage() {
               setSearch(e.target.value)
               setPage(1)
             }}
-            placeholder="Search documents..."
+            placeholder={t('ui:DocumentsPage.searchDocuments')}
             className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
           />
           <select
@@ -120,7 +122,7 @@ export default function DocumentsPage() {
             }}
             className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900"
           >
-            <option value="">All Types</option>
+            <option value="">{t('ui:DocumentsPage.allTypes')}</option>
             {DOCUMENT_TYPES.map((t) => (
               <option key={t.value} value={t.value}>{t.label}</option>
             ))}
@@ -133,7 +135,7 @@ export default function DocumentsPage() {
             }}
             className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900"
           >
-            <option value="">All Statuses</option>
+            <option value="">{t('ui:DocumentsPage.allStatuses')}</option>
             {DOCUMENT_STATUSES.map((s) => (
               <option key={s.value} value={s.value}>{s.label}</option>
             ))}
@@ -146,7 +148,7 @@ export default function DocumentsPage() {
             onClick={() => setShowUpload(!showUpload)}
             className="px-4 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
           >
-            Upload
+           {t('ui:DocumentsPage.upload')}
           </button>
         </div>
 
@@ -168,25 +170,25 @@ export default function DocumentsPage() {
           ) : error ? (
             <div className="text-center py-12">
               <div className="text-4xl mb-3">&#9888;</div>
-              <h3 className="text-red-600 font-medium">Failed to load documents</h3>
+              <h3 className="text-red-600 font-medium">{t('ui:DocumentsPage.failedToLoadDocuments')}</h3>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                {error instanceof Error ? error.message : 'Unknown error'}
+                {error instanceof Error ? error.message : t('ui:DocumentsPage.unknownError')}
               </p>
               <button
                 onClick={() => queryClient.invalidateQueries({ queryKey: ['documents'] })}
                 className="mt-3 px-4 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
               >
-                Retry
+               {t('ui:DocumentsPage.retry')}
               </button>
             </div>
           ) : documents.length === 0 ? (
             <div className="text-center py-12">
               <div className="text-4xl mb-3">{'\uD83D\uDCC2'}</div>
-              <h3 className="text-gray-900 dark:text-gray-100 font-medium">No documents found</h3>
+              <h3 className="text-gray-900 dark:text-gray-100 font-medium">{t('ui:DocumentsPage.noDocumentsFound')}</h3>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                 {search || typeFilter || statusFilter
-                  ? 'Try adjusting your filters'
-                  : 'Upload your first document to get started'}
+                  ? t('ui:DocumentsPage.tryAdjustingYourFilters')
+                  : t('ui:DocumentsPage.uploadYourFirstDocumentTo')}
               </p>
             </div>
           ) : (
@@ -210,17 +212,17 @@ export default function DocumentsPage() {
                 disabled={page <= 1}
                 className="px-3 py-1 text-sm border rounded-md disabled:opacity-50"
               >
-                Previous
+               {t('ui:DocumentsPage.previous')}
               </button>
               <span className="text-sm text-gray-600 dark:text-gray-400">
-                Page {meta.page} of {meta.total_pages} ({meta.total_count} documents)
+               {t('ui:DocumentsPage.page')} {meta.page} of {meta.total_pages} ({meta.total_count} {t('ui:DocumentsPage.documents')}
               </span>
               <button
                 onClick={() => setPage((p) => Math.min(meta.total_pages, p + 1))}
                 disabled={page >= meta.total_pages}
                 className="px-3 py-1 text-sm border rounded-md disabled:opacity-50"
               >
-                Next
+               {t('ui:DocumentsPage.next')}
               </button>
             </div>
           )}

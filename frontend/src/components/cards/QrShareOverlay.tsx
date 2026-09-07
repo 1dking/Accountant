@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { X, Copy, Nfc, Loader2, Check } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 
 // Web NFC ships only in Chrome on Android — no iOS/desktop support — so the
 // whole NFC affordance is a progressive enhancement behind this check. On
@@ -32,6 +33,7 @@ export default function QrShareOverlay({
   displayName: string
   onClose: () => void
 }) {
+  const { t } = useTranslation('ui')
   const [nfcState, setNfcState] = useState<NfcState>('idle')
   const nfcSupported = typeof window !== 'undefined' && 'NDEFReader' in window
 
@@ -46,7 +48,7 @@ export default function QrShareOverlay({
       const nfcUrl = `${url}${url.includes('?') ? '&' : '?'}src=nfc`
       await writer.write({ records: [{ recordType: 'url', data: nfcUrl }] })
       setNfcState('done')
-      toast.success('Tag written — tap it with any phone to test')
+      toast.success(t('ui:QrShareOverlay.tagWrittenTapItWith'))
     } catch (err) {
       setNfcState('idle')
       toast.error(
@@ -76,11 +78,11 @@ export default function QrShareOverlay({
           <button
             onClick={() => {
               navigator.clipboard?.writeText(url)
-              toast.success('Link copied')
+              toast.success(t('ui:QrShareOverlay.linkCopied'))
             }}
             className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium border rounded-lg text-gray-700 hover:bg-gray-50"
           >
-            <Copy className="w-3.5 h-3.5" /> Copy link
+            <Copy className="w-3.5 h-3.5" /> {t('ui:QrShareOverlay.copyLink')}
           </button>
           {nfcSupported && (
             <>
@@ -96,11 +98,11 @@ export default function QrShareOverlay({
                 ) : (
                   <Nfc className="w-3.5 h-3.5" />
                 )}
-                {nfcState === 'writing' ? 'Hold a blank tag near your phone…' : 'Write to NFC tag'}
+                {nfcState === 'writing' ? t('ui:QrShareOverlay.holdABlankTagNear') : t('ui:QrShareOverlay.writeToNfcTag')}
               </button>
               {nfcState === 'idle' && (
                 <p className="text-[11px] text-gray-400 max-w-[220px]">
-                  Works with any blank NFC tag or card — tapping it opens this card.
+                 {t('ui:QrShareOverlay.worksWithAnyBlankNfc')}
                 </p>
               )}
             </>

@@ -4,6 +4,7 @@ import { starOfficeDoc, trashOfficeDoc, restoreOfficeDoc } from '@/api/office'
 import { Star, Trash2, FileText, Table2, Presentation, BookOpen, RotateCcw } from 'lucide-react'
 import { formatRelativeTime } from '@/lib/utils'
 import type { OfficeDocListItem, DocType } from '@/types/models'
+import { useTranslation } from 'react-i18next'
 
 interface OfficeDocCardProps {
   document: OfficeDocListItem
@@ -19,6 +20,7 @@ const DOC_CONFIG: Record<DocType, { icon: typeof FileText; color: string; bgColo
 }
 
 export default function OfficeDocCard({ document: doc, isTrashed = false }: OfficeDocCardProps) {
+  const { t } = useTranslation('ui')
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const config = DOC_CONFIG[doc.doc_type]
@@ -63,7 +65,7 @@ export default function OfficeDocCard({ document: doc, isTrashed = false }: Offi
               onClick={() => restoreMutation.mutate()}
               disabled={restoreMutation.isPending}
               className="p-1.5 rounded-full bg-white/90 hover:bg-white dark:bg-gray-900 shadow-sm text-gray-400 dark:text-gray-500 hover:text-green-600 transition-colors disabled:opacity-50"
-              title="Restore"
+              title={t('ui:OfficeDocCard.restore')}
             >
               <RotateCcw className="h-4 w-4" />
             </button>
@@ -73,7 +75,7 @@ export default function OfficeDocCard({ document: doc, isTrashed = false }: Offi
                 <button
                   onClick={() => navigate(`${config.route}/${doc.id}/read`)}
                   className="p-1.5 rounded-full bg-white/90 hover:bg-white dark:bg-gray-900 shadow-sm text-gray-400 dark:text-gray-500 hover:text-blue-600 transition-colors"
-                  title="Read view"
+                  title={t('ui:OfficeDocCard.readView')}
                 >
                   <BookOpen className="h-4 w-4" />
                 </button>
@@ -83,18 +85,18 @@ export default function OfficeDocCard({ document: doc, isTrashed = false }: Offi
                 className={`p-1.5 rounded-full bg-white/90 hover:bg-white dark:bg-gray-900 shadow-sm transition-colors ${
                   doc.is_starred ? 'text-yellow-500' : 'text-gray-400 dark:text-gray-500 hover:text-yellow-500'
                 }`}
-                title={doc.is_starred ? 'Remove star' : 'Add star'}
+                title={doc.is_starred ? t('ui:OfficeDocCard.removeStar') : t('ui:OfficeDocCard.addStar')}
               >
                 <Star className="h-4 w-4" fill={doc.is_starred ? 'currentColor' : 'none'} />
               </button>
               <button
                 onClick={() => {
-                  if (confirm(`Move "${doc.title}" to trash?`)) {
+                  if (confirm(t('ui:OfficeDocCard.moveTitleToTrash', { title: doc.title }))) {
                     trashMutation.mutate()
                   }
                 }}
                 className="p-1.5 rounded-full bg-white/90 hover:bg-white dark:bg-gray-900 shadow-sm text-gray-400 dark:text-gray-500 hover:text-red-500 transition-colors"
-                title="Move to trash"
+                title={t('ui:OfficeDocCard.moveToTrash')}
               >
                 <Trash2 className="h-4 w-4" />
               </button>
@@ -113,8 +115,8 @@ export default function OfficeDocCard({ document: doc, isTrashed = false }: Offi
         <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{doc.title}</h3>
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
           {doc.last_accessed_at
-            ? `Opened ${formatRelativeTime(doc.last_accessed_at)}`
-            : `Modified ${formatRelativeTime(doc.updated_at)}`}
+            ? t('ui:OfficeDocCard.openedV0', { v0: formatRelativeTime(doc.last_accessed_at) })
+            : t('ui:OfficeDocCard.modifiedV0', { v0: formatRelativeTime(doc.updated_at) })}
         </p>
       </div>
     </div>

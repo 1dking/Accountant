@@ -5,6 +5,7 @@ import { Share2, X, Loader2, Search, Check } from 'lucide-react'
 import { listContacts, shareFile } from '@/api/contacts'
 import { useDebounce } from '@/hooks/useDebounce'
 import type { ContactListItem } from '@/types/models'
+import { useTranslation } from 'react-i18next'
 
 interface ShareFileDialogProps {
   isOpen: boolean
@@ -28,6 +29,7 @@ export default function ShareFileDialog({
   fileName,
   onClose,
 }: ShareFileDialogProps) {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<ContactListItem | null>(null)
@@ -52,13 +54,13 @@ export default function ShareFileDialog({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contacts'] })
       toast.success(
-        `Shared "${fileName}" with ${selected!.contact_name || selected!.company_name}`,
+        t('ui:ShareFileDialog.sharedFilenameWithV1', { fileName, v1: selected!.contact_name || selected!.company_name }),
       )
       handleClose()
     },
     onError: (err) => {
       toast.error(
-        `Couldn't share the file: ${err instanceof Error ? err.message : 'Unknown error'}`,
+        t('ui:ShareFileDialog.couldnTShareTheFile', { v0: err instanceof Error ? err.message : 'Unknown error' }),
       )
     },
   })
@@ -82,7 +84,7 @@ export default function ShareFileDialog({
           <div className="flex items-center gap-2">
             <Share2 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              Share file
+             {t('ui:ShareFileDialog.shareFile')}
             </h2>
           </div>
           <button
@@ -95,8 +97,7 @@ export default function ShareFileDialog({
 
         <div className="px-6 py-4 space-y-4">
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            Give a contact access to <span className="font-medium">{fileName}</span> in
-            their client portal.
+           {t('ui:ShareFileDialog.giveAContactAccessTo')} <span className="font-medium">{fileName}</span> {t('ui:ShareFileDialog.inTheirClientPortal')}
           </p>
 
           <div className="relative">
@@ -109,7 +110,7 @@ export default function ShareFileDialog({
                 setSearch(e.target.value)
                 setSelected(null)
               }}
-              placeholder="Search contacts..."
+              placeholder={t('ui:ShareFileDialog.searchContacts')}
               className="w-full pl-9 pr-3 py-2 text-sm border rounded-md bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
             />
           </div>
@@ -118,13 +119,13 @@ export default function ShareFileDialog({
             {isLoading && (
               <div className="flex items-center gap-2 px-3 py-4 text-sm text-gray-500">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Searching...
+               {t('ui:ShareFileDialog.searching')}
               </div>
             )}
 
             {!isLoading && results.length === 0 && (
               <p className="px-3 py-4 text-sm text-gray-500">
-                No contacts match "{search}".
+               {t('ui:ShareFileDialog.noContactsMatch')}{search}".
               </p>
             )}
 
@@ -156,15 +157,15 @@ export default function ShareFileDialog({
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Permission
+             {t('ui:ShareFileDialog.permission')}
             </label>
             <select
               value={permission}
               onChange={(e) => setPermission(e.target.value as Permission)}
               className="w-full px-3 py-2 text-sm border rounded-md bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
             >
-              <option value="view">View only</option>
-              <option value="download">View &amp; download</option>
+              <option value="view">{t('ui:ShareFileDialog.viewOnly')}</option>
+              <option value="download">{t('ui:ShareFileDialog.viewDownload')}</option>
             </select>
           </div>
         </div>
@@ -174,7 +175,7 @@ export default function ShareFileDialog({
             onClick={handleClose}
             className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md"
           >
-            Cancel
+           {t('ui:ShareFileDialog.cancel')}
           </button>
           <button
             onClick={() => shareMutation.mutate()}
@@ -182,7 +183,7 @@ export default function ShareFileDialog({
             className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {shareMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-            Share
+           {t('ui:ShareFileDialog.share')}
           </button>
         </div>
       </div>

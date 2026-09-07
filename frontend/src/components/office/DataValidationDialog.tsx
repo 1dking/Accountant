@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ValidationRule } from '@/lib/spreadsheet/types'
+import { useTranslation } from 'react-i18next'
+import i18n from '@/i18n'
 
 interface DataValidationDialogProps {
   open: boolean
@@ -13,11 +15,11 @@ interface DataValidationDialogProps {
 type ValidationType = ValidationRule['type']
 
 const VALIDATION_TYPES: { value: ValidationType; label: string; description: string }[] = [
-  { value: 'number', label: 'Number', description: 'Allow only numbers within a range' },
-  { value: 'list', label: 'List', description: 'Allow only values from a predefined list' },
-  { value: 'text_length', label: 'Text Length', description: 'Limit text to a specific length range' },
-  { value: 'date', label: 'Date', description: 'Allow only dates within a range' },
-  { value: 'custom', label: 'Custom Formula', description: 'Use a custom formula for validation' },
+  { value: 'number', label: i18n.t('ui:DataValidationDialog.number'), description: i18n.t('ui:DataValidationDialog.allowOnlyNumbersWithinA') },
+  { value: 'list', label: i18n.t('ui:DataValidationDialog.list'), description: i18n.t('ui:DataValidationDialog.allowOnlyValuesFromA') },
+  { value: 'text_length', label: i18n.t('ui:DataValidationDialog.textLength'), description: i18n.t('ui:DataValidationDialog.limitTextToASpecific') },
+  { value: 'date', label: i18n.t('ui:DataValidationDialog.date'), description: i18n.t('ui:DataValidationDialog.allowOnlyDatesWithinA') },
+  { value: 'custom', label: i18n.t('ui:DataValidationDialog.customFormula'), description: i18n.t('ui:DataValidationDialog.useACustomFormulaFor') },
 ]
 
 interface EditorState {
@@ -100,6 +102,7 @@ export default function DataValidationDialog({
   currentValidation,
   onSave,
 }: DataValidationDialogProps) {
+  const { t } = useTranslation('ui')
   const [editor, setEditor] = useState<EditorState>(validationToEditorState(currentValidation))
   const [errors, setErrors] = useState<Record<string, string>>({})
 
@@ -211,7 +214,7 @@ export default function DataValidationDialog({
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            Data Validation
+           {t('ui:DataValidationDialog.dataValidation')}
           </h2>
           <button
             onClick={onClose}
@@ -226,7 +229,7 @@ export default function DataValidationDialog({
           {/* Validation type */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Validation type
+             {t('ui:DataValidationDialog.validationType')}
             </label>
             <select
               value={editor.type}
@@ -252,7 +255,7 @@ export default function DataValidationDialog({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                  Minimum
+                 {t('ui:DataValidationDialog.minimum')}
                 </label>
                 <input
                   type="number"
@@ -261,7 +264,7 @@ export default function DataValidationDialog({
                     setEditor((prev) => ({ ...prev, min: e.target.value }))
                     setErrors((prev) => ({ ...prev, min: '' }))
                   }}
-                  placeholder="No limit"
+                  placeholder={t('ui:DataValidationDialog.noLimit')}
                   className={cn(
                     'w-full px-3 py-1.5 text-sm border rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500',
                     errors.min
@@ -275,7 +278,7 @@ export default function DataValidationDialog({
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                  Maximum
+                 {t('ui:DataValidationDialog.maximum')}
                 </label>
                 <input
                   type="number"
@@ -284,7 +287,7 @@ export default function DataValidationDialog({
                     setEditor((prev) => ({ ...prev, max: e.target.value }))
                     setErrors((prev) => ({ ...prev, max: '' }))
                   }}
-                  placeholder="No limit"
+                  placeholder={t('ui:DataValidationDialog.noLimit')}
                   className={cn(
                     'w-full px-3 py-1.5 text-sm border rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500',
                     errors.max
@@ -302,7 +305,7 @@ export default function DataValidationDialog({
           {editor.type === 'list' && (
             <div>
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                Allowed values (comma-separated)
+               {t('ui:DataValidationDialog.allowedValuesCommaSeparated')}
               </label>
               <textarea
                 value={editor.listValues}
@@ -310,7 +313,7 @@ export default function DataValidationDialog({
                   setEditor((prev) => ({ ...prev, listValues: e.target.value }))
                   setErrors((prev) => ({ ...prev, listValues: '' }))
                 }}
-                placeholder="Option 1, Option 2, Option 3"
+                placeholder={t('ui:DataValidationDialog.option1Option2Option')}
                 rows={3}
                 className={cn(
                   'w-full px-3 py-1.5 text-sm border rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none',
@@ -328,7 +331,7 @@ export default function DataValidationDialog({
                     .split(',')
                     .map((v) => v.trim())
                     .filter((v) => v.length > 0).length}{' '}
-                  value(s) defined
+                 {t('ui:DataValidationDialog.valueSDefined')}
                 </p>
               )}
             </div>
@@ -338,7 +341,7 @@ export default function DataValidationDialog({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                  Min length
+                 {t('ui:DataValidationDialog.minLength')}
                 </label>
                 <input
                   type="number"
@@ -348,7 +351,7 @@ export default function DataValidationDialog({
                     setEditor((prev) => ({ ...prev, min: e.target.value }))
                     setErrors((prev) => ({ ...prev, min: '' }))
                   }}
-                  placeholder="No limit"
+                  placeholder={t('ui:DataValidationDialog.noLimit')}
                   className={cn(
                     'w-full px-3 py-1.5 text-sm border rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500',
                     errors.min
@@ -362,7 +365,7 @@ export default function DataValidationDialog({
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                  Max length
+                 {t('ui:DataValidationDialog.maxLength')}
                 </label>
                 <input
                   type="number"
@@ -372,7 +375,7 @@ export default function DataValidationDialog({
                     setEditor((prev) => ({ ...prev, max: e.target.value }))
                     setErrors((prev) => ({ ...prev, max: '' }))
                   }}
-                  placeholder="No limit"
+                  placeholder={t('ui:DataValidationDialog.noLimit')}
                   className={cn(
                     'w-full px-3 py-1.5 text-sm border rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500',
                     errors.max
@@ -391,7 +394,7 @@ export default function DataValidationDialog({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                  Earliest date
+                 {t('ui:DataValidationDialog.earliestDate')}
                 </label>
                 <input
                   type="date"
@@ -413,7 +416,7 @@ export default function DataValidationDialog({
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                  Latest date
+                 {t('ui:DataValidationDialog.latestDate')}
                 </label>
                 <input
                   type="date"
@@ -439,7 +442,7 @@ export default function DataValidationDialog({
           {editor.type === 'custom' && (
             <div>
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                Custom formula
+               {t('ui:DataValidationDialog.customFormula_2')}
               </label>
               <input
                 type="text"
@@ -448,7 +451,7 @@ export default function DataValidationDialog({
                   setEditor((prev) => ({ ...prev, customFormula: e.target.value }))
                   setErrors((prev) => ({ ...prev, customFormula: '' }))
                 }}
-                placeholder="=AND(A1>0, A1<100)"
+                placeholder={t('ui:DataValidationDialog.andA10A1100')}
                 className={cn(
                   'w-full px-3 py-1.5 text-sm font-mono border rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500',
                   errors.customFormula
@@ -462,7 +465,7 @@ export default function DataValidationDialog({
                 </p>
               )}
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                Formula should return true for valid values.
+               {t('ui:DataValidationDialog.formulaShouldReturnTrueFor')}
               </p>
             </div>
           )}
@@ -479,14 +482,14 @@ export default function DataValidationDialog({
                 className="rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400 focus:ring-blue-500"
               />
               <span className="text-sm text-gray-700 dark:text-gray-300">
-                Show warning on invalid input
+               {t('ui:DataValidationDialog.showWarningOnInvalidInput')}
               </span>
             </label>
 
             {editor.showWarning && (
               <div>
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                  Warning message
+                 {t('ui:DataValidationDialog.warningMessage')}
                 </label>
                 <input
                   type="text"
@@ -494,7 +497,7 @@ export default function DataValidationDialog({
                   onChange={(e) =>
                     setEditor((prev) => ({ ...prev, warningMessage: e.target.value }))
                   }
-                  placeholder="Invalid input. Please enter a valid value."
+                  placeholder={t('ui:DataValidationDialog.invalidInputPleaseEnterA')}
                   className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
@@ -509,7 +512,7 @@ export default function DataValidationDialog({
               onClick={handleRemoveValidation}
               className="px-3 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md"
             >
-              Remove validation
+             {t('ui:DataValidationDialog.removeValidation')}
             </button>
           )}
           <div className="flex-1" />
@@ -517,13 +520,13 @@ export default function DataValidationDialog({
             onClick={onClose}
             className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
           >
-            Cancel
+           {t('ui:DataValidationDialog.cancel')}
           </button>
           <button
             onClick={handleSave}
             className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
           >
-            Save
+           {t('ui:DataValidationDialog.save')}
           </button>
         </div>
       </div>

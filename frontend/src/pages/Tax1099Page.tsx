@@ -3,12 +3,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { FileBadge, Loader2, Plus } from 'lucide-react'
 import { get1099Report, set1099Flag, type Vendor1099Row } from '@/api/accounting'
+import { useTranslation } from 'react-i18next'
 
 function money(n: string): string {
   return parseFloat(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 export default function Tax1099Page() {
+  const { t } = useTranslation('ui')
   const now = new Date()
   const [year, setYear] = useState(now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear())
   const { data, isLoading } = useQuery({
@@ -25,11 +27,10 @@ export default function Tax1099Page() {
         <div>
           <div className="flex items-center gap-2">
             <FileBadge className="w-6 h-6 text-gray-700 dark:text-gray-300" />
-            <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">1099 Contractors</h1>
+            <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">{t('ui:Tax1099Page.n1099Contractors')}</h1>
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Year-end totals for contractors you paid, from your bills and cashbook. A 1099-NEC is
-            generally owed for anyone paid $600 or more.
+           {t('ui:Tax1099Page.yearEndTotalsForContractors')}
           </p>
         </div>
         <select
@@ -38,7 +39,7 @@ export default function Tax1099Page() {
           className="px-3 py-2 border rounded-lg text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
         >
           {years.map((y) => (
-            <option key={y} value={y}>Tax year {y}</option>
+            <option key={y} value={y}>{t('ui:Tax1099Page.taxYear')} {y}</option>
           ))}
         </select>
       </div>
@@ -50,15 +51,15 @@ export default function Tax1099Page() {
       ) : !report ? null : (
         <>
           <VendorTable
-            title="1099 vendors"
+            title={t('ui:Tax1099Page.n1099Vendors')}
             subtitle="Flagged contractors and what they were paid this year."
             rows={report.vendors}
             year={year}
-            emptyText="No contractors flagged for 1099 yet. Flag candidates below, or mark a vendor from their contact record."
+            emptyText={t('ui:Tax1099Page.noContractorsFlaggedFor1099')}
           />
           {report.candidates.length > 0 && (
             <VendorTable
-              title="Candidates (paid over threshold, not flagged)"
+              title={t('ui:Tax1099Page.candidatesPaidOverThresholdNot')}
               subtitle="Paid $600+ this year but not marked as a 1099 vendor — flag any that should be reported."
               rows={report.candidates}
               year={year}
@@ -81,12 +82,13 @@ function VendorTable({
   candidate?: boolean
   emptyText?: string
 }) {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const flag = useMutation({
     mutationFn: ({ id, on }: { id: string; on: boolean }) => set1099Flag(id, on),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['1099-report', year] })
-      toast.success('Vendor updated')
+      toast.success(t('ui:Tax1099Page.vendorUpdated'))
     },
     onError: (e: any) => toast.error(e?.message || 'Failed to update'),
   })
@@ -99,9 +101,9 @@ function VendorTable({
         <table className="w-full text-sm">
           <thead className="bg-gray-50 dark:bg-gray-800/50 text-xs text-gray-500 dark:text-gray-400">
             <tr>
-              <th className="text-left font-medium px-4 py-2">Vendor</th>
-              <th className="text-left font-medium px-4 py-2 hidden sm:table-cell">Tax ID</th>
-              <th className="text-right font-medium px-4 py-2 w-32">Total paid</th>
+              <th className="text-left font-medium px-4 py-2">{t('ui:Tax1099Page.vendor')}</th>
+              <th className="text-left font-medium px-4 py-2 hidden sm:table-cell">{t('ui:Tax1099Page.taxId')}</th>
+              <th className="text-right font-medium px-4 py-2 w-32">{t('ui:Tax1099Page.totalPaid')}</th>
               <th className="text-right font-medium px-4 py-2 w-24"></th>
             </tr>
           </thead>
@@ -133,16 +135,16 @@ function VendorTable({
                         disabled={flag.isPending}
                         className="inline-flex items-center gap-1 text-xs text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 px-2 py-1 rounded disabled:opacity-50"
                       >
-                        <Plus className="w-3.5 h-3.5" /> Flag
+                        <Plus className="w-3.5 h-3.5" /> {t('ui:Tax1099Page.flag')}
                       </button>
                     ) : (
                       <button
                         onClick={() => flag.mutate({ id: r.contact_id, on: false })}
                         disabled={flag.isPending}
                         className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-red-600 px-2 py-1 rounded disabled:opacity-50"
-                        title="Remove 1099 flag"
+                        title={t('ui:Tax1099Page.remove1099Flag')}
                       >
-                        Unflag
+                       {t('ui:Tax1099Page.unflag')}
                       </button>
                     )}
                   </td>

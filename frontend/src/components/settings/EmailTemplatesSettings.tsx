@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { Mail, RotateCcw, Send } from 'lucide-react'
 import { api } from '@/api/client'
 import { useAuthStore } from '@/stores/authStore'
+import { useTranslation } from 'react-i18next'
 
 interface Template {
   template_key: string
@@ -20,6 +21,7 @@ interface Template {
 }
 
 export default function EmailTemplatesSettings() {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const { user } = useAuthStore()
   const [activeKey, setActiveKey] = useState<string | null>(null)
@@ -60,21 +62,21 @@ export default function EmailTemplatesSettings() {
         body_override: vars.body || null,
       }),
     onSuccess: () => {
-      toast.success('Template saved')
+      toast.success(t('ui:EmailTemplatesSettings.templateSaved'))
       queryClient.invalidateQueries({ queryKey: ['email-templates'] })
     },
-    onError: (e: any) => toast.error(`Save failed: ${e.message || ''}`),
+    onError: (e: any) => toast.error(t('ui:EmailTemplatesSettings.saveFailedV0', { v0: e.message || '' })),
   })
 
   const resetMut = useMutation({
     mutationFn: (key: string) => api.delete(`/email/templates/${key}`),
     onSuccess: () => {
-      toast.success('Reverted to system default')
+      toast.success(t('ui:EmailTemplatesSettings.revertedToSystemDefault'))
       setDraftSubject('')
       setDraftBody('')
       queryClient.invalidateQueries({ queryKey: ['email-templates'] })
     },
-    onError: (e: any) => toast.error(`Reset failed: ${e.message || ''}`),
+    onError: (e: any) => toast.error(t('ui:EmailTemplatesSettings.resetFailedV0', { v0: e.message || '' })),
   })
 
   const testMut = useMutation({
@@ -84,8 +86,8 @@ export default function EmailTemplatesSettings() {
         subject_override: vars.subject || null,
         body_override: vars.body || null,
       }),
-    onSuccess: () => toast.success('Test sent — check your inbox'),
-    onError: (e: any) => toast.error(`Test failed: ${e.message || ''}`),
+    onSuccess: () => toast.success(t('ui:EmailTemplatesSettings.testSentCheckYourInbox')),
+    onError: (e: any) => toast.error(t('ui:EmailTemplatesSettings.testFailedV0', { v0: e.message || '' })),
   })
 
   const insertPlaceholder = (variable: string) => {
@@ -95,7 +97,7 @@ export default function EmailTemplatesSettings() {
 
   if (isLoading) {
     return (
-      <div className="text-sm text-gray-500 dark:text-gray-400">Loading…</div>
+      <div className="text-sm text-gray-500 dark:text-gray-400">{t('ui:EmailTemplatesSettings.loading')}</div>
     )
   }
 
@@ -106,13 +108,12 @@ export default function EmailTemplatesSettings() {
           <Mail className="h-5 w-5 text-indigo-500 mt-0.5" />
           <div>
             <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">
-              Email templates
+             {t('ui:EmailTemplatesSettings.emailTemplates')}
             </h2>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 max-w-2xl">
-              Customize the subject and body of system emails. Use{' '}
-              <code className="font-mono text-[11px] bg-gray-100 dark:bg-gray-800 px-1 rounded">{`{placeholder}`}</code>{' '}
-              tokens to inject runtime values. Leaving a field blank falls
-              back to the system default.
+             {t('ui:EmailTemplatesSettings.customizeTheSubjectAndBody')}{' '}
+              <code className="font-mono text-[11px] bg-gray-100 dark:bg-gray-800 px-1 rounded">{t('ui:EmailTemplatesSettings.placeholder')}</code>{' '}
+             {t('ui:EmailTemplatesSettings.tokensToInjectRuntimeValues')}
             </p>
           </div>
         </div>
@@ -164,7 +165,7 @@ export default function EmailTemplatesSettings() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Subject
+                 {t('ui:EmailTemplatesSettings.subject')}
                 </label>
                 <input
                   type="text"
@@ -174,7 +175,7 @@ export default function EmailTemplatesSettings() {
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100 dark:bg-gray-800 text-sm"
                 />
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Default: <span className="font-mono">{active.default_subject}</span>
+                 {t('ui:EmailTemplatesSettings.default')} <span className="font-mono">{active.default_subject}</span>
                 </p>
               </div>
 
@@ -183,20 +184,20 @@ export default function EmailTemplatesSettings() {
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Body (HTML)
+                       {t('ui:EmailTemplatesSettings.bodyHtml')}
                       </label>
                       <button
                         type="button"
                         onClick={() => setShowSystemBody((s) => !s)}
                         className="text-xs text-blue-600 hover:text-blue-700"
                       >
-                        {showSystemBody ? 'Hide' : 'Show'} system default
+                        {showSystemBody ? t('ui:EmailTemplatesSettings.hide') : t('ui:EmailTemplatesSettings.show')} {t('ui:EmailTemplatesSettings.systemDefault')}
                       </button>
                     </div>
                     <textarea
                       value={draftBody}
                       onChange={(e) => setDraftBody(e.target.value)}
-                      placeholder="Leave blank to use the system default"
+                      placeholder={t('ui:EmailTemplatesSettings.leaveBlankToUseThe')}
                       rows={14}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100 dark:bg-gray-800 text-sm font-mono"
                     />
@@ -209,7 +210,7 @@ export default function EmailTemplatesSettings() {
 
                   <div>
                     <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Available placeholders (click to insert into body):
+                     {t('ui:EmailTemplatesSettings.availablePlaceholdersClickToInsert')}
                     </p>
                     <div className="flex flex-wrap gap-1.5">
                       {active.variables.map((v) => (
@@ -227,8 +228,7 @@ export default function EmailTemplatesSettings() {
                 </>
               ) : (
                 <p className="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-md">
-                  Body editing is disabled for this template. Subject is
-                  editable above.
+                 {t('ui:EmailTemplatesSettings.bodyEditingIsDisabledFor')}
                 </p>
               )}
 
@@ -247,7 +247,7 @@ export default function EmailTemplatesSettings() {
                     disabled={saveMut.isPending}
                     className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-sm disabled:opacity-50"
                   >
-                    {saveMut.isPending ? 'Saving…' : 'Save changes'}
+                    {saveMut.isPending ? t('ui:EmailTemplatesSettings.saving') : t('ui:EmailTemplatesSettings.saveChanges')}
                   </button>
                   {active.is_customized && (
                     <button
@@ -255,7 +255,7 @@ export default function EmailTemplatesSettings() {
                       onClick={() => {
                         if (
                           confirm(
-                            'Revert this template to the system default? Your override will be deleted.',
+                            t('ui:EmailTemplatesSettings.revertThisTemplateToThe'),
                           )
                         ) {
                           resetMut.mutate(active.template_key)
@@ -265,7 +265,7 @@ export default function EmailTemplatesSettings() {
                       className="px-3 py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md inline-flex items-center gap-1.5 disabled:opacity-50"
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
-                      Reset to default
+                     {t('ui:EmailTemplatesSettings.resetToDefault')}
                     </button>
                   )}
                 </div>
@@ -275,7 +275,7 @@ export default function EmailTemplatesSettings() {
                     type="email"
                     value={testEmail}
                     onChange={(e) => setTestEmail(e.target.value)}
-                    placeholder="you@example.com"
+                    placeholder={t('ui:EmailTemplatesSettings.youExampleCom')}
                     className="flex-1 max-w-xs px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm text-gray-900 dark:text-gray-100 dark:bg-gray-800"
                   />
                   <button
@@ -292,7 +292,7 @@ export default function EmailTemplatesSettings() {
                     className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md inline-flex items-center gap-1.5 disabled:opacity-50"
                   >
                     <Send className="w-3.5 h-3.5" />
-                    {testMut.isPending ? 'Sending…' : 'Send test'}
+                    {testMut.isPending ? t('ui:EmailTemplatesSettings.sending') : t('ui:EmailTemplatesSettings.sendTest')}
                   </button>
                 </div>
               </div>

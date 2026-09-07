@@ -5,6 +5,7 @@ import { Plus, RefreshCw, Play } from 'lucide-react';
 import { listRules, toggleRule, processRules } from '@/api/recurring';
 import { useAuthStore } from '@/stores/authStore';
 import { formatDate } from '@/lib/utils';
+import { useTranslation } from 'react-i18next'
 
 const typeBadgeClasses: Record<string, string> = {
   expense: 'bg-red-100 text-red-700',
@@ -13,6 +14,7 @@ const typeBadgeClasses: Record<string, string> = {
 };
 
 export default function RecurringPage() {
+  const { t } = useTranslation('ui')
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
@@ -40,18 +42,18 @@ export default function RecurringPage() {
   const processMutation = useMutation({
     mutationFn: () => processRules(),
     onSuccess: (res) => {
-      alert(`Successfully processed ${res.data.processed} rule(s).`);
+      alert(t('ui:RecurringPage.successfullyProcessedProcessedRuleS', { processed: res.data.processed }));
       queryClient.invalidateQueries({ queryKey: ['recurring-rules'] });
     },
     onError: () => {
-      alert('Failed to process rules.');
+      alert(t('ui:RecurringPage.failedToProcessRules'));
     },
   });
 
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Recurring Transactions</h1>
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">{t('ui:RecurringPage.recurringTransactions')}</h1>
         <div className="flex items-center gap-3">
           {isAdmin && (
             <button
@@ -60,7 +62,7 @@ export default function RecurringPage() {
               className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
             >
               <Play className="w-4 h-4" />
-              {processMutation.isPending ? 'Processing...' : 'Process Rules'}
+              {processMutation.isPending ? t('ui:RecurringPage.processing') : t('ui:RecurringPage.processRules')}
             </button>
           )}
           {canEdit && (
@@ -69,7 +71,7 @@ export default function RecurringPage() {
               className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
             >
               <Plus className="w-4 h-4" />
-              New Rule
+             {t('ui:RecurringPage.newRule')}
             </button>
           )}
         </div>
@@ -79,13 +81,13 @@ export default function RecurringPage() {
         {isLoading ? (
           <div className="flex items-center justify-center py-20 text-gray-400 dark:text-gray-500">
             <RefreshCw className="w-5 h-5 animate-spin mr-2" />
-            Loading...
+           {t('ui:RecurringPage.loading')}
           </div>
         ) : rules.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-gray-400 dark:text-gray-500">
             <RefreshCw className="w-10 h-10 mb-3" />
-            <p className="text-sm font-medium">No recurring rules found</p>
-            <p className="text-xs mt-1">Create a rule to automate your transactions.</p>
+            <p className="text-sm font-medium">{t('ui:RecurringPage.noRecurringRulesFound')}</p>
+            <p className="text-xs mt-1">{t('ui:RecurringPage.createARuleToAutomate')}</p>
           </div>
         ) : (
           <>
@@ -93,13 +95,13 @@ export default function RecurringPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-100 dark:border-gray-700">
-                    <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">Name</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">Type</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">Frequency</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">Next Run</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">Last Run</th>
-                    <th className="text-right px-4 py-3 font-medium text-gray-500 dark:text-gray-400">Run Count</th>
-                    <th className="text-center px-4 py-3 font-medium text-gray-500 dark:text-gray-400">Active</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">{t('ui:RecurringPage.name')}</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">{t('ui:RecurringPage.type')}</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">{t('ui:RecurringPage.frequency')}</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">{t('ui:RecurringPage.nextRun')}</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">{t('ui:RecurringPage.lastRun')}</th>
+                    <th className="text-right px-4 py-3 font-medium text-gray-500 dark:text-gray-400">{t('ui:RecurringPage.runCount')}</th>
+                    <th className="text-center px-4 py-3 font-medium text-gray-500 dark:text-gray-400">{t('ui:RecurringPage.active')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -152,7 +154,7 @@ export default function RecurringPage() {
             {totalPages > 1 && (
               <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 dark:border-gray-700">
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Page {page} of {totalPages}
+                 {t('ui:RecurringPage.page')} {page} of {totalPages}
                 </p>
                 <div className="flex items-center gap-2">
                   <button
@@ -160,14 +162,14 @@ export default function RecurringPage() {
                     disabled={page <= 1}
                     className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Previous
+                   {t('ui:RecurringPage.previous')}
                   </button>
                   <button
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     disabled={page >= totalPages}
                     className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Next
+                   {t('ui:RecurringPage.next')}
                   </button>
                 </div>
               </div>

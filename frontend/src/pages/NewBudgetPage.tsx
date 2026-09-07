@@ -6,10 +6,12 @@ import { createBudget } from '@/api/budgets';
 import { listCategories } from '@/api/accounting';
 import { PERIOD_TYPES } from '@/lib/constants';
 import type { BudgetCreateData } from '@/api/budgets';
+import { useTranslation } from 'react-i18next'
 
 const currentYear = new Date().getFullYear();
 
 export default function NewBudgetPage() {
+  const { t } = useTranslation('ui')
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -45,18 +47,18 @@ export default function NewBudgetPage() {
     setError('');
 
     if (!name.trim()) {
-      setError('Name is required.');
+      setError(t('ui:NewBudgetPage.nameIsRequired'));
       return;
     }
 
     const parsedAmount = parseFloat(amount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
-      setError('Amount must be a positive number.');
+      setError(t('ui:NewBudgetPage.amountMustBeAPositive'));
       return;
     }
 
     if (!year || year < 2000 || year > 2100) {
-      setError('Please enter a valid year.');
+      setError(t('ui:NewBudgetPage.pleaseEnterAValidYear'));
       return;
     }
 
@@ -86,10 +88,10 @@ export default function NewBudgetPage() {
         className="inline-flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 mb-6 transition-colors"
       >
         <ArrowLeft className="w-4 h-4" />
-        Back to Budgets
+       {t('ui:NewBudgetPage.backToBudgets')}
       </button>
 
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">New Budget</h1>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">{t('ui:NewBudgetPage.newBudget')}</h1>
 
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
         {error && (
@@ -102,14 +104,14 @@ export default function NewBudgetPage() {
           {/* Name */}
           <div>
             <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Name <span className="text-red-500">*</span>
+             {t('ui:NewBudgetPage.name')} <span className="text-red-500">*</span>
             </label>
             <input
               id="name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Office Supplies Budget"
+              placeholder={t('ui:NewBudgetPage.eGOfficeSuppliesBudget')}
               className="block w-full rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
               required
             />
@@ -118,7 +120,7 @@ export default function NewBudgetPage() {
           {/* Amount */}
           <div>
             <label htmlFor="amount" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Amount <span className="text-red-500">*</span>
+             {t('ui:NewBudgetPage.amount')} <span className="text-red-500">*</span>
             </label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 text-sm">
@@ -141,7 +143,7 @@ export default function NewBudgetPage() {
           {/* Period Type */}
           <div>
             <label htmlFor="periodType" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Period Type
+             {t('ui:NewBudgetPage.periodType')}
             </label>
             <select
               id="periodType"
@@ -165,7 +167,7 @@ export default function NewBudgetPage() {
           {/* Year */}
           <div>
             <label htmlFor="year" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Year
+             {t('ui:NewBudgetPage.year')}
             </label>
             <input
               id="year"
@@ -182,7 +184,7 @@ export default function NewBudgetPage() {
           {periodType === 'monthly' && (
             <div>
               <label htmlFor="month" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Month
+               {t('ui:NewBudgetPage.month')}
               </label>
               <select
                 id="month"
@@ -190,19 +192,19 @@ export default function NewBudgetPage() {
                 onChange={(e) => setMonth(e.target.value === '' ? '' : Number(e.target.value))}
                 className="block w-full rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
               >
-                <option value="">Select a month (optional)</option>
-                <option value={1}>January</option>
-                <option value={2}>February</option>
-                <option value={3}>March</option>
-                <option value={4}>April</option>
-                <option value={5}>May</option>
-                <option value={6}>June</option>
-                <option value={7}>July</option>
-                <option value={8}>August</option>
-                <option value={9}>September</option>
-                <option value={10}>October</option>
-                <option value={11}>November</option>
-                <option value={12}>December</option>
+                <option value="">{t('ui:NewBudgetPage.selectAMonthOptional')}</option>
+                <option value={1}>{t('ui:NewBudgetPage.january')}</option>
+                <option value={2}>{t('ui:NewBudgetPage.february')}</option>
+                <option value={3}>{t('ui:NewBudgetPage.march')}</option>
+                <option value={4}>{t('ui:NewBudgetPage.april')}</option>
+                <option value={5}>{t('ui:NewBudgetPage.may')}</option>
+                <option value={6}>{t('ui:NewBudgetPage.june')}</option>
+                <option value={7}>{t('ui:NewBudgetPage.july')}</option>
+                <option value={8}>{t('ui:NewBudgetPage.august')}</option>
+                <option value={9}>{t('ui:NewBudgetPage.september')}</option>
+                <option value={10}>{t('ui:NewBudgetPage.october')}</option>
+                <option value={11}>{t('ui:NewBudgetPage.november')}</option>
+                <option value={12}>{t('ui:NewBudgetPage.december')}</option>
               </select>
             </div>
           )}
@@ -210,7 +212,7 @@ export default function NewBudgetPage() {
           {/* Category */}
           <div>
             <label htmlFor="category" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Category
+             {t('ui:NewBudgetPage.category')}
             </label>
             <select
               id="category"
@@ -218,7 +220,7 @@ export default function NewBudgetPage() {
               onChange={(e) => setCategoryId(e.target.value)}
               className="block w-full rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
             >
-              <option value="">No category (optional)</option>
+              <option value="">{t('ui:NewBudgetPage.noCategoryOptional')}</option>
               {categories.map((cat) => (
                 <option key={cat.id} value={cat.id}>
                   {cat.name}
@@ -234,14 +236,14 @@ export default function NewBudgetPage() {
               disabled={mutation.isPending}
               className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
             >
-              {mutation.isPending ? 'Creating...' : 'Create Budget'}
+              {mutation.isPending ? t('ui:NewBudgetPage.creating') : t('ui:NewBudgetPage.createBudget')}
             </button>
             <button
               type="button"
               onClick={() => navigate('/budgets')}
               className="inline-flex items-center px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
             >
-              Cancel
+             {t('ui:NewBudgetPage.cancel')}
             </button>
           </div>
         </form>

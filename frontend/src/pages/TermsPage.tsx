@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import LegalDocument from '@/components/LegalDocument'
 
 // OCIDM O-Brain Terms of Service — v1.0 (final). Version mirrored in
@@ -120,6 +121,138 @@ OC Interactive Digital Agency Corp.
 203-762 Upper James St, Hamilton, ON L9C 3A2, Canada · support@ocidm.io
 `
 
+// French version of the same v1.0 — required for Quebec users (Charter of the
+// French language, s. 55: contracts of adhesion must be drawn up in French).
+// Keep the version number and effective date identical to CONTENT above.
+const CONTENT_FR = `# Conditions d'utilisation d'O-Brain
+
+**Version 1.0** · Date d'entrée en vigueur : 1er juillet 2026
+OC Interactive Digital Agency Corp. (« OCIDM », « nous »)
+203-762 Upper James St, Hamilton (Ontario) L9C 3A2, Canada · support@ocidm.io
+
+## 1. Entente
+
+En créant un compte ou en utilisant O-Brain, vous acceptez les présentes conditions ainsi que notre
+Politique de confidentialité. Si vous utilisez O-Brain au nom d'une entreprise, vous déclarez être
+autorisé à engager cette entreprise.
+
+## 2. Le service
+
+O-Brain est une plateforme tout-en-un de gestion d'entreprise comprenant un CRM, la facturation et les
+propositions, la tenue de livres et la comptabilité, la synchronisation des transactions bancaires (via
+Plaid), la téléphonie et la messagerie (via Twilio), les visioconférences (via LiveKit), la planification,
+des outils de documents et de fichiers, l'automatisation, des fonctions d'IA, un portail client et, pour
+les forfaits admissibles, des capacités de marque blanche et de comptes multiples (« opérateur »). Nous
+pouvons mettre à jour, ajouter ou retirer des fonctions au fil du temps.
+
+## 3. Comptes et admissibilité
+
+Vous devez avoir au moins 18 ans et fournir des renseignements exacts. Vous êtes responsable de votre
+compte, de vos utilisateurs et de la protection de vos identifiants. Nous exigeons l'authentification
+multifacteur pour certaines actions sensibles, dont la connexion d'un compte bancaire et l'accès aux
+données financières. Vous êtes responsable de toute activité effectuée sous votre compte.
+
+## 4. Forfaits, facturation et paiements
+
+Les forfaits payants sont facturés par abonnement (mensuel ou annuel) aux prix affichés au moment de
+l'achat, en dollars américains (USD). Les abonnements se renouvellent automatiquement à la fin de chaque
+période de facturation, sauf annulation avant la date de renouvellement. Vous pouvez annuler en tout temps;
+l'annulation prend effet à la fin de la période de facturation en cours. Les frais ne sont pas
+remboursables, sauf lorsque la loi l'exige. Vous êtes responsable des taxes applicables. Certaines
+fonctions sont facturées à l'utilisation (par exemple l'IA, la téléphonie, les SMS, la voix et les
+connexions bancaires); l'utilisation au-delà des allocations incluses peut entraîner des frais
+supplémentaires, tels que divulgués. Les paiements sont traités par Stripe; lorsque vous percevez des
+paiements de vos propres clients, les fonds transitent par votre propre compte Stripe connecté.
+
+## 5. Opérateurs, sous-comptes et revente (marque blanche)
+
+Si votre forfait le permet, vous pouvez exploiter O-Brain au nom de vos propres clients sous votre propre
+marque et leur en revendre l'accès. Dans ce cas, vous êtes la partie responsable envers vos clients : vous
+devez avoir votre propre entente et votre propre politique de confidentialité avec eux, obtenir les
+consentements requis, fixer vos propres prix, gérer leur facturation et leur soutien, et respecter toutes
+les lois applicables. Vous êtes responsable de l'utilisation de la plateforme par vos clients et vous vous
+engagez à l'utiliser, ainsi que toute donnée obtenue par son entremise, uniquement au bénéfice de vos
+clients.
+
+## 6. Services de tiers
+
+O-Brain intègre des services de tiers (dont Plaid, Twilio, Stripe, LiveKit, Google et des fournisseurs
+d'IA). Votre utilisation de ces intégrations est aussi assujettie aux conditions de ces fournisseurs, et
+nous ne sommes pas responsables des services de tiers. Les connexions bancaires sont fournies via Plaid et
+sont assujetties aux conditions d'utilisation et à la politique de confidentialité de Plaid.
+
+## 7. Vos données et votre contenu
+
+Entre vous et OCIDM, vous êtes propriétaire des données et du contenu que vous placez dans O-Brain. Vous
+nous accordez les droits limités nécessaires pour les héberger, les traiter et les afficher afin de fournir
+le service, y compris la transmission des données pertinentes à des sous-traitants (comme les fournisseurs
+d'IA) pour offrir les fonctions que vous utilisez. Vous êtes responsable de détenir les droits et
+consentements requis pour les données que vous saisissez, y compris les renseignements de vos clients.
+
+## 8. Utilisation acceptable
+
+Vous n'utiliserez pas O-Brain pour : enfreindre la loi; envoyer des messages illégaux, non sollicités ou
+indésirables, ou violer les règles de télémarketing et anti-pourriel (dont la LCAP au Canada, la TCPA et la
+loi CAN-SPAM aux États-Unis, ainsi que les exigences des opérateurs et A2P pour les SMS); porter atteinte
+aux droits d'autrui; téléverser des logiciels malveillants; tenter de compromettre la sécurité ou d'accéder
+aux données d'autres locataires; ou revendre ou détourner des données de tiers (y compris des données
+bancaires) hors de l'usage permis. Nous pouvons suspendre les comptes présentant un risque de sécurité,
+juridique, de fraude ou d'abus.
+
+## 9. Fonctions d'IA
+
+Les fonctions d'IA génèrent des résultats qui peuvent être inexacts ou incomplets. Vous êtes responsable de
+réviser les résultats de l'IA avant de vous y fier, particulièrement en matière financière, comptable ou
+juridique. Les fonctions d'IA sont des outils, non des conseils professionnels.
+
+## 10. Disponibilité du service et modifications
+
+Nous visons un service fiable, mais ne garantissons pas une disponibilité ininterrompue. Nous pouvons
+modifier ou retirer des fonctions, avec préavis lorsque cela est raisonnablement possible.
+
+## 11. Exclusions de garantie
+
+Le service est fourni « tel quel » et « selon la disponibilité », sans garantie d'aucune sorte dans toute
+la mesure permise par la loi, y compris les garanties de qualité marchande, d'adaptation à un usage
+particulier et d'absence de contrefaçon. O-Brain ne fournit pas de conseils comptables, fiscaux, juridiques
+ou financiers.
+
+## 12. Limitation de responsabilité
+
+Dans toute la mesure permise par la loi, OCIDM ne sera pas responsable des dommages indirects, accessoires,
+particuliers, consécutifs, exemplaires ou punitifs, ni des pertes de profits, de revenus ou de données. La
+responsabilité globale totale d'OCIDM découlant des présentes conditions ou du service ne dépassera pas le
+plus élevé des montants suivants : le montant que vous avez payé à OCIDM au cours des douze (12) mois
+précédant l'événement à l'origine de la responsabilité, ou cent dollars (100 $ CA).
+
+## 13. Résiliation
+
+Vous pouvez annuler en tout temps. Nous pouvons suspendre ou résilier votre compte en cas de manquement aux
+présentes conditions, de non-paiement ou de risque juridique ou de sécurité. À la résiliation, votre droit
+d'utiliser le service prend fin; vous pouvez exporter vos données avant la résiliation, et nous supprimerons
+ou anonymiserons les données comme décrit dans la Politique de confidentialité, sous réserve des obligations
+légales de conservation.
+
+## 14. Droit applicable et différends
+
+Les présentes conditions sont régies par les lois de la province de l'Ontario et les lois fédérales du
+Canada qui s'y appliquent, sans égard aux règles de conflit de lois. Vous et OCIDM reconnaissez la
+compétence exclusive des tribunaux situés dans la province de l'Ontario, au Canada, pour tout différend
+découlant des présentes conditions ou du service.
+
+## 15. Modifications des présentes conditions
+
+Nous pouvons mettre à jour les présentes conditions de temps à autre et publierons la nouvelle version
+avec un numéro de version et une date d'entrée en vigueur à jour. La poursuite de l'utilisation après
+l'entrée en vigueur des modifications vaut acceptation de celles-ci.
+
+## 16. Nous joindre
+
+OC Interactive Digital Agency Corp.
+203-762 Upper James St, Hamilton (Ontario) L9C 3A2, Canada · support@ocidm.io
+`
+
 export default function TermsPage() {
-  return <LegalDocument content={CONTENT} />
+  const { i18n } = useTranslation()
+  return <LegalDocument content={i18n.language === 'fr-CA' ? CONTENT_FR : CONTENT} />
 }

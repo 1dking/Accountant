@@ -1,34 +1,36 @@
+import i18n from '@/i18n'
+
 export const DOCUMENT_TYPES = [
-  { value: 'invoice', label: 'Invoice' },
-  { value: 'receipt', label: 'Receipt' },
-  { value: 'contract', label: 'Contract' },
-  { value: 'tax_form', label: 'Tax Form' },
-  { value: 'report', label: 'Report' },
-  { value: 'statement', label: 'Statement' },
-  { value: 'other', label: 'Other' },
+  { value: 'invoice', label: i18n.t('ui:constants.invoice') },
+  { value: 'receipt', label: i18n.t('ui:constants.receipt') },
+  { value: 'contract', label: i18n.t('ui:constants.contract') },
+  { value: 'tax_form', label: i18n.t('ui:constants.taxForm') },
+  { value: 'report', label: i18n.t('ui:constants.report') },
+  { value: 'statement', label: i18n.t('ui:constants.statement') },
+  { value: 'other', label: i18n.t('ui:constants.other') },
 ] as const
 
 export const DOCUMENT_STATUSES = [
-  { value: 'draft', label: 'Draft', color: 'bg-gray-100 text-gray-700' },
-  { value: 'pending_review', label: 'Pending Review', color: 'bg-yellow-100 text-yellow-700' },
-  { value: 'approved', label: 'Approved', color: 'bg-green-100 text-green-700' },
-  { value: 'filed', label: 'Filed', color: 'bg-blue-100 text-blue-700' },
-  { value: 'archived', label: 'Archived', color: 'bg-gray-200 text-gray-500' },
+  { value: 'draft', label: i18n.t('ui:constants.draft'), color: 'bg-gray-100 text-gray-700' },
+  { value: 'pending_review', label: i18n.t('ui:constants.pendingReview'), color: 'bg-yellow-100 text-yellow-700' },
+  { value: 'approved', label: i18n.t('ui:constants.approved'), color: 'bg-green-100 text-green-700' },
+  { value: 'filed', label: i18n.t('ui:constants.filed'), color: 'bg-blue-100 text-blue-700' },
+  { value: 'archived', label: i18n.t('ui:constants.archived'), color: 'bg-gray-200 text-gray-500' },
 ] as const
 
 export const EVENT_TYPES = [
-  { value: 'deadline', label: 'Deadline', color: '#ef4444' },
-  { value: 'reminder', label: 'Reminder', color: '#3b82f6' },
-  { value: 'tax_date', label: 'Tax Date', color: '#f59e0b' },
-  { value: 'contract_expiry', label: 'Contract Expiry', color: '#8b5cf6' },
-  { value: 'meeting', label: 'Meeting', color: '#2563eb' },
-  { value: 'custom', label: 'Custom', color: '#6b7280' },
+  { value: 'deadline', label: i18n.t('ui:constants.deadline'), color: '#ef4444' },
+  { value: 'reminder', label: i18n.t('ui:constants.reminder'), color: '#3b82f6' },
+  { value: 'tax_date', label: i18n.t('ui:constants.taxDate'), color: '#f59e0b' },
+  { value: 'contract_expiry', label: i18n.t('ui:constants.contractExpiry'), color: '#8b5cf6' },
+  { value: 'meeting', label: i18n.t('ui:constants.meeting'), color: '#2563eb' },
+  { value: 'custom', label: i18n.t('ui:constants.custom'), color: '#6b7280' },
 ] as const
 
 export const ROLES = [
-  { value: 'admin', label: 'Admin', description: 'Full access to all features' },
-  { value: 'accountant', label: 'Accountant', description: 'Can upload, edit, and manage documents' },
-  { value: 'viewer', label: 'Viewer', description: 'Read-only access to documents' },
+  { value: 'admin', label: i18n.t('ui:constants.admin'), description: i18n.t('ui:constants.fullAccessToAllFeatures') },
+  { value: 'accountant', label: i18n.t('ui:constants.accountant'), description: i18n.t('ui:constants.canUploadEditAndManage') },
+  { value: 'viewer', label: i18n.t('ui:constants.viewer'), description: i18n.t('ui:constants.readOnlyAccessToDocuments') },
 ] as const
 
 export const ACCEPTED_FILE_TYPES = {
@@ -81,81 +83,81 @@ export const ACCEPTED_FILE_TYPES = {
 export const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50MB
 
 export const EXPENSE_STATUSES = [
-  { value: 'draft', label: 'Draft', color: 'bg-gray-100 text-gray-700' },
-  { value: 'pending_review', label: 'Pending Review', color: 'bg-yellow-100 text-yellow-700' },
-  { value: 'approved', label: 'Approved', color: 'bg-green-100 text-green-700' },
-  { value: 'rejected', label: 'Rejected', color: 'bg-red-100 text-red-700' },
-  { value: 'reimbursed', label: 'Reimbursed', color: 'bg-blue-100 text-blue-700' },
+  { value: 'draft', label: i18n.t('ui:constants.draft'), color: 'bg-gray-100 text-gray-700' },
+  { value: 'pending_review', label: i18n.t('ui:constants.pendingReview'), color: 'bg-yellow-100 text-yellow-700' },
+  { value: 'approved', label: i18n.t('ui:constants.approved'), color: 'bg-green-100 text-green-700' },
+  { value: 'rejected', label: i18n.t('ui:constants.rejected'), color: 'bg-red-100 text-red-700' },
+  { value: 'reimbursed', label: i18n.t('ui:constants.reimbursed'), color: 'bg-blue-100 text-blue-700' },
 ] as const
 
 export const PAYMENT_METHODS = [
-  { value: 'cash', label: 'Cash' },
-  { value: 'credit_card', label: 'Credit Card' },
-  { value: 'debit_card', label: 'Debit Card' },
-  { value: 'bank_transfer', label: 'Bank Transfer' },
-  { value: 'check', label: 'Check' },
-  { value: 'other', label: 'Other' },
+  { value: 'cash', label: i18n.t('ui:constants.cash') },
+  { value: 'credit_card', label: i18n.t('ui:constants.creditCard') },
+  { value: 'debit_card', label: i18n.t('ui:constants.debitCard') },
+  { value: 'bank_transfer', label: i18n.t('ui:constants.bankTransfer') },
+  { value: 'check', label: i18n.t('ui:constants.check') },
+  { value: 'other', label: i18n.t('ui:constants.other') },
 ] as const
 
 export const INVOICE_STATUSES = [
-  { value: 'draft', label: 'Draft', color: 'bg-gray-100 text-gray-700' },
-  { value: 'sent', label: 'Sent', color: 'bg-blue-100 text-blue-700' },
-  { value: 'viewed', label: 'Viewed', color: 'bg-cyan-100 text-cyan-700' },
-  { value: 'partially_paid', label: 'Partially Paid', color: 'bg-yellow-100 text-yellow-700' },
-  { value: 'paid', label: 'Paid', color: 'bg-green-100 text-green-700' },
-  { value: 'overdue', label: 'Overdue', color: 'bg-red-100 text-red-700' },
-  { value: 'cancelled', label: 'Cancelled', color: 'bg-gray-200 text-gray-500' },
+  { value: 'draft', label: i18n.t('ui:constants.draft'), color: 'bg-gray-100 text-gray-700' },
+  { value: 'sent', label: i18n.t('ui:constants.sent'), color: 'bg-blue-100 text-blue-700' },
+  { value: 'viewed', label: i18n.t('ui:constants.viewed'), color: 'bg-cyan-100 text-cyan-700' },
+  { value: 'partially_paid', label: i18n.t('ui:constants.partiallyPaid'), color: 'bg-yellow-100 text-yellow-700' },
+  { value: 'paid', label: i18n.t('ui:constants.paid'), color: 'bg-green-100 text-green-700' },
+  { value: 'overdue', label: i18n.t('ui:constants.overdue'), color: 'bg-red-100 text-red-700' },
+  { value: 'cancelled', label: i18n.t('ui:constants.cancelled'), color: 'bg-gray-200 text-gray-500' },
 ] as const
 
 export const ESTIMATE_STATUSES = [
-  { value: 'draft', label: 'Draft', color: 'bg-gray-100 text-gray-700' },
-  { value: 'sent', label: 'Sent', color: 'bg-blue-100 text-blue-700' },
-  { value: 'accepted', label: 'Accepted', color: 'bg-green-100 text-green-700' },
-  { value: 'rejected', label: 'Rejected', color: 'bg-red-100 text-red-700' },
-  { value: 'expired', label: 'Expired', color: 'bg-yellow-100 text-yellow-700' },
-  { value: 'converted', label: 'Converted', color: 'bg-purple-100 text-purple-700' },
+  { value: 'draft', label: i18n.t('ui:constants.draft'), color: 'bg-gray-100 text-gray-700' },
+  { value: 'sent', label: i18n.t('ui:constants.sent'), color: 'bg-blue-100 text-blue-700' },
+  { value: 'accepted', label: i18n.t('ui:constants.accepted'), color: 'bg-green-100 text-green-700' },
+  { value: 'rejected', label: i18n.t('ui:constants.rejected'), color: 'bg-red-100 text-red-700' },
+  { value: 'expired', label: i18n.t('ui:constants.expired'), color: 'bg-yellow-100 text-yellow-700' },
+  { value: 'converted', label: i18n.t('ui:constants.converted'), color: 'bg-purple-100 text-purple-700' },
 ] as const
 
 export const INCOME_CATEGORIES = [
-  { value: 'invoice_payment', label: 'Invoice Payment' },
-  { value: 'service', label: 'Service' },
-  { value: 'product', label: 'Product' },
-  { value: 'interest', label: 'Interest' },
-  { value: 'refund', label: 'Refund' },
-  { value: 'other', label: 'Other' },
+  { value: 'invoice_payment', label: i18n.t('ui:constants.invoicePayment') },
+  { value: 'service', label: i18n.t('ui:constants.service') },
+  { value: 'product', label: i18n.t('ui:constants.product') },
+  { value: 'interest', label: i18n.t('ui:constants.interest') },
+  { value: 'refund', label: i18n.t('ui:constants.refund') },
+  { value: 'other', label: i18n.t('ui:constants.other') },
 ] as const
 
 export const RECURRING_TYPES = [
-  { value: 'expense', label: 'Expense' },
-  { value: 'income', label: 'Income' },
-  { value: 'invoice', label: 'Invoice' },
+  { value: 'expense', label: i18n.t('ui:constants.expense') },
+  { value: 'income', label: i18n.t('ui:constants.income') },
+  { value: 'invoice', label: i18n.t('ui:constants.invoice') },
 ] as const
 
 export const FREQUENCIES = [
-  { value: 'weekly', label: 'Weekly' },
-  { value: 'biweekly', label: 'Bi-Weekly' },
-  { value: 'monthly', label: 'Monthly' },
-  { value: 'quarterly', label: 'Quarterly' },
-  { value: 'yearly', label: 'Yearly' },
+  { value: 'weekly', label: i18n.t('ui:constants.weekly') },
+  { value: 'biweekly', label: i18n.t('ui:constants.biWeekly') },
+  { value: 'monthly', label: i18n.t('ui:constants.monthly') },
+  { value: 'quarterly', label: i18n.t('ui:constants.quarterly') },
+  { value: 'yearly', label: i18n.t('ui:constants.yearly') },
 ] as const
 
 export const PERIOD_TYPES = [
-  { value: 'monthly', label: 'Monthly' },
-  { value: 'quarterly', label: 'Quarterly' },
-  { value: 'yearly', label: 'Yearly' },
+  { value: 'monthly', label: i18n.t('ui:constants.monthly') },
+  { value: 'quarterly', label: i18n.t('ui:constants.quarterly') },
+  { value: 'yearly', label: i18n.t('ui:constants.yearly') },
 ] as const
 
 export const ACCOUNT_TYPES = [
-  { value: 'bank', label: 'Checking' },
-  { value: 'savings', label: 'Savings' },
-  { value: 'credit_card', label: 'Credit Card' },
-  { value: 'cash', label: 'Cash' },
+  { value: 'bank', label: i18n.t('ui:constants.checking') },
+  { value: 'savings', label: i18n.t('ui:constants.savings') },
+  { value: 'credit_card', label: i18n.t('ui:constants.creditCard') },
+  { value: 'cash', label: i18n.t('ui:constants.cash') },
   { value: 'paypal', label: 'PayPal' },
-  { value: 'loan', label: 'Loan' },
-  { value: 'other', label: 'Other' },
+  { value: 'loan', label: i18n.t('ui:constants.loan') },
+  { value: 'other', label: i18n.t('ui:constants.other') },
 ] as const
 
 export const ENTRY_TYPES = [
-  { value: 'income', label: 'Income', color: 'bg-green-100 text-green-700' },
-  { value: 'expense', label: 'Expense', color: 'bg-red-100 text-red-700' },
+  { value: 'income', label: i18n.t('ui:constants.income'), color: 'bg-green-100 text-green-700' },
+  { value: 'expense', label: i18n.t('ui:constants.expense'), color: 'bg-red-100 text-red-700' },
 ] as const

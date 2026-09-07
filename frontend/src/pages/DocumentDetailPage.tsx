@@ -11,8 +11,10 @@ import { useAuthStore } from '@/stores/authStore'
 import { formatFileSize, formatDate, formatDateTime } from '@/lib/utils'
 import { DOCUMENT_TYPES, DOCUMENT_STATUSES } from '@/lib/constants'
 import type { DocumentType } from '@/types/models'
+import { useTranslation } from 'react-i18next'
 
 export default function DocumentDetailPage() {
+  const { t } = useTranslation('ui')
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -51,7 +53,7 @@ export default function DocumentDetailPage() {
       navigate('/documents')
     },
     onError: (err: Error) => {
-      alert(`Failed to delete: ${err.message}`)
+      alert(t('ui:DocumentDetailPage.failedToDeleteMessage', { message: err.message }))
     },
   })
 
@@ -101,9 +103,9 @@ export default function DocumentDetailPage() {
   if (!doc) {
     return (
       <div className="p-6 text-center">
-        <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">Document not found</h2>
+        <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">{t('ui:DocumentDetailPage.documentNotFound')}</h2>
         <button onClick={() => navigate('/documents')} className="mt-2 text-blue-600 dark:text-blue-400 hover:underline">
-          Back to documents
+         {t('ui:DocumentDetailPage.backToDocuments')}
         </button>
       </div>
     )
@@ -128,7 +130,7 @@ export default function DocumentDetailPage() {
       {/* Preview area */}
       <div className="flex-1 bg-gray-100 dark:bg-gray-800 p-6 overflow-y-auto">
         <button onClick={() => navigate('/documents')} className="text-sm text-blue-600 dark:text-blue-400 hover:underline mb-4 block">
-          {'\u2190'} Back to documents
+          {'\u2190'} {t('ui:DocumentDetailPage.backToDocuments')}
         </button>
 
         {doc.mime_type === 'application/pdf' ? (
@@ -154,7 +156,7 @@ export default function DocumentDetailPage() {
               download
               className="inline-block mt-3 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
             >
-              Download File
+             {t('ui:DocumentDetailPage.downloadFile')}
             </a>
           </div>
         )}
@@ -174,7 +176,7 @@ export default function DocumentDetailPage() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className="w-full text-lg font-bold text-gray-900 dark:text-gray-100 border-b border-blue-500 focus:outline-none pb-1"
-              placeholder="Document title"
+              placeholder={t('ui:DocumentDetailPage.documentTitle')}
             />
           ) : (
             <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{doc.title || doc.original_filename}</h2>
@@ -193,55 +195,55 @@ export default function DocumentDetailPage() {
             download
             className="px-3 py-1.5 text-sm border rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
           >
-            Download
+           {t('ui:DocumentDetailPage.download')}
           </a>
           {canEdit && !editing && (
             <button onClick={startEditing} className="px-3 py-1.5 text-sm border rounded-md hover:bg-gray-50 dark:hover:bg-gray-800">
-              Edit
+             {t('ui:DocumentDetailPage.edit')}
             </button>
           )}
           {editing && (
             <>
               <button onClick={saveEdits} className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700">
-                Save
+               {t('ui:DocumentDetailPage.save')}
               </button>
               <button onClick={() => setEditing(false)} className="px-3 py-1.5 text-sm border rounded-md hover:bg-gray-50 dark:hover:bg-gray-800">
-                Cancel
+               {t('ui:DocumentDetailPage.cancel')}
               </button>
             </>
           )}
           {(user?.role === 'admin' || user?.role === 'accountant') && (
             <button
               onClick={() => {
-                if (confirm('Delete this document?')) deleteMutation.mutate()
+                if (confirm(t('ui:DocumentDetailPage.deleteThisDocument'))) deleteMutation.mutate()
               }}
               disabled={deleteMutation.isPending}
               className="px-3 py-1.5 text-sm text-red-600 border border-red-200 rounded-md hover:bg-red-50 disabled:opacity-50"
             >
-              {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+              {deleteMutation.isPending ? t('ui:DocumentDetailPage.deleting') : t('ui:DocumentDetailPage.delete')}
             </button>
           )}
         </div>
 
         {/* Description */}
         <div>
-          <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Description</label>
+          <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('ui:DocumentDetailPage.description')}</label>
           {editing ? (
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
               className="w-full mt-1 px-2 py-1 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Add a description..."
+              placeholder={t('ui:DocumentDetailPage.addADescription')}
             />
           ) : (
-            <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">{doc.description || 'No description'}</p>
+            <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">{doc.description || t('ui:DocumentDetailPage.noDescription')}</p>
           )}
         </div>
 
         {/* Type */}
         <div>
-          <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Type</label>
+          <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('ui:DocumentDetailPage.type')}</label>
           {editing ? (
             <select
               value={docType}
@@ -259,21 +261,21 @@ export default function DocumentDetailPage() {
 
         {/* File info */}
         <div>
-          <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">File Info</label>
+          <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('ui:DocumentDetailPage.fileInfo')}</label>
           <div className="text-sm text-gray-700 dark:text-gray-300 mt-1 space-y-1">
-            <p>Name: {doc.original_filename}</p>
-            <p>Size: {formatFileSize(doc.file_size)}</p>
-            <p>Type: {doc.mime_type}</p>
-            <p>Uploaded: {formatDateTime(doc.created_at)}</p>
+            <p>{t('ui:DocumentDetailPage.name')} {doc.original_filename}</p>
+            <p>{t('ui:DocumentDetailPage.size')} {formatFileSize(doc.file_size)}</p>
+            <p>{t('ui:DocumentDetailPage.type_2')} {doc.mime_type}</p>
+            <p>{t('ui:DocumentDetailPage.uploaded')} {formatDateTime(doc.created_at)}</p>
           </div>
         </div>
 
         {/* Tags */}
         <div>
-          <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Tags</label>
+          <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('ui:DocumentDetailPage.tags')}</label>
           <div className="flex flex-wrap gap-1 mt-1">
             {doc.tags.length === 0 ? (
-              <p className="text-sm text-gray-400 dark:text-gray-500">No tags</p>
+              <p className="text-sm text-gray-400 dark:text-gray-500">{t('ui:DocumentDetailPage.noTags')}</p>
             ) : (
               doc.tags.map((tag) => (
                 <span
@@ -298,17 +300,17 @@ export default function DocumentDetailPage() {
         {/* Create Expense / Income from extracted data */}
         {canEdit && doc.extracted_metadata && (
           <div className="space-y-2">
-            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Create from Document</label>
+            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('ui:DocumentDetailPage.createFromDocument')}</label>
             <button
               onClick={() => createExpenseMutation.mutate()}
               disabled={createExpenseMutation.isPending}
               className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-red-700 bg-red-50 dark:bg-red-900/30 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-50 transition-colors"
             >
-              {createExpenseMutation.isPending ? 'Creating...' : 'Create Expense'}
+              {createExpenseMutation.isPending ? t('ui:DocumentDetailPage.creating') : t('ui:DocumentDetailPage.createExpense')}
             </button>
             {createExpenseMutation.isError && (
               <p className="mt-1 text-xs text-red-600">
-                {(createExpenseMutation.error as Error).message || 'Failed to create expense'}
+                {(createExpenseMutation.error as Error).message || t('ui:DocumentDetailPage.failedToCreateExpense')}
               </p>
             )}
             <button
@@ -316,11 +318,11 @@ export default function DocumentDetailPage() {
               disabled={createIncomeMutation.isPending}
               className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-green-700 bg-green-50 dark:bg-green-900/30 border border-green-200 rounded-lg hover:bg-green-100 disabled:opacity-50 transition-colors"
             >
-              {createIncomeMutation.isPending ? 'Creating...' : 'Create Income'}
+              {createIncomeMutation.isPending ? t('ui:DocumentDetailPage.creating') : t('ui:DocumentDetailPage.createIncome')}
             </button>
             {createIncomeMutation.isError && (
               <p className="mt-1 text-xs text-red-600">
-                {(createIncomeMutation.error as Error).message || 'Failed to create income'}
+                {(createIncomeMutation.error as Error).message || t('ui:DocumentDetailPage.failedToCreateIncome')}
               </p>
             )}
           </div>
@@ -329,7 +331,7 @@ export default function DocumentDetailPage() {
         {/* Approval */}
         {canEdit && doc.status === 'draft' && (
           <div>
-            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Approval</label>
+            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('ui:DocumentDetailPage.approval')}</label>
             {user?.role === 'admin' ? (
               <div className="flex gap-2 mt-1">
                 <button
@@ -345,7 +347,7 @@ export default function DocumentDetailPage() {
                   disabled={approvalMutation.isPending || adminApproveMutation.isPending}
                   className="flex-1 px-3 py-1.5 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
                 >
-                  {approvalMutation.isPending || adminApproveMutation.isPending ? 'Approving...' : 'Approve'}
+                  {approvalMutation.isPending || adminApproveMutation.isPending ? t('ui:DocumentDetailPage.approving') : t('ui:DocumentDetailPage.approve')}
                 </button>
               </div>
             ) : (
@@ -354,7 +356,7 @@ export default function DocumentDetailPage() {
                   type="text"
                   value={approvalAssignee}
                   onChange={(e) => setApprovalAssignee(e.target.value)}
-                  placeholder="Approver User ID"
+                  placeholder={t('ui:DocumentDetailPage.approverUserId')}
                   className="flex-1 px-2 py-1 text-sm border rounded-md"
                 />
                 <button
@@ -363,13 +365,13 @@ export default function DocumentDetailPage() {
                   }}
                   className="px-3 py-1 text-sm bg-yellow-500 text-white rounded-md hover:bg-yellow-600"
                 >
-                  Request
+                 {t('ui:DocumentDetailPage.request')}
                 </button>
               </div>
             )}
             {approvalMutation.isError && (
               <p className="mt-1 text-xs text-red-600">
-                {(approvalMutation.error as Error).message || 'Failed'}
+                {(approvalMutation.error as Error).message || t('ui:DocumentDetailPage.failed')}
               </p>
             )}
           </div>
@@ -378,7 +380,7 @@ export default function DocumentDetailPage() {
         {/* Versions */}
         {versions.length > 0 && (
           <div>
-            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Version History</label>
+            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('ui:DocumentDetailPage.versionHistory')}</label>
             <div className="mt-1 space-y-1">
               {versions.map((v) => (
                 <div key={v.id} className="text-sm text-gray-700 dark:text-gray-300 flex items-center justify-between">

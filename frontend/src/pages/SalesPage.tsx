@@ -24,6 +24,8 @@ import { MOCKUP_LAYOUT, ParticleField } from '@/lib/salesPage/particles'
 import { useCountUp } from '@/lib/salesPage/useCountUp'
 import { DEMO_WEBHOOK_KEY } from '@/lib/salesPage/config'
 import './sales-page.css'
+import { useTranslation } from 'react-i18next'
+import i18n from '@/i18n'
 
 // ---------------------------------------------------------------------------
 // helpers
@@ -58,6 +60,7 @@ const DIGIT_COLUMN = Array.from({ length: 60 }, (_, i) =>
 // ---------------------------------------------------------------------------
 
 function DashboardMockup({ innerRef }: { innerRef?: (el: HTMLDivElement | null) => void }) {
+  const { t } = useTranslation('ui')
   return (
     <div className="sp-mockup" ref={innerRef} aria-hidden="true">
       <div className="sp-mock-panel" style={rectStyle('sidebar')}>
@@ -72,19 +75,19 @@ function DashboardMockup({ innerRef }: { innerRef?: (el: HTMLDivElement | null) 
         <div className="sp-mock-row short" style={{ marginTop: '0.35rem' }} />
       </div>
       <div className="sp-mock-panel" style={rectStyle('card1')}>
-        <p className="sp-mock-label">Outstanding</p>
+        <p className="sp-mock-label">{t('ui:SalesPage.outstanding')}</p>
         <p className="sp-mock-value">$12,480</p>
       </div>
       <div className="sp-mock-panel" style={rectStyle('card2')}>
-        <p className="sp-mock-label">Collected this month</p>
+        <p className="sp-mock-label">{t('ui:SalesPage.collectedThisMonth')}</p>
         <p className="sp-mock-value accent">$8,920</p>
       </div>
       <div className="sp-mock-panel" style={rectStyle('card3')}>
-        <p className="sp-mock-label">Meetings today</p>
+        <p className="sp-mock-label">{t('ui:SalesPage.meetingsToday')}</p>
         <p className="sp-mock-value">4</p>
       </div>
       <div className="sp-mock-panel" style={rectStyle('chart')}>
-        <p className="sp-mock-label">Cash in</p>
+        <p className="sp-mock-label">{t('ui:SalesPage.cashIn')}</p>
         <svg className="sp-mock-chart-svg" viewBox="0 0 100 40" preserveAspectRatio="none">
           <defs>
             <linearGradient id="spChartGrad" x1="0" y1="0" x2="0" y2="1">
@@ -105,7 +108,7 @@ function DashboardMockup({ innerRef }: { innerRef?: (el: HTMLDivElement | null) 
         </svg>
       </div>
       <div className="sp-mock-panel" style={rectStyle('list')}>
-        <p className="sp-mock-label">Today</p>
+        <p className="sp-mock-label">{t('ui:SalesPage.today')}</p>
         <div className="sp-mock-row" />
         <div className="sp-mock-row short" />
         <div className="sp-mock-row" />
@@ -167,45 +170,45 @@ const INTEGRATIONS = ['Stripe', 'Twilio', 'Gmail', 'Google Calendar', 'Plaid', '
  * real thing over the glow instead of letting a model repaint it.
  */
 const FEATURE_SHOTS = [
-  { key: 'dashboard', label: 'Dashboard', category: 'Overview', src: '/showcase/dashboard.webp', line: 'Your whole business at a glance — revenue, outstanding, meetings and approvals.' },
+  { key: 'dashboard', label: i18n.t('ui:SalesPage.dashboard'), category: 'Overview', src: '/showcase/dashboard.webp', line: 'Your whole business at a glance — revenue, outstanding, meetings and approvals.' },
   // CRM & sales
-  { key: 'contacts', label: 'Contacts', category: 'CRM & sales', src: '/showcase/contacts.webp', line: 'Private per-employee books, shared only when you explicitly say so.' },
-  { key: 'pipeline', label: 'Pipeline', category: 'CRM & sales', src: '/showcase/pipeline.webp', line: 'Every deal staged from draft to won, with live totals per stage.' },
-  { key: 'proposals', label: 'Proposals', category: 'CRM & sales', src: '/showcase/proposals.webp', line: 'E-signature proposals that turn into an invoice the moment they’re won.' },
-  { key: 'estimates', label: 'Estimates', category: 'CRM & sales', src: '/showcase/estimates.webp', line: 'Quotes that convert to an invoice in one click when accepted.' },
-  { key: 'invoices', label: 'Invoices', category: 'CRM & sales', src: '/showcase/invoices.webp', line: 'PDFs with a Stripe Pay Now button, reminders, partial payments and overdue detection.' },
+  { key: 'contacts', label: i18n.t('ui:SalesPage.contacts'), category: 'CRM & sales', src: '/showcase/contacts.webp', line: 'Private per-employee books, shared only when you explicitly say so.' },
+  { key: 'pipeline', label: i18n.t('ui:SalesPage.pipeline'), category: 'CRM & sales', src: '/showcase/pipeline.webp', line: 'Every deal staged from draft to won, with live totals per stage.' },
+  { key: 'proposals', label: i18n.t('ui:SalesPage.proposals'), category: 'CRM & sales', src: '/showcase/proposals.webp', line: 'E-signature proposals that turn into an invoice the moment they’re won.' },
+  { key: 'estimates', label: i18n.t('ui:SalesPage.estimates'), category: 'CRM & sales', src: '/showcase/estimates.webp', line: 'Quotes that convert to an invoice in one click when accepted.' },
+  { key: 'invoices', label: i18n.t('ui:SalesPage.invoices'), category: 'CRM & sales', src: '/showcase/invoices.webp', line: 'PDFs with a Stripe Pay Now button, reminders, partial payments and overdue detection.' },
   // Accounting
-  { key: 'cashbook', label: 'Cashbook', category: 'Accounting', src: '/showcase/cashbook.webp', line: 'Every dollar in and out — with personal and business kept in separate books from the same feed.' },
-  { key: 'reconcile', label: 'Reconcile', category: 'Accounting', src: '/showcase/reconcile.webp', line: 'Match your books to the real bank balance and catch any drift instantly.' },
-  { key: 'bank-feeds', label: 'Bank feeds', category: 'Accounting', src: '/showcase/bank-feeds.webp', line: 'Live transactions pulled straight from the bank via Plaid, ready to categorize.' },
-  { key: 'email-scanner', label: 'Email scanner', category: 'Accounting', src: '/showcase/email-scanner.webp', line: 'Gmail invoices and receipts read, categorized and filed automatically.' },
-  { key: 'receipt-capture', label: 'Receipts', category: 'Accounting', src: '/showcase/receipt-capture.webp', line: 'Snap a receipt; the amount, vendor and tax are read and attached for you.' },
-  { key: 'smart-import', label: 'Smart import', category: 'Accounting', src: '/showcase/smart-import.webp', line: 'Drop in a CSV or PDF statement and it maps every row into your cashbook.' },
-  { key: 'expenses', label: 'Expenses', category: 'Accounting', src: '/showcase/expenses.webp', line: 'Categorized spending with approval flows and receipts attached.' },
-  { key: 'income', label: 'Income', category: 'Accounting', src: '/showcase/income.webp', line: 'Every payment received tracked against the client and invoice it belongs to.' },
-  { key: 'recurring', label: 'Recurring', category: 'Accounting', src: '/showcase/recurring.webp', line: 'Rent, subscriptions and retainers posted automatically on schedule.' },
-  { key: 'budgets', label: 'Budgets', category: 'Accounting', src: '/showcase/budgets.webp', line: 'Set a plan per category and watch actuals against it in real time.' },
-  { key: 'reports', label: 'Reports', category: 'Accounting', src: '/showcase/reports.webp', line: 'P&L, balance sheet, cash flow, sales tax and aging — always current, exportable.' },
+  { key: 'cashbook', label: i18n.t('ui:SalesPage.cashbook'), category: 'Accounting', src: '/showcase/cashbook.webp', line: 'Every dollar in and out — with personal and business kept in separate books from the same feed.' },
+  { key: 'reconcile', label: i18n.t('ui:SalesPage.reconcile'), category: 'Accounting', src: '/showcase/reconcile.webp', line: 'Match your books to the real bank balance and catch any drift instantly.' },
+  { key: 'bank-feeds', label: i18n.t('ui:SalesPage.bankFeeds'), category: 'Accounting', src: '/showcase/bank-feeds.webp', line: 'Live transactions pulled straight from the bank via Plaid, ready to categorize.' },
+  { key: 'email-scanner', label: i18n.t('ui:SalesPage.emailScanner'), category: 'Accounting', src: '/showcase/email-scanner.webp', line: 'Gmail invoices and receipts read, categorized and filed automatically.' },
+  { key: 'receipt-capture', label: i18n.t('ui:SalesPage.receipts'), category: 'Accounting', src: '/showcase/receipt-capture.webp', line: 'Snap a receipt; the amount, vendor and tax are read and attached for you.' },
+  { key: 'smart-import', label: i18n.t('ui:SalesPage.smartImport'), category: 'Accounting', src: '/showcase/smart-import.webp', line: 'Drop in a CSV or PDF statement and it maps every row into your cashbook.' },
+  { key: 'expenses', label: i18n.t('ui:SalesPage.expenses'), category: 'Accounting', src: '/showcase/expenses.webp', line: 'Categorized spending with approval flows and receipts attached.' },
+  { key: 'income', label: i18n.t('ui:SalesPage.income'), category: 'Accounting', src: '/showcase/income.webp', line: 'Every payment received tracked against the client and invoice it belongs to.' },
+  { key: 'recurring', label: i18n.t('ui:SalesPage.recurring'), category: 'Accounting', src: '/showcase/recurring.webp', line: 'Rent, subscriptions and retainers posted automatically on schedule.' },
+  { key: 'budgets', label: i18n.t('ui:SalesPage.budgets'), category: 'Accounting', src: '/showcase/budgets.webp', line: 'Set a plan per category and watch actuals against it in real time.' },
+  { key: 'reports', label: i18n.t('ui:SalesPage.reports'), category: 'Accounting', src: '/showcase/reports.webp', line: 'P&L, balance sheet, cash flow, sales tax and aging — always current, exportable.' },
   // Communication
-  { key: 'inbox', label: 'Inbox', category: 'Communication', src: '/showcase/inbox.webp', line: 'Every email and text thread in one unified inbox.' },
-  { key: 'phone', label: 'Phone', category: 'Communication', src: '/showcase/phone.webp', line: 'Browser calling, voicemail transcripts and a dial queue — no separate phone system.' },
+  { key: 'inbox', label: i18n.t('ui:SalesPage.inbox'), category: 'Communication', src: '/showcase/inbox.webp', line: 'Every email and text thread in one unified inbox.' },
+  { key: 'phone', label: i18n.t('ui:SalesPage.phone'), category: 'Communication', src: '/showcase/phone.webp', line: 'Browser calling, voicemail transcripts and a dial queue — no separate phone system.' },
   // Meetings & scheduling
-  { key: 'meetings', label: 'Meetings', category: 'Meetings', src: '/showcase/meetings.webp', line: 'Video rooms with AI transcription, summaries and action items.' },
-  { key: 'calendar', label: 'Calendar', category: 'Scheduling', src: '/showcase/calendar.webp', line: 'Bookings and events, two-way synced with Google Calendar.' },
-  { key: 'scheduling', label: 'Scheduling', category: 'Scheduling', src: '/showcase/scheduling.webp', line: 'Shareable booking pages that drop straight into your calendar.' },
+  { key: 'meetings', label: i18n.t('ui:SalesPage.meetings'), category: 'Meetings', src: '/showcase/meetings.webp', line: 'Video rooms with AI transcription, summaries and action items.' },
+  { key: 'calendar', label: i18n.t('ui:SalesPage.calendar'), category: 'Scheduling', src: '/showcase/calendar.webp', line: 'Bookings and events, two-way synced with Google Calendar.' },
+  { key: 'scheduling', label: i18n.t('ui:SalesPage.scheduling'), category: 'Scheduling', src: '/showcase/scheduling.webp', line: 'Shareable booking pages that drop straight into your calendar.' },
   // Content
-  { key: 'docs', label: 'Docs', category: 'Content', src: '/showcase/docs.webp', line: 'Collaborative documents with live cursors — no Google account needed.' },
-  { key: 'sheets', label: 'Sheets', category: 'Content', src: '/showcase/sheets.webp', line: 'Spreadsheets with formulas, shared and edited in real time.' },
-  { key: 'slides', label: 'Slides', category: 'Content', src: '/showcase/slides.webp', line: 'Build and present decks without leaving the workspace.' },
-  { key: 'page-builder', label: 'Website', category: 'Content', src: '/showcase/page-builder.webp', line: 'AI-generated pages, published on your own domain, with real analytics.' },
-  { key: 'forms', label: 'Forms', category: 'Content', src: '/showcase/forms.webp', line: 'Embeddable forms and an inbound webhook — site leads land straight in the CRM.' },
+  { key: 'docs', label: i18n.t('ui:SalesPage.docs'), category: 'Content', src: '/showcase/docs.webp', line: 'Collaborative documents with live cursors — no Google account needed.' },
+  { key: 'sheets', label: i18n.t('ui:SalesPage.sheets'), category: 'Content', src: '/showcase/sheets.webp', line: 'Spreadsheets with formulas, shared and edited in real time.' },
+  { key: 'slides', label: i18n.t('ui:SalesPage.slides'), category: 'Content', src: '/showcase/slides.webp', line: 'Build and present decks without leaving the workspace.' },
+  { key: 'page-builder', label: i18n.t('ui:SalesPage.website'), category: 'Content', src: '/showcase/page-builder.webp', line: 'AI-generated pages, published on your own domain, with real analytics.' },
+  { key: 'forms', label: i18n.t('ui:SalesPage.forms'), category: 'Content', src: '/showcase/forms.webp', line: 'Embeddable forms and an inbound webhook — site leads land straight in the CRM.' },
   // Storage
-  { key: 'drive', label: 'Drive', category: 'Storage', src: '/showcase/drive.webp', line: 'Cloud storage with folders, versions and share-to-client links.' },
+  { key: 'drive', label: i18n.t('ui:SalesPage.drive'), category: 'Storage', src: '/showcase/drive.webp', line: 'Cloud storage with folders, versions and share-to-client links.' },
   // Automation & intelligence
-  { key: 'workflows', label: 'Workflows', category: 'Automation', src: '/showcase/workflows.webp', line: '20+ triggers wired to real email, SMS, tag and webhook actions.' },
-  { key: 'intelligence', label: 'O-Brain AI', category: 'Intelligence', src: '/showcase/intelligence.webp', line: 'An assistant with the full context of your business — drafts, summaries and a monthly health score.' },
+  { key: 'workflows', label: i18n.t('ui:SalesPage.workflows'), category: 'Automation', src: '/showcase/workflows.webp', line: '20+ triggers wired to real email, SMS, tag and webhook actions.' },
+  { key: 'intelligence', label: i18n.t('ui:SalesPage.oBrainAi'), category: 'Intelligence', src: '/showcase/intelligence.webp', line: 'An assistant with the full context of your business — drafts, summaries and a monthly health score.' },
   // Branding
-  { key: 'branding', label: 'White-label', category: 'Branding', src: '/showcase/branding.webp', line: 'Your logo, colors, fonts and domain across the whole workspace and client portal.' },
+  { key: 'branding', label: i18n.t('ui:SalesPage.whiteLabel'), category: 'Branding', src: '/showcase/branding.webp', line: 'Your logo, colors, fonts and domain across the whole workspace and client portal.' },
 ] as const
 
 /**
@@ -215,6 +218,7 @@ const FEATURE_SHOTS = [
  * reduced motion pins it flat.
  */
 function FeatureShowcase() {
+  const { t } = useTranslation('ui')
   const [active, setActive] = useState(0)
   const stageRef = useRef<HTMLDivElement>(null)
   const rafRef = useRef(0)
@@ -249,7 +253,7 @@ function FeatureShowcase() {
           <img
             key={shot.key}
             src={shot.src}
-            alt={`${shot.label} — real product screenshot`}
+            alt={t('ui:SalesPage.labelRealProductScreenshot', { label: shot.label })}
             loading={i === 0 ? 'eager' : 'lazy'}
             className={active === i ? 'active' : ''}
           />
@@ -258,7 +262,7 @@ function FeatureShowcase() {
       </div>
       <p className="sp-showcase-category">{FEATURE_SHOTS[active].category}</p>
       <p className="sp-showcase-line">{FEATURE_SHOTS[active].line}</p>
-      <div className="sp-showcase-tabs" role="tablist" aria-label="Feature screenshots">
+      <div className="sp-showcase-tabs" role="tablist" aria-label={t('ui:SalesPage.featureScreenshots')}>
         {FEATURE_SHOTS.map((shot, i) => (
           <button
             key={shot.key}
@@ -304,20 +308,20 @@ const PLANS: Plan[] = [
     name: 'Starter',
     monthly: '$0',
     annual: '$0',
-    bullets: ['CRM, invoicing & meetings included', '3 published pages', '1 GB drive storage', '50 AI messages / month'],
+    bullets: [i18n.t('ui:SalesPage.crmInvoicingMeetingsIncluded'), i18n.t('ui:SalesPage.n3PublishedPages'), i18n.t('ui:SalesPage.n1GbDriveStorage'), i18n.t('ui:SalesPage.n50AiMessagesMonth')],
   },
   {
     name: 'Pro',
     monthly: '$29',
     annual: '$24',
     featured: true,
-    bullets: ['Everything in Starter', '25 published pages', '10 GB drive storage', '500 AI messages / month'],
+    bullets: [i18n.t('ui:SalesPage.everythingInStarter'), i18n.t('ui:SalesPage.n25PublishedPages'), i18n.t('ui:SalesPage.n10GbDriveStorage'), i18n.t('ui:SalesPage.n500AiMessagesMonth')],
   },
   {
     name: 'Business',
     monthly: '$79',
     annual: '$66',
-    bullets: ['Everything in Pro', '100 published pages', '50 GB drive storage', 'For teams running everything here'],
+    bullets: [i18n.t('ui:SalesPage.everythingInPro'), i18n.t('ui:SalesPage.n100PublishedPages'), i18n.t('ui:SalesPage.n50GbDriveStorage'), i18n.t('ui:SalesPage.forTeamsRunningEverythingHere')],
   },
 ]
 
@@ -361,6 +365,7 @@ const FAQS = [
 // ---------------------------------------------------------------------------
 
 export default function SalesPage() {
+  const { t } = useTranslation('ui')
   const [navScrolled, setNavScrolled] = useState(false)
   const [trioSegment, setTrioSegment] = useState(0)
   const [annual, setAnnual] = useState(false)
@@ -478,17 +483,17 @@ export default function SalesPage() {
       {/* nav */}
       <nav className={`sp-nav${navScrolled ? ' scrolled' : ''}`}>
         <a className="sp-logo" href="/">
-          O<span className="dot">·</span>Brain
+          O<span className="dot">·</span>{t('ui:SalesPage.brain')}
         </a>
         <div className="sp-nav-links">
-          <Link className="sp-nav-anchor" to="/features">Features</Link>
-          <a className="sp-nav-anchor" href="#sp-pricing">Pricing</a>
+          <Link className="sp-nav-anchor" to="/features">{t('ui:SalesPage.features')}</Link>
+          <a className="sp-nav-anchor" href="#sp-pricing">{t('ui:SalesPage.pricing')}</a>
           <a className="sp-nav-anchor" href="#sp-faq">FAQ</a>
           <Link to="/login" className="sp-btn sp-btn-ghost sp-btn-small">
-            Log in
+           {t('ui:SalesPage.logIn')}
           </Link>
           <Link to="/register" className="sp-btn sp-btn-primary sp-btn-small">
-            Get started free
+           {t('ui:SalesPage.getStartedFree')}
           </Link>
         </div>
       </nav>
@@ -500,30 +505,29 @@ export default function SalesPage() {
           <DashboardMockup innerRef={(el) => (mockupRef.current = el)} />
           <div className="sp-hero-copy">
             <h1 className="sp-hero-h1">
-              Your business,
+             {t('ui:SalesPage.yourBusiness')}
               <br />
-              remembered.
+             {t('ui:SalesPage.remembered')}
             </h1>
             <p className="sp-hero-sub">
-              CRM, invoicing, meetings, phone and an AI that never forgets a call, a receipt or a
-              follow-up — one login for the whole company.
+             {t('ui:SalesPage.crmInvoicingMeetingsPhoneAnd')}
             </p>
             <div className="sp-hero-cta">
               <Link to="/register" className="sp-btn sp-btn-primary">
-                Get started free
+               {t('ui:SalesPage.getStartedFree')}
               </Link>
               <Link to="/login" className="sp-btn sp-btn-ghost">
-                Log in
+               {t('ui:SalesPage.logIn')}
               </Link>
             </div>
           </div>
-          <div className="sp-scroll-hint">Scroll</div>
+          <div className="sp-scroll-hint">{t('ui:SalesPage.scroll')}</div>
         </div>
       </section>
 
       {/* integrations strip — real integrations, not invented customers */}
       <section className="sp-integrations">
-        <p>Runs on the tools you already trust</p>
+        <p>{t('ui:SalesPage.runsOnTheToolsYou')}</p>
         <div className="sp-logo-row">
           {INTEGRATIONS.map((name) => (
             <span key={name}>{name}</span>
@@ -566,31 +570,30 @@ export default function SalesPage() {
       <div className="sp-light">
         {/* counters — product facts, not invented social proof */}
         <section className="sp-section">
-          <p className="sp-kicker">Everything, in one place</p>
-          <h2 className="sp-h2">Stop paying for ten tools that don&apos;t talk to each other.</h2>
+          <p className="sp-kicker">{t('ui:SalesPage.everythingInOnePlace')}</p>
+          <h2 className="sp-h2">{t('ui:SalesPage.stopPayingForTenTools')}</h2>
           <p className="sp-body-sub">
-            Every module shares one memory: the receipt you photographed shows up on the contact, the
-            meeting summary becomes the quote, the signed proposal becomes the invoice.
+           {t('ui:SalesPage.everyModuleSharesOneMemory')}
           </p>
           <div className="sp-counters">
-            <Counter target={30} suffix="+" label="built-in tools behind one login" />
-            <Counter target={20} suffix="+" label="automation triggers doing your follow-up" />
-            <Counter target={24} suffix="/7" label="background automation, always on" />
+            <Counter target={30} suffix="+" label={t('ui:SalesPage.builtInToolsBehindOne')} />
+            <Counter target={20} suffix="+" label={t('ui:SalesPage.automationTriggersDoingYourFollow')} />
+            <Counter target={24} suffix="/7" label={t('ui:SalesPage.backgroundAutomationAlwaysOn')} />
           </div>
         </section>
 
         {/* the real product, floating in the glow — genuine screenshots, not a mockup */}
         <section className="sp-showcase">
           <div className="sp-section">
-            <p className="sp-kicker">The real thing</p>
-            <h2 className="sp-h2">Open one tab. Know everything.</h2>
+            <p className="sp-kicker">{t('ui:SalesPage.theRealThing')}</p>
+            <h2 className="sp-h2">{t('ui:SalesPage.openOneTabKnowEverything')}</h2>
             <p className="sp-body-sub" style={{ margin: '0 auto' }}>
-              Live screenshots from a working O-Brain workspace — not concept art.
+             {t('ui:SalesPage.liveScreenshotsFromAWorking')}
             </p>
             <FeatureShowcase />
             <div style={{ textAlign: 'center', marginTop: '2rem' }}>
               <Link to="/features" className="sp-btn sp-btn-ghost">
-                Explore every feature in detail →
+               {t('ui:SalesPage.exploreEveryFeatureInDetail')}
               </Link>
             </div>
           </div>
@@ -598,27 +601,27 @@ export default function SalesPage() {
 
         {/* pricing */}
         <section className="sp-section" id="sp-pricing" style={{ textAlign: 'center' }}>
-          <p className="sp-kicker">Pricing</p>
-          <h2 className="sp-h2">Start free. Grow when you do.</h2>
-          <div className="sp-toggle" role="group" aria-label="Billing period">
+          <p className="sp-kicker">{t('ui:SalesPage.pricing')}</p>
+          <h2 className="sp-h2">{t('ui:SalesPage.startFreeGrowWhenYou')}</h2>
+          <div className="sp-toggle" role="group" aria-label={t('ui:SalesPage.billingPeriod')}>
             <button className={annual ? '' : 'on'} onClick={() => setAnnual(false)}>
-              Monthly
+             {t('ui:SalesPage.monthly')}
             </button>
             <button className={annual ? 'on' : ''} onClick={() => setAnnual(true)}>
-              Annual
+             {t('ui:SalesPage.annual')}
             </button>
           </div>
           <div className="sp-plans">
             {PLANS.map((plan) => (
               <div key={plan.name} className={`sp-plan${plan.featured ? ' featured' : ''}`}>
-                {plan.featured && <span className="sp-plan-flag">Most popular</span>}
+                {plan.featured && <span className="sp-plan-flag">{t('ui:SalesPage.mostPopular')}</span>}
                 <h3>{plan.name}</h3>
                 <div className="sp-plan-price">
                   {annual ? plan.annual : plan.monthly}
                   <small> /month</small>
                 </div>
                 {annual && plan.monthly !== '$0' && (
-                  <div className="sp-plan-billed">billed yearly — 2 months free</div>
+                  <div className="sp-plan-billed">{t('ui:SalesPage.billedYearly2MonthsFree')}</div>
                 )}
                 <ul style={{ textAlign: 'left' }}>
                   {plan.bullets.map((b) => (
@@ -630,21 +633,20 @@ export default function SalesPage() {
                   className={`sp-btn ${plan.featured ? 'sp-btn-primary' : 'sp-btn-ghost'}`}
                   style={plan.featured ? { textAlign: 'center' } : { color: 'var(--sp-body-text)', borderColor: '#ddd9ee', textAlign: 'center' }}
                 >
-                  {plan.monthly === '$0' ? 'Start free' : 'Start free trial'}
+                  {plan.monthly === '$0' ? t('ui:SalesPage.startFree') : t('ui:SalesPage.startFreeTrial')}
                 </Link>
               </div>
             ))}
           </div>
           <p className="sp-plan-note">
-            Enterprise from $199/month · Add-ons: SMS $15 · custom domain $9 · white-label $49 ·
-            unlimited AI messages $19 · O-Brain AI tiers from $49/month
+           {t('ui:SalesPage.enterpriseFrom199MonthAdd')}
           </p>
         </section>
 
         {/* FAQ */}
         <section className="sp-section" id="sp-faq">
-          <p className="sp-kicker">Questions</p>
-          <h2 className="sp-h2">Fair questions, straight answers.</h2>
+          <p className="sp-kicker">{t('ui:SalesPage.questions')}</p>
+          <h2 className="sp-h2">{t('ui:SalesPage.fairQuestionsStraightAnswers')}</h2>
           <div className="sp-faq">
             {FAQS.map((f, i) => (
               <div key={f.q} className={`sp-faq-item${openFaq === i ? ' open' : ''}`}>
@@ -674,49 +676,48 @@ export default function SalesPage() {
         <div className="sp-wisp" style={{ top: '8%', left: '12%' }} />
         <div className="sp-wisp" style={{ bottom: '4%', right: '10%', animationDelay: '-8s' }} />
         <div className="sp-section">
-          <p className="sp-kicker">Everything under control</p>
-          <h2 className="sp-h2">Run tomorrow with a clear head.</h2>
+          <p className="sp-kicker">{t('ui:SalesPage.everythingUnderControl')}</p>
+          <h2 className="sp-h2">{t('ui:SalesPage.runTomorrowWithAClear')}</h2>
           <p className="sp-body-sub" style={{ margin: '0 auto' }}>
-            Tell us where to reach you and we&apos;ll set your workspace up — the Starter tier is
-            genuinely free.
+           {t('ui:SalesPage.tellUsWhereToReach')}
           </p>
           {DEMO_WEBHOOK_KEY ? (
             formState === 'ok' ? (
               <p className="sp-form-ok">
-                Got it — your request just became a contact in our own CRM. We&apos;ll be in touch shortly.
+               {t('ui:SalesPage.gotItYourRequestJust')}
               </p>
             ) : (
               <form className="sp-demo-form" onSubmit={submitDemo}>
                 <input
                   required
-                  placeholder="Your name"
+                  placeholder={t('ui:SalesPage.yourName')}
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                 />
                 <input
                   required
                   type="email"
-                  placeholder="Work email"
+                  placeholder={t('ui:SalesPage.workEmail')}
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
                 />
                 <input
-                  placeholder="Company (optional)"
+                  placeholder={t('ui:SalesPage.companyOptional')}
                   value={form.company}
                   onChange={(e) => setForm({ ...form, company: e.target.value })}
                 />
                 <textarea
                   rows={3}
-                  placeholder="What should we show you first? (optional)"
+                  placeholder={t('ui:SalesPage.whatShouldWeShowYou')}
                   value={form.message}
                   onChange={(e) => setForm({ ...form, message: e.target.value })}
                 />
                 <button className="sp-btn sp-btn-primary" disabled={formState === 'sending'} type="submit">
-                  {formState === 'sending' ? 'Sending…' : 'Get started free'}
+                  {formState === 'sending' ? t('ui:SalesPage.sending') : t('ui:SalesPage.getStartedFree')}
                 </button>
                 {formState === 'error' && (
                   <p style={{ color: '#be123c', fontSize: '0.85rem', margin: 0 }}>
-                    That didn&apos;t go through — try again, or email us directly.
+                   {t('ui:SalesPage.thatDidnTGoThrough')}
                   </p>
                 )}
               </form>
@@ -724,7 +725,7 @@ export default function SalesPage() {
           ) : (
             <div className="sp-hero-cta" style={{ marginTop: '2rem' }}>
               <Link to="/login" className="sp-btn sp-btn-primary">
-                Log in to your workspace
+               {t('ui:SalesPage.logInToYourWorkspace')}
               </Link>
             </div>
           )}
@@ -733,13 +734,13 @@ export default function SalesPage() {
 
       <footer className="sp-footer">
         <div>
-          <Link to="/login">Log in</Link>
-          <Link to="/portal">Client portal</Link>
-          <a href="#sp-pricing">Pricing</a>
-          <Link to="/privacy">Privacy</Link>
-          <Link to="/terms">Terms</Link>
+          <Link to="/login">{t('ui:SalesPage.logIn')}</Link>
+          <Link to="/portal">{t('ui:SalesPage.clientPortal')}</Link>
+          <a href="#sp-pricing">{t('ui:SalesPage.pricing')}</a>
+          <Link to="/privacy">{t('ui:SalesPage.privacy')}</Link>
+          <Link to="/terms">{t('ui:SalesPage.terms')}</Link>
         </div>
-        <p style={{ marginTop: '0.9rem' }}>O-Brain — Your business, remembered. · An OCIDM product</p>
+        <p style={{ marginTop: '0.9rem' }}>{t('ui:SalesPage.oBrainYourBusinessRemembered')}</p>
       </footer>
     </div>
   )

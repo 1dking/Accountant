@@ -11,12 +11,16 @@ import {
   type MeetingFilters,
 } from '@/api/meetings'
 import type { Meeting, MeetingListItem, MeetingStatus } from '@/types/models'
+import { useTranslation } from 'react-i18next'
+import i18n from '@/i18n'
+import { uiLocale } from '@/lib/utils'
 
 /** Commit 29 — persistent personal meeting room card. Always
  *  rendered at the top of /meetings. The slug never changes, so the
  *  host can paste /m/{slug} into Calendly / Google Calendar / email
  *  signature and every booking reuses the same URL. */
 function PersonalRoomCard() {
+  const { t } = useTranslation('ui')
   const navigate = useNavigate()
   const [copied, setCopied] = useState(false)
   const { data } = useQuery({
@@ -32,10 +36,10 @@ function PersonalRoomCard() {
     try {
       await navigator.clipboard.writeText(shareUrl)
       setCopied(true)
-      toast.success('Meeting link copied')
+      toast.success(t('ui:MeetingsPage.meetingLinkCopied'))
       setTimeout(() => setCopied(false), 1800)
     } catch {
-      toast.error('Could not copy link')
+      toast.error(t('ui:MeetingsPage.couldNotCopyLink'))
     }
   }
 
@@ -55,14 +59,14 @@ function PersonalRoomCard() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
             <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-              Your meeting room
+             {t('ui:MeetingsPage.yourMeetingRoom')}
             </h3>
             <span className="text-[10px] uppercase tracking-wider font-semibold text-indigo-600 dark:text-indigo-400">
-              Permanent link
+             {t('ui:MeetingsPage.permanentLink')}
             </span>
           </div>
           <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
-            Paste this URL into your email signature, Calendly, or any calendar invite — every meeting in this room uses the same address.
+           {t('ui:MeetingsPage.pasteThisUrlIntoYour')}
           </p>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -84,7 +88,7 @@ function PersonalRoomCard() {
               }`}
             >
               {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-              {copied ? 'Copied' : 'Copy link'}
+              {copied ? t('ui:MeetingsPage.copied') : t('ui:MeetingsPage.copyLink')}
             </button>
             <button
               onClick={startMeeting}
@@ -92,7 +96,7 @@ function PersonalRoomCard() {
               className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-white rounded-lg hover:opacity-90 transition"
             >
               <Video className="h-3.5 w-3.5" />
-              Start meeting
+             {t('ui:MeetingsPage.startMeeting')}
             </button>
           </div>
         </div>
@@ -102,18 +106,19 @@ function PersonalRoomCard() {
 }
 
 const STATUS_TABS: { value: string; label: string }[] = [
-  { value: 'scheduled', label: 'Upcoming' },
-  { value: 'in_progress', label: 'In Progress' },
-  { value: 'completed', label: 'Past' },
-  { value: 'cancelled', label: 'Cancelled' },
+  { value: 'scheduled', label: i18n.t('ui:MeetingsPage.upcoming') },
+  { value: 'in_progress', label: i18n.t('ui:MeetingsPage.inProgress') },
+  { value: 'completed', label: i18n.t('ui:MeetingsPage.past') },
+  { value: 'cancelled', label: i18n.t('ui:MeetingsPage.cancelled') },
 ]
 
 function StatusBadge({ status }: { status: MeetingStatus }) {
+  const { t } = useTranslation('ui')
   const config: Record<MeetingStatus, { bg: string; text: string; label: string; pulse?: boolean }> = {
-    scheduled: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Scheduled' },
-    in_progress: { bg: 'bg-green-100', text: 'text-green-700', label: 'In Progress', pulse: true },
-    completed: { bg: 'bg-gray-100', text: 'text-gray-600', label: 'Completed' },
-    cancelled: { bg: 'bg-red-100', text: 'text-red-700', label: 'Cancelled' },
+    scheduled: { bg: 'bg-blue-100', text: 'text-blue-700', label: t('ui:MeetingsPage.scheduled') },
+    in_progress: { bg: 'bg-green-100', text: 'text-green-700', label: t('ui:MeetingsPage.inProgress'), pulse: true },
+    completed: { bg: 'bg-gray-100', text: 'text-gray-600', label: t('ui:MeetingsPage.completed') },
+    cancelled: { bg: 'bg-red-100', text: 'text-red-700', label: t('ui:MeetingsPage.cancelled') },
   }
   const c = config[status]
   return (
@@ -126,7 +131,7 @@ function StatusBadge({ status }: { status: MeetingStatus }) {
 
 function formatDateTime(iso: string): string {
   const d = new Date(iso)
-  return d.toLocaleDateString('en-US', {
+  return d.toLocaleDateString(uiLocale(), {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
@@ -137,7 +142,7 @@ function formatDateTime(iso: string): string {
 
 function formatTime(iso: string): string {
   const d = new Date(iso)
-  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  return d.toLocaleTimeString(uiLocale(), { hour: 'numeric', minute: '2-digit' })
 }
 
 /** Commit 8 — "+ New meeting" dropdown.
@@ -148,6 +153,7 @@ function formatTime(iso: string): string {
  *   - Schedule for later → existing NewMeetingPage form.
  */
 function NewMeetingButton() {
+  const { t } = useTranslation('ui')
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -160,7 +166,7 @@ function NewMeetingButton() {
       navigate(`/meetings/${meetingId}/room?action=join`)
     },
     onError: (e: any) =>
-      toast.error(`Couldn't start meeting: ${e?.message || 'unknown'}`),
+      toast.error(t('ui:MeetingsPage.couldnTStartMeetingV0', { v0: e?.message || 'unknown' })),
   })
 
   // Click-outside close
@@ -183,13 +189,13 @@ function NewMeetingButton() {
         {instantMut.isPending
           ? <Loader2 className="h-4 w-4 animate-spin" />
           : <Plus className="h-4 w-4" />}
-        New meeting
+       {t('ui:MeetingsPage.newMeeting')}
         <ChevronDown className="h-3.5 w-3.5 -mr-1 opacity-80" />
       </button>
       {open && (
         <div className="absolute right-0 mt-1.5 w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl z-30 overflow-hidden">
           <div className="px-4 pt-3 pb-1.5 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-            Start instant
+           {t('ui:MeetingsPage.startInstant')}
           </div>
           <button
             onClick={() => { setOpen(false); instantMut.mutate('discovery_call') }}
@@ -197,9 +203,9 @@ function NewMeetingButton() {
           >
             <Briefcase className="h-4 w-4 text-emerald-500 mt-0.5 flex-shrink-0" />
             <div>
-              <div className="text-sm font-medium text-gray-900 dark:text-gray-100">Discovery call</div>
+              <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{t('ui:MeetingsPage.discoveryCall')}</div>
               <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                Records + drafts a quote
+               {t('ui:MeetingsPage.recordsDraftsAQuote')}
               </div>
             </div>
           </button>
@@ -209,9 +215,9 @@ function NewMeetingButton() {
           >
             <Users className="h-4 w-4 text-violet-500 mt-0.5 flex-shrink-0" />
             <div>
-              <div className="text-sm font-medium text-gray-900 dark:text-gray-100">Internal sync</div>
+              <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{t('ui:MeetingsPage.internalSync')}</div>
               <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                No recording, no quote draft
+               {t('ui:MeetingsPage.noRecordingNoQuoteDraft')}
               </div>
             </div>
           </button>
@@ -221,9 +227,9 @@ function NewMeetingButton() {
           >
             <Zap className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
             <div>
-              <div className="text-sm font-medium text-gray-900 dark:text-gray-100">Quick meeting</div>
+              <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{t('ui:MeetingsPage.quickMeeting')}</div>
               <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                Generic — no AI bias
+               {t('ui:MeetingsPage.genericNoAiBias')}
               </div>
             </div>
           </button>
@@ -233,9 +239,9 @@ function NewMeetingButton() {
           >
             <Calendar className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
             <div>
-              <div className="text-sm font-medium text-gray-900 dark:text-gray-100">Schedule for later</div>
+              <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{t('ui:MeetingsPage.scheduleForLater')}</div>
               <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                Pick a date + invite participants
+               {t('ui:MeetingsPage.pickADateInviteParticipants')}
               </div>
             </div>
           </button>
@@ -254,6 +260,7 @@ function NewMeetingButton() {
 function TranscriptSearchBar({
   query, setQuery,
 }: { query: string; setQuery: (v: string) => void }) {
+  const { t } = useTranslation('ui')
   return (
     <div className="relative mb-4">
       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500 pointer-events-none" />
@@ -261,14 +268,14 @@ function TranscriptSearchBar({
         type="text"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder='Search across all meeting transcripts…'
+        placeholder={t('ui:MeetingsPage.searchAcrossAllMeetingTranscripts')}
         className="w-full pl-9 pr-9 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
       />
       {query && (
         <button
           onClick={() => setQuery('')}
           className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-          title="Clear search"
+          title={t('ui:MeetingsPage.clearSearch')}
         >
           <X className="h-4 w-4" />
         </button>
@@ -281,6 +288,7 @@ function TranscriptSearchBar({
 function SearchResults({
   query, navigate,
 }: { query: string; navigate: ReturnType<typeof useNavigate> }) {
+  const { t } = useTranslation('ui')
   const [debouncedQ, setDebouncedQ] = useState(query)
 
   useEffect(() => {
@@ -297,7 +305,7 @@ function SearchResults({
   if (debouncedQ.trim().length < 2) {
     return (
       <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-12">
-        Type 2+ characters to search transcripts.
+       {t('ui:MeetingsPage.type2CharactersToSearch')}
       </p>
     )
   }
@@ -308,7 +316,7 @@ function SearchResults({
   if (hits.length === 0) {
     return (
       <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-12">
-        No transcripts match <span className="font-mono">"{debouncedQ}"</span>.
+       {t('ui:MeetingsPage.noTranscriptsMatch')} <span className="font-mono">"{debouncedQ}"</span>.
       </p>
     )
   }
@@ -316,13 +324,13 @@ function SearchResults({
   function fmtTs(t: string | null): string {
     if (!t) return ''
     const d = new Date(t)
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    return d.toLocaleDateString(uiLocale(), { month: 'short', day: 'numeric', year: 'numeric' })
   }
 
   return (
     <div className="space-y-3">
       <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-        {hits.length} match{hits.length === 1 ? '' : 'es'} for "{debouncedQ}"
+        {hits.length} match{hits.length === 1 ? '' : 'es'} {t('ui:MeetingsPage.for')}{debouncedQ}"
       </p>
       {hits.map((h) => (
         <button
@@ -357,6 +365,7 @@ function SearchResults({
 
 
 export default function MeetingsPage() {
+  const { t } = useTranslation('ui')
   const navigate = useNavigate()
   const [statusTab, setStatusTab] = useState('scheduled')
   const [filters, setFilters] = useState<MeetingFilters>({ page: 1, page_size: 25 })
@@ -378,7 +387,7 @@ export default function MeetingsPage() {
     <div className="p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Meetings</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('ui:MeetingsPage.meetings')}</h1>
         <NewMeetingButton />
       </div>
 
@@ -419,11 +428,11 @@ export default function MeetingsPage() {
       {!isLoading && meetings.length === 0 && (
         <div className="text-center py-20">
           <Video className="h-10 w-10 mx-auto mb-3 text-gray-300" />
-          <p className="text-gray-500 dark:text-gray-400 text-sm">No meetings found</p>
+          <p className="text-gray-500 dark:text-gray-400 text-sm">{t('ui:MeetingsPage.noMeetingsFound')}</p>
           <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">
             {statusTab === 'scheduled'
-              ? 'Schedule a meeting to get started'
-              : `No ${statusTab.replace('_', ' ')} meetings`}
+              ? t('ui:MeetingsPage.scheduleAMeetingToGet')
+              : t('ui:MeetingsPage.noV0Meetings', { v0: statusTab.replace('_', ' ') })}
           </p>
         </div>
       )}
@@ -452,7 +461,7 @@ export default function MeetingsPage() {
                 {meeting.scheduled_end && (
                   <div className="flex items-center gap-2">
                     <Clock className="h-3.5 w-3.5" />
-                    <span>Ends {formatTime(meeting.scheduled_end)}</span>
+                    <span>{t('ui:MeetingsPage.ends')} {formatTime(meeting.scheduled_end)}</span>
                   </div>
                 )}
                 <div className="flex items-center gap-2">
@@ -469,7 +478,7 @@ export default function MeetingsPage() {
                     className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors"
                   >
                     <Video className="h-3.5 w-3.5" />
-                    Join Meeting
+                   {t('ui:MeetingsPage.joinMeeting')}
                   </button>
                 )}
                 {meeting.status === 'scheduled' && (
@@ -478,7 +487,7 @@ export default function MeetingsPage() {
                     className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
                   >
                     <Video className="h-3.5 w-3.5" />
-                    Start Meeting
+                   {t('ui:MeetingsPage.startMeeting_2')}
                   </button>
                 )}
               </div>
@@ -491,7 +500,7 @@ export default function MeetingsPage() {
       {meta && meta.total_pages > 1 && (
         <div className="flex items-center justify-between mt-6">
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Page {meta.page} of {meta.total_pages} ({meta.total_count} meetings)
+           {t('ui:MeetingsPage.page')} {meta.page} of {meta.total_pages} ({meta.total_count} {t('ui:MeetingsPage.meetings_2')}
           </p>
           <div className="flex gap-2">
             <button
@@ -499,14 +508,14 @@ export default function MeetingsPage() {
               onClick={() => setFilters(f => ({ ...f, page: (f.page ?? 1) - 1 }))}
               className="px-3 py-1.5 text-sm border dark:border-gray-600 rounded-lg disabled:opacity-50 hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-300"
             >
-              Previous
+             {t('ui:MeetingsPage.previous')}
             </button>
             <button
               disabled={meta.page >= meta.total_pages}
               onClick={() => setFilters(f => ({ ...f, page: (f.page ?? 1) + 1 }))}
               className="px-3 py-1.5 text-sm border dark:border-gray-600 rounded-lg disabled:opacity-50 hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-300"
             >
-              Next
+             {t('ui:MeetingsPage.next')}
             </button>
           </div>
         </div>

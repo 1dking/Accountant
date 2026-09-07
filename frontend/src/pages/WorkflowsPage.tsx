@@ -40,31 +40,33 @@ import type {
 import StepConfigForm from '@/components/workflows/StepConfigForm'
 import { Link, useNavigate } from 'react-router'
 import { Workflow as CanvasIcon } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import i18n from '@/i18n'
 
 const TRIGGER_TYPES = [
-  { value: 'contact_created', label: 'Contact Created' },
-  { value: 'contact_updated', label: 'Contact Updated' },
-  { value: 'contact_tagged', label: 'Contact Tagged' },
-  { value: 'invoice_sent', label: 'Invoice Sent' },
-  { value: 'invoice_paid', label: 'Invoice Paid' },
-  { value: 'invoice_overdue', label: 'Invoice Overdue' },
-  { value: 'form_submitted', label: 'Form Submitted' },
-  { value: 'proposal_signed', label: 'Proposal Signed' },
-  { value: 'manual', label: 'Manual Trigger' },
-  { value: 'schedule', label: 'Scheduled' },
+  { value: 'contact_created', label: i18n.t('ui:WorkflowsPage.contactCreated') },
+  { value: 'contact_updated', label: i18n.t('ui:WorkflowsPage.contactUpdated') },
+  { value: 'contact_tagged', label: i18n.t('ui:WorkflowsPage.contactTagged') },
+  { value: 'invoice_sent', label: i18n.t('ui:WorkflowsPage.invoiceSent') },
+  { value: 'invoice_paid', label: i18n.t('ui:WorkflowsPage.invoicePaid') },
+  { value: 'invoice_overdue', label: i18n.t('ui:WorkflowsPage.invoiceOverdue') },
+  { value: 'form_submitted', label: i18n.t('ui:WorkflowsPage.formSubmitted') },
+  { value: 'proposal_signed', label: i18n.t('ui:WorkflowsPage.proposalSigned') },
+  { value: 'manual', label: i18n.t('ui:WorkflowsPage.manualTrigger') },
+  { value: 'schedule', label: i18n.t('ui:WorkflowsPage.scheduled') },
 ]
 
 const ACTION_TYPES = [
-  { value: 'send_email', label: 'Send Email' },
-  { value: 'send_sms', label: 'Send SMS' },
-  { value: 'create_task', label: 'Create Task' },
-  { value: 'update_contact', label: 'Update Contact' },
-  { value: 'add_tag', label: 'Add Tag' },
-  { value: 'remove_tag', label: 'Remove Tag' },
-  { value: 'create_invoice', label: 'Create Invoice' },
-  { value: 'webhook', label: 'Webhook' },
-  { value: 'wait', label: 'Wait / Delay' },
-  { value: 'condition', label: 'Condition Check' },
+  { value: 'send_email', label: i18n.t('ui:WorkflowsPage.sendEmail') },
+  { value: 'send_sms', label: i18n.t('ui:WorkflowsPage.sendSms') },
+  { value: 'create_task', label: i18n.t('ui:WorkflowsPage.createTask') },
+  { value: 'update_contact', label: i18n.t('ui:WorkflowsPage.updateContact') },
+  { value: 'add_tag', label: i18n.t('ui:WorkflowsPage.addTag') },
+  { value: 'remove_tag', label: i18n.t('ui:WorkflowsPage.removeTag') },
+  { value: 'create_invoice', label: i18n.t('ui:WorkflowsPage.createInvoice') },
+  { value: 'webhook', label: i18n.t('ui:WorkflowsPage.webhook') },
+  { value: 'wait', label: i18n.t('ui:WorkflowsPage.waitDelay') },
+  { value: 'condition', label: i18n.t('ui:WorkflowsPage.conditionCheck') },
 ]
 
 interface StepDraft {
@@ -103,6 +105,7 @@ function statusIcon(status: string) {
 }
 
 export default function WorkflowsPage() {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -143,7 +146,7 @@ export default function WorkflowsPage() {
     mutationFn: (data: WorkflowCreateData) => createWorkflow(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workflows'] })
-      toast.success('Workflow created')
+      toast.success(t('ui:WorkflowsPage.workflowCreated'))
       closeDialog()
     },
     onError: (err: any) => toast.error(err.message || 'Failed to create workflow'),
@@ -152,7 +155,7 @@ export default function WorkflowsPage() {
   const createCanvasMutation = useMutation({
     mutationFn: () =>
       createWorkflow({
-        name: 'Untitled automation',
+        name: t('ui:WorkflowsPage.untitledAutomation'),
         trigger_type: 'contact_created',
         trigger_config_json: '{}',
         steps: [],
@@ -170,7 +173,7 @@ export default function WorkflowsPage() {
       updateWorkflow(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workflows'] })
-      toast.success('Workflow updated')
+      toast.success(t('ui:WorkflowsPage.workflowUpdated'))
       closeDialog()
     },
     onError: (err: any) => toast.error(err.message || 'Failed to update workflow'),
@@ -180,7 +183,7 @@ export default function WorkflowsPage() {
     mutationFn: (id: string) => deleteWorkflow(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workflows'] })
-      toast.success('Workflow deleted')
+      toast.success(t('ui:WorkflowsPage.workflowDeleted'))
     },
     onError: (err: any) => toast.error(err.message || 'Failed to delete workflow'),
   })
@@ -229,7 +232,7 @@ export default function WorkflowsPage() {
       }
       setDialogOpen(true)
     } catch {
-      toast.error('Failed to load workflow')
+      toast.error(t('ui:WorkflowsPage.failedToLoadWorkflow'))
     }
   }
 
@@ -248,7 +251,7 @@ export default function WorkflowsPage() {
       }))
     )
     setShowTemplates(false)
-    toast.success(`Template "${tpl.name}" applied`)
+    toast.success(t('ui:WorkflowsPage.templateNameApplied', { name: tpl.name }))
   }
 
   function addStep() {
@@ -278,7 +281,7 @@ export default function WorkflowsPage() {
 
   function handleSave() {
     if (!name.trim()) {
-      toast.error('Name is required')
+      toast.error(t('ui:WorkflowsPage.nameIsRequired'))
       return
     }
     const payload = {
@@ -302,7 +305,7 @@ export default function WorkflowsPage() {
   }
 
   function handleDelete(id: string) {
-    if (confirm('Delete this workflow? This cannot be undone.')) {
+    if (confirm(t('ui:WorkflowsPage.deleteThisWorkflowThisCannot'))) {
       deleteMutation.mutate(id)
     }
   }
@@ -315,7 +318,7 @@ export default function WorkflowsPage() {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <Zap className="h-6 w-6 text-amber-500" />
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Workflows</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('ui:WorkflowsPage.workflows')}</h1>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -328,14 +331,14 @@ export default function WorkflowsPage() {
             ) : (
               <CanvasIcon className="h-4 w-4" />
             )}
-            Automation Canvas
+           {t('ui:WorkflowsPage.automationCanvas')}
           </button>
           <button
             onClick={() => setDialogOpen(true)}
             className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
           >
             <Plus className="h-4 w-4" />
-            New Workflow
+           {t('ui:WorkflowsPage.newWorkflow')}
           </button>
         </div>
       </div>
@@ -348,16 +351,16 @@ export default function WorkflowsPage() {
       ) : workflows.length === 0 ? (
         <div className="text-center py-20 text-gray-400 dark:text-gray-500">
           <Zap className="h-12 w-12 mx-auto mb-3 opacity-50" />
-          <p className="text-lg font-medium">No workflows yet</p>
+          <p className="text-lg font-medium">{t('ui:WorkflowsPage.noWorkflowsYet')}</p>
           <p className="text-sm mt-1">
-            Build one visually with the drag-and-drop{' '}
+           {t('ui:WorkflowsPage.buildOneVisuallyWithThe')}{' '}
             <button
               onClick={() => createCanvasMutation.mutate()}
               className="text-purple-600 dark:text-purple-400 hover:underline font-medium"
             >
-              Automation Canvas
+             {t('ui:WorkflowsPage.automationCanvas')}
             </button>
-            , or use the classic step editor above.
+           {t('ui:WorkflowsPage.orUseTheClassicStep')}
           </p>
         </div>
       ) : (
@@ -367,22 +370,22 @@ export default function WorkflowsPage() {
               <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
                 <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400 w-8" />
                 <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">
-                  Name
+                 {t('ui:WorkflowsPage.name')}
                 </th>
                 <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">
-                  Trigger
+                 {t('ui:WorkflowsPage.trigger')}
                 </th>
                 <th className="text-center px-4 py-3 font-medium text-gray-500 dark:text-gray-400">
-                  Active
+                 {t('ui:WorkflowsPage.active')}
                 </th>
                 <th className="text-center px-4 py-3 font-medium text-gray-500 dark:text-gray-400">
-                  Runs
+                 {t('ui:WorkflowsPage.runs')}
                 </th>
                 <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">
-                  Last Run
+                 {t('ui:WorkflowsPage.lastRun')}
                 </th>
                 <th className="text-right px-4 py-3 font-medium text-gray-500 dark:text-gray-400">
-                  Actions
+                 {t('ui:WorkflowsPage.actions')}
                 </th>
               </tr>
             </thead>
@@ -418,7 +421,7 @@ export default function WorkflowsPage() {
             {/* Dialog Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                {editingId ? 'Edit Workflow' : 'New Workflow'}
+                {editingId ? t('ui:WorkflowsPage.editWorkflow') : t('ui:WorkflowsPage.newWorkflow')}
               </h2>
               <button
                 onClick={closeDialog}
@@ -437,7 +440,7 @@ export default function WorkflowsPage() {
                     className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:underline"
                   >
                     <Copy className="h-4 w-4" />
-                    {showTemplates ? 'Hide templates' : 'Start from a template'}
+                    {showTemplates ? t('ui:WorkflowsPage.hideTemplates') : t('ui:WorkflowsPage.startFromATemplate')}
                   </button>
                   {showTemplates && (
                     <div className="mt-2 grid gap-2">
@@ -463,13 +466,13 @@ export default function WorkflowsPage() {
               {/* Name */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Name
+                 {t('ui:WorkflowsPage.name')}
                 </label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Welcome New Clients"
+                  placeholder={t('ui:WorkflowsPage.eGWelcomeNewClients')}
                   className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100"
                 />
               </div>
@@ -477,12 +480,12 @@ export default function WorkflowsPage() {
               {/* Description */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Description
+                 {t('ui:WorkflowsPage.description')}
                 </label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Optional description..."
+                  placeholder={t('ui:WorkflowsPage.optionalDescription')}
                   rows={2}
                   className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100 resize-none"
                 />
@@ -491,7 +494,7 @@ export default function WorkflowsPage() {
               {/* Trigger type */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Trigger Type
+                 {t('ui:WorkflowsPage.triggerType')}
                 </label>
                 <select
                   value={triggerType}
@@ -509,7 +512,7 @@ export default function WorkflowsPage() {
               {/* Trigger config */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Trigger Config (JSON)
+                 {t('ui:WorkflowsPage.triggerConfigJson')}
                 </label>
                 <textarea
                   value={triggerConfigJson}
@@ -523,14 +526,14 @@ export default function WorkflowsPage() {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Steps
+                   {t('ui:WorkflowsPage.steps')}
                   </label>
                   <button
                     onClick={addStep}
                     className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
                   >
                     <Plus className="h-3 w-3" />
-                    Add Step
+                   {t('ui:WorkflowsPage.addStep')}
                   </button>
                 </div>
                 <div className="space-y-3">
@@ -541,7 +544,7 @@ export default function WorkflowsPage() {
                     >
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                          Step {step.step_order}
+                         {t('ui:WorkflowsPage.step')} {step.step_order}
                         </span>
                         <div className="flex items-center gap-1">
                           <button
@@ -571,7 +574,7 @@ export default function WorkflowsPage() {
                       <div className="grid grid-cols-2 gap-3 mb-2">
                         <div>
                           <label className="block text-xs text-gray-500 dark:text-gray-400 mb-0.5">
-                            Action Type
+                           {t('ui:WorkflowsPage.actionType')}
                           </label>
                           <select
                             value={step.action_type}
@@ -590,7 +593,7 @@ export default function WorkflowsPage() {
                         {step.action_type === 'wait' && (
                           <div>
                             <label className="block text-xs text-gray-500 dark:text-gray-400 mb-0.5">
-                              Wait (seconds)
+                             {t('ui:WorkflowsPage.waitSeconds')}
                             </label>
                             <input
                               type="number"
@@ -615,7 +618,7 @@ export default function WorkflowsPage() {
                       {step.action_type === 'condition' && (
                         <div className="mt-2">
                           <label className="block text-xs text-gray-500 dark:text-gray-400 mb-0.5">
-                            Condition (JSON)
+                           {t('ui:WorkflowsPage.conditionJson')}
                           </label>
                           <textarea
                             value={step.condition_json}
@@ -639,7 +642,7 @@ export default function WorkflowsPage() {
                 onClick={closeDialog}
                 className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
               >
-                Cancel
+               {t('ui:WorkflowsPage.cancel')}
               </button>
               <button
                 onClick={handleSave}
@@ -647,7 +650,7 @@ export default function WorkflowsPage() {
                 className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
               >
                 {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
-                {editingId ? 'Save Changes' : 'Create Workflow'}
+                {editingId ? t('ui:WorkflowsPage.saveChanges') : t('ui:WorkflowsPage.createWorkflow')}
               </button>
             </div>
           </div>
@@ -676,6 +679,7 @@ function WorkflowRow({
   onEdit,
   onDelete,
 }: WorkflowRowProps) {
+  const { t } = useTranslation('ui')
   return (
     <>
       <tr className="border-b border-gray-50 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/30">
@@ -712,11 +716,11 @@ function WorkflowRow({
           >
             {wf.is_active ? (
               <>
-                <Power className="h-3.5 w-3.5" /> On
+                <Power className="h-3.5 w-3.5" /> {t('ui:WorkflowsPage.on')}
               </>
             ) : (
               <>
-                <PowerOff className="h-3.5 w-3.5" /> Off
+                <PowerOff className="h-3.5 w-3.5" /> {t('ui:WorkflowsPage.off')}
               </>
             )}
           </button>
@@ -739,21 +743,21 @@ function WorkflowRow({
             <Link
               to={`/workflows/${wf.id}/canvas`}
               className="p-1.5 rounded-lg text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20"
-              title="Open in canvas"
+              title={t('ui:WorkflowsPage.openInCanvas')}
             >
               <CanvasIcon className="h-4 w-4" />
             </Link>
             <button
               onClick={onEdit}
               className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-              title="Edit"
+              title={t('ui:WorkflowsPage.edit')}
             >
               <Pencil className="h-4 w-4" />
             </button>
             <button
               onClick={onDelete}
               className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-              title="Delete"
+              title={t('ui:WorkflowsPage.delete')}
             >
               <Trash2 className="h-4 w-4" />
             </button>
@@ -766,11 +770,11 @@ function WorkflowRow({
         <tr>
           <td colSpan={7} className="px-4 py-3 bg-gray-50 dark:bg-gray-800/30">
             <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
-              Execution Log
+             {t('ui:WorkflowsPage.executionLog')}
             </p>
             {executions.length === 0 ? (
               <p className="text-xs text-gray-400 dark:text-gray-500">
-                No executions recorded yet.
+               {t('ui:WorkflowsPage.noExecutionsRecordedYet')}
               </p>
             ) : (
               <div className="space-y-1.5">
@@ -788,7 +792,7 @@ function WorkflowRow({
                     </span>
                     {ex.completed_at && (
                       <span className="text-gray-400 dark:text-gray-500">
-                        Duration:{' '}
+                       {t('ui:WorkflowsPage.duration')}{' '}
                         {Math.round(
                           (new Date(ex.completed_at).getTime() -
                             new Date(ex.started_at).getTime()) /

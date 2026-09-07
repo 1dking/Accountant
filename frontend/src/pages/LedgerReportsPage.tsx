@@ -13,6 +13,7 @@ import {
   type StatementLine,
 } from '@/api/accounting'
 import { formatDate } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
 
 type Tab = 'profit-loss' | 'balance-sheet' | 'marketing' | 'gst-hst' | 'trial-balance' | 'general-ledger'
 const TAB_LABELS: Record<Tab, string> = {
@@ -30,6 +31,7 @@ function money(n: string): string {
 }
 
 export default function LedgerReportsPage() {
+  const { t } = useTranslation('ui')
   const [tab, setTab] = useState<Tab>('profit-loss')
   const today = new Date().toISOString().slice(0, 10)
   const [dateFrom, setDateFrom] = useState('')
@@ -48,7 +50,7 @@ export default function LedgerReportsPage() {
         await downloadStatementPdf('profit-loss', params)
       }
     } catch {
-      alert('Could not generate the PDF. Please try again.')
+      alert(t('ui:LedgerReportsPage.couldNotGenerateThePdf'))
     } finally {
       setDownloading(false)
     }
@@ -59,11 +61,10 @@ export default function LedgerReportsPage() {
       <div>
         <div className="flex items-center gap-2">
           <Scale className="w-6 h-6 text-gray-700 dark:text-gray-300" />
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Financial Statements</h1>
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">{t('ui:LedgerReportsPage.financialStatements')}</h1>
         </div>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Profit &amp; Loss, Balance Sheet, Trial Balance and General Ledger — computed live from your
-          cashbook and journal, so they always tie out.
+         {t('ui:LedgerReportsPage.profitLossBalanceSheetTrial')}
         </p>
       </div>
 
@@ -89,7 +90,7 @@ export default function LedgerReportsPage() {
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
             className="px-2 py-1.5 border rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
-            title="From (optional)"
+            title={t('ui:LedgerReportsPage.fromOptional')}
           />
           <span className="text-gray-400">→</span>
           <input
@@ -97,14 +98,14 @@ export default function LedgerReportsPage() {
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
             className="px-2 py-1.5 border rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
-            title="As of"
+            title={t('ui:LedgerReportsPage.asOf')}
           />
           {exportable && (
             <button
               onClick={handleExport}
               disabled={downloading}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900 text-sm font-medium disabled:opacity-60 hover:opacity-90"
-              title={`Download the ${tab === 'balance-sheet' ? 'Balance Sheet' : 'P&L'} as a PDF`}
+              title={t('ui:LedgerReportsPage.downloadTheV0AsA', { v0: tab === 'balance-sheet' ? 'Balance Sheet' : 'P&L' })}
             >
               {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
               PDF
@@ -124,11 +125,12 @@ export default function LedgerReportsPage() {
 }
 
 function StatementSection({ title, lines, total }: { title: string; lines: StatementLine[]; total: string }) {
+  const { t } = useTranslation('ui')
   return (
     <div>
       <div className="px-4 py-2 bg-gray-50 dark:bg-gray-800/50 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{title}</div>
       {lines.length === 0 ? (
-        <div className="px-4 py-3 text-sm text-gray-400">None</div>
+        <div className="px-4 py-3 text-sm text-gray-400">{t('ui:LedgerReportsPage.none')}</div>
       ) : lines.map((l) => (
         <div key={l.code} className="flex justify-between gap-3 px-4 py-2 border-t border-gray-100 dark:border-gray-800 text-sm">
           <span className="text-gray-900 dark:text-gray-100 truncate"><span className="font-mono text-gray-400 mr-2">{l.code}</span>{l.name}</span>
@@ -136,7 +138,7 @@ function StatementSection({ title, lines, total }: { title: string; lines: State
         </div>
       ))}
       <div className="flex justify-between px-4 py-2 border-t border-gray-200 dark:border-gray-700 text-sm font-medium">
-        <span className="text-gray-500 dark:text-gray-400">Total {title}</span>
+        <span className="text-gray-500 dark:text-gray-400">{t('ui:LedgerReportsPage.total')} {title}</span>
         <span className="tabular-nums">${money(total)}</span>
       </div>
     </div>
@@ -144,6 +146,7 @@ function StatementSection({ title, lines, total }: { title: string; lines: State
 }
 
 function ProfitLossView({ params }: { params: { date_from?: string; date_to?: string } }) {
+  const { t } = useTranslation('ui')
   const { data, isLoading } = useQuery({ queryKey: ['profit-loss', params], queryFn: () => getProfitLoss(params) })
   const pl = data?.data
   if (isLoading) return <Spinner />
@@ -151,10 +154,10 @@ function ProfitLossView({ params }: { params: { date_from?: string; date_to?: st
   const net = parseFloat(pl.net_profit)
   return (
     <div className="border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden">
-      <StatementSection title="Revenue" lines={pl.income} total={pl.total_income} />
-      <StatementSection title="Expenses" lines={pl.expenses} total={pl.total_expenses} />
+      <StatementSection title={t('ui:LedgerReportsPage.revenue')} lines={pl.income} total={pl.total_income} />
+      <StatementSection title={t('ui:LedgerReportsPage.expenses')} lines={pl.expenses} total={pl.total_expenses} />
       <div className="flex justify-between px-4 py-3 border-t-2 border-gray-200 dark:border-gray-700 font-semibold">
-        <span>Net {net >= 0 ? 'profit' : 'loss'}</span>
+        <span>{t('ui:LedgerReportsPage.net')} {net >= 0 ? 'profit' : 'loss'}</span>
         <span className={`tabular-nums ${net >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>${money(pl.net_profit)}</span>
       </div>
     </div>
@@ -162,6 +165,7 @@ function ProfitLossView({ params }: { params: { date_from?: string; date_to?: st
 }
 
 function BalanceSheetView({ asOf }: { asOf?: string }) {
+  const { t } = useTranslation('ui')
   const { data, isLoading } = useQuery({ queryKey: ['balance-sheet', asOf], queryFn: () => getBalanceSheet(asOf) })
   const bs = data?.data
   if (isLoading) return <Spinner />
@@ -177,15 +181,15 @@ function BalanceSheetView({ asOf }: { asOf?: string }) {
       >
         {bs.balanced ? <CheckCircle2 className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
         {bs.balanced
-          ? `Balanced — assets equal liabilities plus equity (as of ${formatDate(bs.as_of)}).`
-          : 'Out of balance — this should never happen; please report it.'}
+          ? t('ui:LedgerReportsPage.balancedAssetsEqualLiabilitiesPlus', { v0: formatDate(bs.as_of) })
+          : t('ui:LedgerReportsPage.outOfBalanceThisShould')}
       </div>
       <div className="border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden">
-        <StatementSection title="Assets" lines={bs.assets} total={bs.total_assets} />
-        <StatementSection title="Liabilities" lines={bs.liabilities} total={bs.total_liabilities} />
-        <StatementSection title="Equity" lines={bs.equity} total={bs.total_equity} />
+        <StatementSection title={t('ui:LedgerReportsPage.assets')} lines={bs.assets} total={bs.total_assets} />
+        <StatementSection title={t('ui:LedgerReportsPage.liabilities')} lines={bs.liabilities} total={bs.total_liabilities} />
+        <StatementSection title={t('ui:LedgerReportsPage.equity')} lines={bs.equity} total={bs.total_equity} />
         <div className="flex justify-between px-4 py-3 border-t-2 border-gray-200 dark:border-gray-700 font-semibold">
-          <span>Liabilities + Equity</span>
+          <span>{t('ui:LedgerReportsPage.liabilitiesEquity')}</span>
           <span className="tabular-nums">${money(bs.total_liabilities_equity)}</span>
         </div>
       </div>
@@ -194,6 +198,7 @@ function BalanceSheetView({ asOf }: { asOf?: string }) {
 }
 
 function MarketingView({ params }: { params: { date_from?: string; date_to?: string } }) {
+  const { t } = useTranslation('ui')
   const { data, isLoading } = useQuery({ queryKey: ['marketing-performance', params], queryFn: () => getMarketingPerformance(params) })
   const mp = data?.data
   if (isLoading) return <Spinner />
@@ -203,35 +208,33 @@ function MarketingView({ params }: { params: { date_from?: string; date_to?: str
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Kpi label="Blended ROAS" value={hasSpend ? `${money(mp.blended_roas as string)}×` : '—'} accent />
-        <Kpi label="Revenue" value={`$${money(mp.total_revenue)}`} />
-        <Kpi label="Ad spend" value={`$${money(mp.total_ad_spend)}`} />
-        <Kpi label="Net of ad spend" value={`$${money(mp.net_after_ad_spend)}`} />
+        <Kpi label={t('ui:LedgerReportsPage.blendedRoas')} value={hasSpend ? `${money(mp.blended_roas as string)}×` : '—'} accent />
+        <Kpi label={t('ui:LedgerReportsPage.revenue')} value={`$${money(mp.total_revenue)}`} />
+        <Kpi label={t('ui:LedgerReportsPage.adSpend')} value={`$${money(mp.total_ad_spend)}`} />
+        <Kpi label={t('ui:LedgerReportsPage.netOfAdSpend')} value={`$${money(mp.net_after_ad_spend)}`} />
       </div>
 
       <div className="flex items-start gap-2 text-xs text-gray-500 dark:text-gray-400 px-1">
         <TrendingUp className="w-4 h-4 mt-0.5 shrink-0" />
         <span>
-          <strong>Blended</strong> — total revenue for every dollar of advertising, across the whole
-          business. It measures efficiency, not per-campaign attribution (the cashbook has no click or
-          conversion data). Ad spend is any expense categorized as Advertising or Marketing.
+          <strong>{t('ui:LedgerReportsPage.blended')}</strong> {t('ui:LedgerReportsPage.totalRevenueForEveryDollar')}
         </span>
       </div>
 
       {!hasSpend ? (
         <div className="px-4 py-8 text-center text-sm text-gray-400 border border-dashed border-gray-200 dark:border-gray-800 rounded-xl">
-          No advertising spend in this period. Categorize ad expenses as “Advertising” to see ROAS.
+         {t('ui:LedgerReportsPage.noAdvertisingSpendInThis')}
         </div>
       ) : (
         <div className="border border-gray-200 dark:border-gray-800 rounded-xl overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50">
-                <th className="text-left px-4 py-2 font-semibold">Month</th>
-                <th className="text-right px-4 py-2 font-semibold">Revenue</th>
-                <th className="text-right px-4 py-2 font-semibold">Ad spend</th>
+                <th className="text-left px-4 py-2 font-semibold">{t('ui:LedgerReportsPage.month')}</th>
+                <th className="text-right px-4 py-2 font-semibold">{t('ui:LedgerReportsPage.revenue')}</th>
+                <th className="text-right px-4 py-2 font-semibold">{t('ui:LedgerReportsPage.adSpend')}</th>
                 <th className="text-right px-4 py-2 font-semibold">ROAS</th>
-                <th className="text-right px-4 py-2 font-semibold">Net</th>
+                <th className="text-right px-4 py-2 font-semibold">{t('ui:LedgerReportsPage.net')}</th>
               </tr>
             </thead>
             <tbody>
@@ -254,7 +257,7 @@ function MarketingView({ params }: { params: { date_from?: string; date_to?: str
       {mp.ad_spend_by_account.length > 0 && (
         <div className="border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden">
           <div className="px-4 py-2 bg-gray-50 dark:bg-gray-800/50 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-            Ad spend by category
+           {t('ui:LedgerReportsPage.adSpendByCategory')}
           </div>
           {mp.ad_spend_by_account.map((l) => (
             <div key={l.code} className="flex justify-between gap-3 px-4 py-2 border-t border-gray-100 dark:border-gray-800 text-sm">
@@ -278,6 +281,7 @@ function Kpi({ label, value, accent }: { label: string; value: string; accent?: 
 }
 
 function GstHstView({ params }: { params: { date_from?: string; date_to?: string } }) {
+  const { t } = useTranslation('ui')
   const { data, isLoading } = useQuery({ queryKey: ['gst-hst', params], queryFn: () => getGstHstReturn(params) })
   const r = data?.data
   if (isLoading) return <Spinner />
@@ -299,9 +303,7 @@ function GstHstView({ params }: { params: { date_from?: string; date_to?: string
         <div className="flex items-start gap-2 text-sm px-3 py-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-200">
           <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
           <span>
-            No GST/HST has been recorded on your cashbook entries yet, so every line is zero. Record the
-            tax portion on income and expense entries (or set a default tax rate in Settings → Tax) and
-            this return fills in automatically.
+           {t('ui:LedgerReportsPage.noGstHstHasBeen')}
           </span>
         </div>
       )}
@@ -313,20 +315,20 @@ function GstHstView({ params }: { params: { date_from?: string; date_to?: string
         <div className={`flex justify-between px-4 py-3 border-t-2 border-gray-200 dark:border-gray-700 font-semibold ${
           net > 0 ? 'text-red-600 dark:text-red-400' : net < 0 ? 'text-green-600 dark:text-green-400' : ''
         }`}>
-          <span><span className="font-mono text-gray-400 mr-2">109</span>Net tax {net > 0 ? '(owe CRA)' : net < 0 ? '(refund)' : ''}</span>
+          <span><span className="font-mono text-gray-400 mr-2">109</span>{t('ui:LedgerReportsPage.netTax')} {net > 0 ? t('ui:LedgerReportsPage.oweCra') : net < 0 ? t('ui:LedgerReportsPage.refund') : ''}</span>
           <span className="tabular-nums">${money(r.line_109_net_tax)}</span>
         </div>
       </div>
 
       <p className="text-xs text-gray-500 dark:text-gray-400 px-1">
-        A summary of recorded GST/HST to hand your accountant — computed from the cashbook for the
-        selected period. It is not a filing, and reflects only tax you've recorded on entries.
+       {t('ui:LedgerReportsPage.aSummaryOfRecordedGst')}
       </p>
     </div>
   )
 }
 
 function TrialBalanceView({ params }: { params: { date_from?: string; date_to?: string } }) {
+  const { t } = useTranslation('ui')
   const { data, isLoading } = useQuery({
     queryKey: ['trial-balance', params],
     queryFn: () => getTrialBalance(params),
@@ -346,23 +348,23 @@ function TrialBalanceView({ params }: { params: { date_from?: string; date_to?: 
         }`}
       >
         {tb.balanced ? <CheckCircle2 className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
-        {tb.balanced ? 'In balance — debits equal credits.' : 'Out of balance — this should never happen; please report it.'}
+        {tb.balanced ? t('ui:LedgerReportsPage.inBalanceDebitsEqualCredits') : t('ui:LedgerReportsPage.outOfBalanceThisShould')}
       </div>
 
       <div className="border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 dark:bg-gray-800/50 text-xs text-gray-500 dark:text-gray-400">
             <tr>
-              <th className="text-left font-medium px-4 py-2">Account</th>
-              <th className="text-right font-medium px-4 py-2 w-32">Debit</th>
-              <th className="text-right font-medium px-4 py-2 w-32">Credit</th>
+              <th className="text-left font-medium px-4 py-2">{t('ui:LedgerReportsPage.account')}</th>
+              <th className="text-right font-medium px-4 py-2 w-32">{t('ui:LedgerReportsPage.debit')}</th>
+              <th className="text-right font-medium px-4 py-2 w-32">{t('ui:LedgerReportsPage.credit')}</th>
             </tr>
           </thead>
           <tbody>
             {tb.rows.length === 0 ? (
               <tr>
                 <td colSpan={3} className="px-4 py-8 text-center text-gray-400">
-                  No postings in this period yet.
+                 {t('ui:LedgerReportsPage.noPostingsInThisPeriod')}
                 </td>
               </tr>
             ) : (
@@ -384,7 +386,7 @@ function TrialBalanceView({ params }: { params: { date_from?: string; date_to?: 
           </tbody>
           <tfoot className="border-t-2 border-gray-200 dark:border-gray-700 font-semibold">
             <tr>
-              <td className="px-4 py-2 text-right text-gray-500 dark:text-gray-400">Totals</td>
+              <td className="px-4 py-2 text-right text-gray-500 dark:text-gray-400">{t('ui:LedgerReportsPage.totals')}</td>
               <td className="px-4 py-2 text-right tabular-nums">{money(tb.total_debit)}</td>
               <td className="px-4 py-2 text-right tabular-nums">{money(tb.total_credit)}</td>
             </tr>
@@ -396,6 +398,7 @@ function TrialBalanceView({ params }: { params: { date_from?: string; date_to?: 
 }
 
 function GeneralLedgerView({ params }: { params: { date_from?: string; date_to?: string } }) {
+  const { t } = useTranslation('ui')
   const { data, isLoading } = useQuery({
     queryKey: ['general-ledger', params],
     queryFn: () => getGeneralLedger(params),
@@ -407,7 +410,7 @@ function GeneralLedgerView({ params }: { params: { date_from?: string; date_to?:
   if (accounts.length === 0) {
     return (
       <div className="text-center py-16 border border-dashed border-gray-200 dark:border-gray-700 rounded-xl text-gray-400">
-        No postings in this period yet.
+       {t('ui:LedgerReportsPage.noPostingsInThisPeriod')}
       </div>
     )
   }
@@ -422,6 +425,7 @@ function GeneralLedgerView({ params }: { params: { date_from?: string; date_to?:
 }
 
 function GLAccountRow({ account }: { account: GeneralLedgerAccount }) {
+  const { t } = useTranslation('ui')
   const [open, setOpen] = useState(false)
   return (
     <div className="border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden">
@@ -440,12 +444,12 @@ function GLAccountRow({ account }: { account: GeneralLedgerAccount }) {
           <table className="w-full text-sm min-w-[520px]">
             <thead className="bg-gray-50 dark:bg-gray-800/40 text-xs text-gray-400">
               <tr>
-                <th className="text-left font-medium px-4 py-1.5 w-24">Date</th>
-                <th className="text-left font-medium px-2 py-1.5 w-20">Ref</th>
-                <th className="text-left font-medium px-2 py-1.5">Memo</th>
-                <th className="text-right font-medium px-2 py-1.5 w-24">Debit</th>
-                <th className="text-right font-medium px-2 py-1.5 w-24">Credit</th>
-                <th className="text-right font-medium px-4 py-1.5 w-28">Balance</th>
+                <th className="text-left font-medium px-4 py-1.5 w-24">{t('ui:LedgerReportsPage.date')}</th>
+                <th className="text-left font-medium px-2 py-1.5 w-20">{t('ui:LedgerReportsPage.ref')}</th>
+                <th className="text-left font-medium px-2 py-1.5">{t('ui:LedgerReportsPage.memo')}</th>
+                <th className="text-right font-medium px-2 py-1.5 w-24">{t('ui:LedgerReportsPage.debit')}</th>
+                <th className="text-right font-medium px-2 py-1.5 w-24">{t('ui:LedgerReportsPage.credit')}</th>
+                <th className="text-right font-medium px-4 py-1.5 w-28">{t('ui:LedgerReportsPage.balance')}</th>
               </tr>
             </thead>
             <tbody>

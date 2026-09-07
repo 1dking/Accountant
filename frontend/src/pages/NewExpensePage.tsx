@@ -6,8 +6,10 @@ import { PAYMENT_METHODS } from '@/lib/constants'
 import { ArrowLeft } from 'lucide-react'
 import DocumentAttachment from '@/components/shared/DocumentAttachment'
 import type { PaymentMethod, DocumentListItem } from '@/types/models'
+import { useTranslation } from 'react-i18next'
 
 export default function NewExpensePage() {
+  const { t } = useTranslation('ui')
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
@@ -57,26 +59,26 @@ export default function NewExpensePage() {
         className="flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:underline mb-4"
       >
         <ArrowLeft className="h-4 w-4" />
-        Back to expenses
+       {t('ui:NewExpensePage.backToExpenses')}
       </button>
 
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">New Expense</h1>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">{t('ui:NewExpensePage.newExpense')}</h1>
 
       <div className="bg-white dark:bg-gray-900 rounded-lg border p-6 space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Vendor Name</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:NewExpensePage.vendorName')}</label>
             <input
               type="text"
               value={vendorName}
               onChange={(e) => setVendorName(e.target.value)}
-              placeholder="e.g., Staples"
+              placeholder={t('ui:NewExpensePage.eGStaples')}
               className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Amount <span className="text-red-500">*</span>
+             {t('ui:NewExpensePage.amount')} <span className="text-red-500">*</span>
             </label>
             <div className="flex gap-2">
               <input
@@ -102,7 +104,7 @@ export default function NewExpensePage() {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Date <span className="text-red-500">*</span>
+             {t('ui:NewExpensePage.date')} <span className="text-red-500">*</span>
             </label>
             <input
               type="date"
@@ -112,7 +114,7 @@ export default function NewExpensePage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tax Amount</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:NewExpensePage.taxAmount')}</label>
             <input
               type="number"
               step="0.01"
@@ -124,26 +126,26 @@ export default function NewExpensePage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Category</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:NewExpensePage.category')}</label>
             <select
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
               className="w-full px-3 py-2 text-sm border rounded-md bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="">Select a category</option>
+              <option value="">{t('ui:NewExpensePage.selectACategory')}</option>
               {categories.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Payment Method</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:NewExpensePage.paymentMethod')}</label>
             <select
               value={paymentMethod}
               onChange={(e) => setPaymentMethod(e.target.value)}
               className="w-full px-3 py-2 text-sm border rounded-md bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="">Not specified</option>
+              <option value="">{t('ui:NewExpensePage.notSpecified')}</option>
               {PAYMENT_METHODS.map((p) => (
                 <option key={p.value} value={p.value}>{p.label}</option>
               ))}
@@ -152,12 +154,12 @@ export default function NewExpensePage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:NewExpensePage.description')}</label>
           <input
             type="text"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="What was this expense for?"
+            placeholder={t('ui:NewExpensePage.whatWasThisExpenseFor')}
             className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
@@ -173,16 +175,16 @@ export default function NewExpensePage() {
             if (meta.payment_method) setPaymentMethod(String(meta.payment_method))
             if (meta.vendor_name) setDescription(`Expense from ${meta.vendor_name}`)
           }}
-          label="Receipt / Invoice"
+          label={t('ui:NewExpensePage.receiptInvoice')}
         />
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:NewExpensePage.notes')}</label>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={3}
-            placeholder="Additional notes..."
+            placeholder={t('ui:NewExpensePage.additionalNotes')}
             className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
@@ -192,20 +194,20 @@ export default function NewExpensePage() {
             onClick={() => navigate('/expenses')}
             className="px-4 py-2 text-sm border rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
           >
-            Cancel
+           {t('ui:NewExpensePage.cancel')}
           </button>
           <button
             onClick={() => createMutation.mutate()}
             disabled={!isValid || createMutation.isPending}
             className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
           >
-            {createMutation.isPending ? 'Creating...' : 'Create Expense'}
+            {createMutation.isPending ? t('ui:NewExpensePage.creating') : t('ui:NewExpensePage.createExpense')}
           </button>
         </div>
 
         {createMutation.isError && (
           <p className="text-sm text-red-600">
-            {(createMutation.error as Error).message || 'Failed to create expense'}
+            {(createMutation.error as Error).message || t('ui:NewExpensePage.failedToCreateExpense')}
           </p>
         )}
       </div>

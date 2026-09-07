@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { getPortalFiles } from '../api/portal'
 import { api } from '../api/client'
+import { useTranslation } from 'react-i18next'
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
@@ -18,6 +19,7 @@ function fileIcon(mimeType: string): string {
 }
 
 export default function PortalFilesPage() {
+  const { t } = useTranslation('ui')
   const { data, isLoading } = useQuery({
     queryKey: ['portal', 'files'],
     queryFn: getPortalFiles,
@@ -45,23 +47,23 @@ export default function PortalFilesPage() {
     <div className="min-h-screen bg-background">
       <header className="border-b px-6 py-4">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Shared Files</h1>
+          <h1 className="text-2xl font-bold">{t('ui:PortalFilesPage.sharedFiles')}</h1>
           <nav className="flex gap-4 text-sm">
-            <Link to="/portal" className="text-muted-foreground hover:text-foreground">Dashboard</Link>
-            <Link to="/portal/invoices" className="text-muted-foreground hover:text-foreground">Invoices</Link>
-            <Link to="/portal/proposals" className="text-muted-foreground hover:text-foreground">Proposals</Link>
-            <Link to="/portal/files" className="font-medium text-foreground">Files</Link>
-            <Link to="/portal/meetings" className="text-muted-foreground hover:text-foreground">Meetings</Link>
+            <Link to="/portal" className="text-muted-foreground hover:text-foreground">{t('ui:PortalFilesPage.dashboard')}</Link>
+            <Link to="/portal/invoices" className="text-muted-foreground hover:text-foreground">{t('ui:PortalFilesPage.invoices')}</Link>
+            <Link to="/portal/proposals" className="text-muted-foreground hover:text-foreground">{t('ui:PortalFilesPage.proposals')}</Link>
+            <Link to="/portal/files" className="font-medium text-foreground">{t('ui:PortalFilesPage.files')}</Link>
+            <Link to="/portal/meetings" className="text-muted-foreground hover:text-foreground">{t('ui:PortalFilesPage.meetings')}</Link>
           </nav>
         </div>
       </header>
 
       <main className="p-6 max-w-5xl mx-auto">
         {isLoading ? (
-          <p className="text-muted-foreground">Loading files...</p>
+          <p className="text-muted-foreground">{t('ui:PortalFilesPage.loadingFiles')}</p>
         ) : files.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-muted-foreground">No files have been shared with you.</p>
+            <p className="text-muted-foreground">{t('ui:PortalFilesPage.noFilesHaveBeenShared')}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -77,17 +79,17 @@ export default function PortalFilesPage() {
                   {file.filename}
                 </h3>
                 <p className="text-xs text-muted-foreground mb-3">
-                  {formatFileSize(file.file_size)} -- Shared {new Date(file.shared_at).toLocaleDateString()}
+                  {formatFileSize(file.file_size)} {t('ui:PortalFilesPage.shared')} {new Date(file.shared_at).toLocaleDateString()}
                 </p>
                 {file.permission === 'download' ? (
                   <button
                     onClick={() => handleDownload(file.file_id, file.filename)}
                     className="w-full px-3 py-1.5 text-xs font-medium border rounded hover:bg-accent transition-colors"
                   >
-                    Download
+                   {t('ui:PortalFilesPage.download')}
                   </button>
                 ) : (
-                  <span className="text-xs text-muted-foreground">View only</span>
+                  <span className="text-xs text-muted-foreground">{t('ui:PortalFilesPage.viewOnly')}</span>
                 )}
               </div>
             ))}

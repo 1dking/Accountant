@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Sparkles, RefreshCw, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { getContactBrief, regenerateContactBrief } from '@/api/automation'
+import { useTranslation } from 'react-i18next'
 
 function relativeTime(iso: string | null): string {
   if (!iso) return ''
@@ -18,6 +19,7 @@ function relativeTime(iso: string | null): string {
 }
 
 export default function ContactAIBrief({ contactId }: { contactId: string }) {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
 
   const { data, isLoading, isError } = useQuery({
@@ -31,9 +33,9 @@ export default function ContactAIBrief({ contactId }: { contactId: string }) {
     mutationFn: () => regenerateContactBrief(contactId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contact-brief', contactId] })
-      toast.success('Brief refreshed')
+      toast.success(t('ui:ContactAIBrief.briefRefreshed'))
     },
-    onError: (e: any) => toast.error(`Brief refresh failed: ${e.message || ''}`),
+    onError: (e: any) => toast.error(t('ui:ContactAIBrief.briefRefreshFailedV0', { v0: e.message || '' })),
   })
 
   const brief = data?.data?.brief
@@ -47,13 +49,13 @@ export default function ContactAIBrief({ contactId }: { contactId: string }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-1">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-indigo-700 dark:text-indigo-300">
-              Brief
+             {t('ui:ContactAIBrief.brief')}
             </h3>
             <button
               onClick={() => regenMut.mutate()}
               disabled={regenMut.isPending}
               className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 disabled:opacity-50"
-              title="Regenerate brief"
+              title={t('ui:ContactAIBrief.regenerateBrief')}
             >
               {regenMut.isPending ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -65,15 +67,15 @@ export default function ContactAIBrief({ contactId }: { contactId: string }) {
           {isLoading ? (
             <div className="text-sm text-indigo-600 dark:text-indigo-300 flex items-center gap-2">
               <Loader2 className="h-3 w-3 animate-spin" />
-              Generating brief…
+             {t('ui:ContactAIBrief.generatingBrief')}
             </div>
           ) : isError ? (
             <div className="text-sm text-red-600 dark:text-red-400">
-              Brief unavailable. Try refresh.
+             {t('ui:ContactAIBrief.briefUnavailableTryRefresh')}
             </div>
           ) : !brief ? (
             <div className="text-sm text-indigo-600 dark:text-indigo-300">
-              No brief yet. Add a memory or message to generate context.
+             {t('ui:ContactAIBrief.noBriefYetAddA')}
             </div>
           ) : (
             <>
@@ -82,7 +84,7 @@ export default function ContactAIBrief({ contactId }: { contactId: string }) {
               </p>
               {generated && (
                 <div className="text-[10px] text-indigo-500 dark:text-indigo-400 mt-1">
-                  {isFresh ? 'Generated' : 'Cached'} {relativeTime(generated)}
+                  {isFresh ? t('ui:ContactAIBrief.generated') : t('ui:ContactAIBrief.cached')} {relativeTime(generated)}
                 </div>
               )}
             </>

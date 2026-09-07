@@ -8,6 +8,7 @@
  */
 import { useState } from 'react'
 import { Copy, Check, Link as LinkIcon } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 export interface CopyMeetingLinkProps {
   slug: string
@@ -35,6 +36,7 @@ export async function copyMeetingShareUrl(slug: string): Promise<void> {
 }
 
 export default function CopyMeetingLink({ slug, variant = 'compact' }: CopyMeetingLinkProps) {
+  const { t } = useTranslation('ui')
   const [copied, setCopied] = useState(false)
   const url = buildMeetingShareUrl(slug)
 
@@ -49,10 +51,10 @@ export default function CopyMeetingLink({ slug, variant = 'compact' }: CopyMeeti
       <div className="rounded-xl border border-gray-200 bg-white p-4">
         <div className="flex items-center gap-2 mb-2">
           <LinkIcon className="h-4 w-4 text-gray-500" />
-          <span className="text-sm font-semibold text-gray-900">Share this meeting</span>
+          <span className="text-sm font-semibold text-gray-900">{t('ui:CopyMeetingLink.shareThisMeeting')}</span>
         </div>
         <p className="text-xs text-gray-500 mb-3">
-          Anyone with this link can knock. You'll admit them from the lobby.
+         {t('ui:CopyMeetingLink.anyoneWithThisLinkCan')}
         </p>
         <div className="flex gap-2">
           <input
@@ -68,7 +70,7 @@ export default function CopyMeetingLink({ slug, variant = 'compact' }: CopyMeeti
             }`}
           >
             {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-            {copied ? 'Copied' : 'Copy link'}
+            {copied ? t('ui:CopyMeetingLink.copied') : t('ui:CopyMeetingLink.copyLink')}
           </button>
         </div>
       </div>
@@ -98,10 +100,10 @@ export default function CopyMeetingLink({ slug, variant = 'compact' }: CopyMeeti
           cursor: 'pointer', display: 'inline-flex',
           alignItems: 'center', gap: 5,
         }}
-        title={copied ? 'Copied!' : 'Copy link'}
+        title={copied ? t('ui:CopyMeetingLink.copied_2') : t('ui:CopyMeetingLink.copyLink')}
       >
         {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-        {copied ? 'Copied' : 'Copy'}
+        {copied ? t('ui:CopyMeetingLink.copied') : t('ui:CopyMeetingLink.copy')}
       </button>
     </div>
   )

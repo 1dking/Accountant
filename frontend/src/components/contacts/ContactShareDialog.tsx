@@ -10,6 +10,7 @@ import {
 import { listUsers } from '@/api/auth'
 import { getInitials } from '@/lib/utils'
 import { useAuthStore } from '@/stores/authStore'
+import { useTranslation } from 'react-i18next'
 
 interface Props {
   contactId: string
@@ -27,6 +28,7 @@ interface Props {
  * dialog's actions succeed; the backend enforces it.
  */
 export default function ContactShareDialog({ contactId, contactName, isOpen, onClose }: Props) {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const currentUser = useAuthStore((s) => s.user)
   const [selectedUserId, setSelectedUserId] = useState('')
@@ -63,7 +65,7 @@ export default function ContactShareDialog({ contactId, contactName, isOpen, onC
     onSuccess: () => {
       invalidate()
       setSelectedUserId('')
-      toast.success('Contact shared')
+      toast.success(t('ui:ContactShareDialog.contactShared'))
     },
     onError: (err: unknown) =>
       toast.error((err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message || 'Failed to share'),
@@ -73,7 +75,7 @@ export default function ContactShareDialog({ contactId, contactName, isOpen, onC
     mutationFn: (userId: string) => unshareContact(contactId, userId),
     onSuccess: () => {
       invalidate()
-      toast.success('Access revoked')
+      toast.success(t('ui:ContactShareDialog.accessRevoked'))
     },
     onError: (err: unknown) =>
       toast.error((err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message || 'Failed to revoke'),
@@ -86,7 +88,7 @@ export default function ContactShareDialog({ contactId, contactName, isOpen, onC
       <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl w-full max-w-md mx-4">
         <div className="flex items-center justify-between px-5 py-4 border-b">
           <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Share contact</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('ui:ContactShareDialog.shareContact')}</h2>
             <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{contactName}</p>
           </div>
           <button
@@ -99,8 +101,7 @@ export default function ContactShareDialog({ contactId, contactName, isOpen, onC
 
         <div className="px-5 py-4 space-y-4">
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            The person you share with also sees this contact&apos;s invoices,
-            proposals, tasks and call history.
+           {t('ui:ContactShareDialog.thePersonYouShareWith')}
           </p>
 
           <div className="flex items-center gap-2">
@@ -110,7 +111,7 @@ export default function ContactShareDialog({ contactId, contactName, isOpen, onC
                 onChange={(e) => setSelectedUserId(e.target.value)}
                 className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none pr-8"
               >
-                <option value="">Select a colleague...</option>
+                <option value="">{t('ui:ContactShareDialog.selectAColleague')}</option>
                 {availableUsers.map((u) => (
                   <option key={u.id} value={u.id}>
                     {u.full_name} ({u.email})
@@ -124,8 +125,8 @@ export default function ContactShareDialog({ contactId, contactName, isOpen, onC
               onChange={(e) => setPermission(e.target.value as 'view' | 'edit')}
               className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900"
             >
-              <option value="view">View</option>
-              <option value="edit">Edit</option>
+              <option value="view">{t('ui:ContactShareDialog.view')}</option>
+              <option value="edit">{t('ui:ContactShareDialog.edit')}</option>
             </select>
             <button
               onClick={() => shareMutation.mutate()}
@@ -139,10 +140,10 @@ export default function ContactShareDialog({ contactId, contactName, isOpen, onC
           <div>
             <div className="flex items-center gap-2 mb-3">
               <Users className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">People with access</h3>
+              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('ui:ContactShareDialog.peopleWithAccess')}</h3>
             </div>
             {collaborators.length === 0 ? (
-              <p className="text-sm text-gray-500 dark:text-gray-400 py-2">Not shared with anyone yet</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 py-2">{t('ui:ContactShareDialog.notSharedWithAnyoneYet')}</p>
             ) : (
               <div className="space-y-2 max-h-48 overflow-y-auto">
                 {collaborators.map((collab) => (
@@ -161,7 +162,7 @@ export default function ContactShareDialog({ contactId, contactName, isOpen, onC
                       onClick={() => unshareMutation.mutate(collab.user_id)}
                       disabled={unshareMutation.isPending}
                       className="p-1 text-gray-400 dark:text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-md"
-                      title="Remove access"
+                      title={t('ui:ContactShareDialog.removeAccess')}
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -177,7 +178,7 @@ export default function ContactShareDialog({ contactId, contactName, isOpen, onC
             onClick={onClose}
             className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
           >
-            Done
+           {t('ui:ContactShareDialog.done')}
           </button>
         </div>
       </div>

@@ -2,10 +2,13 @@ import { useState, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router'
 import { Camera, ImagePlus, RotateCcw, Upload, CheckCircle2, AlertTriangle, FileText, Receipt, Loader2 } from 'lucide-react'
 import { quickCapture, type QuickCaptureResult } from '@/api/documents'
+import { useTranslation } from 'react-i18next'
+import { uiLocale } from '@/lib/utils'
 
 type CaptureState = 'idle' | 'preview' | 'processing' | 'result' | 'error'
 
 export default function CapturePage() {
+  const { t } = useTranslation('ui')
   const navigate = useNavigate()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const galleryInputRef = useRef<HTMLInputElement>(null)
@@ -56,16 +59,16 @@ export default function CapturePage() {
 
   const formatCurrency = (amount: number | null) => {
     if (amount === null) return '--'
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
+    return new Intl.NumberFormat(uiLocale(), { style: 'currency', currency: 'USD' }).format(amount)
   }
 
   return (
     <div className="flex flex-col items-center min-h-full px-4 py-6">
       {/* Header */}
       <div className="w-full max-w-md mb-6">
-        <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Capture Receipt</h1>
+        <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('ui:CapturePage.captureReceipt')}</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Take a photo or choose from gallery
+         {t('ui:CapturePage.takeAPhotoOrChoose')}
         </p>
       </div>
 
@@ -97,8 +100,8 @@ export default function CapturePage() {
             <div className="h-20 w-20 rounded-full bg-blue-600 flex items-center justify-center shadow-lg">
               <Camera className="h-10 w-10 text-white" />
             </div>
-            <span className="text-blue-700 font-semibold text-lg">Take Photo</span>
-            <span className="text-blue-500 text-sm">Uses rear camera</span>
+            <span className="text-blue-700 font-semibold text-lg">{t('ui:CapturePage.takePhoto')}</span>
+            <span className="text-blue-500 text-sm">{t('ui:CapturePage.usesRearCamera')}</span>
           </button>
 
           {/* Gallery button */}
@@ -107,7 +110,7 @@ export default function CapturePage() {
             className="w-full max-w-xs py-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex items-center justify-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-800 active:bg-gray-100 dark:bg-gray-800 transition-colors"
           >
             <ImagePlus className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-            <span className="text-gray-700 dark:text-gray-300 font-medium">Choose from Gallery</span>
+            <span className="text-gray-700 dark:text-gray-300 font-medium">{t('ui:CapturePage.chooseFromGallery')}</span>
           </button>
         </div>
       )}
@@ -118,7 +121,7 @@ export default function CapturePage() {
           <div className="w-full rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800">
             <img
               src={previewUrl}
-              alt="Receipt preview"
+              alt={t('ui:CapturePage.receiptPreview')}
               className="w-full max-h-[60vh] object-contain"
             />
           </div>
@@ -129,14 +132,14 @@ export default function CapturePage() {
               className="flex-1 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex items-center justify-center gap-2 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-800 active:bg-gray-100 dark:bg-gray-800 transition-colors"
             >
               <RotateCcw className="h-5 w-5" />
-              Retake
+             {t('ui:CapturePage.retake')}
             </button>
             <button
               onClick={handleSubmit}
               className="flex-1 py-3 rounded-xl bg-blue-600 flex items-center justify-center gap-2 text-white font-medium hover:bg-blue-700 active:bg-blue-800 transition-colors"
             >
               <Upload className="h-5 w-5" />
-              Submit
+             {t('ui:CapturePage.submit')}
             </button>
           </div>
         </div>
@@ -147,9 +150,9 @@ export default function CapturePage() {
         <div className="w-full max-w-md flex flex-col items-center gap-6 mt-12">
           <Loader2 className="h-16 w-16 text-blue-600 dark:text-blue-400 animate-spin" />
           <div className="text-center">
-            <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">Uploading & Analyzing</p>
+            <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('ui:CapturePage.uploadingAnalyzing')}</p>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              Extracting receipt data with AI...
+             {t('ui:CapturePage.extractingReceiptDataWithAi')}
             </p>
           </div>
           {previewUrl && (
@@ -167,9 +170,9 @@ export default function CapturePage() {
           <div className="flex items-center gap-3 p-4 rounded-xl bg-green-50 dark:bg-green-900/30 border border-green-200">
             <CheckCircle2 className="h-8 w-8 text-green-600 shrink-0" />
             <div>
-              <p className="font-semibold text-green-900">Receipt Captured</p>
+              <p className="font-semibold text-green-900">{t('ui:CapturePage.receiptCaptured')}</p>
               <p className="text-sm text-green-700">
-                Processed in {(result.processing_time_ms / 1000).toFixed(1)}s
+               {t('ui:CapturePage.processedIn')} {(result.processing_time_ms / 1000).toFixed(1)}s
               </p>
             </div>
           </div>
@@ -179,24 +182,24 @@ export default function CapturePage() {
             <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 divide-y divide-gray-100">
               {result.expense_vendor && (
                 <div className="flex justify-between items-center px-4 py-3">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">Vendor</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">{t('ui:CapturePage.vendor')}</span>
                   <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{result.expense_vendor}</span>
                 </div>
               )}
               {result.expense_amount !== null && (
                 <div className="flex justify-between items-center px-4 py-3">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">Amount</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">{t('ui:CapturePage.amount')}</span>
                   <span className="text-lg font-bold text-gray-900 dark:text-gray-100">{formatCurrency(result.expense_amount)}</span>
                 </div>
               )}
               {result.expense_date && (
                 <div className="flex justify-between items-center px-4 py-3">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">Date</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">{t('ui:CapturePage.date')}</span>
                   <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{result.expense_date}</span>
                 </div>
               )}
               <div className="flex justify-between items-center px-4 py-3">
-                <span className="text-sm text-gray-500 dark:text-gray-400">Document</span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">{t('ui:CapturePage.document')}</span>
                 <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate ml-4">{result.document_title}</span>
               </div>
             </div>
@@ -204,8 +207,8 @@ export default function CapturePage() {
             <div className="flex items-center gap-3 p-4 rounded-xl bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200">
               <AlertTriangle className="h-6 w-6 text-yellow-600 shrink-0" />
               <div>
-                <p className="font-medium text-yellow-900">Could not extract data</p>
-                <p className="text-sm text-yellow-700">The receipt was saved but AI extraction failed. You can add details manually.</p>
+                <p className="font-medium text-yellow-900">{t('ui:CapturePage.couldNotExtractData')}</p>
+                <p className="text-sm text-yellow-700">{t('ui:CapturePage.theReceiptWasSavedBut')}</p>
               </div>
             </div>
           )}
@@ -218,7 +221,7 @@ export default function CapturePage() {
                 className="w-full py-3 rounded-xl bg-blue-600 flex items-center justify-center gap-2 text-white font-medium hover:bg-blue-700 transition-colors"
               >
                 <Receipt className="h-5 w-5" />
-                View Expense
+               {t('ui:CapturePage.viewExpense')}
               </button>
             )}
             <button
@@ -226,14 +229,14 @@ export default function CapturePage() {
               className="w-full py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex items-center justify-center gap-2 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
             >
               <FileText className="h-5 w-5" />
-              View Document
+             {t('ui:CapturePage.viewDocument')}
             </button>
             <button
               onClick={handleReset}
               className="w-full py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex items-center justify-center gap-2 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
             >
               <Camera className="h-5 w-5" />
-              Capture Another
+             {t('ui:CapturePage.captureAnother')}
             </button>
           </div>
         </div>
@@ -245,7 +248,7 @@ export default function CapturePage() {
           <div className="flex items-center gap-3 p-4 rounded-xl bg-red-50 dark:bg-red-900/30 border border-red-200 w-full">
             <AlertTriangle className="h-8 w-8 text-red-600 shrink-0" />
             <div>
-              <p className="font-semibold text-red-900">Upload Failed</p>
+              <p className="font-semibold text-red-900">{t('ui:CapturePage.uploadFailed')}</p>
               <p className="text-sm text-red-700">{error}</p>
             </div>
           </div>
@@ -256,14 +259,14 @@ export default function CapturePage() {
               className="flex-1 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex items-center justify-center gap-2 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
             >
               <RotateCcw className="h-5 w-5" />
-              Start Over
+             {t('ui:CapturePage.startOver')}
             </button>
             <button
               onClick={handleSubmit}
               className="flex-1 py-3 rounded-xl bg-blue-600 flex items-center justify-center gap-2 text-white font-medium hover:bg-blue-700 transition-colors"
             >
               <Upload className="h-5 w-5" />
-              Retry
+             {t('ui:CapturePage.retry')}
             </button>
           </div>
         </div>

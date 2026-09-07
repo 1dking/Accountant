@@ -4,8 +4,10 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Plus, X } from 'lucide-react'
 import { createMeeting } from '@/api/meetings'
 import ContactSelector from '@/components/shared/ContactSelector'
+import { useTranslation } from 'react-i18next'
 
 export default function NewMeetingPage() {
+  const { t } = useTranslation('ui')
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
@@ -60,19 +62,19 @@ export default function NewMeetingPage() {
         <button onClick={() => navigate('/meetings')} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
           <ArrowLeft className="h-5 w-5 text-gray-500 dark:text-gray-400" />
         </button>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Schedule Meeting</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('ui:NewMeetingPage.scheduleMeeting')}</h1>
       </div>
 
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
         <div className="space-y-4">
           {/* Title */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title *</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:NewMeetingPage.title')}</label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Meeting title"
+              placeholder={t('ui:NewMeetingPage.meetingTitle')}
               className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -80,7 +82,7 @@ export default function NewMeetingPage() {
           {/* Date/Time */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Date & Time *</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:NewMeetingPage.startDateTime')}</label>
               <input
                 type="datetime-local"
                 value={scheduledStart}
@@ -89,7 +91,7 @@ export default function NewMeetingPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">End Date & Time</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:NewMeetingPage.endDateTime')}</label>
               <input
                 type="datetime-local"
                 value={scheduledEnd}
@@ -101,23 +103,23 @@ export default function NewMeetingPage() {
 
           {/* Description */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:NewMeetingPage.description')}</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
-              placeholder="Meeting description or agenda..."
+              placeholder={t('ui:NewMeetingPage.meetingDescriptionOrAgenda')}
               className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
           {/* Contact */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contact</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:NewMeetingPage.contact')}</label>
             <ContactSelector
               value={contactId}
               onChange={(id) => setContactId(id)}
-              placeholder="Select a contact..."
+              placeholder={t('ui:NewMeetingPage.selectAContact')}
             />
           </div>
 
@@ -131,20 +133,20 @@ export default function NewMeetingPage() {
               className="h-4 w-4 text-blue-600 dark:text-blue-400 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500"
             />
             <label htmlFor="record-meeting" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Record this meeting
+             {t('ui:NewMeetingPage.recordThisMeeting')}
             </label>
           </div>
 
           {/* Participant emails */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Participant Emails</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:NewMeetingPage.participantEmails')}</label>
             <div className="flex gap-2">
               <input
                 type="email"
                 value={participantEmail}
                 onChange={(e) => setParticipantEmail(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addEmail() } }}
-                placeholder="email@example.com"
+                placeholder={t('ui:NewMeetingPage.emailExampleCom')}
                 className="flex-1 px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <button
@@ -153,7 +155,7 @@ export default function NewMeetingPage() {
                 className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
               >
                 <Plus className="h-3.5 w-3.5" />
-                Add
+               {t('ui:NewMeetingPage.add')}
               </button>
             </div>
             {participantEmails.length > 0 && (
@@ -185,13 +187,13 @@ export default function NewMeetingPage() {
             disabled={!isValid || mutation.isPending}
             className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
           >
-            {mutation.isPending ? 'Creating...' : 'Schedule Meeting'}
+            {mutation.isPending ? t('ui:NewMeetingPage.creating') : t('ui:NewMeetingPage.scheduleMeeting')}
           </button>
           <button
             onClick={() => navigate('/meetings')}
             className="px-4 py-2 text-sm font-medium border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
           >
-            Cancel
+           {t('ui:NewMeetingPage.cancel')}
           </button>
         </div>
       </div>

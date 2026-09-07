@@ -23,6 +23,8 @@ import {
 } from './contactDetailUtils'
 import type { ContactMemory } from '@/api/automation'
 import type { ContactPayment } from '@/api/contacts'
+import { useTranslation } from 'react-i18next'
+import i18n from '@/i18n'
 
 // ---------------------------------------------------------------------------
 // Tab metadata
@@ -34,17 +36,17 @@ export type TabKey =
   | 'tasks' | 'payments'
 
 const TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
-  { key: 'messages', label: 'Messages', icon: MessageSquare },
-  { key: 'activity', label: 'Activity', icon: Activity },
-  { key: 'memory', label: 'Memory', icon: Brain },
-  { key: 'invoices', label: 'Invoices', icon: FileText },
-  { key: 'proposals', label: 'Proposals', icon: FileSignature },
-  { key: 'estimates', label: 'Estimates', icon: Calculator },
-  { key: 'files', label: 'Files', icon: FolderOpen },
-  { key: 'meetings', label: 'Meetings', icon: Video },
-  { key: 'expenses', label: 'Expenses', icon: BookOpen },
-  { key: 'tasks', label: 'Tasks', icon: CheckSquare },
-  { key: 'payments', label: 'Payments', icon: DollarSign },
+  { key: 'messages', label: i18n.t('ui:ContactDetailCenterPanel.messages'), icon: MessageSquare },
+  { key: 'activity', label: i18n.t('ui:ContactDetailCenterPanel.activity'), icon: Activity },
+  { key: 'memory', label: i18n.t('ui:ContactDetailCenterPanel.memory'), icon: Brain },
+  { key: 'invoices', label: i18n.t('ui:ContactDetailCenterPanel.invoices'), icon: FileText },
+  { key: 'proposals', label: i18n.t('ui:ContactDetailCenterPanel.proposals'), icon: FileSignature },
+  { key: 'estimates', label: i18n.t('ui:ContactDetailCenterPanel.estimates'), icon: Calculator },
+  { key: 'files', label: i18n.t('ui:ContactDetailCenterPanel.files'), icon: FolderOpen },
+  { key: 'meetings', label: i18n.t('ui:ContactDetailCenterPanel.meetings'), icon: Video },
+  { key: 'expenses', label: i18n.t('ui:ContactDetailCenterPanel.expenses'), icon: BookOpen },
+  { key: 'tasks', label: i18n.t('ui:ContactDetailCenterPanel.tasks'), icon: CheckSquare },
+  { key: 'payments', label: i18n.t('ui:ContactDetailCenterPanel.payments'), icon: DollarSign },
 ]
 
 // Activity timeline icon + color maps (locally scoped — only used here).
@@ -121,6 +123,7 @@ interface Props {
 // ---------------------------------------------------------------------------
 
 export default function ContactDetailCenterPanel(props: Props) {
+  const { t } = useTranslation('ui')
   const {
     contactId, contact, activeTab, setActiveTab,
     activities, invoices, proposals, estimates, meetings,
@@ -167,7 +170,7 @@ export default function ContactDetailCenterPanel(props: Props) {
               onChange={(e) => setActivityFilter(e.target.value)}
               className="text-sm border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
             >
-              <option value="all">All activities</option>
+              <option value="all">{t('ui:ContactDetailCenterPanel.allActivities')}</option>
               {activityTypes.map((t: unknown, i: number) => (
                 <option key={i} value={String(t)}>{String(t).replace(/_/g, ' ')}</option>
               ))}
@@ -177,12 +180,12 @@ export default function ContactDetailCenterPanel(props: Props) {
             onClick={onAddNoteClick}
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-yellow-700 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg hover:bg-yellow-100 dark:hover:bg-yellow-900/40 transition-colors"
           >
-            <Plus className="h-3.5 w-3.5" /> Add Note
+            <Plus className="h-3.5 w-3.5" /> {t('ui:ContactDetailCenterPanel.addNote')}
           </button>
         </div>
 
         {filteredActivities.length === 0 ? (
-          <EmptyState icon={Activity} title="No activity" description="No activity has been recorded for this contact yet." />
+          <EmptyState icon={Activity} title={t('ui:ContactDetailCenterPanel.noActivity')} description={t('ui:ContactDetailCenterPanel.noActivityHasBeenRecorded')} />
         ) : (
           <div className="relative">
             <div className="absolute left-4 top-0 bottom-0 w-px bg-gray-200 dark:bg-gray-700" />
@@ -228,20 +231,20 @@ export default function ContactDetailCenterPanel(props: Props) {
             onClick={() => navigate(`/invoices/new?contact_id=${contactId}`)}
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
           >
-            <Plus className="h-3.5 w-3.5" /> Create Invoice
+            <Plus className="h-3.5 w-3.5" /> {t('ui:ContactDetailCenterPanel.createInvoice')}
           </button>
         </div>
         {invoices.length === 0 ? (
-          <EmptyState icon={FileText} title="No invoices" description="No invoices have been created for this contact yet." />
+          <EmptyState icon={FileText} title={t('ui:ContactDetailCenterPanel.noInvoices')} description={t('ui:ContactDetailCenterPanel.noInvoicesHaveBeenCreated')} />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 dark:border-gray-700">
                   <th className="text-left py-2.5 px-3 text-xs font-medium text-gray-500 dark:text-gray-400">#</th>
-                  <th className="text-right py-2.5 px-3 text-xs font-medium text-gray-500 dark:text-gray-400">Amount</th>
-                  <th className="text-left py-2.5 px-3 text-xs font-medium text-gray-500 dark:text-gray-400">Status</th>
-                  <th className="text-left py-2.5 px-3 text-xs font-medium text-gray-500 dark:text-gray-400">Date</th>
+                  <th className="text-right py-2.5 px-3 text-xs font-medium text-gray-500 dark:text-gray-400">{t('ui:ContactDetailCenterPanel.amount')}</th>
+                  <th className="text-left py-2.5 px-3 text-xs font-medium text-gray-500 dark:text-gray-400">{t('ui:ContactDetailCenterPanel.status')}</th>
+                  <th className="text-left py-2.5 px-3 text-xs font-medium text-gray-500 dark:text-gray-400">{t('ui:ContactDetailCenterPanel.date')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -274,20 +277,20 @@ export default function ContactDetailCenterPanel(props: Props) {
             onClick={() => navigate(`/proposals/new?contact_id=${contactId}`)}
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
           >
-            <Plus className="h-3.5 w-3.5" /> Create Proposal
+            <Plus className="h-3.5 w-3.5" /> {t('ui:ContactDetailCenterPanel.createProposal')}
           </button>
         </div>
         {proposals.length === 0 ? (
-          <EmptyState icon={FileSignature} title="No proposals" description="No proposals have been created for this contact yet." />
+          <EmptyState icon={FileSignature} title={t('ui:ContactDetailCenterPanel.noProposals')} description={t('ui:ContactDetailCenterPanel.noProposalsHaveBeenCreated')} />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 dark:border-gray-700">
-                  <th className="text-left py-2.5 px-3 text-xs font-medium text-gray-500 dark:text-gray-400">Title</th>
-                  <th className="text-right py-2.5 px-3 text-xs font-medium text-gray-500 dark:text-gray-400">Value</th>
-                  <th className="text-left py-2.5 px-3 text-xs font-medium text-gray-500 dark:text-gray-400">Status</th>
-                  <th className="text-left py-2.5 px-3 text-xs font-medium text-gray-500 dark:text-gray-400">Date</th>
+                  <th className="text-left py-2.5 px-3 text-xs font-medium text-gray-500 dark:text-gray-400">{t('ui:ContactDetailCenterPanel.title')}</th>
+                  <th className="text-right py-2.5 px-3 text-xs font-medium text-gray-500 dark:text-gray-400">{t('ui:ContactDetailCenterPanel.value')}</th>
+                  <th className="text-left py-2.5 px-3 text-xs font-medium text-gray-500 dark:text-gray-400">{t('ui:ContactDetailCenterPanel.status')}</th>
+                  <th className="text-left py-2.5 px-3 text-xs font-medium text-gray-500 dark:text-gray-400">{t('ui:ContactDetailCenterPanel.date')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -320,20 +323,20 @@ export default function ContactDetailCenterPanel(props: Props) {
             onClick={() => navigate(`/estimates/new?contact_id=${contactId}`)}
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
           >
-            <Plus className="h-3.5 w-3.5" /> Create Estimate
+            <Plus className="h-3.5 w-3.5" /> {t('ui:ContactDetailCenterPanel.createEstimate')}
           </button>
         </div>
         {estimates.length === 0 ? (
-          <EmptyState icon={Calculator} title="No estimates" description="No estimates have been created for this contact yet." />
+          <EmptyState icon={Calculator} title={t('ui:ContactDetailCenterPanel.noEstimates')} description={t('ui:ContactDetailCenterPanel.noEstimatesHaveBeenCreated')} />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 dark:border-gray-700">
                   <th className="text-left py-2.5 px-3 text-xs font-medium text-gray-500 dark:text-gray-400">#</th>
-                  <th className="text-right py-2.5 px-3 text-xs font-medium text-gray-500 dark:text-gray-400">Total</th>
-                  <th className="text-left py-2.5 px-3 text-xs font-medium text-gray-500 dark:text-gray-400">Status</th>
-                  <th className="text-left py-2.5 px-3 text-xs font-medium text-gray-500 dark:text-gray-400">Date</th>
+                  <th className="text-right py-2.5 px-3 text-xs font-medium text-gray-500 dark:text-gray-400">{t('ui:ContactDetailCenterPanel.total')}</th>
+                  <th className="text-left py-2.5 px-3 text-xs font-medium text-gray-500 dark:text-gray-400">{t('ui:ContactDetailCenterPanel.status')}</th>
+                  <th className="text-left py-2.5 px-3 text-xs font-medium text-gray-500 dark:text-gray-400">{t('ui:ContactDetailCenterPanel.date')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -359,7 +362,7 @@ export default function ContactDetailCenterPanel(props: Props) {
 
   const renderFiles = () => {
     if (filesIsLoading) return <LoadingSkeleton />
-    if (fileShares.length === 0) return <EmptyState icon={FolderOpen} title="No shared files" description="No files have been shared with this contact yet." />
+    if (fileShares.length === 0) return <EmptyState icon={FolderOpen} title={t('ui:ContactDetailCenterPanel.noSharedFiles')} description={t('ui:ContactDetailCenterPanel.noFilesHaveBeenShared')} />
     return (
       <div className="space-y-2">
         {fileShares.map((share: any) => (
@@ -371,7 +374,7 @@ export default function ContactDetailCenterPanel(props: Props) {
               <FolderOpen className="h-4 w-4 text-gray-400 shrink-0" />
               <div className="min-w-0">
                 <p className="text-sm text-gray-900 dark:text-gray-100 truncate">
-                  {share.file_name || share.document_title || `File ${share.file_id?.slice(0, 8)}`}
+                  {share.file_name || share.document_title || t('ui:ContactDetailCenterPanel.fileV0', { v0: share.file_id?.slice(0, 8) })}
                 </p>
                 <p className="text-xs text-gray-400 dark:text-gray-500">{share.permission} access</p>
               </div>
@@ -387,15 +390,15 @@ export default function ContactDetailCenterPanel(props: Props) {
 
   const renderMeetings = () => {
     if (meetingsIsLoading) return <LoadingSkeleton />
-    if (meetings.length === 0) return <EmptyState icon={Video} title="No meetings" description="No meetings have been scheduled with this contact yet." />
+    if (meetings.length === 0) return <EmptyState icon={Video} title={t('ui:ContactDetailCenterPanel.noMeetings')} description={t('ui:ContactDetailCenterPanel.noMeetingsHaveBeenScheduled')} />
     return (
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-100 dark:border-gray-700">
-              <th className="text-left py-2.5 px-3 text-xs font-medium text-gray-500 dark:text-gray-400">Title</th>
-              <th className="text-left py-2.5 px-3 text-xs font-medium text-gray-500 dark:text-gray-400">Date</th>
-              <th className="text-left py-2.5 px-3 text-xs font-medium text-gray-500 dark:text-gray-400">Status</th>
+              <th className="text-left py-2.5 px-3 text-xs font-medium text-gray-500 dark:text-gray-400">{t('ui:ContactDetailCenterPanel.title')}</th>
+              <th className="text-left py-2.5 px-3 text-xs font-medium text-gray-500 dark:text-gray-400">{t('ui:ContactDetailCenterPanel.date')}</th>
+              <th className="text-left py-2.5 px-3 text-xs font-medium text-gray-500 dark:text-gray-400">{t('ui:ContactDetailCenterPanel.status')}</th>
             </tr>
           </thead>
           <tbody>
@@ -418,16 +421,16 @@ export default function ContactDetailCenterPanel(props: Props) {
 
   const renderExpenses = () => {
     if (expensesIsLoading) return <LoadingSkeleton />
-    if (expenses.length === 0) return <EmptyState icon={BookOpen} title="No expenses" description="No cashbook entries found for this contact." />
+    if (expenses.length === 0) return <EmptyState icon={BookOpen} title={t('ui:ContactDetailCenterPanel.noExpenses')} description={t('ui:ContactDetailCenterPanel.noCashbookEntriesFoundFor')} />
     return (
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-100 dark:border-gray-700">
-              <th className="text-left py-2.5 px-3 text-xs font-medium text-gray-500 dark:text-gray-400">Date</th>
-              <th className="text-left py-2.5 px-3 text-xs font-medium text-gray-500 dark:text-gray-400">Description</th>
-              <th className="text-left py-2.5 px-3 text-xs font-medium text-gray-500 dark:text-gray-400">Type</th>
-              <th className="text-right py-2.5 px-3 text-xs font-medium text-gray-500 dark:text-gray-400">Amount</th>
+              <th className="text-left py-2.5 px-3 text-xs font-medium text-gray-500 dark:text-gray-400">{t('ui:ContactDetailCenterPanel.date')}</th>
+              <th className="text-left py-2.5 px-3 text-xs font-medium text-gray-500 dark:text-gray-400">{t('ui:ContactDetailCenterPanel.description')}</th>
+              <th className="text-left py-2.5 px-3 text-xs font-medium text-gray-500 dark:text-gray-400">{t('ui:ContactDetailCenterPanel.type')}</th>
+              <th className="text-right py-2.5 px-3 text-xs font-medium text-gray-500 dark:text-gray-400">{t('ui:ContactDetailCenterPanel.amount')}</th>
             </tr>
           </thead>
           <tbody>
@@ -451,8 +454,8 @@ export default function ContactDetailCenterPanel(props: Props) {
       return (
         <EmptyState
           icon={DollarSign}
-          title="No payments"
-          description="No payments have been received from this contact yet."
+          title={t('ui:ContactDetailCenterPanel.noPayments')}
+          description={t('ui:ContactDetailCenterPanel.noPaymentsHaveBeenReceived')}
         />
       )
     }
@@ -474,11 +477,11 @@ export default function ContactDetailCenterPanel(props: Props) {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 dark:border-gray-700 text-left">
-                <th className="px-3 py-2 font-medium text-gray-600 dark:text-gray-400">Date</th>
-                <th className="px-3 py-2 font-medium text-gray-600 dark:text-gray-400">Invoice</th>
-                <th className="px-3 py-2 font-medium text-gray-600 dark:text-gray-400">Method</th>
-                <th className="px-3 py-2 font-medium text-gray-600 dark:text-gray-400">Reference</th>
-                <th className="px-3 py-2 font-medium text-gray-600 dark:text-gray-400 text-right">Amount</th>
+                <th className="px-3 py-2 font-medium text-gray-600 dark:text-gray-400">{t('ui:ContactDetailCenterPanel.date')}</th>
+                <th className="px-3 py-2 font-medium text-gray-600 dark:text-gray-400">{t('ui:ContactDetailCenterPanel.invoice')}</th>
+                <th className="px-3 py-2 font-medium text-gray-600 dark:text-gray-400">{t('ui:ContactDetailCenterPanel.method')}</th>
+                <th className="px-3 py-2 font-medium text-gray-600 dark:text-gray-400">{t('ui:ContactDetailCenterPanel.reference')}</th>
+                <th className="px-3 py-2 font-medium text-gray-600 dark:text-gray-400 text-right">{t('ui:ContactDetailCenterPanel.amount')}</th>
               </tr>
             </thead>
             <tbody>
@@ -531,23 +534,23 @@ export default function ContactDetailCenterPanel(props: Props) {
       <div className="space-y-3">
         <div className="flex justify-between items-center">
           <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            Contact memory (AI-extracted)
+           {t('ui:ContactDetailCenterPanel.contactMemoryAiExtracted')}
           </h3>
           <button
             onClick={onAddMemoryClick}
             className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-md flex items-center gap-1"
           >
-            <Plus className="h-3 w-3" /> Add manual memory
+            <Plus className="h-3 w-3" /> {t('ui:ContactDetailCenterPanel.addManualMemory')}
           </button>
         </div>
 
         {memoriesIsLoading ? (
-          <div className="text-sm text-gray-500">Loading…</div>
+          <div className="text-sm text-gray-500">{t('ui:ContactDetailCenterPanel.loading')}</div>
         ) : memories.length === 0 ? (
           <EmptyState
             icon={Brain}
-            title="No memory yet"
-            description="Voicemails and conversations with this contact will appear here as AI-extracted summaries."
+            title={t('ui:ContactDetailCenterPanel.noMemoryYet')}
+            description={t('ui:ContactDetailCenterPanel.voicemailsAndConversationsWithThis')}
           />
         ) : (
           <div className="space-y-2">
@@ -569,32 +572,32 @@ export default function ContactDetailCenterPanel(props: Props) {
                         <span>{m.created_at ? formatDateTime(m.created_at) : ''}</span>
                       </div>
                       <div className="text-sm text-gray-900 dark:text-gray-100">
-                        {m.summary || <span className="italic text-gray-400">No summary</span>}
+                        {m.summary || <span className="italic text-gray-400">{t('ui:ContactDetailCenterPanel.noSummary')}</span>}
                       </div>
                       {isExpanded && (
                         <div className="mt-2 space-y-1.5 text-xs">
                           {m.commitments && (
                             <div>
-                              <span className="font-semibold text-gray-700 dark:text-gray-300">Commitments:</span>{' '}
+                              <span className="font-semibold text-gray-700 dark:text-gray-300">{t('ui:ContactDetailCenterPanel.commitments')}</span>{' '}
                               <span className="text-gray-600 dark:text-gray-400">{m.commitments}</span>
                             </div>
                           )}
                           {m.cares_about && (
                             <div>
-                              <span className="font-semibold text-gray-700 dark:text-gray-300">Cares about:</span>{' '}
+                              <span className="font-semibold text-gray-700 dark:text-gray-300">{t('ui:ContactDetailCenterPanel.caresAbout')}</span>{' '}
                               <span className="text-gray-600 dark:text-gray-400">{m.cares_about}</span>
                             </div>
                           )}
                           {m.talking_points && (
                             <div>
-                              <span className="font-semibold text-gray-700 dark:text-gray-300">Next time:</span>{' '}
+                              <span className="font-semibold text-gray-700 dark:text-gray-300">{t('ui:ContactDetailCenterPanel.nextTime')}</span>{' '}
                               <span className="text-gray-600 dark:text-gray-400">{m.talking_points}</span>
                             </div>
                           )}
                           {m.raw_input && (
                             <details className="mt-2">
                               <summary className="cursor-pointer text-gray-500 hover:text-gray-700">
-                                Raw input
+                               {t('ui:ContactDetailCenterPanel.rawInput')}
                               </summary>
                               <pre className="mt-1 whitespace-pre-wrap text-gray-500 dark:text-gray-400 text-xs">
                                 {m.raw_input}
@@ -608,17 +611,17 @@ export default function ContactDetailCenterPanel(props: Props) {
                           onClick={() => setExpandedMemoryId(isExpanded ? null : m.id)}
                           className="text-blue-600 hover:underline"
                         >
-                          {isExpanded ? 'Collapse' : 'Show details'}
+                          {isExpanded ? t('ui:ContactDetailCenterPanel.collapse') : t('ui:ContactDetailCenterPanel.showDetails')}
                         </button>
                         <button
                           onClick={() => {
-                            if (confirm('Delete this memory entry?')) {
+                            if (confirm(t('ui:ContactDetailCenterPanel.deleteThisMemoryEntry'))) {
                               onDeleteMemory(m.id)
                             }
                           }}
                           className="text-red-600 hover:underline"
                         >
-                          Delete
+                         {t('ui:ContactDetailCenterPanel.delete')}
                         </button>
                       </div>
                     </div>
@@ -657,7 +660,7 @@ export default function ContactDetailCenterPanel(props: Props) {
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Tab bar */}
       <div className="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-x-auto shrink-0">
-        <nav className="flex gap-0 -mb-px px-4" aria-label="Contact tabs">
+        <nav className="flex gap-0 -mb-px px-4" aria-label={t('ui:ContactDetailCenterPanel.contactTabs')}>
           {TABS.map(({ key, label, icon: Icon }) => {
             const count = tabCounts[key]
             return (

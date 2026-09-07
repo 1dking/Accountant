@@ -16,6 +16,8 @@ import {
   FileText,
   X,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { uiLocale } from '@/lib/utils'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -37,7 +39,7 @@ interface Stroke {
 // ---------------------------------------------------------------------------
 
 const formatCurrency = (amount: number | string, currency = 'USD') =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(
+  new Intl.NumberFormat(uiLocale(), { style: 'currency', currency }).format(
     typeof amount === 'string' ? parseFloat(amount) : amount
   )
 
@@ -65,11 +67,12 @@ function TextBlock({ data }: { data: Record<string, any> }) {
 }
 
 function ImageBlock({ data }: { data: Record<string, any> }) {
+  const { t } = useTranslation('ui')
   return (
     <div className="flex justify-center">
       <img
         src={data.url || data.src}
-        alt={data.alt || 'Proposal image'}
+        alt={data.alt || t('ui:ProposalSigningPage.proposalImage')}
         className="max-w-full rounded-lg"
         style={{ maxHeight: data.max_height || 480 }}
       />
@@ -78,6 +81,7 @@ function ImageBlock({ data }: { data: Record<string, any> }) {
 }
 
 function VideoBlock({ data }: { data: Record<string, any> }) {
+  const { t } = useTranslation('ui')
   const src = data.url || data.src || ''
   // Support YouTube / Vimeo embeds and raw video URLs
   const isEmbed = src.includes('youtube') || src.includes('vimeo') || src.includes('embed')
@@ -86,7 +90,7 @@ function VideoBlock({ data }: { data: Record<string, any> }) {
       <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
         <iframe
           src={src}
-          title={data.title || 'Video'}
+          title={data.title || t('ui:ProposalSigningPage.video')}
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen
           className="absolute inset-0 w-full h-full rounded-lg"
@@ -105,6 +109,7 @@ function VideoBlock({ data }: { data: Record<string, any> }) {
 }
 
 function PricingTableBlock({ data, currency }: { data: Record<string, any>; currency: string }) {
+  const { t } = useTranslation('ui')
   const items: any[] = data.items || data.rows || []
   const subtotal = items.reduce(
     (sum: number, item: any) => sum + (item.quantity ?? 1) * (item.unit_price ?? item.price ?? 0),
@@ -119,10 +124,10 @@ function PricingTableBlock({ data, currency }: { data: Record<string, any>; curr
       <table className="w-full text-sm border-collapse">
         <thead>
           <tr className="border-b border-gray-200 dark:border-gray-700">
-            <th className="text-left py-3 px-2 font-medium text-gray-500 dark:text-gray-400">Item</th>
-            <th className="text-right py-3 px-2 font-medium text-gray-500 dark:text-gray-400">Qty</th>
-            <th className="text-right py-3 px-2 font-medium text-gray-500 dark:text-gray-400">Price</th>
-            <th className="text-right py-3 px-2 font-medium text-gray-500 dark:text-gray-400">Total</th>
+            <th className="text-left py-3 px-2 font-medium text-gray-500 dark:text-gray-400">{t('ui:ProposalSigningPage.item')}</th>
+            <th className="text-right py-3 px-2 font-medium text-gray-500 dark:text-gray-400">{t('ui:ProposalSigningPage.qty')}</th>
+            <th className="text-right py-3 px-2 font-medium text-gray-500 dark:text-gray-400">{t('ui:ProposalSigningPage.price')}</th>
+            <th className="text-right py-3 px-2 font-medium text-gray-500 dark:text-gray-400">{t('ui:ProposalSigningPage.total')}</th>
           </tr>
         </thead>
         <tbody>
@@ -151,23 +156,23 @@ function PricingTableBlock({ data, currency }: { data: Record<string, any>; curr
       </table>
       <div className="flex flex-col items-end gap-1 mt-3">
         <div className="flex justify-between w-48">
-          <span className="text-sm text-gray-500 dark:text-gray-400">Subtotal</span>
+          <span className="text-sm text-gray-500 dark:text-gray-400">{t('ui:ProposalSigningPage.subtotal')}</span>
           <span className="text-sm text-gray-900 dark:text-gray-100">{formatCurrency(subtotal, currency)}</span>
         </div>
         {discount > 0 && (
           <div className="flex justify-between w-48">
-            <span className="text-sm text-gray-500 dark:text-gray-400">Discount</span>
+            <span className="text-sm text-gray-500 dark:text-gray-400">{t('ui:ProposalSigningPage.discount')}</span>
             <span className="text-sm text-red-600">-{formatCurrency(discount, currency)}</span>
           </div>
         )}
         {tax > 0 && (
           <div className="flex justify-between w-48">
-            <span className="text-sm text-gray-500 dark:text-gray-400">Tax</span>
+            <span className="text-sm text-gray-500 dark:text-gray-400">{t('ui:ProposalSigningPage.tax')}</span>
             <span className="text-sm text-gray-900 dark:text-gray-100">{formatCurrency(tax, currency)}</span>
           </div>
         )}
         <div className="flex justify-between w-48 pt-2 border-t border-gray-300 dark:border-gray-600 mt-1">
-          <span className="text-sm font-bold text-gray-900 dark:text-gray-100">Total</span>
+          <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{t('ui:ProposalSigningPage.total')}</span>
           <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{formatCurrency(total, currency)}</span>
         </div>
       </div>
@@ -206,6 +211,7 @@ interface SignatureBlockProps {
 }
 
 function SignatureBlock({ data, recipientId, alreadySigned, onClickSign }: SignatureBlockProps) {
+  const { t } = useTranslation('ui')
   const isForMe = data.recipient_id === recipientId
   const isSigned = !!data.signature_data || !!data.signed_at
 
@@ -214,17 +220,17 @@ function SignatureBlock({ data, recipientId, alreadySigned, onClickSign }: Signa
       <div className="border border-green-200 dark:border-green-800 rounded-lg p-4 bg-green-50 dark:bg-green-900/20">
         <div className="flex items-center gap-2 mb-2">
           <CheckCircle className="h-4 w-4 text-green-600" />
-          <span className="text-sm font-medium text-green-700 dark:text-green-400">Signed</span>
+          <span className="text-sm font-medium text-green-700 dark:text-green-400">{t('ui:ProposalSigningPage.signed')}</span>
         </div>
         {data.signature_data && (
           <img
             src={data.signature_data}
-            alt="Signature"
+            alt={t('ui:ProposalSigningPage.signature')}
             className="max-h-20 object-contain"
           />
         )}
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-          {data.signer_name || data.name || 'Signer'} &mdash;{' '}
+          {data.signer_name || data.name || t('ui:ProposalSigningPage.signer')} &mdash;{' '}
           {data.signed_at ? new Date(data.signed_at).toLocaleString() : ''}
         </p>
       </div>
@@ -240,10 +246,10 @@ function SignatureBlock({ data, recipientId, alreadySigned, onClickSign }: Signa
       >
         <Pen className="h-6 w-6 text-blue-500" />
         <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
-          Click here to sign
+         {t('ui:ProposalSigningPage.clickHereToSign')}
         </span>
         <span className="text-xs text-gray-500 dark:text-gray-400">
-          {data.name || 'Your signature'}
+          {data.name || t('ui:ProposalSigningPage.yourSignature')}
         </span>
       </button>
     )
@@ -254,8 +260,8 @@ function SignatureBlock({ data, recipientId, alreadySigned, onClickSign }: Signa
     <div className="border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg p-6 flex flex-col items-center gap-2">
       <Pen className="h-5 w-5 text-gray-300 dark:text-gray-600" />
       <span className="text-sm text-gray-400 dark:text-gray-500">
-        {data.name || 'Signature'}{' '}
-        {alreadySigned && isForMe ? '(signed)' : '(awaiting signature)'}
+        {data.name || t('ui:ProposalSigningPage.signature')}{' '}
+        {alreadySigned && isForMe ? t('ui:ProposalSigningPage.signed_2') : t('ui:ProposalSigningPage.awaitingSignature')}
       </span>
     </div>
   )
@@ -272,6 +278,7 @@ interface SignatureCaptureProps {
 }
 
 function SignatureCapture({ signerName, onSign, onClose }: SignatureCaptureProps) {
+  const { t } = useTranslation('ui')
   const [tab, setTab] = useState<'draw' | 'type'>('draw')
   const [typedName, setTypedName] = useState(signerName)
 
@@ -420,7 +427,7 @@ function SignatureCapture({ signerName, onSign, onClose }: SignatureCaptureProps
         {/* Modal header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            Add Your Signature
+           {t('ui:ProposalSigningPage.addYourSignature')}
           </h3>
           <button
             type="button"
@@ -444,7 +451,7 @@ function SignatureCapture({ signerName, onSign, onClose }: SignatureCaptureProps
               }`}
             >
               <Pen className="h-4 w-4" />
-              Draw
+             {t('ui:ProposalSigningPage.draw')}
             </button>
             <button
               type="button"
@@ -456,7 +463,7 @@ function SignatureCapture({ signerName, onSign, onClose }: SignatureCaptureProps
               }`}
             >
               <Type className="h-4 w-4" />
-              Type
+             {t('ui:ProposalSigningPage.type')}
             </button>
           </div>
 
@@ -478,7 +485,7 @@ function SignatureCapture({ signerName, onSign, onClose }: SignatureCaptureProps
                 {!hasDrawnSignature && (
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                     <span className="text-gray-400 dark:text-gray-500 text-sm">
-                      Draw your signature here
+                     {t('ui:ProposalSigningPage.drawYourSignatureHere')}
                     </span>
                   </div>
                 )}
@@ -491,7 +498,7 @@ function SignatureCapture({ signerName, onSign, onClose }: SignatureCaptureProps
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 disabled:opacity-30 transition-colors"
                 >
                   <Undo2 className="h-3.5 w-3.5" />
-                  Undo
+                 {t('ui:ProposalSigningPage.undo')}
                 </button>
                 <button
                   type="button"
@@ -500,7 +507,7 @@ function SignatureCapture({ signerName, onSign, onClose }: SignatureCaptureProps
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 disabled:opacity-30 transition-colors"
                 >
                   <Eraser className="h-3.5 w-3.5" />
-                  Clear
+                 {t('ui:ProposalSigningPage.clear')}
                 </button>
               </div>
             </div>
@@ -513,7 +520,7 @@ function SignatureCapture({ signerName, onSign, onClose }: SignatureCaptureProps
                 type="text"
                 value={typedName}
                 onChange={(e) => setTypedName(e.target.value)}
-                placeholder="Type your full name"
+                placeholder={t('ui:ProposalSigningPage.typeYourFullName')}
                 autoFocus
                 className="w-full px-4 py-3 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100"
               />
@@ -536,7 +543,7 @@ function SignatureCapture({ signerName, onSign, onClose }: SignatureCaptureProps
           <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded-lg px-4 py-3">
             <FileText className="h-4 w-4 shrink-0" />
             <div>
-              <p>Signing as <span className="font-medium text-gray-700 dark:text-gray-300">{signerName}</span></p>
+              <p>{t('ui:ProposalSigningPage.signingAs')} <span className="font-medium text-gray-700 dark:text-gray-300">{signerName}</span></p>
               <p>{new Date().toLocaleString()}</p>
             </div>
           </div>
@@ -548,7 +555,7 @@ function SignatureCapture({ signerName, onSign, onClose }: SignatureCaptureProps
             disabled={tab === 'draw' ? !hasDrawnSignature : !hasTypedSignature}
             className="w-full py-3 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            Sign
+           {t('ui:ProposalSigningPage.sign')}
           </button>
         </div>
       </div>
@@ -567,15 +574,15 @@ interface ConfirmDialogProps {
 }
 
 function ConfirmDialog({ isPending, onConfirm, onCancel }: ConfirmDialogProps) {
+  const { t } = useTranslation('ui')
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl max-w-md w-full p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">
-          Confirm Your Signature
+         {t('ui:ProposalSigningPage.confirmYourSignature')}
         </h3>
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
-          By signing, you agree to the terms of this proposal. Your signature,
-          IP address, and timestamp will be recorded for verification purposes.
+         {t('ui:ProposalSigningPage.bySigningYouAgreeTo')}
         </p>
         <div className="flex gap-3">
           <button
@@ -584,7 +591,7 @@ function ConfirmDialog({ isPending, onConfirm, onCancel }: ConfirmDialogProps) {
             disabled={isPending}
             className="flex-1 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
           >
-            Cancel
+           {t('ui:ProposalSigningPage.cancel')}
           </button>
           <button
             type="button"
@@ -595,10 +602,10 @@ function ConfirmDialog({ isPending, onConfirm, onCancel }: ConfirmDialogProps) {
             {isPending ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Signing...
+               {t('ui:ProposalSigningPage.signing')}
               </>
             ) : (
-              'Confirm & Sign'
+              t('ui:ProposalSigningPage.confirmSign')
             )}
           </button>
         </div>
@@ -612,6 +619,7 @@ function ConfirmDialog({ isPending, onConfirm, onCancel }: ConfirmDialogProps) {
 // ---------------------------------------------------------------------------
 
 export default function ProposalSigningPage() {
+  const { t } = useTranslation('ui')
   const { token } = useParams<{ token: string }>()
 
   // UI state
@@ -633,7 +641,7 @@ export default function ProposalSigningPage() {
   // Sign mutation
   const signMutation = useMutation({
     mutationFn: () => {
-      if (!pendingSignature || !signingData) throw new Error('Missing signature data')
+      if (!pendingSignature || !signingData) throw new Error(t('ui:ProposalSigningPage.missingSignatureData'))
       return signProposal(token!, {
         recipient_id: signingData.recipient_id,
         signature_data: pendingSignature.data,
@@ -644,7 +652,7 @@ export default function ProposalSigningPage() {
       setShowConfirmDialog(false)
       setPendingSignature(null)
       setSigned(true)
-      toast.success('Proposal signed successfully!')
+      toast.success(t('ui:ProposalSigningPage.proposalSignedSuccessfully'))
       refetch()
 
       const result = response.data
@@ -656,7 +664,7 @@ export default function ProposalSigningPage() {
       }
     },
     onError: () => {
-      toast.error('Failed to sign the proposal. Please try again.')
+      toast.error(t('ui:ProposalSigningPage.failedToSignTheProposal'))
       setShowConfirmDialog(false)
     },
   })
@@ -687,7 +695,7 @@ export default function ProposalSigningPage() {
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="h-8 w-8 text-blue-500 animate-spin" />
-          <p className="text-sm text-gray-500 dark:text-gray-400">Loading proposal...</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{t('ui:ProposalSigningPage.loadingProposal')}</p>
         </div>
       </div>
     )
@@ -702,11 +710,10 @@ export default function ProposalSigningPage() {
         <div className="text-center">
           <AlertCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
           <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
-            Invalid or expired link
+           {t('ui:ProposalSigningPage.invalidOrExpiredLink')}
           </h1>
           <p className="text-gray-500 dark:text-gray-400 max-w-sm">
-            This signing link may have expired or is no longer valid. Please
-            contact the sender to request a new link.
+           {t('ui:ProposalSigningPage.thisSigningLinkMayHave')}
           </p>
         </div>
       </div>
@@ -737,7 +744,7 @@ export default function ProposalSigningPage() {
           {alreadySigned && (
             <span className="shrink-0 flex items-center gap-1.5 px-3 py-1 text-xs font-medium text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/30 rounded-full">
               <CheckCircle className="h-3.5 w-3.5" />
-              Signed
+             {t('ui:ProposalSigningPage.signed')}
             </span>
           )}
         </div>
@@ -750,10 +757,10 @@ export default function ProposalSigningPage() {
             <CheckCircle className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-medium text-green-800 dark:text-green-300">
-                You have already signed this document
+               {t('ui:ProposalSigningPage.youHaveAlreadySignedThis')}
               </p>
               <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                Your signature has been recorded. You can still review the document below.
+               {t('ui:ProposalSigningPage.yourSignatureHasBeenRecorded')}
               </p>
             </div>
           </div>
@@ -765,10 +772,10 @@ export default function ProposalSigningPage() {
             <CheckCircle className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-medium text-blue-800 dark:text-blue-300">
-                All parties have signed this document
+               {t('ui:ProposalSigningPage.allPartiesHaveSignedThis')}
               </p>
               <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                This proposal has been fully executed by all required signers.
+               {t('ui:ProposalSigningPage.thisProposalHasBeenFully')}
               </p>
             </div>
           </div>
@@ -824,7 +831,7 @@ export default function ProposalSigningPage() {
               <div className="text-center py-12">
                 <FileText className="h-10 w-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  No content available for this proposal.
+                 {t('ui:ProposalSigningPage.noContentAvailableForThis')}
                 </p>
               </div>
             )}
@@ -835,7 +842,7 @@ export default function ProposalSigningPage() {
         <div className="text-center mt-8 mb-4">
           <p className="text-xs text-gray-400 dark:text-gray-500">
             {signingData.company_name && <>{signingData.company_name} &middot; </>}
-            Powered by Accountant
+           {t('ui:ProposalSigningPage.poweredByAccountant')}
           </p>
         </div>
       </main>

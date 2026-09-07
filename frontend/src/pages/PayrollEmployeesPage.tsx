@@ -129,6 +129,7 @@ function EmployeeRow({ e, onEdit, t, tc }: { e: Employee; onEdit: () => void; t:
 }
 
 function EmployeeModal({ employee, onClose }: { employee: Employee | null; onClose: () => void }) {
+  const { t: tr } = useTranslation('ui')
   const { t } = useTranslation('payroll')
   const { t: tc } = useTranslation('common')
   const qc = useQueryClient()
@@ -229,7 +230,7 @@ function EmployeeModal({ employee, onClose }: { employee: Employee | null; onClo
         </div>
 
         <details className="pt-2 border-t border-gray-100 dark:border-gray-800">
-          <summary className="text-sm text-gray-600 dark:text-gray-400 cursor-pointer">TD1 &amp; exemptions</summary>
+          <summary className="text-sm text-gray-600 dark:text-gray-400 cursor-pointer">{tr('ui:PayrollEmployeesPage.td1Exemptions')}</summary>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-3">
             <div><label className={lab}>{t('employees.fields.td1Federal')}</label><input type="number" step="1" className={`${inp} tabular-nums`} value={form.td1_federal_claim ?? ''} onChange={(e) => set('td1_federal_claim', e.target.value === '' ? null : parseFloat(e.target.value))} /></div>
             <div><label className={lab}>{t('employees.fields.td1Provincial')}</label><input type="number" step="1" className={`${inp} tabular-nums`} value={form.td1_provincial_claim ?? ''} onChange={(e) => set('td1_provincial_claim', e.target.value === '' ? null : parseFloat(e.target.value))} /></div>

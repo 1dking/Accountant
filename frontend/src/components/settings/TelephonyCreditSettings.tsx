@@ -5,16 +5,17 @@ import { toast } from 'sonner'
 import {
   Phone, Loader2, Plus, ArrowDownCircle, ArrowUpCircle, RefreshCw, Zap,
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, uiLocale } from '@/lib/utils'
 import { billingApi, type TelephonyLedgerItem } from '@/api/billing'
 import { ApiClientError } from '@/api/client'
+import { useTranslation } from 'react-i18next'
 
 const TOPUP_PRESETS = [10, 25, 50, 100]
 const MIN_TOPUP = 5
 const MAX_TOPUP = 500
 
 const fmtUSD = (n: number) =>
-  n.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
+  n.toLocaleString(uiLocale(), { style: 'currency', currency: 'USD' })
 
 /** Rates span dollars (a number) to sub-cents (a segment) — scale the precision. */
 const fmtRate = (n: number) =>
@@ -36,6 +37,7 @@ function ledgerLabel(item: TelephonyLedgerItem) {
 }
 
 export default function TelephonyCreditSettings() {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
   const [customAmount, setCustomAmount] = useState('')
@@ -83,13 +85,13 @@ export default function TelephonyCreditSettings() {
       billingApi
         .verifyTelephonyTopup(sessionId)
         .then((res) => {
-          toast.success(`Credit added — balance is now ${fmtUSD(res?.data?.balance_usd ?? 0)}.`)
+          toast.success(t('ui:TelephonyCreditSettings.creditAddedBalanceIsNow', { v0: fmtUSD(res?.data?.balance_usd ?? 0) }))
           queryClient.invalidateQueries({ queryKey: ['telephony-credit'] })
           queryClient.invalidateQueries({ queryKey: ['telephony-ledger'] })
         })
-        .catch(() => toast.error('We could not confirm the top-up. If you were charged, it will appear shortly.'))
+        .catch(() => toast.error(t('ui:TelephonyCreditSettings.weCouldNotConfirmThe')))
     } else if (status === 'cancelled') {
-      toast('Top-up cancelled — no charge made.')
+      toast(t('ui:TelephonyCreditSettings.topUpCancelledNoCharge'))
     }
     const next = new URLSearchParams(searchParams)
     next.delete('topup')
@@ -106,7 +108,7 @@ export default function TelephonyCreditSettings() {
         window.location.href = url
         return
       }
-      toast.error('Could not start checkout. Please try again.')
+      toast.error(t('ui:TelephonyCreditSettings.couldNotStartCheckoutPlease'))
       setPendingAmount(null)
     },
     onError: (err) => {
@@ -123,7 +125,7 @@ export default function TelephonyCreditSettings() {
         amount_usd: Number(autoAmount) || undefined,
       }),
     onSuccess: () => {
-      toast.success('Auto top-up saved.')
+      toast.success(t('ui:TelephonyCreditSettings.autoTopUpSaved'))
       queryClient.invalidateQueries({ queryKey: ['telephony-credit'] })
     },
     onError: (err) => toast.error(errMsg(err, 'Could not save auto top-up.')),
@@ -131,7 +133,7 @@ export default function TelephonyCreditSettings() {
 
   const startTopup = (amount: number) => {
     if (!Number.isFinite(amount) || amount < MIN_TOPUP || amount > MAX_TOPUP) {
-      toast.error(`Enter an amount between ${fmtUSD(MIN_TOPUP)} and ${fmtUSD(MAX_TOPUP)}.`)
+      toast.error(t('ui:TelephonyCreditSettings.enterAnAmountBetweenV0', { v0: fmtUSD(MIN_TOPUP), v1: fmtUSD(MAX_TOPUP) }))
       return
     }
     topupMutation.mutate(Math.round(amount * 100) / 100)
@@ -139,9 +141,9 @@ export default function TelephonyCreditSettings() {
 
   const status = credit?.is_empty ? 'empty' : credit?.is_low ? 'low' : 'ok'
   const statusPill = {
-    ok: { label: 'Healthy', cls: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400' },
-    low: { label: 'Low balance', cls: 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400' },
-    empty: { label: 'Empty', cls: 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400' },
+    ok: { label: t('ui:TelephonyCreditSettings.healthy'), cls: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400' },
+    low: { label: t('ui:TelephonyCreditSettings.lowBalance'), cls: 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400' },
+    empty: { label: t('ui:TelephonyCreditSettings.empty'), cls: 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400' },
   }[status]
 
   if (isLoading) {
@@ -156,11 +158,10 @@ export default function TelephonyCreditSettings() {
     <div className="border-t border-gray-200 dark:border-gray-700 pt-8 space-y-6">
       <div className="flex items-center gap-2">
         <Phone className="w-5 h-5 text-blue-600" />
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Telephony credit</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{t('ui:TelephonyCreditSettings.telephonyCredit')}</h3>
       </div>
       <p className="-mt-4 text-sm text-gray-500 dark:text-gray-400">
-        Prepaid balance for phone numbers, outbound calls and texts. It's charged at your plan's
-        rates as you use it — and incoming calls and texts keep working even at zero.
+       {t('ui:TelephonyCreditSettings.prepaidBalanceForPhoneNumbers')}
       </p>
 
       {/* Balance + top-up */}
@@ -169,7 +170,7 @@ export default function TelephonyCreditSettings() {
         <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-5">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
-              Current balance
+             {t('ui:TelephonyCreditSettings.currentBalance')}
             </span>
             <span className={cn('text-[11px] font-semibold px-2 py-0.5 rounded-full', statusPill.cls)}>
               {statusPill.label}
@@ -180,13 +181,13 @@ export default function TelephonyCreditSettings() {
           </div>
           <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
             <div>
-              <div className="text-gray-400 dark:text-gray-500 text-xs">Purchased (all-time)</div>
+              <div className="text-gray-400 dark:text-gray-500 text-xs">{t('ui:TelephonyCreditSettings.purchasedAllTime')}</div>
               <div className="font-semibold text-gray-700 dark:text-gray-200 tabular-nums">
                 {fmtUSD(credit?.lifetime_purchased_usd ?? 0)}
               </div>
             </div>
             <div>
-              <div className="text-gray-400 dark:text-gray-500 text-xs">Spent (all-time)</div>
+              <div className="text-gray-400 dark:text-gray-500 text-xs">{t('ui:TelephonyCreditSettings.spentAllTime')}</div>
               <div className="font-semibold text-gray-700 dark:text-gray-200 tabular-nums">
                 {fmtUSD(credit?.lifetime_spent_usd ?? 0)}
               </div>
@@ -197,7 +198,7 @@ export default function TelephonyCreditSettings() {
         {/* Top-up */}
         <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-5">
           <span className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
-            Add credit
+           {t('ui:TelephonyCreditSettings.addCredit')}
           </span>
           <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
             {TOPUP_PRESETS.map((amt) => {
@@ -229,7 +230,7 @@ export default function TelephonyCreditSettings() {
                 max={MAX_TOPUP}
                 value={customAmount}
                 onChange={(e) => setCustomAmount(e.target.value)}
-                placeholder="Custom"
+                placeholder={t('ui:TelephonyCreditSettings.custom')}
                 className="w-full pl-7 pr-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -241,11 +242,11 @@ export default function TelephonyCreditSettings() {
               {topupMutation.isPending && pendingAmount === Number(customAmount)
                 ? <Loader2 className="w-4 h-4 animate-spin" />
                 : <Plus className="w-4 h-4" />}
-              Add
+             {t('ui:TelephonyCreditSettings.add')}
             </button>
           </div>
           <p className="mt-2 text-[11px] text-gray-400 dark:text-gray-500">
-            {fmtUSD(MIN_TOPUP)}–{fmtUSD(MAX_TOPUP)} per top-up. Secure checkout via Stripe.
+            {fmtUSD(MIN_TOPUP)}–{fmtUSD(MAX_TOPUP)} {t('ui:TelephonyCreditSettings.perTopUpSecureCheckout')}
           </p>
         </div>
       </div>
@@ -256,9 +257,9 @@ export default function TelephonyCreditSettings() {
           <div className="flex items-center gap-2">
             <Zap className="w-4 h-4 text-amber-500" />
             <div>
-              <div className="text-sm font-semibold text-gray-900 dark:text-white">Auto top-up</div>
+              <div className="text-sm font-semibold text-gray-900 dark:text-white">{t('ui:TelephonyCreditSettings.autoTopUp')}</div>
               <div className="text-xs text-gray-500 dark:text-gray-400">
-                Refill automatically before you run dry.
+               {t('ui:TelephonyCreditSettings.refillAutomaticallyBeforeYouRun')}
               </div>
             </div>
           </div>
@@ -281,7 +282,7 @@ export default function TelephonyCreditSettings() {
         {autoEnabled && (
           <div className="mt-4 flex flex-wrap items-end gap-4">
             <label className="text-sm">
-              <span className="block text-xs text-gray-500 dark:text-gray-400 mb-1">When balance drops below</span>
+              <span className="block text-xs text-gray-500 dark:text-gray-400 mb-1">{t('ui:TelephonyCreditSettings.whenBalanceDropsBelow')}</span>
               <div className="relative w-28">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
                 <input
@@ -292,7 +293,7 @@ export default function TelephonyCreditSettings() {
               </div>
             </label>
             <label className="text-sm">
-              <span className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Add this much</span>
+              <span className="block text-xs text-gray-500 dark:text-gray-400 mb-1">{t('ui:TelephonyCreditSettings.addThisMuch')}</span>
               <div className="relative w-28">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
                 <input
@@ -307,7 +308,7 @@ export default function TelephonyCreditSettings() {
 
         {autoEnabled && !credit?.has_payment_method && (
           <p className="mt-3 text-xs text-amber-600 dark:text-amber-400">
-            Make one manual top-up first — that saves your card so auto top-up has something to charge.
+           {t('ui:TelephonyCreditSettings.makeOneManualTopUp')}
           </p>
         )}
 
@@ -317,14 +318,14 @@ export default function TelephonyCreditSettings() {
           className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-60"
         >
           {autoMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-          Save auto top-up
+         {t('ui:TelephonyCreditSettings.saveAutoTopUp')}
         </button>
       </div>
 
       {/* What you pay */}
       {enabledRates.length > 0 && (
         <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-5">
-          <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">What you pay</h4>
+          <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">{t('ui:TelephonyCreditSettings.whatYouPay')}</h4>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2">
             {enabledRates.map((r) => (
               <div key={r.unit} className="flex items-baseline justify-between text-sm border-b border-gray-100 dark:border-gray-800 py-1.5">
@@ -338,10 +339,10 @@ export default function TelephonyCreditSettings() {
 
       {/* Recent activity */}
       <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-5">
-        <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Recent activity</h4>
+        <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">{t('ui:TelephonyCreditSettings.recentActivity')}</h4>
         {ledger.length === 0 ? (
           <p className="text-sm text-gray-400 dark:text-gray-500 py-4 text-center">
-            No telephony transactions yet.
+           {t('ui:TelephonyCreditSettings.noTelephonyTransactionsYet')}
           </p>
         ) : (
           <ul className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -356,7 +357,7 @@ export default function TelephonyCreditSettings() {
                   <div className="min-w-0 flex-1">
                     <div className="text-sm text-gray-900 dark:text-white truncate">{ledgerLabel(item)}</div>
                     <div className="text-[11px] text-gray-400 dark:text-gray-500">
-                      {new Date(item.created_at).toLocaleString('en-US', {
+                      {new Date(item.created_at).toLocaleString(uiLocale(), {
                         month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
                       })}
                     </div>

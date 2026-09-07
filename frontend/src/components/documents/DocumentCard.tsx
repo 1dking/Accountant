@@ -6,6 +6,7 @@ import type { DocumentListItem } from '@/types/models'
 import { formatFileSize, formatDate } from '@/lib/utils'
 import { DOCUMENT_STATUSES } from '@/lib/constants'
 import { Download, Trash2, ExternalLink } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 interface DocumentCardProps {
   document: DocumentListItem
@@ -29,6 +30,7 @@ function getFileIcon(mimeType: string): string {
 }
 
 export default function DocumentCard({ document: doc, selected, onSelect }: DocumentCardProps) {
+  const { t } = useTranslation('ui')
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { user } = useAuthStore()
@@ -41,7 +43,7 @@ export default function DocumentCard({ document: doc, selected, onSelect }: Docu
       queryClient.invalidateQueries({ queryKey: ['documents'] })
     },
     onError: (err: Error) => {
-      alert(`Failed to delete: ${err.message}`)
+      alert(t('ui:DocumentCard.failedToDeleteMessage', { message: err.message }))
     },
   })
 
@@ -100,14 +102,14 @@ export default function DocumentCard({ document: doc, selected, onSelect }: Docu
           <a
             href={getDownloadUrl(doc.id)}
             download
-            title="Download"
+            title={t('ui:DocumentCard.download')}
             className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
           >
             <Download className="h-4 w-4" />
           </a>
           <button
             onClick={() => navigate(`/documents/${doc.id}`)}
-            title="Open"
+            title={t('ui:DocumentCard.open')}
             className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
           >
             <ExternalLink className="h-4 w-4" />
@@ -115,12 +117,12 @@ export default function DocumentCard({ document: doc, selected, onSelect }: Docu
           {canEdit && (
             <button
               onClick={() => {
-                if (confirm(`Delete "${doc.title || doc.original_filename}"?`)) {
+                if (confirm(t('ui:DocumentCard.deleteV0', { v0: doc.title || doc.original_filename }))) {
                   deleteMutation.mutate()
                 }
               }}
               disabled={deleteMutation.isPending}
-              title="Delete"
+              title={t('ui:DocumentCard.delete')}
               className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors disabled:opacity-50"
             >
               <Trash2 className="h-4 w-4" />

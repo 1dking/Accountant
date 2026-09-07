@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { getInitials, formatDate } from './contactDetailUtils'
+import { useTranslation } from 'react-i18next'
 
 const LEAD_SOURCES = [
   'Website', 'Referral', 'Social Media', 'Cold Outreach', 'Ads', 'Event', 'Other',
@@ -37,6 +38,7 @@ function InlineField({
   placeholder?: string
   icon?: React.ElementType
 }) {
+  const { t } = useTranslation('ui')
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -77,7 +79,7 @@ function InlineField({
         >
           {Icon && <Icon className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500 shrink-0" />}
           <span className={cn('text-sm', value ? 'text-gray-900 dark:text-gray-100' : 'text-gray-400 dark:text-gray-500 italic')}>
-            {value || placeholder || 'Click to add'}
+            {value || placeholder || t('ui:ContactDetailLeftPanel.clickToAdd')}
           </span>
           <Pencil className="h-3 w-3 text-gray-300 dark:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity ml-auto shrink-0" />
         </div>
@@ -119,6 +121,7 @@ function NotesEditor({
   value: string
   onSave: (v: string) => void
 }) {
+  const { t } = useTranslation('ui')
   const [draft, setDraft] = useState(value)
 
   useEffect(() => { setDraft(value) }, [value])
@@ -130,7 +133,7 @@ function NotesEditor({
   return (
     <div>
       <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-400 dark:text-gray-500 mb-0.5">
-        Notes
+       {t('ui:ContactDetailLeftPanel.notes')}
       </label>
       <textarea
         value={draft}
@@ -143,7 +146,7 @@ function NotesEditor({
           }
         }}
         rows={3}
-        placeholder="Notes about this contact…"
+        placeholder={t('ui:ContactDetailLeftPanel.notesAboutThisContact')}
         className="w-full px-2 py-1.5 text-sm rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
       />
     </div>
@@ -168,6 +171,7 @@ export default function ContactDetailLeftPanel({
   onAddTag,
   onRemoveTag,
 }: Props) {
+  const { t } = useTranslation('ui')
   const initials = getInitials(contact.contact_name, contact.company_name)
 
   return (
@@ -175,17 +179,17 @@ export default function ContactDetailLeftPanel({
 
       {/* Contact Info */}
       <div>
-        <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-3">Contact Info</h3>
+        <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-3">{t('ui:ContactDetailLeftPanel.contactInfo')}</h3>
         <div className="flex items-center gap-3 mb-4">
           <div className="w-14 h-14 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-700 dark:text-blue-300 text-lg font-bold shrink-0">
             {initials}
           </div>
           <div className="min-w-0">
             <InlineField
-              label="Full Name"
+              label={t('ui:ContactDetailLeftPanel.fullName')}
               value={contact.contact_name || ''}
               onSave={(v) => saveField('contact_name', v)}
-              placeholder="Add name"
+              placeholder={t('ui:ContactDetailLeftPanel.addName')}
               icon={User}
             />
           </div>
@@ -193,33 +197,33 @@ export default function ContactDetailLeftPanel({
 
         <div className="space-y-2">
           <InlineField
-            label="Email"
+            label={t('ui:ContactDetailLeftPanel.email')}
             value={contact.email || ''}
             onSave={(v) => saveField('email', v)}
             type="email"
-            placeholder="Add email"
+            placeholder={t('ui:ContactDetailLeftPanel.addEmail')}
             icon={Mail}
           />
           <InlineField
-            label="Phone"
+            label={t('ui:ContactDetailLeftPanel.phone')}
             value={contact.phone || ''}
             onSave={(v) => saveField('phone', v)}
             type="tel"
-            placeholder="Add phone"
+            placeholder={t('ui:ContactDetailLeftPanel.addPhone')}
             icon={Phone}
           />
           <InlineField
-            label="Company"
+            label={t('ui:ContactDetailLeftPanel.company')}
             value={contact.company_name}
             onSave={(v) => saveField('company_name', v || contact.company_name)}
-            placeholder="Company name"
+            placeholder={t('ui:ContactDetailLeftPanel.companyName')}
             icon={Building2}
           />
           <InlineField
-            label="Job Title"
+            label={t('ui:ContactDetailLeftPanel.jobTitle')}
             value={contact.job_title || ''}
             onSave={(v) => saveField('job_title', v)}
-            placeholder="Add job title"
+            placeholder={t('ui:ContactDetailLeftPanel.addJobTitle')}
             icon={Briefcase}
           />
         </div>
@@ -230,15 +234,15 @@ export default function ContactDetailLeftPanel({
       {/* Address */}
       <div>
         <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-3 flex items-center gap-1.5">
-          <MapPin className="h-3.5 w-3.5" /> Address
+          <MapPin className="h-3.5 w-3.5" /> {t('ui:ContactDetailLeftPanel.address')}
         </h3>
         <div className="space-y-2">
-          <InlineField label="Street" value={contact.address_line1 || ''} onSave={(v) => saveField('address_line1', v)} placeholder="Street address" />
-          <InlineField label="Apt/Suite" value={contact.address_line2 || ''} onSave={(v) => saveField('address_line2', v)} placeholder="Apt, suite, unit" />
-          <InlineField label="City" value={contact.city || ''} onSave={(v) => saveField('city', v)} placeholder="City" />
-          <InlineField label="Province/State" value={contact.state || ''} onSave={(v) => saveField('state', v)} placeholder="State/Province" />
-          <InlineField label="Postal/ZIP" value={contact.zip_code || ''} onSave={(v) => saveField('zip_code', v)} placeholder="Postal code" />
-          <InlineField label="Country" value={contact.country || ''} onSave={(v) => saveField('country', v)} placeholder="Country" />
+          <InlineField label={t('ui:ContactDetailLeftPanel.street')} value={contact.address_line1 || ''} onSave={(v) => saveField('address_line1', v)} placeholder={t('ui:ContactDetailLeftPanel.streetAddress')} />
+          <InlineField label={t('ui:ContactDetailLeftPanel.aptSuite')} value={contact.address_line2 || ''} onSave={(v) => saveField('address_line2', v)} placeholder={t('ui:ContactDetailLeftPanel.aptSuiteUnit')} />
+          <InlineField label={t('ui:ContactDetailLeftPanel.city')} value={contact.city || ''} onSave={(v) => saveField('city', v)} placeholder={t('ui:ContactDetailLeftPanel.city')} />
+          <InlineField label={t('ui:ContactDetailLeftPanel.provinceState')} value={contact.state || ''} onSave={(v) => saveField('state', v)} placeholder={t('ui:ContactDetailLeftPanel.stateProvince')} />
+          <InlineField label={t('ui:ContactDetailLeftPanel.postalZip')} value={contact.zip_code || ''} onSave={(v) => saveField('zip_code', v)} placeholder={t('ui:ContactDetailLeftPanel.postalCode')} />
+          <InlineField label={t('ui:ContactDetailLeftPanel.country')} value={contact.country || ''} onSave={(v) => saveField('country', v)} placeholder={t('ui:ContactDetailLeftPanel.country')} />
         </div>
       </div>
 
@@ -246,29 +250,29 @@ export default function ContactDetailLeftPanel({
 
       {/* Lead Info */}
       <div>
-        <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-3">Lead Info</h3>
+        <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-3">{t('ui:ContactDetailLeftPanel.leadInfo')}</h3>
         <div className="space-y-3">
           <div>
-            <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-400 dark:text-gray-500 mb-0.5">Type</label>
+            <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-400 dark:text-gray-500 mb-0.5">{t('ui:ContactDetailLeftPanel.type')}</label>
             <select
               value={contact.type}
               onChange={(e) => saveField('type', e.target.value)}
               className="w-full px-2 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
             >
-              <option value="client">Client</option>
-              <option value="vendor">Vendor</option>
-              <option value="both">Both</option>
+              <option value="client">{t('ui:ContactDetailLeftPanel.client')}</option>
+              <option value="vendor">{t('ui:ContactDetailLeftPanel.vendor')}</option>
+              <option value="both">{t('ui:ContactDetailLeftPanel.both')}</option>
             </select>
           </div>
 
           <div>
-            <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-400 dark:text-gray-500 mb-0.5">Lead Source</label>
+            <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-400 dark:text-gray-500 mb-0.5">{t('ui:ContactDetailLeftPanel.leadSource')}</label>
             <select
               value={contact.lead_source || ''}
               onChange={(e) => saveField('lead_source', e.target.value)}
               className="w-full px-2 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
             >
-              <option value="">-- Select --</option>
+              <option value="">{t('ui:ContactDetailLeftPanel.select')}</option>
               {LEAD_SOURCES.map((s) => (
                 <option key={s} value={s}>{s}</option>
               ))}
@@ -276,9 +280,9 @@ export default function ContactDetailLeftPanel({
           </div>
 
           <div>
-            <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-400 dark:text-gray-500 mb-0.5">Assigned User</label>
+            <label className="block text-[10px] uppercase tracking-wider font-semibold text-gray-400 dark:text-gray-500 mb-0.5">{t('ui:ContactDetailLeftPanel.assignedUser')}</label>
             <p className="text-sm text-gray-600 dark:text-gray-400 px-2 py-1">
-              {contact.assigned_user_id || 'Unassigned'}
+              {contact.assigned_user_id || t('ui:ContactDetailLeftPanel.unassigned')}
             </p>
           </div>
         </div>
@@ -288,7 +292,7 @@ export default function ContactDetailLeftPanel({
 
       {/* Settings */}
       <div className="space-y-3">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-3">Settings</h3>
+        <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-3">{t('ui:ContactDetailLeftPanel.settings')}</h3>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             {contact.dnd_enabled ? (
@@ -296,7 +300,7 @@ export default function ContactDetailLeftPanel({
             ) : (
               <Bell className="h-4 w-4 text-gray-400" />
             )}
-            <span className="text-sm text-gray-700 dark:text-gray-300">Do Not Disturb</span>
+            <span className="text-sm text-gray-700 dark:text-gray-300">{t('ui:ContactDetailLeftPanel.doNotDisturb')}</span>
           </div>
           <button
             onClick={() => saveField('dnd_enabled', !contact.dnd_enabled)}
@@ -330,9 +334,9 @@ export default function ContactDetailLeftPanel({
             </span>
             <span
               className="text-sm text-gray-700 dark:text-gray-300"
-              title="When ON, emails to/from this contact's address will be summarized into their memory layer."
+              title={t('ui:ContactDetailLeftPanel.whenOnEmailsToFrom')}
             >
-              Absorb emails
+             {t('ui:ContactDetailLeftPanel.absorbEmails')}
             </span>
           </div>
           <button
@@ -364,11 +368,11 @@ export default function ContactDetailLeftPanel({
       {/* Tags */}
       <div>
         <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-3 flex items-center gap-1.5">
-          <Tag className="h-3.5 w-3.5" /> Tags
+          <Tag className="h-3.5 w-3.5" /> {t('ui:ContactDetailLeftPanel.tags')}
         </h3>
         <div className="flex flex-wrap gap-1.5 mb-2">
           {tags.length === 0 && (
-            <span className="text-xs text-gray-400 dark:text-gray-500 italic">No tags</span>
+            <span className="text-xs text-gray-400 dark:text-gray-500 italic">{t('ui:ContactDetailLeftPanel.noTags')}</span>
           )}
           {tags.map((t: any) => {
             const name = t.tag_name || t.name || t
@@ -400,7 +404,7 @@ export default function ContactDetailLeftPanel({
                 onAddTag(tagInput)
               }
             }}
-            placeholder="Add tag..."
+            placeholder={t('ui:ContactDetailLeftPanel.addTag')}
             className="w-full px-2 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           {showTagSuggestions && tagInput && tagSuggestions.length > 0 && (
@@ -424,20 +428,20 @@ export default function ContactDetailLeftPanel({
       {/* Dates */}
       <div>
         <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-3 flex items-center gap-1.5">
-          <Calendar className="h-3.5 w-3.5" /> Dates
+          <Calendar className="h-3.5 w-3.5" /> {t('ui:ContactDetailLeftPanel.dates')}
         </h3>
         <div className="space-y-1.5 text-sm">
           <div className="flex justify-between">
-            <span className="text-gray-500 dark:text-gray-400">Created</span>
+            <span className="text-gray-500 dark:text-gray-400">{t('ui:ContactDetailLeftPanel.created')}</span>
             <span className="text-gray-700 dark:text-gray-300">{formatDate(contact.created_at)}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-500 dark:text-gray-400">Updated</span>
+            <span className="text-gray-500 dark:text-gray-400">{t('ui:ContactDetailLeftPanel.updated')}</span>
             <span className="text-gray-700 dark:text-gray-300">{formatDate(contact.updated_at)}</span>
           </div>
           {activities.length > 0 && (
             <div className="flex justify-between">
-              <span className="text-gray-500 dark:text-gray-400">Last Activity</span>
+              <span className="text-gray-500 dark:text-gray-400">{t('ui:ContactDetailLeftPanel.lastActivity')}</span>
               <span className="text-gray-700 dark:text-gray-300">{formatDate(activities[0].created_at)}</span>
             </div>
           )}
@@ -449,10 +453,10 @@ export default function ContactDetailLeftPanel({
       {/* Tax ID / Notes */}
       <div className="space-y-2">
         <InlineField
-          label="Tax ID"
+          label={t('ui:ContactDetailLeftPanel.taxId')}
           value={contact.tax_id || ''}
           onSave={(v) => saveField('tax_id', v)}
-          placeholder="Add tax ID"
+          placeholder={t('ui:ContactDetailLeftPanel.addTaxId')}
         />
         <NotesEditor
           value={contact.notes || ''}

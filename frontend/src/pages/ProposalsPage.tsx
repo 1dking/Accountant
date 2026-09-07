@@ -32,57 +32,59 @@ import {
 } from '@/api/proposals';
 import type { ProposalListItem, ProposalStatus, ProposalStats } from '@/api/proposals';
 import { listContacts } from '@/api/contacts';
-import { cn, formatDate } from '@/lib/utils';
+import { cn, formatDate, uiLocale } from '@/lib/utils';
+import { useTranslation } from 'react-i18next'
+import i18n from '@/i18n'
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 const formatCurrency = (amount: number, currency = 'USD') =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
+  new Intl.NumberFormat(uiLocale(), { style: 'currency', currency }).format(amount);
 
 const STATUS_CONFIG: Record<
   ProposalStatus,
   { label: string; color: string; bgColor: string; icon: typeof FileText }
 > = {
   draft: {
-    label: 'Draft',
+    label: i18n.t('ui:ProposalsPage.draft'),
     color: 'text-gray-700 dark:text-gray-300',
     bgColor: 'bg-gray-100 dark:bg-gray-800',
     icon: FileText,
   },
   sent: {
-    label: 'Sent',
+    label: i18n.t('ui:ProposalsPage.sent'),
     color: 'text-blue-700 dark:text-blue-300',
     bgColor: 'bg-blue-100 dark:bg-blue-900/40',
     icon: Send,
   },
   viewed: {
-    label: 'Viewed',
+    label: i18n.t('ui:ProposalsPage.viewed'),
     color: 'text-yellow-700 dark:text-yellow-300',
     bgColor: 'bg-yellow-100 dark:bg-yellow-900/40',
     icon: Eye,
   },
   waiting_signature: {
-    label: 'Waiting Signature',
+    label: i18n.t('ui:ProposalsPage.waitingSignature'),
     color: 'text-orange-700 dark:text-orange-300',
     bgColor: 'bg-orange-100 dark:bg-orange-900/40',
     icon: PenLine,
   },
   signed: {
-    label: 'Signed',
+    label: i18n.t('ui:ProposalsPage.signed'),
     color: 'text-green-700 dark:text-green-300',
     bgColor: 'bg-green-100 dark:bg-green-900/40',
     icon: CheckCircle,
   },
   declined: {
-    label: 'Declined',
+    label: i18n.t('ui:ProposalsPage.declined'),
     color: 'text-red-700 dark:text-red-300',
     bgColor: 'bg-red-100 dark:bg-red-900/40',
     icon: XCircle,
   },
   paid: {
-    label: 'Paid',
+    label: i18n.t('ui:ProposalsPage.paid'),
     color: 'text-emerald-700 dark:text-emerald-300',
     bgColor: 'bg-emerald-100 dark:bg-emerald-900/40',
     icon: DollarSign,
@@ -99,14 +101,14 @@ const KANBAN_COLUMNS: ProposalStatus[] = [
 ];
 
 const STATUS_OPTIONS: { value: string; label: string }[] = [
-  { value: '', label: 'All Statuses' },
-  { value: 'draft', label: 'Draft' },
-  { value: 'sent', label: 'Sent' },
-  { value: 'viewed', label: 'Viewed' },
-  { value: 'waiting_signature', label: 'Waiting Signature' },
-  { value: 'signed', label: 'Signed' },
-  { value: 'declined', label: 'Declined' },
-  { value: 'paid', label: 'Paid' },
+  { value: '', label: i18n.t('ui:ProposalsPage.allStatuses') },
+  { value: 'draft', label: i18n.t('ui:ProposalsPage.draft') },
+  { value: 'sent', label: i18n.t('ui:ProposalsPage.sent') },
+  { value: 'viewed', label: i18n.t('ui:ProposalsPage.viewed') },
+  { value: 'waiting_signature', label: i18n.t('ui:ProposalsPage.waitingSignature') },
+  { value: 'signed', label: i18n.t('ui:ProposalsPage.signed') },
+  { value: 'declined', label: i18n.t('ui:ProposalsPage.declined') },
+  { value: 'paid', label: i18n.t('ui:ProposalsPage.paid') },
 ];
 
 // ---------------------------------------------------------------------------
@@ -140,6 +142,7 @@ function ActionsDropdown({
   proposal: ProposalListItem;
   onAction: (action: string, proposal: ProposalListItem) => void;
 }) {
+  const { t } = useTranslation('ui')
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -156,27 +159,27 @@ function ActionsDropdown({
   }, [open]);
 
   const items: { label: string; action: string; show: boolean; danger?: boolean }[] = [
-    { label: 'View', action: 'view', show: true },
-    { label: 'Edit', action: 'edit', show: proposal.status === 'draft' },
-    { label: 'Send', action: 'send', show: proposal.status === 'draft' },
-    { label: 'Clone', action: 'clone', show: true },
-    { label: 'Download PDF', action: 'download', show: true },
-    { label: 'Share Link', action: 'share', show: !!proposal.public_token },
-    { label: 'Mark Complete', action: 'complete', show: proposal.status === 'signed' },
+    { label: t('ui:ProposalsPage.view'), action: 'view', show: true },
+    { label: t('ui:ProposalsPage.edit'), action: 'edit', show: proposal.status === 'draft' },
+    { label: t('ui:ProposalsPage.send'), action: 'send', show: proposal.status === 'draft' },
+    { label: t('ui:ProposalsPage.clone'), action: 'clone', show: true },
+    { label: t('ui:ProposalsPage.downloadPdf'), action: 'download', show: true },
+    { label: t('ui:ProposalsPage.shareLink'), action: 'share', show: !!proposal.public_token },
+    { label: t('ui:ProposalsPage.markComplete'), action: 'complete', show: proposal.status === 'signed' },
     {
-      label: 'Decline',
+      label: t('ui:ProposalsPage.decline'),
       action: 'decline',
       show: ['sent', 'viewed', 'waiting_signature'].includes(proposal.status),
     },
     {
-      label: 'Refund',
+      label: t('ui:ProposalsPage.refund'),
       action: 'refund',
       show:
         proposal.status === 'paid' &&
         (proposal.refunded_amount ?? 0) < proposal.value,
     },
-    { label: 'Convert to Template', action: 'convert_template', show: true },
-    { label: 'Delete', action: 'delete', show: true, danger: true },
+    { label: t('ui:ProposalsPage.convertToTemplate'), action: 'convert_template', show: true },
+    { label: t('ui:ProposalsPage.delete'), action: 'delete', show: true, danger: true },
   ];
 
   const visible = items.filter((i) => i.show);
@@ -229,6 +232,7 @@ function RefundModal({
   proposal: ProposalListItem;
   onClose: () => void;
 }) {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient();
   const alreadyRefunded = proposal.refunded_amount ?? 0;
   const remaining = Math.max(0, proposal.value - alreadyRefunded);
@@ -260,7 +264,7 @@ function RefundModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
       <div className="w-full max-w-md bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-xl">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Refund payment</h2>
+          <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">{t('ui:ProposalsPage.refundPayment')}</h2>
           <button onClick={onClose} className="p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
             <X className="w-5 h-5" />
           </button>
@@ -270,13 +274,13 @@ function RefundModal({
           <div className="text-sm text-gray-600 dark:text-gray-400">
             <p className="font-medium text-gray-900 dark:text-gray-100">{proposal.title}</p>
             <p className="mt-0.5">
-              Paid {formatCurrency(proposal.value, proposal.currency)}
+             {t('ui:ProposalsPage.paid')} {formatCurrency(proposal.value, proposal.currency)}
               {alreadyRefunded > 0 && (
-                <> · already refunded {formatCurrency(alreadyRefunded, proposal.currency)}</>
+                <> {t('ui:ProposalsPage.alreadyRefunded')} {formatCurrency(alreadyRefunded, proposal.currency)}</>
               )}
             </p>
             <p className="mt-0.5 text-gray-500">
-              Refundable balance: {formatCurrency(remaining, proposal.currency)}
+             {t('ui:ProposalsPage.refundableBalance')} {formatCurrency(remaining, proposal.currency)}
             </p>
           </div>
 
@@ -290,7 +294,7 @@ function RefundModal({
                   : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400',
               )}
             >
-              Full ({formatCurrency(remaining, proposal.currency)})
+             {t('ui:ProposalsPage.full')}{formatCurrency(remaining, proposal.currency)})
             </button>
             <button
               onClick={() => setMode('partial')}
@@ -301,14 +305,14 @@ function RefundModal({
                   : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400',
               )}
             >
-              Custom amount
+             {t('ui:ProposalsPage.customAmount')}
             </button>
           </div>
 
           {mode === 'partial' && (
             <div>
               <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
-                Amount to refund ({proposal.currency})
+               {t('ui:ProposalsPage.amountToRefund')}{proposal.currency})
               </label>
               <input
                 type="number"
@@ -322,14 +326,14 @@ function RefundModal({
               />
               {partialInvalid && (
                 <p className="text-[11px] text-red-500 mt-1">
-                  Enter an amount between 0 and {formatCurrency(remaining, proposal.currency)}.
+                 {t('ui:ProposalsPage.enterAnAmountBetween0')} {formatCurrency(remaining, proposal.currency)}.
                 </p>
               )}
             </div>
           )}
 
           <p className="text-[11px] text-gray-400 dark:text-gray-500">
-            The refund is issued to the client’s original payment method via Stripe and recorded in your cashbook.
+           {t('ui:ProposalsPage.theRefundIsIssuedTo')}
           </p>
         </div>
 
@@ -338,7 +342,7 @@ function RefundModal({
             onClick={onClose}
             className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700"
           >
-            Cancel
+           {t('ui:ProposalsPage.cancel')}
           </button>
           <button
             onClick={() => refundMutation.mutate()}
@@ -346,7 +350,7 @@ function RefundModal({
             className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50"
           >
             {refundMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-            Refund{' '}
+           {t('ui:ProposalsPage.refund')}{' '}
             {formatCurrency(mode === 'full' ? remaining : partialValue || 0, proposal.currency)}
           </button>
         </div>
@@ -360,6 +364,7 @@ function RefundModal({
 // ---------------------------------------------------------------------------
 
 function CreateProposalModal({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation('ui')
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -378,11 +383,11 @@ function CreateProposalModal({ onClose }: { onClose: () => void }) {
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['proposals'] });
       queryClient.invalidateQueries({ queryKey: ['proposal-stats'] });
-      toast.success('Proposal created');
+      toast.success(t('ui:ProposalsPage.proposalCreated'));
       navigate(`/proposals/${result.data.id}/edit`);
     },
     onError: () => {
-      toast.error('Failed to create proposal');
+      toast.error(t('ui:ProposalsPage.failedToCreateProposal'));
     },
   });
 
@@ -397,7 +402,7 @@ function CreateProposalModal({ onClose }: { onClose: () => void }) {
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-md mx-4 p-6">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">New Proposal</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('ui:ProposalsPage.newProposal')}</h2>
           <button
             onClick={onClose}
             className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
@@ -411,14 +416,14 @@ function CreateProposalModal({ onClose }: { onClose: () => void }) {
               htmlFor="proposal-title"
               className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
             >
-              Title
+             {t('ui:ProposalsPage.title')}
             </label>
             <input
               id="proposal-title"
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Website Redesign Proposal"
+              placeholder={t('ui:ProposalsPage.eGWebsiteRedesignProposal')}
               required
               autoFocus
               className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -429,7 +434,7 @@ function CreateProposalModal({ onClose }: { onClose: () => void }) {
               htmlFor="proposal-contact"
               className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
             >
-              Contact
+             {t('ui:ProposalsPage.contact')}
             </label>
             <select
               id="proposal-contact"
@@ -438,7 +443,7 @@ function CreateProposalModal({ onClose }: { onClose: () => void }) {
               required
               className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
-              <option value="">Select a contact...</option>
+              <option value="">{t('ui:ProposalsPage.selectAContact')}</option>
               {contacts.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.company_name}
@@ -447,7 +452,7 @@ function CreateProposalModal({ onClose }: { onClose: () => void }) {
               ))}
             </select>
             {contactsQuery.isLoading && (
-              <p className="text-xs text-gray-400 mt-1">Loading contacts...</p>
+              <p className="text-xs text-gray-400 mt-1">{t('ui:ProposalsPage.loadingContacts')}</p>
             )}
           </div>
           <div className="flex items-center justify-end gap-3 pt-2">
@@ -456,7 +461,7 @@ function CreateProposalModal({ onClose }: { onClose: () => void }) {
               onClick={onClose}
               className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
             >
-              Cancel
+             {t('ui:ProposalsPage.cancel')}
             </button>
             <button
               type="submit"
@@ -464,7 +469,7 @@ function CreateProposalModal({ onClose }: { onClose: () => void }) {
               className="flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {createMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-              Create
+             {t('ui:ProposalsPage.create')}
             </button>
           </div>
         </form>
@@ -484,6 +489,7 @@ function KanbanView({
   proposals: ProposalListItem[];
   onAction: (action: string, proposal: ProposalListItem) => void;
 }) {
+  const { t } = useTranslation('ui')
   const navigate = useNavigate();
 
   const grouped = KANBAN_COLUMNS.reduce(
@@ -524,7 +530,7 @@ function KanbanView({
             <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-b-lg p-2 min-h-[200px] space-y-2">
               {items.length === 0 && (
                 <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-6">
-                  No proposals
+                 {t('ui:ProposalsPage.noProposals')}
                 </p>
               )}
               {items.map((proposal) => (
@@ -540,7 +546,7 @@ function KanbanView({
                     <ActionsDropdown proposal={proposal} onAction={onAction} />
                   </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">
-                    {proposal.contact?.company_name ?? 'No contact'}
+                    {proposal.contact?.company_name ?? t('ui:ProposalsPage.noContact')}
                   </p>
                   <div className="flex items-center justify-between mt-2">
                     <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
@@ -565,6 +571,7 @@ function KanbanView({
 // ---------------------------------------------------------------------------
 
 export default function ProposalsPage() {
+  const { t } = useTranslation('ui')
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -607,9 +614,9 @@ export default function ProposalsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['proposals'] });
       queryClient.invalidateQueries({ queryKey: ['proposal-stats'] });
-      toast.success('Proposal deleted');
+      toast.success(t('ui:ProposalsPage.proposalDeleted'));
     },
-    onError: () => toast.error('Failed to delete proposal'),
+    onError: () => toast.error(t('ui:ProposalsPage.failedToDeleteProposal')),
   });
 
   const sendMutation = useMutation({
@@ -617,9 +624,9 @@ export default function ProposalsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['proposals'] });
       queryClient.invalidateQueries({ queryKey: ['proposal-stats'] });
-      toast.success('Proposal sent');
+      toast.success(t('ui:ProposalsPage.proposalSent'));
     },
-    onError: () => toast.error('Failed to send proposal'),
+    onError: () => toast.error(t('ui:ProposalsPage.failedToSendProposal')),
   });
 
   const cloneMutation = useMutation({
@@ -627,10 +634,10 @@ export default function ProposalsPage() {
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['proposals'] });
       queryClient.invalidateQueries({ queryKey: ['proposal-stats'] });
-      toast.success('Proposal cloned');
+      toast.success(t('ui:ProposalsPage.proposalCloned'));
       navigate(`/proposals/${result.data.id}`);
     },
-    onError: () => toast.error('Failed to clone proposal'),
+    onError: () => toast.error(t('ui:ProposalsPage.failedToCloneProposal')),
   });
 
   const declineMutation = useMutation({
@@ -638,9 +645,9 @@ export default function ProposalsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['proposals'] });
       queryClient.invalidateQueries({ queryKey: ['proposal-stats'] });
-      toast.success('Proposal declined');
+      toast.success(t('ui:ProposalsPage.proposalDeclined'));
     },
-    onError: () => toast.error('Failed to decline proposal'),
+    onError: () => toast.error(t('ui:ProposalsPage.failedToDeclineProposal')),
   });
 
   const completeMutation = useMutation({
@@ -648,17 +655,17 @@ export default function ProposalsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['proposals'] });
       queryClient.invalidateQueries({ queryKey: ['proposal-stats'] });
-      toast.success('Proposal marked as complete');
+      toast.success(t('ui:ProposalsPage.proposalMarkedAsComplete'));
     },
-    onError: () => toast.error('Failed to complete proposal'),
+    onError: () => toast.error(t('ui:ProposalsPage.failedToCompleteProposal')),
   });
 
   const convertMutation = useMutation({
     mutationFn: convertToTemplate,
     onSuccess: () => {
-      toast.success('Converted to template');
+      toast.success(t('ui:ProposalsPage.convertedToTemplate'));
     },
-    onError: () => toast.error('Failed to convert to template'),
+    onError: () => toast.error(t('ui:ProposalsPage.failedToConvertToTemplate')),
   });
 
   // Action handler
@@ -685,7 +692,7 @@ export default function ProposalsPage() {
           if (proposal.public_token) {
             const url = `${window.location.origin}/proposals/sign/${proposal.public_token}`;
             navigator.clipboard.writeText(url).then(() => {
-              toast.success('Link copied to clipboard');
+              toast.success(t('ui:ProposalsPage.linkCopiedToClipboard'));
             });
           }
           break;
@@ -702,7 +709,7 @@ export default function ProposalsPage() {
           setRefundTarget(proposal);
           break;
         case 'delete':
-          if (window.confirm('Are you sure you want to delete this proposal?')) {
+          if (window.confirm(t('ui:ProposalsPage.areYouSureYouWant'))) {
             deleteMutation.mutate(proposal.id);
           }
           break;
@@ -714,56 +721,56 @@ export default function ProposalsPage() {
   // Stat cards
   const statCards = [
     {
-      label: 'Total',
+      label: t('ui:ProposalsPage.total'),
       value: stats ? stats.total_proposals.toLocaleString() : '--',
       icon: FileText,
       iconColor: 'text-purple-600 dark:text-purple-400',
       iconBg: 'bg-purple-50 dark:bg-purple-900/30',
     },
     {
-      label: 'Draft',
+      label: t('ui:ProposalsPage.draft'),
       value: stats ? stats.draft_count.toLocaleString() : '--',
       icon: FileText,
       iconColor: 'text-gray-600 dark:text-gray-400',
       iconBg: 'bg-gray-100 dark:bg-gray-800',
     },
     {
-      label: 'Sent',
+      label: t('ui:ProposalsPage.sent'),
       value: stats ? stats.sent_count.toLocaleString() : '--',
       icon: Send,
       iconColor: 'text-blue-600 dark:text-blue-400',
       iconBg: 'bg-blue-50 dark:bg-blue-900/30',
     },
     {
-      label: 'Viewed',
+      label: t('ui:ProposalsPage.viewed'),
       value: stats ? stats.viewed_count.toLocaleString() : '--',
       icon: Eye,
       iconColor: 'text-yellow-600 dark:text-yellow-400',
       iconBg: 'bg-yellow-50 dark:bg-yellow-900/30',
     },
     {
-      label: 'Signed',
+      label: t('ui:ProposalsPage.signed'),
       value: stats ? stats.signed_count.toLocaleString() : '--',
       icon: CheckCircle,
       iconColor: 'text-green-600 dark:text-green-400',
       iconBg: 'bg-green-50 dark:bg-green-900/30',
     },
     {
-      label: 'Paid',
+      label: t('ui:ProposalsPage.paid'),
       value: stats ? stats.paid_count.toLocaleString() : '--',
       icon: DollarSign,
       iconColor: 'text-emerald-600 dark:text-emerald-400',
       iconBg: 'bg-emerald-50 dark:bg-emerald-900/30',
     },
     {
-      label: 'Total Value',
+      label: t('ui:ProposalsPage.totalValue'),
       value: stats ? formatCurrency(stats.total_value) : '--',
       icon: DollarSign,
       iconColor: 'text-indigo-600 dark:text-indigo-400',
       iconBg: 'bg-indigo-50 dark:bg-indigo-900/30',
     },
     {
-      label: 'Signed Value',
+      label: t('ui:ProposalsPage.signedValue'),
       value: stats ? formatCurrency(stats.signed_value) : '--',
       icon: CheckCircle,
       iconColor: 'text-green-600 dark:text-green-400',
@@ -775,13 +782,13 @@ export default function ProposalsPage() {
     <div className="p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Proposals</h1>
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">{t('ui:ProposalsPage.proposals')}</h1>
         <button
           onClick={() => setShowCreateModal(true)}
           className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
         >
           <Plus className="w-4 h-4" />
-          New Proposal
+         {t('ui:ProposalsPage.newProposal')}
         </button>
       </div>
 
@@ -810,7 +817,7 @@ export default function ProposalsPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
           <input
             type="text"
-            placeholder="Search proposals..."
+            placeholder={t('ui:ProposalsPage.searchProposals')}
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
@@ -844,7 +851,7 @@ export default function ProposalsPage() {
             setDateFrom(e.target.value);
             setPage(1);
           }}
-          placeholder="From"
+          placeholder={t('ui:ProposalsPage.from')}
           className="px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
         />
 
@@ -856,7 +863,7 @@ export default function ProposalsPage() {
             setDateTo(e.target.value);
             setPage(1);
           }}
-          placeholder="To"
+          placeholder={t('ui:ProposalsPage.to')}
           className="px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
         />
 
@@ -872,7 +879,7 @@ export default function ProposalsPage() {
             )}
           >
             <LayoutList className="w-4 h-4" />
-            List
+           {t('ui:ProposalsPage.list')}
           </button>
           <button
             onClick={() => setView('kanban')}
@@ -884,7 +891,7 @@ export default function ProposalsPage() {
             )}
           >
             <Kanban className="w-4 h-4" />
-            Kanban
+           {t('ui:ProposalsPage.kanban')}
           </button>
         </div>
       </div>
@@ -893,7 +900,7 @@ export default function ProposalsPage() {
       {proposalsQuery.isLoading && (
         <div className="flex items-center justify-center py-16">
           <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
-          <span className="ml-2 text-gray-500 dark:text-gray-400">Loading proposals...</span>
+          <span className="ml-2 text-gray-500 dark:text-gray-400">{t('ui:ProposalsPage.loadingProposals')}</span>
         </div>
       )}
 
@@ -904,17 +911,17 @@ export default function ProposalsPage() {
             <FileText className="w-8 h-8 text-gray-400 dark:text-gray-500" />
           </div>
           <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-1">
-            No proposals yet
+           {t('ui:ProposalsPage.noProposalsYet')}
           </h3>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4 max-w-sm">
-            Create your first proposal to start closing deals and tracking your pipeline.
+           {t('ui:ProposalsPage.createYourFirstProposalTo')}
           </p>
           <button
             onClick={() => setShowCreateModal(true)}
             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm"
           >
             <Plus className="w-4 h-4" />
-            New Proposal
+           {t('ui:ProposalsPage.newProposal')}
           </button>
         </div>
       )}
@@ -926,22 +933,22 @@ export default function ProposalsPage() {
             <thead>
               <tr className="border-b border-gray-100 dark:border-gray-700">
                 <th className="text-left px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">
-                  Title
+                 {t('ui:ProposalsPage.title')}
                 </th>
                 <th className="text-left px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">
-                  Contact
+                 {t('ui:ProposalsPage.contact')}
                 </th>
                 <th className="text-right px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">
-                  Value
+                 {t('ui:ProposalsPage.value')}
                 </th>
                 <th className="text-left px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">
-                  Status
+                 {t('ui:ProposalsPage.status')}
                 </th>
                 <th className="text-left px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">
-                  Created
+                 {t('ui:ProposalsPage.created')}
                 </th>
                 <th className="text-right px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">
-                  Actions
+                 {t('ui:ProposalsPage.actions')}
                 </th>
               </tr>
             </thead>
@@ -993,7 +1000,7 @@ export default function ProposalsPage() {
       {view === 'list' && meta && meta.total_pages > 1 && (
         <div className="flex items-center justify-between mt-4">
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Page {meta.page} of {meta.total_pages} ({meta.total_count} total)
+           {t('ui:ProposalsPage.page')} {meta.page} of {meta.total_pages} ({meta.total_count} {t('ui:ProposalsPage.total_2')}
           </p>
           <div className="flex items-center gap-2">
             <button
@@ -1001,14 +1008,14 @@ export default function ProposalsPage() {
               disabled={page <= 1}
               className="px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              Previous
+             {t('ui:ProposalsPage.previous')}
             </button>
             <button
               onClick={() => setPage((p) => p + 1)}
               disabled={page >= meta.total_pages}
               className="px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              Next
+             {t('ui:ProposalsPage.next')}
             </button>
           </div>
         </div>

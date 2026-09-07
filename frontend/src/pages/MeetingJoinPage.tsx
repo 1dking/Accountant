@@ -30,6 +30,7 @@ import {
   type PublicMeetingInfo,
   type LobbyStatusPollResponse,
 } from '@/api/meetings'
+import { useTranslation } from 'react-i18next'
 
 const LIVEKIT_URL =
   import.meta.env.VITE_LIVEKIT_URL ||
@@ -40,6 +41,7 @@ const POLL_MS = 2500
 type Stage = 'loading' | 'knock' | 'waiting' | 'admitted' | 'denied' | 'ended' | 'not-found'
 
 export default function MeetingJoinPage() {
+  const { t } = useTranslation('ui')
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
   const { logoUrl, orgName, branding } = usePublicBranding()
@@ -195,15 +197,15 @@ export default function MeetingJoinPage() {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center px-6">
         <div className="max-w-md w-full bg-gray-800 rounded-xl p-8 text-center">
-          <h1 className="text-xl font-semibold text-white mb-2">Meeting not found</h1>
+          <h1 className="text-xl font-semibold text-white mb-2">{t('ui:MeetingJoinPage.meetingNotFound')}</h1>
           <p className="text-sm text-gray-400 mb-6">
-            This meeting link may have expired or been cancelled.
+           {t('ui:MeetingJoinPage.thisMeetingLinkMayHave')}
           </p>
           <button
             onClick={() => navigate('/')}
             className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg"
           >
-            Back to home
+           {t('ui:MeetingJoinPage.backToHome')}
           </button>
         </div>
       </div>
@@ -214,10 +216,9 @@ export default function MeetingJoinPage() {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center px-6">
         <div className="max-w-md w-full bg-gray-800 rounded-xl p-8 text-center">
-          <h1 className="text-xl font-semibold text-white mb-2">Not admitted</h1>
+          <h1 className="text-xl font-semibold text-white mb-2">{t('ui:MeetingJoinPage.notAdmitted')}</h1>
           <p className="text-sm text-gray-400">
-            The host declined to admit you. If this seems wrong, reach out
-            to them directly.
+           {t('ui:MeetingJoinPage.theHostDeclinedToAdmit')}
           </p>
         </div>
       </div>
@@ -228,8 +229,8 @@ export default function MeetingJoinPage() {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center px-6">
         <div className="max-w-md w-full bg-gray-800 rounded-xl p-8 text-center">
-          <h1 className="text-xl font-semibold text-white mb-2">This meeting has ended</h1>
-          <p className="text-sm text-gray-400">Thanks for stopping by.</p>
+          <h1 className="text-xl font-semibold text-white mb-2">{t('ui:MeetingJoinPage.thisMeetingHasEnded')}</h1>
+          <p className="text-sm text-gray-400">{t('ui:MeetingJoinPage.thanksForStoppingBy')}</p>
         </div>
       </div>
     )
@@ -281,10 +282,10 @@ export default function MeetingJoinPage() {
             </div>
             <div>
               <h1 className="text-lg font-semibold text-white leading-tight">
-                {meeting?.title || 'Meeting'}
+                {meeting?.title || t('ui:MeetingJoinPage.meeting')}
               </h1>
               {meeting?.host_name && (
-                <p className="text-xs text-gray-400 mt-0.5">Hosted by {meeting.host_name}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{t('ui:MeetingJoinPage.hostedBy')} {meeting.host_name}</p>
               )}
             </div>
           </div>
@@ -331,7 +332,7 @@ export default function MeetingJoinPage() {
               />
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 600, color: '#fca5a5', marginBottom: 4 }}>
-                  This meeting will be recorded
+                 {t('ui:MeetingJoinPage.thisMeetingWillBeRecorded')}
                 </div>
                 <label
                   style={{
@@ -348,7 +349,7 @@ export default function MeetingJoinPage() {
                     disabled={stage === 'waiting'}
                   />
                   <span>
-                    I consent to my audio &amp; video being captured and stored.
+                   {t('ui:MeetingJoinPage.iConsentToMyAudio')}
                   </span>
                 </label>
               </div>
@@ -359,25 +360,25 @@ export default function MeetingJoinPage() {
             <form onSubmit={handleKnock} className="space-y-3">
               <div>
                 <label className="block text-xs font-medium text-gray-300 mb-1">
-                  Your name
+                 {t('ui:MeetingJoinPage.yourName')}
                 </label>
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Jane Smith"
+                  placeholder={t('ui:MeetingJoinPage.janeSmith')}
                   className="w-full px-3 py-2 text-sm bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   autoFocus
                 />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-300 mb-1">
-                  Email <span className="text-gray-500 font-normal">(optional)</span>
+                 {t('ui:MeetingJoinPage.email')} <span className="text-gray-500 font-normal">{t('ui:MeetingJoinPage.optional')}</span>
                 </label>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="jane@example.com"
+                  placeholder={t('ui:MeetingJoinPage.janeExampleCom')}
                   className="w-full px-3 py-2 text-sm bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
@@ -401,7 +402,7 @@ export default function MeetingJoinPage() {
                 className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 rounded-lg transition"
               >
                 {knockBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                Ask to join
+               {t('ui:MeetingJoinPage.askToJoin')}
               </button>
             </form>
           )}
@@ -410,16 +411,16 @@ export default function MeetingJoinPage() {
             <div className="text-center py-4">
               <Loader2 className="h-7 w-7 animate-spin text-indigo-400 mx-auto mb-2" />
               <p className="text-sm font-medium text-white mb-1">
-                Waiting for {meeting?.host_name || 'the host'} to admit you…
+               {t('ui:MeetingJoinPage.waitingFor')} {meeting?.host_name || t('ui:MeetingJoinPage.theHost')} {t('ui:MeetingJoinPage.toAdmitYou')}
               </p>
               <p className="text-xs text-gray-400">
-                You'll join automatically once admitted.
+               {t('ui:MeetingJoinPage.youLlJoinAutomaticallyOnce')}
               </p>
             </div>
           )}
         </div>
         <p className="text-xs text-gray-500 text-center mt-4">
-          Powered by {orgName}
+         {t('ui:MeetingJoinPage.poweredBy')} {orgName}
         </p>
       </div>
     </div>

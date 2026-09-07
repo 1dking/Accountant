@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { Link } from 'react-router'
 import { api } from '@/api/client'
 import { usePublicBranding } from '@/hooks/useBranding'
+import { useTranslation } from 'react-i18next'
 
 export default function PasswordResetRequestPage() {
+  const { t } = useTranslation('ui')
   const [email, setEmail] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -37,32 +39,32 @@ export default function PasswordResetRequestPage() {
               {orgName}
             </h1>
           )}
-          <p className="text-sm text-gray-500 dark:text-gray-400">Reset your password</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{t('ui:PasswordResetRequestPage.resetYourPassword')}</p>
         </div>
 
         {submitted ? (
           <div className="space-y-4">
             <div className="p-4 bg-green-50 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-md text-sm">
-              If an account exists for that email, a reset link has been sent. It expires in 1 hour.
+             {t('ui:PasswordResetRequestPage.ifAnAccountExistsFor')}
             </div>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Didn't receive an email? Check your spam folder, or wait a minute and try again.
+             {t('ui:PasswordResetRequestPage.didnTReceiveAnEmail')}
             </p>
             <Link
               to="/login"
               className="block text-center text-sm text-blue-600 hover:text-blue-700"
             >
-              Back to sign in
+             {t('ui:PasswordResetRequestPage.backToSignIn')}
             </Link>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Enter your email and we'll send you a link to reset your password.
+             {t('ui:PasswordResetRequestPage.enterYourEmailAndWe')}
             </p>
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Email
+               {t('ui:PasswordResetRequestPage.email')}
               </label>
               <input
                 id="email"
@@ -72,7 +74,7 @@ export default function PasswordResetRequestPage() {
                 required
                 autoFocus
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100 dark:bg-gray-800"
-                placeholder="you@example.com"
+                placeholder={t('ui:PasswordResetRequestPage.youExampleCom')}
               />
             </div>
 
@@ -87,14 +89,14 @@ export default function PasswordResetRequestPage() {
               disabled={isLoading}
               className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
             >
-              {isLoading ? 'Sending…' : 'Send reset link'}
+              {isLoading ? t('ui:PasswordResetRequestPage.sending') : t('ui:PasswordResetRequestPage.sendResetLink')}
             </button>
 
             <Link
               to="/login"
               className="block text-center text-sm text-blue-600 hover:text-blue-700"
             >
-              Back to sign in
+             {t('ui:PasswordResetRequestPage.backToSignIn')}
             </Link>
           </form>
         )}

@@ -5,8 +5,10 @@ import { useNotificationStore } from '@/stores/notificationStore'
 import { useUiStore } from '@/stores/uiStore'
 import { formatRelativeTime } from '@/lib/utils'
 import FloatingDialer from './FloatingDialer'
+import { useTranslation } from 'react-i18next'
 
 export default function Header() {
+  const { t } = useTranslation('ui')
   const navigate = useNavigate()
   const {
     unreadCount,
@@ -98,7 +100,7 @@ export default function Header() {
         <button
           onClick={handleToggleSidebar}
           className="p-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors"
-          aria-label="Toggle sidebar"
+          aria-label={t('ui:Header.toggleSidebar')}
         >
           <Menu className="h-5 w-5" />
         </button>
@@ -111,7 +113,7 @@ export default function Header() {
             type="search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search..."
+            placeholder={t('ui:Header.search')}
             className="w-full pl-9 pr-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50/50 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
           />
         </div>
@@ -129,8 +131,8 @@ export default function Header() {
               ? 'bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'
               : 'hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400'
           }`}
-          aria-label="Toggle O-Brain"
-          title="O-Brain AI Assistant"
+          aria-label={t('ui:Header.toggleOBrain')}
+          title={t('ui:Header.oBrainAiAssistant')}
         >
           <Sparkles className="h-5 w-5" />
         </button>
@@ -140,7 +142,7 @@ export default function Header() {
           <button
             onClick={() => setShowNotifications(!showNotifications)}
             className="relative p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors"
-            aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
+            aria-label={t('ui:Header.notificationsV0', { v0: unreadCount > 0 ? ` (${unreadCount} unread)` : '' })}
           >
             <Bell className="h-5 w-5" />
             {unreadCount > 0 && (
@@ -153,19 +155,19 @@ export default function Header() {
           {showNotifications && (
             <div className="absolute right-0 top-full mt-1 w-80 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-50 max-h-96 overflow-hidden">
               <div className="p-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-                <h3 className="font-semibold text-sm text-gray-900 dark:text-gray-100">Notifications</h3>
+                <h3 className="font-semibold text-sm text-gray-900 dark:text-gray-100">{t('ui:Header.notifications')}</h3>
                 {unreadCount > 0 && (
                   <button
                     onClick={() => markAllRead()}
                     className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
                   >
-                    Mark all read
+                   {t('ui:Header.markAllRead')}
                   </button>
                 )}
               </div>
               <div className="overflow-y-auto max-h-72">
                 {notifications.length === 0 ? (
-                  <p className="p-4 text-sm text-gray-500 dark:text-gray-400 text-center">No notifications</p>
+                  <p className="p-4 text-sm text-gray-500 dark:text-gray-400 text-center">{t('ui:Header.noNotifications')}</p>
                 ) : (
                   notifications.slice(0, 20).map((n) => (
                     <div
@@ -206,8 +208,8 @@ export default function Header() {
                           deleteNotification(n.id)
                         }}
                         className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 opacity-0 group-hover:opacity-100 transition-opacity"
-                        title="Dismiss"
-                        aria-label="Dismiss notification"
+                        title={t('ui:Header.dismiss')}
+                        aria-label={t('ui:Header.dismissNotification')}
                       >
                         <X className="h-3.5 w-3.5" />
                       </button>

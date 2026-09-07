@@ -29,6 +29,7 @@ import {
   type GraphNode,
   type WorkflowDefinition,
 } from '@/components/workflows/canvas/graph'
+import { useTranslation } from 'react-i18next'
 
 type FlowNodeType = Node<{ node: GraphNode }, string>
 
@@ -70,6 +71,7 @@ function flowToDefinition(nodes: Node[], edges: Edge[]): WorkflowDefinition {
 }
 
 function CanvasInner({ workflow }: { workflow: Workflow }) {
+  const { t } = useTranslation('ui')
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { screenToFlowPosition } = useReactFlow()
@@ -163,7 +165,7 @@ function CanvasInner({ workflow }: { workflow: Workflow }) {
         })
         return false
       }
-      toast.success('Workflow graph is valid')
+      toast.success(t('ui:WorkflowCanvasPage.workflowGraphIsValid'))
       return true
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Validation failed')
@@ -186,7 +188,7 @@ function CanvasInner({ workflow }: { workflow: Workflow }) {
       await saveWorkflowDefinition(workflow.id, definitionJson, 'canvas')
       queryClient.invalidateQueries({ queryKey: ['workflows'] })
       queryClient.invalidateQueries({ queryKey: ['workflow', workflow.id] })
-      toast.success('Canvas saved')
+      toast.success(t('ui:WorkflowCanvasPage.canvasSaved'))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save')
     } finally {
@@ -205,7 +207,7 @@ function CanvasInner({ workflow }: { workflow: Workflow }) {
             <ArrowLeft className="h-4 w-4" />
           </button>
           <h1 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
-            {workflow.name} <span className="text-gray-400 font-normal">— Canvas</span>
+            {workflow.name} <span className="text-gray-400 font-normal">{t('ui:WorkflowCanvasPage.canvas')}</span>
           </h1>
         </div>
         <div className="flex items-center gap-2">
@@ -215,7 +217,7 @@ function CanvasInner({ workflow }: { workflow: Workflow }) {
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50"
           >
             {validating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}
-            Validate
+           {t('ui:WorkflowCanvasPage.validate')}
           </button>
           <button
             onClick={handleSave}
@@ -223,7 +225,7 @@ function CanvasInner({ workflow }: { workflow: Workflow }) {
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
           >
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-            Save
+           {t('ui:WorkflowCanvasPage.save')}
           </button>
         </div>
       </div>

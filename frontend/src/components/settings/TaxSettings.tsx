@@ -54,6 +54,7 @@ function formatCurrency(value: number): string {
 const TAX_TYPES: TaxType[] = ['gst', 'hst', 'pst', 'rst', 'qst', 'other']
 
 export default function TaxSettings() {
+  const { t: tr } = useTranslation('ui')
   const { t } = useTranslation('tax')
   const { t: tc } = useTranslation('common')
   const queryClient = useQueryClient()
@@ -311,7 +312,7 @@ export default function TaxSettings() {
                 maxLength={15}
                 value={provinceForm.gst_hst_number}
                 onChange={(e) => setProvinceForm({ ...provinceForm, gst_hst_number: e.target.value.toUpperCase() })}
-                placeholder="123456789RT0001"
+                placeholder={tr('ui:TaxSettings.n123456789rt0001')}
                 className={`${inputCls} font-mono`}
               />
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t('province.gstNumberHint')}</p>
@@ -356,7 +357,7 @@ export default function TaxSettings() {
           <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-900 border rounded-lg p-5 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                {editingId ? 'Edit Tax Rate' : 'New Tax Rate'}
+                {editingId ? tr('ui:TaxSettings.editTaxRate') : tr('ui:TaxSettings.newTaxRate')}
               </h3>
               <button type="button" onClick={cancelForm} className="text-gray-400 dark:text-gray-500 hover:text-gray-600">
                 <X className="w-4 h-4" />
@@ -365,18 +366,18 @@ export default function TaxSettings() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className={labelCls}>Name</label>
+                <label className={labelCls}>{tr('ui:TaxSettings.name')}</label>
                 <input
                   type="text"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="e.g. Sales Tax, VAT"
+                  placeholder={tr('ui:TaxSettings.eGSalesTaxVat')}
                   required
                   className={inputCls}
                 />
               </div>
               <div>
-                <label className={labelCls}>Rate (%)</label>
+                <label className={labelCls}>{tr('ui:TaxSettings.rate')}</label>
                 <input
                   type="number"
                   step="0.001"
@@ -419,12 +420,12 @@ export default function TaxSettings() {
                 </select>
               </div>
               <div className="md:col-span-2">
-                <label className={labelCls}>Description</label>
+                <label className={labelCls}>{tr('ui:TaxSettings.description')}</label>
                 <input
                   type="text"
                   value={form.description}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  placeholder="Optional description"
+                  placeholder={tr('ui:TaxSettings.optionalDescription')}
                   className={inputCls}
                 />
               </div>
@@ -438,7 +439,7 @@ export default function TaxSettings() {
                   onChange={(e) => setForm({ ...form, is_default: e.target.checked })}
                   className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
                 />
-                Default rate
+                {tr('ui:TaxSettings.defaultRate')}
               </label>
               <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
                 <input
@@ -457,7 +458,7 @@ export default function TaxSettings() {
                     onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
                     className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
                   />
-                  Active
+                  {tr('ui:TaxSettings.active')}
                 </label>
               )}
             </div>
@@ -469,14 +470,14 @@ export default function TaxSettings() {
                 className="flex items-center gap-1.5 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
               >
                 <Check className="w-4 h-4" />
-                {isPending ? 'Saving...' : editingId ? 'Update Rate' : 'Create Rate'}
+                {isPending ? tr('ui:TaxSettings.saving') : editingId ? tr('ui:TaxSettings.updateRate') : tr('ui:TaxSettings.createRate')}
               </button>
               <button
                 type="button"
                 onClick={cancelForm}
                 className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
               >
-                Cancel
+                {tr('ui:TaxSettings.cancel')}
               </button>
             </div>
           </form>
@@ -487,12 +488,12 @@ export default function TaxSettings() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-gray-50 dark:bg-gray-950">
-                  <th className="text-left px-4 py-2 text-gray-500 dark:text-gray-400 font-medium">Name</th>
-                  <th className="text-left px-4 py-2 text-gray-500 dark:text-gray-400 font-medium">Rate</th>
+                  <th className="text-left px-4 py-2 text-gray-500 dark:text-gray-400 font-medium">{tr('ui:TaxSettings.name')}</th>
+                  <th className="text-left px-4 py-2 text-gray-500 dark:text-gray-400 font-medium">{tr('ui:TaxSettings.rate_2')}</th>
                   <th className="text-left px-4 py-2 text-gray-500 dark:text-gray-400 font-medium">{t('rates.type')}</th>
                   <th className="text-left px-4 py-2 text-gray-500 dark:text-gray-400 font-medium">{t('rates.province')}</th>
-                  <th className="text-left px-4 py-2 text-gray-500 dark:text-gray-400 font-medium">Status</th>
-                  <th className="text-right px-4 py-2 text-gray-500 dark:text-gray-400 font-medium">Actions</th>
+                  <th className="text-left px-4 py-2 text-gray-500 dark:text-gray-400 font-medium">{tr('ui:TaxSettings.status')}</th>
+                  <th className="text-right px-4 py-2 text-gray-500 dark:text-gray-400 font-medium">{tr('ui:TaxSettings.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -558,7 +559,7 @@ export default function TaxSettings() {
                           </button>
                           <button
                             onClick={() => {
-                              if (confirm('Delete this tax rate?')) deleteMutation.mutate(rate.id)
+                              if (confirm(tr('ui:TaxSettings.deleteThisTaxRate'))) deleteMutation.mutate(rate.id)
                             }}
                             disabled={deleteMutation.isPending}
                             className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-red-600 rounded hover:bg-red-50"
@@ -577,7 +578,7 @@ export default function TaxSettings() {
         ) : (
           <div className="bg-white dark:bg-gray-900 border rounded-lg p-8 text-center text-gray-500 dark:text-gray-400">
             <Receipt className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-            <p className="text-sm">No tax rates configured yet.</p>
+            <p className="text-sm">{tr('ui:TaxSettings.noTaxRatesConfiguredYet')}</p>
           </div>
         )}
       </div>
@@ -585,20 +586,20 @@ export default function TaxSettings() {
       {/* ── Tax Liability Report ── */}
       <div className="space-y-4">
         <div>
-          <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">Tax Liability Report</h2>
+          <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">{tr('ui:TaxSettings.taxLiabilityReport')}</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            View the net sales tax liability for a given period.
+            {tr('ui:TaxSettings.viewTheNetSalesTax')}
           </p>
         </div>
 
         <div className="bg-white dark:bg-gray-900 border rounded-lg p-5 space-y-4">
           <div className="flex flex-col sm:flex-row items-end gap-4">
             <div className="flex-1">
-              <label className={labelCls}>From</label>
+              <label className={labelCls}>{tr('ui:TaxSettings.from')}</label>
               <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className={inputCls} />
             </div>
             <div className="flex-1">
-              <label className={labelCls}>To</label>
+              <label className={labelCls}>{tr('ui:TaxSettings.to')}</label>
               <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className={inputCls} />
             </div>
             <button
@@ -614,33 +615,33 @@ export default function TaxSettings() {
               <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 rounded-lg p-4">
                 <div className="flex items-center gap-2 text-green-700 mb-1">
                   <TrendingUp className="w-4 h-4" />
-                  <span className="text-sm font-medium">Tax Collected</span>
+                  <span className="text-sm font-medium">{tr('ui:TaxSettings.taxCollected')}</span>
                 </div>
                 <p className="text-2xl font-semibold text-green-800 tabular-nums">
                   {formatCurrency(liability.total_tax_collected)}
                 </p>
-                <p className="text-xs text-green-600 mt-1">From paid invoices</p>
+                <p className="text-xs text-green-600 mt-1">{tr('ui:TaxSettings.fromPaidInvoices')}</p>
               </div>
               <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 rounded-lg p-4">
                 <div className="flex items-center gap-2 text-red-700 mb-1">
                   <TrendingDown className="w-4 h-4" />
-                  <span className="text-sm font-medium">Tax Paid</span>
+                  <span className="text-sm font-medium">{tr('ui:TaxSettings.taxPaid')}</span>
                 </div>
                 <p className="text-2xl font-semibold text-red-800 tabular-nums">
                   {formatCurrency(liability.total_tax_paid)}
                 </p>
-                <p className="text-xs text-red-600 mt-1">From approved expenses</p>
+                <p className="text-xs text-red-600 mt-1">{tr('ui:TaxSettings.fromApprovedExpenses')}</p>
               </div>
               <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 rounded-lg p-4">
                 <div className="flex items-center gap-2 text-blue-700 mb-1">
                   <DollarSign className="w-4 h-4" />
-                  <span className="text-sm font-medium">Net Liability</span>
+                  <span className="text-sm font-medium">{tr('ui:TaxSettings.netLiability')}</span>
                 </div>
                 <p className="text-2xl font-semibold text-blue-800 tabular-nums">
                   {formatCurrency(liability.net_tax_liability)}
                 </p>
                 <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                  {liability.net_tax_liability >= 0 ? 'Amount owed' : 'Credit / refund due'}
+                  {liability.net_tax_liability >= 0 ? tr('ui:TaxSettings.amountOwed') : tr('ui:TaxSettings.creditRefundDue')}
                 </p>
               </div>
             </div>

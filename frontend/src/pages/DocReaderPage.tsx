@@ -10,8 +10,10 @@ import Highlight from '@tiptap/extension-highlight'
 import Image from '@tiptap/extension-image'
 import { Table, TableRow, TableCell, TableHeader } from '@tiptap/extension-table'
 import { ArrowLeft, Star, Pencil } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 export default function DocReaderPage() {
+  const { t } = useTranslation('ui')
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -72,7 +74,7 @@ export default function DocReaderPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
-        <p className="text-gray-500 dark:text-gray-400">Loading document...</p>
+        <p className="text-gray-500 dark:text-gray-400">{t('ui:DocReaderPage.loadingDocument')}</p>
       </div>
     )
   }
@@ -85,14 +87,14 @@ export default function DocReaderPage() {
         <button
           onClick={() => navigate('/docs')}
           className="p-1.5 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-800"
-          title="Back to Docs"
+          title={t('ui:DocReaderPage.backToDocs')}
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
 
         {/* Document title */}
         <h1 className="text-lg font-medium text-gray-900 dark:text-gray-100 truncate min-w-0">
-          {doc?.title || 'Untitled document'}
+          {doc?.title || t('ui:DocReaderPage.untitledDocument')}
         </h1>
 
         {/* Star toggle */}
@@ -103,7 +105,7 @@ export default function DocReaderPage() {
               ? 'text-yellow-500 hover:bg-yellow-50 dark:hover:bg-yellow-500/10'
               : 'text-gray-400 hover:text-yellow-500 hover:bg-gray-100 dark:hover:bg-gray-800'
           }`}
-          title={doc?.is_starred ? 'Remove star' : 'Add star'}
+          title={doc?.is_starred ? t('ui:DocReaderPage.removeStar') : t('ui:DocReaderPage.addStar')}
         >
           <Star className="h-5 w-5" fill={doc?.is_starred ? 'currentColor' : 'none'} />
         </button>
@@ -116,7 +118,7 @@ export default function DocReaderPage() {
           className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 rounded-full hover:bg-blue-100 dark:text-blue-400 dark:bg-blue-500/10 dark:hover:bg-blue-500/20 transition-colors"
         >
           <Pencil className="h-4 w-4" />
-          Edit
+         {t('ui:DocReaderPage.edit')}
         </button>
       </div>
 

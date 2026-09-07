@@ -4,8 +4,10 @@ import { toast } from 'sonner'
 import { brandingApi } from '@/api/branding'
 import type { BrandingSettings } from '@/types/models'
 import { Palette, Save } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 export default function BrandingPage() {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
 
   const { data: brandingData, isLoading } = useQuery({
@@ -64,7 +66,7 @@ export default function BrandingPage() {
       // stale until the next full reload, even though this settings
       // page itself shows the saved values immediately.
       queryClient.invalidateQueries({ queryKey: ['branding-public'] })
-      toast.success('Branding updated')
+      toast.success(t('ui:BrandingPage.brandingUpdated'))
     },
   })
 
@@ -77,7 +79,7 @@ export default function BrandingPage() {
   }
 
   if (isLoading) {
-    return <div className="p-6 text-gray-500">Loading branding settings...</div>
+    return <div className="p-6 text-gray-500">{t('ui:BrandingPage.loadingBrandingSettings')}</div>
   }
 
   return (
@@ -86,9 +88,9 @@ export default function BrandingPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
             <Palette className="h-6 w-6" />
-            Branding
+           {t('ui:BrandingPage.branding')}
           </h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">Configure your brand identity across all touchpoints</p>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">{t('ui:BrandingPage.configureYourBrandIdentityAcross')}</p>
         </div>
         <button
           onClick={handleSave}
@@ -96,16 +98,16 @@ export default function BrandingPage() {
           className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
         >
           <Save className="h-4 w-4" />
-          {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
+          {updateMutation.isPending ? t('ui:BrandingPage.saving') : t('ui:BrandingPage.saveChanges')}
         </button>
       </div>
 
       <div className="space-y-8">
         {/* Organization */}
         <section className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Organization</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">{t('ui:BrandingPage.organization')}</h2>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Organization Slug</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:BrandingPage.organizationSlug')}</label>
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-500">/p/</span>
               <input
@@ -115,16 +117,16 @@ export default function BrandingPage() {
                 placeholder="my-company"
               />
             </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Used for public page URLs: /p/my-company/page-slug</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t('ui:BrandingPage.usedForPublicPageUrls')}</p>
           </div>
         </section>
 
         {/* Logo & Favicon */}
         <section className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Logo & Favicon</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">{t('ui:BrandingPage.logoFavicon')}</h2>
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Logo URL</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:BrandingPage.logoUrl')}</label>
               <input
                 value={form.logo_url}
                 onChange={(e) => updateField('logo_url', e.target.value)}
@@ -133,7 +135,7 @@ export default function BrandingPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Dark Mode Logo URL</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:BrandingPage.darkModeLogoUrl')}</label>
               <input
                 value={form.logo_dark_url}
                 onChange={(e) => updateField('logo_dark_url', e.target.value)}
@@ -142,7 +144,7 @@ export default function BrandingPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Favicon URL</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:BrandingPage.faviconUrl')}</label>
               <input
                 value={form.favicon_url}
                 onChange={(e) => updateField('favicon_url', e.target.value)}
@@ -153,20 +155,20 @@ export default function BrandingPage() {
           </div>
           {form.logo_url && (
             <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
-              <p className="text-xs text-gray-500 mb-2">Preview:</p>
-              <img src={form.logo_url} alt="Logo preview" className="max-h-12" />
+              <p className="text-xs text-gray-500 mb-2">{t('ui:BrandingPage.preview')}</p>
+              <img src={form.logo_url} alt={t('ui:BrandingPage.logoPreview')} className="max-h-12" />
             </div>
           )}
         </section>
 
         {/* Colors */}
         <section className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Colors</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">{t('ui:BrandingPage.colors')}</h2>
           <div className="grid grid-cols-3 gap-4">
             {[
-              { label: 'Primary', field: 'primary_color' },
-              { label: 'Secondary', field: 'secondary_color' },
-              { label: 'Accent', field: 'accent_color' },
+              { label: t('ui:BrandingPage.primary'), field: 'primary_color' },
+              { label: t('ui:BrandingPage.secondary'), field: 'secondary_color' },
+              { label: t('ui:BrandingPage.accent'), field: 'accent_color' },
             ].map(({ label, field }) => (
               <div key={field}>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{label}</label>
@@ -196,10 +198,10 @@ export default function BrandingPage() {
 
         {/* Typography */}
         <section className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Typography</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">{t('ui:BrandingPage.typography')}</h2>
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Heading Font</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:BrandingPage.headingFont')}</label>
               <input
                 value={form.font_heading}
                 onChange={(e) => updateField('font_heading', e.target.value)}
@@ -207,7 +209,7 @@ export default function BrandingPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Body Font</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:BrandingPage.bodyFont')}</label>
               <input
                 value={form.font_body}
                 onChange={(e) => updateField('font_body', e.target.value)}
@@ -215,7 +217,7 @@ export default function BrandingPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Border Radius</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:BrandingPage.borderRadius')}</label>
               <input
                 value={form.border_radius}
                 onChange={(e) => updateField('border_radius', e.target.value)}
@@ -227,51 +229,51 @@ export default function BrandingPage() {
               app-wide theme (Sidebar, etc.) only updates after Save
               Changes writes them and BrandThemeProvider refetches. */}
           <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Preview</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">{t('ui:BrandingPage.preview_2')}</p>
             <p
               className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-1"
               style={{ fontFamily: form.font_heading || undefined }}
             >
-              Heading font sample
+             {t('ui:BrandingPage.headingFontSample')}
             </p>
             <p
               className="text-sm text-gray-600 dark:text-gray-400 mb-3"
               style={{ fontFamily: form.font_body || undefined }}
             >
-              Body font sample — the quick brown fox jumps over the lazy dog.
+             {t('ui:BrandingPage.bodyFontSampleTheQuick')}
             </p>
             <button
               type="button"
               className="px-4 py-2 text-sm font-medium text-white"
               style={{ background: form.primary_color, borderRadius: form.border_radius || '8px' }}
             >
-              Button preview
+             {t('ui:BrandingPage.buttonPreview')}
             </button>
           </div>
         </section>
 
         {/* Portal & Booking */}
         <section className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Portal & Booking</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">{t('ui:BrandingPage.portalBooking')}</h2>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Portal Welcome Message</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:BrandingPage.portalWelcomeMessage')}</label>
               <textarea
                 value={form.portal_welcome_message}
                 onChange={(e) => updateField('portal_welcome_message', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
                 rows={3}
-                placeholder="Welcome to your client portal..."
+                placeholder={t('ui:BrandingPage.welcomeToYourClientPortal')}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Booking Page Header HTML</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:BrandingPage.bookingPageHeaderHtml')}</label>
               <textarea
                 value={form.booking_page_header}
                 onChange={(e) => updateField('booking_page_header', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-mono text-sm"
                 rows={3}
-                placeholder="<h2>Book a meeting with us</h2>"
+                placeholder={t('ui:BrandingPage.h2BookAMeetingWith')}
               />
             </div>
           </div>
@@ -279,10 +281,10 @@ export default function BrandingPage() {
 
         {/* Email Branding */}
         <section className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Email Branding</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">{t('ui:BrandingPage.emailBranding')}</h2>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email Header HTML</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:BrandingPage.emailHeaderHtml')}</label>
               <textarea
                 value={form.email_header_html}
                 onChange={(e) => updateField('email_header_html', e.target.value)}
@@ -291,7 +293,7 @@ export default function BrandingPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email Footer HTML</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:BrandingPage.emailFooterHtml')}</label>
               <textarea
                 value={form.email_footer_html}
                 onChange={(e) => updateField('email_footer_html', e.target.value)}
@@ -304,7 +306,7 @@ export default function BrandingPage() {
 
         {/* Custom CSS */}
         <section className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Custom CSS</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">{t('ui:BrandingPage.customCss')}</h2>
           <textarea
             value={form.custom_css}
             onChange={(e) => updateField('custom_css', e.target.value)}

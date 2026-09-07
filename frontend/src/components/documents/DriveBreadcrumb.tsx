@@ -1,5 +1,6 @@
 import { ChevronRight } from 'lucide-react'
 import type { Folder } from '@/types/models'
+import { useTranslation } from 'react-i18next'
 
 interface DriveBreadcrumbProps {
   currentFolderId: string | null
@@ -34,6 +35,7 @@ function buildBreadcrumbPath(folderId: string | null, folders: Folder[]): { id: 
 }
 
 export default function DriveBreadcrumb({ currentFolderId, folders, onNavigate }: DriveBreadcrumbProps) {
+  const { t } = useTranslation('ui')
   const path = buildBreadcrumbPath(currentFolderId, folders)
 
   return (
@@ -44,7 +46,7 @@ export default function DriveBreadcrumb({ currentFolderId, folders, onNavigate }
           !currentFolderId ? 'font-medium text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
         }`}
       >
-        My Drive
+       {t('ui:DriveBreadcrumb.myDrive')}
       </button>
       {path.map((segment) => (
         <span key={segment.id} className="flex items-center gap-1 min-w-0">

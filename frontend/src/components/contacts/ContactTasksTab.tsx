@@ -11,6 +11,7 @@ import {
   type TaskPriority,
 } from '@/api/tasks'
 import { EmptyState, LoadingSkeleton, formatDate } from './contactDetailUtils'
+import { useTranslation } from 'react-i18next'
 
 const PRIORITY_STYLES: Record<TaskPriority, string> = {
   high: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
@@ -24,6 +25,7 @@ function isOverdue(task: Task): boolean {
 }
 
 export default function ContactTasksTab({ contactId }: { contactId: string }) {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const [title, setTitle] = useState('')
   const [priority, setPriority] = useState<TaskPriority>('medium')
@@ -54,7 +56,7 @@ export default function ContactTasksTab({ contactId }: { contactId: string }) {
     },
     onError: (err) =>
       toast.error(
-        `Couldn't create the task: ${err instanceof Error ? err.message : 'Unknown error'}`,
+        t('ui:ContactTasksTab.couldnTCreateTheTask', { v0: err instanceof Error ? err.message : 'Unknown error' }),
       ),
   })
 
@@ -64,7 +66,7 @@ export default function ContactTasksTab({ contactId }: { contactId: string }) {
     onSuccess: invalidate,
     onError: (err) =>
       toast.error(
-        `Couldn't update the task: ${err instanceof Error ? err.message : 'Unknown error'}`,
+        t('ui:ContactTasksTab.couldnTUpdateTheTask', { v0: err instanceof Error ? err.message : 'Unknown error' }),
       ),
   })
 
@@ -73,7 +75,7 @@ export default function ContactTasksTab({ contactId }: { contactId: string }) {
     onSuccess: invalidate,
     onError: (err) =>
       toast.error(
-        `Couldn't delete the task: ${err instanceof Error ? err.message : 'Unknown error'}`,
+        t('ui:ContactTasksTab.couldnTDeleteTheTask', { v0: err instanceof Error ? err.message : 'Unknown error' }),
       ),
   })
 
@@ -94,7 +96,7 @@ export default function ContactTasksTab({ contactId }: { contactId: string }) {
           type="checkbox"
           checked={done}
           onChange={() => toggleMutation.mutate(task)}
-          aria-label={done ? `Reopen ${task.title}` : `Complete ${task.title}`}
+          aria-label={done ? t('ui:ContactTasksTab.reopenTitle', { title: task.title }) : t('ui:ContactTasksTab.completeTitle', { title: task.title })}
           className="shrink-0"
         />
         <div className="min-w-0 flex-1">
@@ -115,8 +117,8 @@ export default function ContactTasksTab({ contactId }: { contactId: string }) {
                   : 'text-gray-500 dark:text-gray-500'
               }`}
             >
-              Due {formatDate(task.due_date)}
-              {isOverdue(task) && ' · overdue'}
+             {t('ui:ContactTasksTab.due')} {formatDate(task.due_date)}
+              {isOverdue(task) && t('ui:ContactTasksTab.overdue')}
             </p>
           )}
         </div>
@@ -127,7 +129,7 @@ export default function ContactTasksTab({ contactId }: { contactId: string }) {
         </span>
         <button
           onClick={() => deleteMutation.mutate(task.id)}
-          aria-label={`Delete ${task.title}`}
+          aria-label={t('ui:ContactTasksTab.deleteTitle', { title: task.title })}
           className="shrink-0 p-1 text-gray-400 opacity-0 group-hover:opacity-100 hover:text-red-600 rounded transition-opacity"
         >
           <Trash2 className="h-4 w-4" />
@@ -151,24 +153,24 @@ export default function ContactTasksTab({ contactId }: { contactId: string }) {
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="Add a task..."
+          placeholder={t('ui:ContactTasksTab.addATask')}
           className="flex-1 min-w-[12rem] px-3 py-1.5 text-sm border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
         />
         <select
           value={priority}
           onChange={(e) => setPriority(e.target.value as TaskPriority)}
-          aria-label="Priority"
+          aria-label={t('ui:ContactTasksTab.priority')}
           className="px-2 py-1.5 text-sm border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
         >
-          <option value="low">Low</option>
-          <option value="medium">Medium</option>
-          <option value="high">High</option>
+          <option value="low">{t('ui:ContactTasksTab.low')}</option>
+          <option value="medium">{t('ui:ContactTasksTab.medium')}</option>
+          <option value="high">{t('ui:ContactTasksTab.high')}</option>
         </select>
         <input
           type="date"
           value={dueDate}
           onChange={(e) => setDueDate(e.target.value)}
-          aria-label="Due date"
+          aria-label={t('ui:ContactTasksTab.dueDate')}
           className="px-2 py-1.5 text-sm border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
         />
         <button
@@ -181,15 +183,15 @@ export default function ContactTasksTab({ contactId }: { contactId: string }) {
           ) : (
             <Plus className="h-3.5 w-3.5" />
           )}
-          Add
+         {t('ui:ContactTasksTab.add')}
         </button>
       </form>
 
       {tasks.length === 0 ? (
         <EmptyState
           icon={CheckSquare}
-          title="No tasks"
-          description="Add a task to track follow-up work for this contact."
+          title={t('ui:ContactTasksTab.noTasks')}
+          description={t('ui:ContactTasksTab.addATaskToTrack')}
         />
       ) : (
         <div className="space-y-4">
@@ -201,7 +203,7 @@ export default function ContactTasksTab({ contactId }: { contactId: string }) {
           {closed.length > 0 && (
             <div>
               <p className="px-3 py-1 text-xs font-medium text-gray-500 dark:text-gray-500 uppercase tracking-wide">
-                Completed ({closed.length})
+               {t('ui:ContactTasksTab.completed')}{closed.length})
               </p>
               <ul className="border-t border-gray-100 dark:border-gray-700">
                 {closed.map(renderRow)}

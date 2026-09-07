@@ -5,26 +5,29 @@ import { Plus, AlertTriangle, Trash2, Pencil, DollarSign } from 'lucide-react';
 import { getBudgetVsActual, getBudgetAlerts, deleteBudget } from '@/api/budgets';
 import { useAuthStore } from '@/stores/authStore';
 import type { BudgetVsActual } from '@/types/models';
+import { useTranslation } from 'react-i18next'
+import i18n from '@/i18n'
+import { uiLocale } from '@/lib/utils'
 
 const formatCurrency = (amount: number) =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+  new Intl.NumberFormat(uiLocale(), { style: 'currency', currency: 'USD' }).format(amount);
 
 const currentYear = new Date().getFullYear();
 const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
 const months = [
-  { value: 0, label: 'All Months' },
-  { value: 1, label: 'January' },
-  { value: 2, label: 'February' },
-  { value: 3, label: 'March' },
-  { value: 4, label: 'April' },
-  { value: 5, label: 'May' },
-  { value: 6, label: 'June' },
-  { value: 7, label: 'July' },
-  { value: 8, label: 'August' },
-  { value: 9, label: 'September' },
-  { value: 10, label: 'October' },
-  { value: 11, label: 'November' },
-  { value: 12, label: 'December' },
+  { value: 0, label: i18n.t('ui:BudgetsPage.allMonths') },
+  { value: 1, label: i18n.t('ui:BudgetsPage.january') },
+  { value: 2, label: i18n.t('ui:BudgetsPage.february') },
+  { value: 3, label: i18n.t('ui:BudgetsPage.march') },
+  { value: 4, label: i18n.t('ui:BudgetsPage.april') },
+  { value: 5, label: i18n.t('ui:BudgetsPage.may') },
+  { value: 6, label: i18n.t('ui:BudgetsPage.june') },
+  { value: 7, label: i18n.t('ui:BudgetsPage.july') },
+  { value: 8, label: i18n.t('ui:BudgetsPage.august') },
+  { value: 9, label: i18n.t('ui:BudgetsPage.september') },
+  { value: 10, label: i18n.t('ui:BudgetsPage.october') },
+  { value: 11, label: i18n.t('ui:BudgetsPage.november') },
+  { value: 12, label: i18n.t('ui:BudgetsPage.december') },
 ];
 
 function getProgressColor(percentage: number): string {
@@ -39,6 +42,7 @@ function getAlertColor(percentage: number): string {
 }
 
 export default function BudgetsPage() {
+  const { t } = useTranslation('ui')
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
@@ -71,7 +75,7 @@ export default function BudgetsPage() {
   );
 
   const handleDelete = (id: string, name: string) => {
-    if (window.confirm(`Are you sure you want to delete the budget "${name}"?`)) {
+    if (window.confirm(t('ui:BudgetsPage.areYouSureYouWant', { name }))) {
       deleteM.mutate(id);
     }
   };
@@ -80,14 +84,14 @@ export default function BudgetsPage() {
     <div className="p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Budgets</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('ui:BudgetsPage.budgets')}</h1>
         {canEdit && (
           <button
             onClick={() => navigate('/budgets/new')}
             className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             <Plus className="w-4 h-4" />
-            New Budget
+           {t('ui:BudgetsPage.newBudget')}
           </button>
         )}
       </div>
@@ -97,7 +101,7 @@ export default function BudgetsPage() {
         <div className="mb-6 bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
           <div className="flex items-center gap-2 mb-3">
             <AlertTriangle className="w-5 h-5 text-yellow-500" />
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Budget Alerts</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('ui:BudgetsPage.budgetAlerts')}</h2>
           </div>
           <div className="space-y-2">
             {alerts.map((alert) => {
@@ -112,7 +116,7 @@ export default function BudgetsPage() {
                     <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{alert.budget_name}</span>
                   </div>
                   <span className={`text-sm font-semibold ${getAlertColor(percentage)}`}>
-                    {percentage.toFixed(0)}% used
+                    {percentage.toFixed(0)}{t('ui:BudgetsPage.used')}
                   </span>
                 </div>
               );
@@ -125,7 +129,7 @@ export default function BudgetsPage() {
       <div className="flex items-center gap-4 mb-6">
         <div>
           <label htmlFor="year" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Year
+           {t('ui:BudgetsPage.year')}
           </label>
           <select
             id="year"
@@ -142,7 +146,7 @@ export default function BudgetsPage() {
         </div>
         <div>
           <label htmlFor="month" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Month
+           {t('ui:BudgetsPage.month')}
           </label>
           <select
             id="month"
@@ -167,11 +171,11 @@ export default function BudgetsPage() {
       ) : budgets.length === 0 ? (
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-12 text-center">
           <DollarSign className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-1">No budgets found</h3>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-1">{t('ui:BudgetsPage.noBudgetsFound')}</h3>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
             {canEdit
-              ? 'Get started by creating your first budget.'
-              : 'No budgets have been set up for this period.'}
+              ? t('ui:BudgetsPage.getStartedByCreatingYour')
+              : t('ui:BudgetsPage.noBudgetsHaveBeenSet')}
           </p>
           {canEdit && (
             <button
@@ -179,7 +183,7 @@ export default function BudgetsPage() {
               className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               <Plus className="w-4 h-4" />
-              New Budget
+             {t('ui:BudgetsPage.newBudget')}
             </button>
           )}
         </div>
@@ -207,14 +211,14 @@ export default function BudgetsPage() {
                       <button
                         onClick={() => navigate(`/budgets/${budget.budget_id}/edit`)}
                         className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-blue-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                        title="Edit budget"
+                        title={t('ui:BudgetsPage.editBudget')}
                       >
                         <Pencil className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDelete(budget.budget_id, budget.budget_name)}
                         className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-red-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                        title="Delete budget"
+                        title={t('ui:BudgetsPage.deleteBudget')}
                         disabled={deleteM.isPending}
                       >
                         <Trash2 className="w-4 h-4" />
@@ -235,20 +239,20 @@ export default function BudgetsPage() {
                 <div className="flex items-center justify-between text-sm">
                   <div className="flex items-center gap-4">
                     <div>
-                      <span className="text-gray-500 dark:text-gray-400">Budgeted: </span>
+                      <span className="text-gray-500 dark:text-gray-400">{t('ui:BudgetsPage.budgeted')} </span>
                       <span className="font-medium text-gray-900 dark:text-gray-100">
                         {formatCurrency(budget.budgeted_amount)}
                       </span>
                     </div>
                     <div>
-                      <span className="text-gray-500 dark:text-gray-400">Actual: </span>
+                      <span className="text-gray-500 dark:text-gray-400">{t('ui:BudgetsPage.actual')} </span>
                       <span className="font-medium text-gray-900 dark:text-gray-100">
                         {formatCurrency(budget.actual_amount)}
                       </span>
                     </div>
                   </div>
                   <div>
-                    <span className="text-gray-500 dark:text-gray-400">Remaining: </span>
+                    <span className="text-gray-500 dark:text-gray-400">{t('ui:BudgetsPage.remaining')} </span>
                     <span
                       className={`font-medium ${remaining >= 0 ? 'text-green-600' : 'text-red-600'}`}
                     >

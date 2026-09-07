@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Lock, Unlock, CalendarDays } from 'lucide-react'
 import { listPeriods, closePeriod, reopenPeriod } from '@/api/accounting'
 import type { AccountingPeriod } from '@/types/models'
+import { useTranslation } from 'react-i18next'
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -10,6 +11,7 @@ const MONTH_NAMES = [
 ]
 
 export default function PeriodSettings() {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const [msg, setMsg] = useState('')
   const [closeYear, setCloseYear] = useState(new Date().getFullYear())
@@ -60,9 +62,9 @@ export default function PeriodSettings() {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">Accounting Periods</h2>
+        <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">{t('ui:PeriodSettings.accountingPeriods')}</h2>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Close periods to prevent any expense or invoice changes in that month.
+         {t('ui:PeriodSettings.closePeriodsToPreventAny')}
         </p>
       </div>
 
@@ -75,10 +77,10 @@ export default function PeriodSettings() {
         onSubmit={(e) => { e.preventDefault(); closeMutation.mutate() }}
         className="bg-white dark:bg-gray-900 border rounded-lg p-5 space-y-4"
       >
-        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Close a Period</h3>
+        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('ui:PeriodSettings.closeAPeriod')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Year</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:PeriodSettings.year')}</label>
             <select
               value={closeYear}
               onChange={(e) => setCloseYear(Number(e.target.value))}
@@ -90,7 +92,7 @@ export default function PeriodSettings() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Month</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:PeriodSettings.month')}</label>
             <select
               value={closeMonth}
               onChange={(e) => setCloseMonth(Number(e.target.value))}
@@ -102,12 +104,12 @@ export default function PeriodSettings() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes (optional)</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:PeriodSettings.notesOptional')}</label>
             <input
               type="text"
               value={closeNotes}
               onChange={(e) => setCloseNotes(e.target.value)}
-              placeholder="Reason for closing..."
+              placeholder={t('ui:PeriodSettings.reasonForClosing')}
               className="w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -118,32 +120,32 @@ export default function PeriodSettings() {
           className="flex items-center gap-1.5 px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
         >
           <Lock className="w-4 h-4" />
-          {closeMutation.isPending ? 'Closing...' : 'Close Period'}
+          {closeMutation.isPending ? t('ui:PeriodSettings.closing') : t('ui:PeriodSettings.closePeriod')}
         </button>
       </form>
 
       {/* Periods grid */}
       <div className="bg-white dark:bg-gray-900 border rounded-lg overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
-          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Period History</h3>
+          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('ui:PeriodSettings.periodHistory')}</h3>
         </div>
         {periods.length === 0 ? (
           <div className="text-center py-12">
             <CalendarDays className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500 dark:text-gray-400 text-sm">No periods have been closed yet.</p>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">{t('ui:PeriodSettings.noPeriodsHaveBeenClosed')}</p>
             <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">
-              All periods are open by default until explicitly closed.
+             {t('ui:PeriodSettings.allPeriodsAreOpenBy')}
             </p>
           </div>
         ) : (
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 dark:border-gray-700">
-                <th className="text-left px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Period</th>
-                <th className="text-left px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Status</th>
-                <th className="text-left px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Closed At</th>
-                <th className="text-left px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Notes</th>
-                <th className="text-right px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">Actions</th>
+                <th className="text-left px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">{t('ui:PeriodSettings.period')}</th>
+                <th className="text-left px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">{t('ui:PeriodSettings.status')}</th>
+                <th className="text-left px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">{t('ui:PeriodSettings.closedAt')}</th>
+                <th className="text-left px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">{t('ui:PeriodSettings.notes')}</th>
+                <th className="text-right px-5 py-3 text-gray-500 dark:text-gray-400 font-medium">{t('ui:PeriodSettings.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -160,7 +162,7 @@ export default function PeriodSettings() {
                           : 'bg-green-100 text-green-700'
                       }`}
                     >
-                      {period.status === 'closed' ? 'Closed' : 'Open'}
+                      {period.status === 'closed' ? t('ui:PeriodSettings.closed') : t('ui:PeriodSettings.open')}
                     </span>
                   </td>
                   <td className="px-5 py-3 text-gray-500 dark:text-gray-400">
@@ -179,7 +181,7 @@ export default function PeriodSettings() {
                             type="text"
                             value={reopenNotes}
                             onChange={(e) => setReopenNotes(e.target.value)}
-                            placeholder="Reason..."
+                            placeholder={t('ui:PeriodSettings.reason')}
                             className="px-2 py-1 border rounded text-xs w-32 focus:outline-none focus:ring-1 focus:ring-blue-500"
                           />
                           <button
@@ -188,13 +190,13 @@ export default function PeriodSettings() {
                             className="flex items-center gap-1 px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
                           >
                             <Unlock className="w-3 h-3" />
-                            Confirm
+                           {t('ui:PeriodSettings.confirm')}
                           </button>
                           <button
                             onClick={() => { setReopenId(null); setReopenNotes('') }}
                             className="px-2 py-1 text-xs border rounded hover:bg-gray-50 dark:hover:bg-gray-800"
                           >
-                            Cancel
+                           {t('ui:PeriodSettings.cancel')}
                           </button>
                         </div>
                       ) : (
@@ -203,11 +205,11 @@ export default function PeriodSettings() {
                           className="flex items-center gap-1 px-2 py-1 text-xs text-green-700 border border-green-200 rounded hover:bg-green-50 ml-auto"
                         >
                           <Unlock className="w-3 h-3" />
-                          Reopen
+                         {t('ui:PeriodSettings.reopen')}
                         </button>
                       )
                     ) : (
-                      <span className="text-xs text-gray-400 dark:text-gray-500">Open</span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500">{t('ui:PeriodSettings.open')}</span>
                     )}
                   </td>
                 </tr>
@@ -218,12 +220,12 @@ export default function PeriodSettings() {
       </div>
 
       <div className="bg-gray-50 dark:bg-gray-950 border rounded-lg p-4 text-sm text-gray-600 dark:text-gray-400">
-        <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-1">How period locking works</h4>
+        <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:PeriodSettings.howPeriodLockingWorks')}</h4>
         <ul className="list-disc list-inside space-y-1 text-gray-500 dark:text-gray-400">
-          <li>Closing a period prevents creating or editing expenses and invoices dated in that period</li>
-          <li>Only admins can close or reopen periods</li>
-          <li>All periods are open by default until explicitly closed</li>
-          <li>Reopening a period allows changes again -- use with caution</li>
+          <li>{t('ui:PeriodSettings.closingAPeriodPreventsCreating')}</li>
+          <li>{t('ui:PeriodSettings.onlyAdminsCanCloseOr')}</li>
+          <li>{t('ui:PeriodSettings.allPeriodsAreOpenBy_2')}</li>
+          <li>{t('ui:PeriodSettings.reopeningAPeriodAllowsChanges')}</li>
         </ul>
       </div>
     </div>

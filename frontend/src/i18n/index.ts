@@ -21,19 +21,24 @@ import enTax from './locales/en/tax.json'
 import enPayroll from './locales/en/payroll.json'
 import enFiling from './locales/en/filing.json'
 import enAgency from './locales/en/agency.json'
+import enUi from './locales/en/ui.json'
 import frCommon from './locales/fr-CA/common.json'
 import frTax from './locales/fr-CA/tax.json'
 import frPayroll from './locales/fr-CA/payroll.json'
 import frFiling from './locales/fr-CA/filing.json'
 import frAgency from './locales/fr-CA/agency.json'
+import frUi from './locales/fr-CA/ui.json'
 
 export const SUPPORTED_LOCALES = ['en', 'fr-CA'] as const
 export type Locale = (typeof SUPPORTED_LOCALES)[number]
 export const LOCALE_STORAGE_KEY = 'locale'
 
 export const resources = {
-  en: { common: enCommon, tax: enTax, payroll: enPayroll, filing: enFiling, agency: enAgency },
-  'fr-CA': { common: frCommon, tax: frTax, payroll: frPayroll, filing: frFiling, agency: frAgency },
+  // `ui` is the bulk catalogue produced by scripts/i18n-wrap.mjs (sprint 5):
+  // keys are `<FileBaseName>.<slugOfEnglish>`. fr-CA keys missing there fall
+  // back to English per key, so a partial translation never blanks the UI.
+  en: { common: enCommon, tax: enTax, payroll: enPayroll, filing: enFiling, agency: enAgency, ui: enUi },
+  'fr-CA': { common: frCommon, tax: frTax, payroll: frPayroll, filing: frFiling, agency: frAgency, ui: frUi },
 } as const
 
 i18n
@@ -43,7 +48,7 @@ i18n
     resources,
     fallbackLng: 'en',
     supportedLngs: [...SUPPORTED_LOCALES],
-    ns: ['common', 'tax', 'payroll', 'filing', 'agency'],
+    ns: ['common', 'tax', 'payroll', 'filing', 'agency', 'ui'],
     defaultNS: 'common',
     detection: {
       // Explicit choice first; browser language only as a first-run default.

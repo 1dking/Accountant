@@ -9,6 +9,7 @@ import {
   triggerEmailAbsorption,
   type EmailAbsorptionRun,
 } from '@/api/communication'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Settings → Email Absorption.
@@ -20,6 +21,7 @@ import {
  * running, then stop and refresh the runs list.
  */
 export default function EmailAbsorptionSettings() {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const [activeRunId, setActiveRunId] = useState<string | null>(null)
   const [lookbackDays, setLookbackDays] = useState(90)
@@ -61,7 +63,7 @@ export default function EmailAbsorptionSettings() {
             `across ${activeRun.contacts_touched} contact${activeRun.contacts_touched === 1 ? '' : 's'}`,
         )
       } else {
-        toast.error(`Absorption failed: ${activeRun.error_message || 'unknown error'}`)
+        toast.error(t('ui:EmailAbsorptionSettings.absorptionFailedV0', { v0: activeRun.error_message || 'unknown error' }))
       }
       // Touch the param so the linter doesn't flag wasRunId as unused.
       void wasRunId
@@ -74,10 +76,10 @@ export default function EmailAbsorptionSettings() {
       const runId = resp.data?.run_id
       if (runId) {
         setActiveRunId(runId)
-        toast.success(`Absorption started — scanning the last ${lookbackDays} days…`)
+        toast.success(t('ui:EmailAbsorptionSettings.absorptionStartedScanningTheLast', { lookbackDays }))
       }
     },
-    onError: (e: any) => toast.error(`Trigger failed: ${e.message || ''}`),
+    onError: (e: any) => toast.error(t('ui:EmailAbsorptionSettings.triggerFailedV0', { v0: e.message || '' })),
   })
 
   const latestRun = runsList[0]
@@ -90,14 +92,10 @@ export default function EmailAbsorptionSettings() {
           <Mail className="h-5 w-5 text-indigo-500 mt-0.5" />
           <div>
             <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">
-              Email absorption
+             {t('ui:EmailAbsorptionSettings.emailAbsorption')}
             </h2>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 max-w-2xl">
-              Scans your connected Gmail and summarizes any email
-              to/from a CRM contact into their memory layer. Powers
-              the AI Brief with email context. Only emails matching a
-              contact's email address are read; everything else is
-              skipped at the header stage.
+             {t('ui:EmailAbsorptionSettings.scansYourConnectedGmailAnd')}
             </p>
           </div>
         </div>
@@ -107,13 +105,13 @@ export default function EmailAbsorptionSettings() {
           <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-md p-4 mb-4">
             <div className="flex items-center gap-2 text-sm font-medium text-indigo-700 dark:text-indigo-300">
               <Sparkles className="h-4 w-4 animate-pulse" />
-              {activeRun.status === 'queued' ? 'Queued…' : 'Running…'}
+              {activeRun.status === 'queued' ? t('ui:EmailAbsorptionSettings.queued') : t('ui:EmailAbsorptionSettings.running')}
             </div>
             <div className="grid grid-cols-4 gap-3 mt-3 text-xs">
-              <Stat label="Scanned" value={activeRun.scanned} />
-              <Stat label="Matched" value={activeRun.matched} />
-              <Stat label="Absorbed" value={activeRun.absorbed} />
-              <Stat label="Contacts" value={activeRun.contacts_touched} />
+              <Stat label={t('ui:EmailAbsorptionSettings.scanned')} value={activeRun.scanned} />
+              <Stat label={t('ui:EmailAbsorptionSettings.matched')} value={activeRun.matched} />
+              <Stat label={t('ui:EmailAbsorptionSettings.absorbed_2')} value={activeRun.absorbed} />
+              <Stat label={t('ui:EmailAbsorptionSettings.contacts_2')} value={activeRun.contacts_touched} />
             </div>
           </div>
         )}
@@ -122,7 +120,7 @@ export default function EmailAbsorptionSettings() {
         <div className="space-y-3">
           <div className="flex items-center gap-3">
             <label className="text-sm text-gray-700 dark:text-gray-300">
-              Lookback (days):
+             {t('ui:EmailAbsorptionSettings.lookbackDays')}
             </label>
             <input
               type="number"
@@ -146,15 +144,14 @@ export default function EmailAbsorptionSettings() {
                 }`}
               />
               {activeRunId
-                ? 'Run in progress…'
+                ? t('ui:EmailAbsorptionSettings.runInProgress')
                 : triggerMut.isPending
-                  ? 'Starting…'
-                  : 'Absorb now'}
+                  ? t('ui:EmailAbsorptionSettings.starting')
+                  : t('ui:EmailAbsorptionSettings.absorbNow')}
             </button>
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            First run does a full backfill; subsequent runs only cover the recent delta.
-            Requires Gmail to be connected under <strong>Settings → Gmail</strong>.
+           {t('ui:EmailAbsorptionSettings.firstRunDoesAFull')} <strong>{t('ui:EmailAbsorptionSettings.settingsGmail')}</strong>.
           </p>
         </div>
 
@@ -162,17 +159,17 @@ export default function EmailAbsorptionSettings() {
         <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-800">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Recent runs
+             {t('ui:EmailAbsorptionSettings.recentRuns')}
             </h3>
             {lastFinished && (
               <span className="text-xs text-gray-500 dark:text-gray-400">
-                Last finished {formatRelativeTime(lastFinished)}
+               {t('ui:EmailAbsorptionSettings.lastFinished')} {formatRelativeTime(lastFinished)}
               </span>
             )}
           </div>
           {runsList.length === 0 ? (
             <p className="text-xs text-gray-500 dark:text-gray-400 italic">
-              No runs yet. Click "Absorb now" to do a first backfill.
+             {t('ui:EmailAbsorptionSettings.noRunsYetClickAbsorb')}
             </p>
           ) : (
             <ul className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -182,11 +179,11 @@ export default function EmailAbsorptionSettings() {
                     <div className="flex items-center gap-2">
                       <StatusBadge status={r.status} />
                       <span className="text-gray-600 dark:text-gray-300">
-                        {r.lookback_days}d lookback
+                        {r.lookback_days}{t('ui:EmailAbsorptionSettings.dLookback')}
                       </span>
                       <span className="text-gray-400 dark:text-gray-500">·</span>
                       <span className="text-gray-500 dark:text-gray-400">
-                        {r.absorbed} absorbed · {r.contacts_touched} contacts · {r.scanned} scanned
+                        {r.absorbed} {t('ui:EmailAbsorptionSettings.absorbed')} {r.contacts_touched} {t('ui:EmailAbsorptionSettings.contacts')} {r.scanned} scanned
                       </span>
                     </div>
                     <span className="text-gray-400 dark:text-gray-500">

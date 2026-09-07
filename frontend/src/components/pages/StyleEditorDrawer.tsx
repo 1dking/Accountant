@@ -27,6 +27,8 @@ import { toast } from 'sonner'
 import { X, RotateCcw } from 'lucide-react'
 import { pagesApi } from '@/api/pages'
 import './style-editor-drawer.css'
+import { useTranslation } from 'react-i18next'
+import i18n from '@/i18n'
 
 // ---------------------------------------------------------------------------
 // Catalog — must stay in sync with backend/compiler.py GOOGLE_FONTS_CATALOG.
@@ -47,28 +49,28 @@ export const GOOGLE_FONTS: string[] = [
 ]
 
 const WEIGHT_OPTIONS: { value: string; label: string }[] = [
-  { value: '300', label: 'Light' },
-  { value: '400', label: 'Regular' },
-  { value: '500', label: 'Medium' },
-  { value: '600', label: 'Semibold' },
-  { value: '700', label: 'Bold' },
-  { value: '800', label: 'Extra-bold' },
+  { value: '300', label: i18n.t('ui:StyleEditorDrawer.light') },
+  { value: '400', label: i18n.t('ui:StyleEditorDrawer.regular') },
+  { value: '500', label: i18n.t('ui:StyleEditorDrawer.medium') },
+  { value: '600', label: i18n.t('ui:StyleEditorDrawer.semibold') },
+  { value: '700', label: i18n.t('ui:StyleEditorDrawer.bold') },
+  { value: '800', label: i18n.t('ui:StyleEditorDrawer.extraBold') },
 ]
 
 const TRANSFORM_OPTIONS: { value: string; label: string }[] = [
-  { value: 'none', label: 'Aa' },
+  { value: 'none', label: i18n.t('ui:StyleEditorDrawer.aa') },
   { value: 'uppercase', label: 'AB' },
   { value: 'lowercase', label: 'ab' },
-  { value: 'capitalize', label: 'Aa Bb' },
+  { value: 'capitalize', label: i18n.t('ui:StyleEditorDrawer.aaBb') },
 ]
 
 const SHADOW_PRESETS: { value: string; label: string }[] = [
-  { value: 'none', label: 'None' },
+  { value: 'none', label: i18n.t('ui:StyleEditorDrawer.none') },
   { value: '0 1px 2px rgba(0,0,0,0.06)', label: 'sm' },
   { value: '0 4px 12px rgba(0,0,0,0.10)', label: 'md' },
   { value: '0 8px 24px rgba(0,0,0,0.14)', label: 'lg' },
   { value: '0 16px 40px rgba(0,0,0,0.18)', label: 'xl' },
-  { value: '0 24px 64px rgba(0,0,0,0.24)', label: '2xl' },
+  { value: '0 24px 64px rgba(0,0,0,0.24)', label: i18n.t('ui:StyleEditorDrawer.n2xl') },
 ]
 
 // Brand swatches — keep aligned with OCIDM gradient palette in
@@ -123,6 +125,7 @@ export default function StyleEditorDrawer({
   open, pageId, sectionIndex, selector, initialOverrides,
   onSaved, onPreview, onClose,
 }: Props) {
+  const { t } = useTranslation('ui')
   const category = useMemo(() => categorizeSelector(selector), [selector])
 
   // Local state — merged dict the drawer mutates. Persisted dict
@@ -182,7 +185,7 @@ export default function StyleEditorDrawer({
     },
     onError: (e: any) => {
       setSaveState('idle')
-      toast.error(`Style save failed: ${e?.message || 'unknown'}`)
+      toast.error(t('ui:StyleEditorDrawer.styleSaveFailedV0', { v0: e?.message || 'unknown' }))
     },
   })
 
@@ -233,13 +236,13 @@ export default function StyleEditorDrawer({
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
           <div className="flex items-center gap-2">
-            <h2 className="text-base font-semibold">Style</h2>
+            <h2 className="text-base font-semibold">{t('ui:StyleEditorDrawer.style')}</h2>
             <span className="sed-selector-chip">{selector}</span>
           </div>
           <button
             onClick={onClose}
             className="p-1.5 rounded-md hover:bg-white/8 text-white/70 hover:text-white transition"
-            aria-label="Close style editor"
+            aria-label={t('ui:StyleEditorDrawer.closeStyleEditor')}
           >
             <X className="h-4 w-4" />
           </button>
@@ -261,11 +264,11 @@ export default function StyleEditorDrawer({
         {/* Footer */}
         <div className="sed-footer">
           <button onClick={handleResetSelector} className="sed-reset">
-            <RotateCcw className="h-3.5 w-3.5" /> Reset this element
+            <RotateCcw className="h-3.5 w-3.5" /> {t('ui:StyleEditorDrawer.resetThisElement')}
           </button>
           <span className={`sed-status ${saveState}`}>
-            {saveState === 'saving' ? 'Saving…'
-              : saveState === 'saved' ? 'Saved'
+            {saveState === 'saving' ? t('ui:StyleEditorDrawer.saving')
+              : saveState === 'saved' ? t('ui:StyleEditorDrawer.saved')
               : ''}
           </span>
         </div>
@@ -282,12 +285,13 @@ type CSSDict = Record<string, string | number>
 type UpdateFn = (prop: string, value: string | number | null) => void
 
 function TextControls({ styles, update }: { styles: CSSDict; update: UpdateFn }) {
+  const { t } = useTranslation('ui')
   return (
     <>
-      <div className="sed-section-header">Typography</div>
+      <div className="sed-section-header">{t('ui:StyleEditorDrawer.typography')}</div>
 
       <div className="sed-row">
-        <span className="sed-label">Font</span>
+        <span className="sed-label">{t('ui:StyleEditorDrawer.font')}</span>
         <select
           className="sed-select"
           value={String(styles.fontFamily || '')}
@@ -295,7 +299,7 @@ function TextControls({ styles, update }: { styles: CSSDict; update: UpdateFn })
             update('fontFamily', e.target.value || null)
           }
         >
-          <option value="">Default</option>
+          <option value="">{t('ui:StyleEditorDrawer.default')}</option>
           {GOOGLE_FONTS.map((f) => (
             <option key={f} value={f}>{f}</option>
           ))}
@@ -303,7 +307,7 @@ function TextControls({ styles, update }: { styles: CSSDict; update: UpdateFn })
       </div>
 
       <div className="sed-row">
-        <span className="sed-label">Weight</span>
+        <span className="sed-label">{t('ui:StyleEditorDrawer.weight')}</span>
         <select
           className="sed-select"
           value={String(styles.fontWeight || '')}
@@ -311,7 +315,7 @@ function TextControls({ styles, update }: { styles: CSSDict; update: UpdateFn })
             update('fontWeight', e.target.value || null)
           }
         >
-          <option value="">Default</option>
+          <option value="">{t('ui:StyleEditorDrawer.default')}</option>
           {WEIGHT_OPTIONS.map((w) => (
             <option key={w.value} value={w.value}>{w.label}</option>
           ))}
@@ -319,7 +323,7 @@ function TextControls({ styles, update }: { styles: CSSDict; update: UpdateFn })
       </div>
 
       <SliderRow
-        label="Size"
+        label={t('ui:StyleEditorDrawer.size')}
         min={10}
         max={128}
         step={1}
@@ -329,7 +333,7 @@ function TextControls({ styles, update }: { styles: CSSDict; update: UpdateFn })
       />
 
       <SliderRow
-        label="Line height"
+        label={t('ui:StyleEditorDrawer.lineHeight')}
         min={0.8}
         max={2.5}
         step={0.05}
@@ -338,7 +342,7 @@ function TextControls({ styles, update }: { styles: CSSDict; update: UpdateFn })
       />
 
       <SliderRow
-        label="Letter spc"
+        label={t('ui:StyleEditorDrawer.letterSpc')}
         min={-0.10}
         max={0.20}
         step={0.005}
@@ -349,7 +353,7 @@ function TextControls({ styles, update }: { styles: CSSDict; update: UpdateFn })
       />
 
       <div className="sed-row">
-        <span className="sed-label">Align</span>
+        <span className="sed-label">{t('ui:StyleEditorDrawer.align')}</span>
         <div className="sed-button-group">
           {(['left', 'center', 'right', 'justify'] as const).map((a) => (
             <button
@@ -364,7 +368,7 @@ function TextControls({ styles, update }: { styles: CSSDict; update: UpdateFn })
       </div>
 
       <div className="sed-row">
-        <span className="sed-label">Transform</span>
+        <span className="sed-label">{t('ui:StyleEditorDrawer.transform')}</span>
         <div className="sed-button-group">
           {TRANSFORM_OPTIONS.map((o) => (
             <button
@@ -380,9 +384,9 @@ function TextControls({ styles, update }: { styles: CSSDict; update: UpdateFn })
         </div>
       </div>
 
-      <div className="sed-section-header">Color</div>
+      <div className="sed-section-header">{t('ui:StyleEditorDrawer.color')}</div>
       <ColorRow
-        label="Text"
+        label={t('ui:StyleEditorDrawer.text')}
         value={String(styles.color || '#ffffff')}
         onChange={(v) => update('color', v || null)}
       />
@@ -393,32 +397,33 @@ function TextControls({ styles, update }: { styles: CSSDict; update: UpdateFn })
 function ContainerControls({
   styles, update,
 }: { styles: CSSDict; update: UpdateFn }) {
+  const { t } = useTranslation('ui')
   return (
     <>
-      <div className="sed-section-header">Background</div>
+      <div className="sed-section-header">{t('ui:StyleEditorDrawer.background')}</div>
       <ColorRow
-        label="Color"
+        label={t('ui:StyleEditorDrawer.color')}
         value={String(styles.backgroundColor || '#0f1320')}
         onChange={(v) => update('backgroundColor', v || null)}
       />
 
-      <div className="sed-section-header">Spacing</div>
+      <div className="sed-section-header">{t('ui:StyleEditorDrawer.spacing')}</div>
       <QuadRow
-        label="Padding"
+        label={t('ui:StyleEditorDrawer.padding')}
         prefix="padding"
         styles={styles}
         update={update}
       />
       <QuadRow
-        label="Margin"
+        label={t('ui:StyleEditorDrawer.margin')}
         prefix="margin"
         styles={styles}
         update={update}
       />
 
-      <div className="sed-section-header">Border</div>
+      <div className="sed-section-header">{t('ui:StyleEditorDrawer.border')}</div>
       <SliderRow
-        label="Radius"
+        label={t('ui:StyleEditorDrawer.radius')}
         min={0}
         max={48}
         step={1}
@@ -427,7 +432,7 @@ function ContainerControls({
         onChange={(n) => update('borderRadius', n === 0 ? null : `${n}px`)}
       />
       <SliderRow
-        label="Width"
+        label={t('ui:StyleEditorDrawer.width')}
         min={0}
         max={8}
         step={1}
@@ -436,12 +441,12 @@ function ContainerControls({
         onChange={(n) => update('borderWidth', n === 0 ? null : `${n}px`)}
       />
       <ColorRow
-        label="Color"
+        label={t('ui:StyleEditorDrawer.color')}
         value={String(styles.borderColor || '#ffffff')}
         onChange={(v) => update('borderColor', v || null)}
       />
       <div className="sed-row">
-        <span className="sed-label">Style</span>
+        <span className="sed-label">{t('ui:StyleEditorDrawer.style')}</span>
         <select
           className="sed-select"
           value={String(styles.borderStyle || 'solid')}
@@ -449,15 +454,15 @@ function ContainerControls({
             update('borderStyle', e.target.value === 'solid' ? null : e.target.value)
           }
         >
-          <option value="solid">Solid</option>
-          <option value="dashed">Dashed</option>
-          <option value="dotted">Dotted</option>
+          <option value="solid">{t('ui:StyleEditorDrawer.solid')}</option>
+          <option value="dashed">{t('ui:StyleEditorDrawer.dashed')}</option>
+          <option value="dotted">{t('ui:StyleEditorDrawer.dotted')}</option>
         </select>
       </div>
 
-      <div className="sed-section-header">Shadow</div>
+      <div className="sed-section-header">{t('ui:StyleEditorDrawer.shadow')}</div>
       <div className="sed-row">
-        <span className="sed-label">Preset</span>
+        <span className="sed-label">{t('ui:StyleEditorDrawer.preset')}</span>
         <select
           className="sed-select"
           value={String(styles.boxShadow || 'none')}
@@ -475,11 +480,12 @@ function ContainerControls({
 }
 
 function ImageControls({ styles, update }: { styles: CSSDict; update: UpdateFn }) {
+  const { t } = useTranslation('ui')
   return (
     <>
-      <div className="sed-section-header">Image</div>
+      <div className="sed-section-header">{t('ui:StyleEditorDrawer.image')}</div>
       <div className="sed-row">
-        <span className="sed-label">Fit</span>
+        <span className="sed-label">{t('ui:StyleEditorDrawer.fit')}</span>
         <select
           className="sed-select"
           value={String(styles.objectFit || 'cover')}
@@ -487,15 +493,15 @@ function ImageControls({ styles, update }: { styles: CSSDict; update: UpdateFn }
             update('objectFit', e.target.value === 'cover' ? null : e.target.value)
           }
         >
-          <option value="cover">Cover</option>
-          <option value="contain">Contain</option>
-          <option value="fill">Fill</option>
-          <option value="none">None</option>
-          <option value="scale-down">Scale down</option>
+          <option value="cover">{t('ui:StyleEditorDrawer.cover')}</option>
+          <option value="contain">{t('ui:StyleEditorDrawer.contain')}</option>
+          <option value="fill">{t('ui:StyleEditorDrawer.fill')}</option>
+          <option value="none">{t('ui:StyleEditorDrawer.none')}</option>
+          <option value="scale-down">{t('ui:StyleEditorDrawer.scaleDown')}</option>
         </select>
       </div>
       <SliderRow
-        label="Radius"
+        label={t('ui:StyleEditorDrawer.radius')}
         min={0}
         max={48}
         step={1}
@@ -504,7 +510,7 @@ function ImageControls({ styles, update }: { styles: CSSDict; update: UpdateFn }
         onChange={(n) => update('borderRadius', n === 0 ? null : `${n}px`)}
       />
       <SliderRow
-        label="Opacity"
+        label={t('ui:StyleEditorDrawer.opacity')}
         min={0}
         max={1}
         step={0.05}
@@ -554,6 +560,7 @@ function SliderRow({
 function ColorRow({
   label, value, onChange,
 }: { label: string; value: string; onChange: (v: string) => void }) {
+  const { t } = useTranslation('ui')
   return (
     <>
       <div className="sed-row">
@@ -563,7 +570,7 @@ function ColorRow({
             type="color"
             value={normalizeHex(value) || '#ffffff'}
             onChange={(e) => onChange(e.target.value)}
-            aria-label={`Pick ${label.toLowerCase()} color`}
+            aria-label={t('ui:StyleEditorDrawer.pickV0Color', { v0: label.toLowerCase() })}
           />
         </span>
         <input
@@ -582,7 +589,7 @@ function ColorRow({
             className="sed-swatch"
             style={{ background: s }}
             onClick={() => onChange(s)}
-            aria-label={`Apply brand swatch ${s}`}
+            aria-label={t('ui:StyleEditorDrawer.applyBrandSwatchS', { s })}
           />
         ))}
       </div>

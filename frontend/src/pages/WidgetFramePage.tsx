@@ -12,6 +12,7 @@ import { useParams } from 'react-router'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { MessageCircle, X, Send } from 'lucide-react'
 import { widgetApi } from '@/api/widget'
+import { useTranslation } from 'react-i18next'
 
 const EXPANDED = { width: '360px', height: '480px' }
 const COLLAPSED = { width: '64px', height: '64px' }
@@ -21,6 +22,7 @@ function postToParent(msg: Record<string, unknown>) {
 }
 
 export default function WidgetFramePage() {
+  const { t } = useTranslation('ui')
   const { widgetKey } = useParams<{ widgetKey: string }>()
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
@@ -80,7 +82,7 @@ export default function WidgetFramePage() {
 
   const submit = () => {
     if (!name.trim() || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) {
-      setError('Enter your name and a valid email')
+      setError(t('ui:WidgetFramePage.enterYourNameAndA'))
       return
     }
     setError(null)
@@ -97,7 +99,7 @@ export default function WidgetFramePage() {
         onClick={() => setOpen(true)}
         className="w-16 h-16 rounded-full flex items-center justify-center shadow-lg"
         style={{ background: config.button_color }}
-        aria-label="Open contact widget"
+        aria-label={t('ui:WidgetFramePage.openContactWidget')}
       >
         <MessageCircle className="w-6 h-6 text-white" />
       </button>
@@ -122,7 +124,7 @@ export default function WidgetFramePage() {
       <div className="flex-1 overflow-y-auto p-4">
         {sent ? (
           <div className="h-full flex items-center justify-center text-center">
-            <p className="text-sm opacity-80">Thanks for reaching out — we'll be in touch soon.</p>
+            <p className="text-sm opacity-80">{t('ui:WidgetFramePage.thanksForReachingOutWe')}</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -130,21 +132,21 @@ export default function WidgetFramePage() {
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Your name"
+              placeholder={t('ui:WidgetFramePage.yourName')}
               className="w-full rounded-lg border border-black/10 bg-white/70 px-3 py-2 text-sm text-gray-900 focus:outline-none"
             />
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="Email"
+              placeholder={t('ui:WidgetFramePage.email')}
               className="w-full rounded-lg border border-black/10 bg-white/70 px-3 py-2 text-sm text-gray-900 focus:outline-none"
             />
             {config.collect_phone && (
               <input
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="Phone (optional)"
+                placeholder={t('ui:WidgetFramePage.phoneOptional')}
                 className="w-full rounded-lg border border-black/10 bg-white/70 px-3 py-2 text-sm text-gray-900 focus:outline-none"
               />
             )}
@@ -152,7 +154,7 @@ export default function WidgetFramePage() {
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               rows={3}
-              placeholder="How can we help?"
+              placeholder={t('ui:WidgetFramePage.howCanWeHelp')}
               className="w-full rounded-lg border border-black/10 bg-white/70 px-3 py-2 text-sm text-gray-900 focus:outline-none"
             />
             {/* Honeypot — hidden from real visitors via CSS, not `type=hidden`
@@ -174,7 +176,7 @@ export default function WidgetFramePage() {
               style={{ background: config.button_color }}
             >
               <Send className="w-4 h-4" />
-              {submitMutation.isPending ? 'Sending…' : 'Send'}
+              {submitMutation.isPending ? t('ui:WidgetFramePage.sending') : t('ui:WidgetFramePage.send')}
             </button>
           </div>
         )}

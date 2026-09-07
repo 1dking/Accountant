@@ -19,6 +19,8 @@ import { coachApi } from '@/api/coach'
 import { useBranding } from '@/hooks/useBranding'
 import CopyMeetingLink from '@/components/meetings/CopyMeetingLink'
 import type { MeetingStatus, MeetingParticipant } from '@/types/models'
+import { useTranslation } from 'react-i18next'
+import { uiLocale } from '@/lib/utils'
 
 /** Branded in-app recording player.
  *
@@ -28,6 +30,7 @@ import type { MeetingStatus, MeetingParticipant } from '@/types/models'
  * compositor fees, no FFmpeg pass — just CSS.
  */
 function BrandedRecordingPlayer({ src }: { src: string }) {
+  const { t } = useTranslation('ui')
   const { logoUrl, orgName } = useBranding()
   return (
     <div className="mt-2 rounded-lg overflow-hidden bg-black" style={{ position: 'relative' }}>
@@ -37,7 +40,7 @@ function BrandedRecordingPlayer({ src }: { src: string }) {
           the middle plus the standard scrub/pause/volume row at the
           bottom — exactly what the user expects to see. */}
       <video src={src} controls playsInline className="w-full max-h-96" preload="metadata">
-        Your browser does not support the video element.
+       {t('ui:MeetingDetailPage.yourBrowserDoesNotSupport')}
       </video>
       {logoUrl && (
         <img
@@ -62,6 +65,7 @@ function BrandedRecordingPlayer({ src }: { src: string }) {
  * for accountants reviewing a client meeting — surfaces "last time
  * we spoke, you committed to X" without opening the prior meeting. */
 function PriorContextSection({ meetingId }: { meetingId: string }) {
+  const { t } = useTranslation('ui')
   const q = useQuery({
     queryKey: ['meeting-prior-context', meetingId],
     queryFn: async () => (await getMeetingPriorContext(meetingId)).data,
@@ -78,7 +82,7 @@ function PriorContextSection({ meetingId }: { meetingId: string }) {
 
   function fmtDate(s: string | null | undefined): string {
     if (!s) return ''
-    return new Date(s).toLocaleDateString('en-US', {
+    return new Date(s).toLocaleDateString(uiLocale(), {
       month: 'short', day: 'numeric', year: 'numeric',
     })
   }
@@ -86,13 +90,13 @@ function PriorContextSection({ meetingId }: { meetingId: string }) {
   return (
     <div className="mb-6 p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl">
       <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-        <Clock className="h-3.5 w-3.5" /> Prior context
+        <Clock className="h-3.5 w-3.5" /> {t('ui:MeetingDetailPage.priorContext')}
       </p>
 
       {hasLast && ctx.last_meeting && (
         <div className="mb-3">
           <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">
-            Last meeting · {fmtDate(ctx.last_meeting.actual_end || ctx.last_meeting.scheduled_start)}
+           {t('ui:MeetingDetailPage.lastMeeting')} {fmtDate(ctx.last_meeting.actual_end || ctx.last_meeting.scheduled_start)}
           </p>
           <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
             {ctx.last_meeting.title}
@@ -108,7 +112,7 @@ function PriorContextSection({ meetingId }: { meetingId: string }) {
       {hasActions && (
         <div className="mb-3">
           <p className="text-xs text-slate-500 dark:text-slate-400 mb-1.5">
-            Open action items from previous meetings
+           {t('ui:MeetingDetailPage.openActionItemsFromPrevious')}
           </p>
           <ul className="space-y-1">
             {ctx.recent_action_items!.map((ai, i) => (
@@ -124,7 +128,7 @@ function PriorContextSection({ meetingId }: { meetingId: string }) {
       {hasTopics && (
         <div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mb-1.5">
-            Recent topics
+           {t('ui:MeetingDetailPage.recentTopics')}
           </p>
           <ul className="space-y-1">
             {ctx.recent_topics!.map((t, i) => (
@@ -150,6 +154,7 @@ function PriorContextSection({ meetingId }: { meetingId: string }) {
  * "I've reviewed this" before the data flows anywhere external. NEVER
  * auto-sends. Hidden entirely when status is SKIPPED or 404. */
 function QuoteDraftSection({ meetingId }: { meetingId: string }) {
+  const { t } = useTranslation('ui')
   const qc = useQueryClient()
   const q = useQuery({
     queryKey: ['meeting-quote-draft', meetingId],
@@ -165,10 +170,10 @@ function QuoteDraftSection({ meetingId }: { meetingId: string }) {
   const reviewMut = useMutation({
     mutationFn: () => reviewMeetingQuoteDraft(meetingId),
     onSuccess: () => {
-      toast.success('Marked as reviewed')
+      toast.success(t('ui:MeetingDetailPage.markedAsReviewed'))
       qc.invalidateQueries({ queryKey: ['meeting-quote-draft', meetingId] })
     },
-    onError: (e: any) => toast.error(`Review failed: ${e?.message || 'unknown'}`),
+    onError: (e: any) => toast.error(t('ui:MeetingDetailPage.reviewFailedV0', { v0: e?.message || 'unknown' })),
   })
 
   if (q.isError) return null
@@ -189,12 +194,12 @@ function QuoteDraftSection({ meetingId }: { meetingId: string }) {
     <div className="mb-6 p-4 bg-gradient-to-br from-amber-50 to-rose-50 dark:from-amber-950/40 dark:to-rose-950/40 border border-amber-200 dark:border-amber-800 rounded-xl">
       <div className="flex items-center justify-between mb-3">
         <p className="text-xs font-semibold text-amber-700 dark:text-amber-300 uppercase tracking-wider">
-          AI quote draft
+         {t('ui:MeetingDetailPage.aiQuoteDraft')}
         </p>
         {d.status !== 'available' && d.status !== 'reviewed' && (
           <span className="inline-flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-300">
             <Loader2 className="h-3 w-3 animate-spin" />
-            Drafting…
+           {t('ui:MeetingDetailPage.drafting')}
           </span>
         )}
         {d.confidence && (d.status === 'available' || d.status === 'reviewed') && (
@@ -206,7 +211,7 @@ function QuoteDraftSection({ meetingId }: { meetingId: string }) {
 
       {(d.status === 'pending' || d.status === 'processing') && (
         <p className="text-sm text-gray-600 dark:text-gray-400">
-          Claude is checking whether the meeting discussed scope + pricing…
+         {t('ui:MeetingDetailPage.claudeIsCheckingWhetherThe')}
         </p>
       )}
 
@@ -227,10 +232,10 @@ function QuoteDraftSection({ meetingId }: { meetingId: string }) {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 dark:bg-gray-800 text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   <tr>
-                    <th className="text-left px-3 py-2">Description</th>
-                    <th className="text-right px-3 py-2 w-16">Qty</th>
-                    <th className="text-right px-3 py-2 w-20">Unit</th>
-                    <th className="text-right px-3 py-2 w-20">Total</th>
+                    <th className="text-left px-3 py-2">{t('ui:MeetingDetailPage.description')}</th>
+                    <th className="text-right px-3 py-2 w-16">{t('ui:MeetingDetailPage.qty')}</th>
+                    <th className="text-right px-3 py-2 w-20">{t('ui:MeetingDetailPage.unit')}</th>
+                    <th className="text-right px-3 py-2 w-20">{t('ui:MeetingDetailPage.total')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -249,7 +254,7 @@ function QuoteDraftSection({ meetingId }: { meetingId: string }) {
                 </tbody>
                 <tfoot className="bg-gray-50 dark:bg-gray-800 border-t-2 border-gray-200 dark:border-gray-700">
                   <tr>
-                    <td colSpan={3} className="px-3 py-2 text-right text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Estimated total</td>
+                    <td colSpan={3} className="px-3 py-2 text-right text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">{t('ui:MeetingDetailPage.estimatedTotal')}</td>
                     <td className="px-3 py-2 text-right text-base font-bold text-gray-900 dark:text-gray-100">
                       {(d.currency || 'USD')} {(d.estimated_total ?? 0).toFixed(2)}
                     </td>
@@ -265,12 +270,11 @@ function QuoteDraftSection({ meetingId }: { meetingId: string }) {
           )}
           <div className="flex items-center justify-between gap-3 pt-2 border-t border-amber-200 dark:border-amber-800">
             <p className="text-xs text-amber-800 dark:text-amber-200 leading-snug">
-              <strong>Review before sending.</strong> AI-generated drafts may misread numbers.
-              Verify every line item against the transcript.
+              <strong>{t('ui:MeetingDetailPage.reviewBeforeSending')}</strong> {t('ui:MeetingDetailPage.aiGeneratedDraftsMayMisread')}
             </p>
             {d.status === 'reviewed' ? (
               <span className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700 dark:text-emerald-300">
-                <CheckCircle2 className="h-4 w-4" /> Reviewed
+                <CheckCircle2 className="h-4 w-4" /> {t('ui:MeetingDetailPage.reviewed')}
               </span>
             ) : (
               <button
@@ -279,7 +283,7 @@ function QuoteDraftSection({ meetingId }: { meetingId: string }) {
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50 rounded-lg whitespace-nowrap transition-colors"
               >
                 {reviewMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                I've reviewed this
+               {t('ui:MeetingDetailPage.iVeReviewedThis')}
               </button>
             )}
           </div>
@@ -297,6 +301,7 @@ function QuoteDraftSection({ meetingId }: { meetingId: string }) {
  * stops once available/failed. Hidden when 404 (no transcript yet, so
  * nothing to summarize). */
 function SummarySection({ meetingId }: { meetingId: string }) {
+  const { t } = useTranslation('ui')
   const q = useQuery({
     queryKey: ['meeting-summary', meetingId],
     queryFn: async () => (await getMeetingSummary(meetingId)).data,
@@ -318,19 +323,19 @@ function SummarySection({ meetingId }: { meetingId: string }) {
     <div className="mb-6 p-4 bg-gradient-to-br from-indigo-50 to-violet-50 dark:from-indigo-950/40 dark:to-violet-950/40 border border-indigo-200 dark:border-indigo-800 rounded-xl">
       <div className="flex items-center justify-between mb-3">
         <p className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 uppercase tracking-wider">
-          AI summary
+         {t('ui:MeetingDetailPage.aiSummary')}
         </p>
         {s.status !== 'available' && s.status !== 'failed' && (
           <span className="inline-flex items-center gap-1.5 text-xs text-indigo-700 dark:text-indigo-300">
             <Loader2 className="h-3 w-3 animate-spin" />
-            Generating…
+           {t('ui:MeetingDetailPage.generating')}
           </span>
         )}
       </div>
 
       {s.status === 'failed' && (
         <p className="text-sm text-red-600 dark:text-red-400">
-          Summary failed{s.error_message ? `: ${s.error_message}` : ''}.
+         {t('ui:MeetingDetailPage.summaryFailed')}{s.error_message ? `: ${s.error_message}` : ''}.
         </p>
       )}
 
@@ -345,7 +350,7 @@ function SummarySection({ meetingId }: { meetingId: string }) {
           {s.action_items.length > 0 && (
             <div className="mb-4">
               <h4 className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                <CheckCircle2 className="h-3.5 w-3.5" /> Action items ({s.action_items.length})
+                <CheckCircle2 className="h-3.5 w-3.5" /> {t('ui:MeetingDetailPage.actionItems')}{s.action_items.length})
               </h4>
               <ul className="space-y-1.5">
                 {s.action_items.map((ai, i) => (
@@ -369,7 +374,7 @@ function SummarySection({ meetingId }: { meetingId: string }) {
           {s.topics.length > 0 && (
             <div className="mb-4">
               <h4 className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                <MessageSquare className="h-3.5 w-3.5" /> Topics
+                <MessageSquare className="h-3.5 w-3.5" /> {t('ui:MeetingDetailPage.topics')}
               </h4>
               <ul className="space-y-1.5">
                 {s.topics.map((t, i) => (
@@ -387,7 +392,7 @@ function SummarySection({ meetingId }: { meetingId: string }) {
           {s.next_steps.length > 0 && (
             <div>
               <h4 className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                <Target className="h-3.5 w-3.5" /> Next steps
+                <Target className="h-3.5 w-3.5" /> {t('ui:MeetingDetailPage.nextSteps')}
               </h4>
               <ul className="space-y-1.5">
                 {s.next_steps.map((ns, i) => (
@@ -402,7 +407,7 @@ function SummarySection({ meetingId }: { meetingId: string }) {
 
           {!s.summary_text && s.topics.length === 0 && s.action_items.length === 0 && (
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              No spoken content to summarize.
+             {t('ui:MeetingDetailPage.noSpokenContentToSummarize')}
             </p>
           )}
         </>
@@ -410,7 +415,7 @@ function SummarySection({ meetingId }: { meetingId: string }) {
 
       {(s.status === 'pending' || s.status === 'processing') && (
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          Reading the transcript and pulling out the key points…
+         {t('ui:MeetingDetailPage.readingTheTranscriptAndPulling')}
         </p>
       )}
     </div>
@@ -426,6 +431,7 @@ function SummarySection({ meetingId }: { meetingId: string }) {
  * Hides itself entirely when the meeting has no recording yet (404).
  */
 function TranscriptSection({ meetingId }: { meetingId: string }) {
+  const { t: tr } = useTranslation('ui')
   const q = useQuery({
     queryKey: ['meeting-transcript', meetingId],
     queryFn: async () => (await getMeetingTranscript(meetingId)).data,
@@ -450,12 +456,12 @@ function TranscriptSection({ meetingId }: { meetingId: string }) {
     <div className="mb-6 p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl">
       <div className="flex items-center justify-between mb-3">
         <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-          Transcript
+         {tr('ui:MeetingDetailPage.transcript')}
         </p>
         {t.status !== 'available' && t.status !== 'failed' && (
           <span className="inline-flex items-center gap-1.5 text-xs text-cyan-700 dark:text-cyan-300">
             <Loader2 className="h-3 w-3 animate-spin" />
-            {t.status === 'pending' ? 'Queued…' : 'Transcribing…'}
+            {t.status === 'pending' ? tr('ui:MeetingDetailPage.queued') : tr('ui:MeetingDetailPage.transcribing')}
           </span>
         )}
         {t.status === 'available' && t.segments.length > 0 && (
@@ -468,13 +474,13 @@ function TranscriptSection({ meetingId }: { meetingId: string }) {
 
       {t.status === 'failed' && (
         <p className="text-sm text-red-600 dark:text-red-400">
-          Transcription failed{t.error_message ? `: ${t.error_message}` : ''}.
+         {tr('ui:MeetingDetailPage.transcriptionFailed')}{t.error_message ? `: ${t.error_message}` : ''}.
         </p>
       )}
 
       {t.status === 'available' && t.segments.length === 0 && (
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          No spoken audio detected in this recording.
+         {tr('ui:MeetingDetailPage.noSpokenAudioDetectedIn')}
         </p>
       )}
 
@@ -487,7 +493,7 @@ function TranscriptSection({ meetingId }: { meetingId: string }) {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 mb-0.5">
-                  Speaker {seg.speaker}
+                 {tr('ui:MeetingDetailPage.speaker')} {seg.speaker}
                 </div>
                 <div className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed">
                   {seg.text}
@@ -500,7 +506,7 @@ function TranscriptSection({ meetingId }: { meetingId: string }) {
 
       {(t.status === 'pending' || t.status === 'processing') && (
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          This usually takes ~2-3 minutes after the meeting ends.
+         {tr('ui:MeetingDetailPage.thisUsuallyTakes23')}
         </p>
       )}
     </div>
@@ -522,6 +528,7 @@ function fmtTime(seconds: number): string {
  * and surfaces a toast with the sent / failed counts.
  */
 function CalendarInviteSection({ meetingId }: { meetingId: string }) {
+  const { t } = useTranslation('ui')
   const urlsQ = useQuery({
     queryKey: ['meeting-calendar-urls', meetingId],
     queryFn: async () => (await getCalendarUrls(meetingId)).data,
@@ -531,16 +538,16 @@ function CalendarInviteSection({ meetingId }: { meetingId: string }) {
     onSuccess: (res) => {
       const r = res.data
       if (r.failed === 0 && r.sent > 0) {
-        toast.success(`Invites sent (${r.sent})`)
+        toast.success(t('ui:MeetingDetailPage.invitesSentSent', { sent: r.sent }))
       } else if (r.sent === 0 && r.failed === 0) {
-        toast('No invitees to send to')
+        toast(t('ui:MeetingDetailPage.noInviteesToSendTo'))
       } else if (r.failed > 0 && r.sent > 0) {
-        toast(`${r.sent} sent · ${r.failed} failed`)
+        toast(t('ui:MeetingDetailPage.sentSentFailedFailed', { sent: r.sent, failed: r.failed }))
       } else {
-        toast.error(`Could not send: ${r.errors[0] || 'unknown error'}`)
+        toast.error(t('ui:MeetingDetailPage.couldNotSendV0', { v0: r.errors[0] || 'unknown error' }))
       }
     },
-    onError: (e: any) => toast.error(`Send failed: ${e?.message || 'unknown'}`),
+    onError: (e: any) => toast.error(t('ui:MeetingDetailPage.sendFailedV0', { v0: e?.message || 'unknown' })),
   })
 
   if (urlsQ.isLoading || !urlsQ.data) return null
@@ -549,7 +556,7 @@ function CalendarInviteSection({ meetingId }: { meetingId: string }) {
   return (
     <div className="mb-6 p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl">
       <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
-        Calendar invite
+       {t('ui:MeetingDetailPage.calendarInvite')}
       </p>
       <div className="flex flex-wrap items-center gap-2">
         <a
@@ -558,7 +565,7 @@ function CalendarInviteSection({ meetingId }: { meetingId: string }) {
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-lg transition-colors"
         >
-          <Calendar className="h-3.5 w-3.5" /> Add to Google Calendar
+          <Calendar className="h-3.5 w-3.5" /> {t('ui:MeetingDetailPage.addToGoogleCalendar')}
         </a>
         <a
           href={u.outlook}
@@ -566,14 +573,14 @@ function CalendarInviteSection({ meetingId }: { meetingId: string }) {
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-lg transition-colors"
         >
-          <Calendar className="h-3.5 w-3.5" /> Add to Outlook
+          <Calendar className="h-3.5 w-3.5" /> {t('ui:MeetingDetailPage.addToOutlook')}
         </a>
         <a
           href={u.ics_url}
           download="meeting.ics"
           className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-lg transition-colors"
         >
-          <Download className="h-3.5 w-3.5" /> Download .ics
+          <Download className="h-3.5 w-3.5" /> {t('ui:MeetingDetailPage.downloadIcs')}
         </a>
         <button
           onClick={() => sendMut.mutate()}
@@ -581,7 +588,7 @@ function CalendarInviteSection({ meetingId }: { meetingId: string }) {
           className="ml-auto inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950 hover:bg-indigo-100 dark:hover:bg-indigo-900 border border-indigo-200 dark:border-indigo-800 rounded-lg disabled:opacity-50 transition-colors"
         >
           {sendMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-          Re-send invites
+         {t('ui:MeetingDetailPage.reSendInvites')}
         </button>
       </div>
     </div>
@@ -596,11 +603,12 @@ function CalendarInviteSection({ meetingId }: { meetingId: string }) {
 
 
 function StatusBadge({ status }: { status: MeetingStatus }) {
+  const { t } = useTranslation('ui')
   const config: Record<MeetingStatus, { bg: string; text: string; label: string; pulse?: boolean }> = {
-    scheduled: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Scheduled' },
-    in_progress: { bg: 'bg-green-100', text: 'text-green-700', label: 'In Progress', pulse: true },
-    completed: { bg: 'bg-gray-100', text: 'text-gray-600', label: 'Completed' },
-    cancelled: { bg: 'bg-red-100', text: 'text-red-700', label: 'Cancelled' },
+    scheduled: { bg: 'bg-blue-100', text: 'text-blue-700', label: t('ui:MeetingDetailPage.scheduled') },
+    in_progress: { bg: 'bg-green-100', text: 'text-green-700', label: t('ui:MeetingDetailPage.inProgress'), pulse: true },
+    completed: { bg: 'bg-gray-100', text: 'text-gray-600', label: t('ui:MeetingDetailPage.completed') },
+    cancelled: { bg: 'bg-red-100', text: 'text-red-700', label: t('ui:MeetingDetailPage.cancelled') },
   }
   const c = config[status]
   return (
@@ -612,7 +620,7 @@ function StatusBadge({ status }: { status: MeetingStatus }) {
 }
 
 function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', {
+  return new Date(iso).toLocaleDateString(uiLocale(), {
     month: 'short', day: 'numeric', year: 'numeric',
     hour: 'numeric', minute: '2-digit',
   })
@@ -652,6 +660,7 @@ function RecordingStatusBadge({ status }: { status: string }) {
 /* ── Meeting Intelligence Section ──────────────────────────────────────── */
 
 function MeetingIntelligenceSection({ meetingId }: { meetingId: string }) {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     summary: true, action_items: true, topics: false, decisions: false,
@@ -668,7 +677,7 @@ function MeetingIntelligenceSection({ meetingId }: { meetingId: string }) {
   const analyzeMut = useMutation({
     mutationFn: () => coachApi.analyzeMeeting(meetingId),
     onSuccess: () => {
-      toast.success('Meeting analyzed successfully')
+      toast.success(t('ui:MeetingDetailPage.meetingAnalyzedSuccessfully'))
       queryClient.invalidateQueries({ queryKey: ['meeting-intelligence', meetingId] })
     },
     onError: (err: any) => toast.error(err?.message || 'Analysis failed'),
@@ -688,7 +697,7 @@ function MeetingIntelligenceSection({ meetingId }: { meetingId: string }) {
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-amber-200 dark:border-amber-800 p-5 mt-6">
         <div className="flex items-center gap-2 mb-3">
           <Lightbulb className="h-5 w-5 text-amber-500" />
-          <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Meeting Intelligence</h2>
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{t('ui:MeetingDetailPage.meetingIntelligence')}</h2>
         </div>
         <div className="flex items-center justify-center py-6">
           <Loader2 className="h-5 w-5 animate-spin text-amber-500" />
@@ -703,7 +712,7 @@ function MeetingIntelligenceSection({ meetingId }: { meetingId: string }) {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Lightbulb className="h-5 w-5 text-amber-500" />
-            <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Meeting Intelligence</h2>
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{t('ui:MeetingDetailPage.meetingIntelligence')}</h2>
           </div>
           <button
             onClick={() => analyzeMut.mutate()}
@@ -711,11 +720,11 @@ function MeetingIntelligenceSection({ meetingId }: { meetingId: string }) {
             className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-white bg-amber-500 rounded-lg hover:bg-amber-600 disabled:opacity-50 transition-colors"
           >
             {analyzeMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Lightbulb className="h-3.5 w-3.5" />}
-            {analyzeMut.isPending ? 'Analyzing...' : 'Analyze with O-Brain'}
+            {analyzeMut.isPending ? t('ui:MeetingDetailPage.analyzing') : t('ui:MeetingDetailPage.analyzeWithOBrain')}
           </button>
         </div>
         <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
-          No intelligence available yet. Click "Analyze" to extract insights from the meeting transcript.
+         {t('ui:MeetingDetailPage.noIntelligenceAvailableYetClick')}
         </p>
       </div>
     )
@@ -741,8 +750,8 @@ function MeetingIntelligenceSection({ meetingId }: { meetingId: string }) {
     <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-amber-200 dark:border-amber-800 p-5 mt-6">
       <div className="flex items-center gap-2 mb-4">
         <Lightbulb className="h-5 w-5 text-amber-500" />
-        <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Meeting Intelligence</h2>
-        <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 rounded font-medium">O-Brain Coach</span>
+        <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{t('ui:MeetingDetailPage.meetingIntelligence')}</h2>
+        <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 rounded font-medium">{t('ui:MeetingDetailPage.oBrainCoach')}</span>
       </div>
 
       {/* Summary */}
@@ -755,7 +764,7 @@ function MeetingIntelligenceSection({ meetingId }: { meetingId: string }) {
       {/* Action Items */}
       {intel.action_items?.length > 0 && (
         <div className="border-t border-gray-100 dark:border-gray-800">
-          <SectionHeader label="Action Items" sectionKey="action_items" icon={CheckCircle2} count={intel.action_items.length} />
+          <SectionHeader label={t('ui:MeetingDetailPage.actionItems_2')} sectionKey="action_items" icon={CheckCircle2} count={intel.action_items.length} />
           {expandedSections.action_items && (
             <div className="space-y-1.5 pb-3">
               {intel.action_items.map((item: any, idx: number) => (
@@ -775,8 +784,8 @@ function MeetingIntelligenceSection({ meetingId }: { meetingId: string }) {
                       {item.task}
                     </p>
                     <div className="flex gap-2 text-xs text-gray-500 dark:text-gray-400">
-                      {item.owner && <span>Owner: {item.owner}</span>}
-                      {item.deadline && <span>Due: {item.deadline}</span>}
+                      {item.owner && <span>{t('ui:MeetingDetailPage.owner')} {item.owner}</span>}
+                      {item.deadline && <span>{t('ui:MeetingDetailPage.due')} {item.deadline}</span>}
                     </div>
                   </div>
                 </div>
@@ -789,7 +798,7 @@ function MeetingIntelligenceSection({ meetingId }: { meetingId: string }) {
       {/* Topics */}
       {intel.topics?.length > 0 && (
         <div className="border-t border-gray-100 dark:border-gray-800">
-          <SectionHeader label="Topics Discussed" sectionKey="topics" icon={MessageSquare} count={intel.topics.length} />
+          <SectionHeader label={t('ui:MeetingDetailPage.topicsDiscussed')} sectionKey="topics" icon={MessageSquare} count={intel.topics.length} />
           {expandedSections.topics && (
             <div className="flex flex-wrap gap-1.5 pb-3">
               {intel.topics.map((topic: string, idx: number) => (
@@ -803,7 +812,7 @@ function MeetingIntelligenceSection({ meetingId }: { meetingId: string }) {
       {/* Decisions */}
       {intel.decisions?.length > 0 && (
         <div className="border-t border-gray-100 dark:border-gray-800">
-          <SectionHeader label="Decisions Made" sectionKey="decisions" icon={Target} count={intel.decisions.length} />
+          <SectionHeader label={t('ui:MeetingDetailPage.decisionsMade')} sectionKey="decisions" icon={Target} count={intel.decisions.length} />
           {expandedSections.decisions && (
             <ul className="space-y-1 pb-3 pl-4">
               {intel.decisions.map((d: string, idx: number) => (
@@ -817,7 +826,7 @@ function MeetingIntelligenceSection({ meetingId }: { meetingId: string }) {
       {/* Talk Ratio */}
       {intel.talk_ratio?.length > 0 && (
         <div className="border-t border-gray-100 dark:border-gray-800">
-          <SectionHeader label="Talk Ratio" sectionKey="talk_ratio" icon={Users} />
+          <SectionHeader label={t('ui:MeetingDetailPage.talkRatio')} sectionKey="talk_ratio" icon={Users} />
           {expandedSections.talk_ratio && (
             <div className="space-y-2 pb-3">
               {intel.talk_ratio.map((p: any, idx: number) => (
@@ -837,7 +846,7 @@ function MeetingIntelligenceSection({ meetingId }: { meetingId: string }) {
       {/* Deal Signals */}
       {intel.deal_signals?.length > 0 && (
         <div className="border-t border-gray-100 dark:border-gray-800">
-          <SectionHeader label="Deal Signals" sectionKey="deal_signals" icon={TrendingUp} count={intel.deal_signals.length} />
+          <SectionHeader label={t('ui:MeetingDetailPage.dealSignals')} sectionKey="deal_signals" icon={TrendingUp} count={intel.deal_signals.length} />
           {expandedSections.deal_signals && (
             <div className="space-y-2 pb-3">
               {intel.deal_signals.map((sig: any, idx: number) => (
@@ -854,7 +863,7 @@ function MeetingIntelligenceSection({ meetingId }: { meetingId: string }) {
       {/* Risk Flags */}
       {intel.risk_flags?.length > 0 && (
         <div className="border-t border-gray-100 dark:border-gray-800">
-          <SectionHeader label="Risk Flags" sectionKey="risk_flags" icon={AlertTriangle} count={intel.risk_flags.length} />
+          <SectionHeader label={t('ui:MeetingDetailPage.riskFlags')} sectionKey="risk_flags" icon={AlertTriangle} count={intel.risk_flags.length} />
           {expandedSections.risk_flags && (
             <div className="space-y-1.5 pb-3">
               {intel.risk_flags.map((flag: any, idx: number) => (
@@ -878,7 +887,7 @@ function MeetingIntelligenceSection({ meetingId }: { meetingId: string }) {
       {/* Follow-ups */}
       {intel.follow_ups?.length > 0 && (
         <div className="border-t border-gray-100 dark:border-gray-800">
-          <SectionHeader label="Suggested Follow-ups" sectionKey="follow_ups" icon={Calendar} count={intel.follow_ups.length} />
+          <SectionHeader label={t('ui:MeetingDetailPage.suggestedFollowUps')} sectionKey="follow_ups" icon={Calendar} count={intel.follow_ups.length} />
           {expandedSections.follow_ups && (
             <div className="space-y-1.5 pb-3">
               {intel.follow_ups.map((f: any, idx: number) => (
@@ -888,7 +897,7 @@ function MeetingIntelligenceSection({ meetingId }: { meetingId: string }) {
                   }`}>{f.priority}</span>
                   <div>
                     <p className="text-sm text-gray-800 dark:text-gray-200">{f.action}</p>
-                    {f.suggested_date && <p className="text-xs text-gray-500">Suggested: {f.suggested_date}</p>}
+                    {f.suggested_date && <p className="text-xs text-gray-500">{t('ui:MeetingDetailPage.suggested')} {f.suggested_date}</p>}
                   </div>
                 </div>
               ))}
@@ -900,7 +909,7 @@ function MeetingIntelligenceSection({ meetingId }: { meetingId: string }) {
       {/* Coach Suggestions */}
       {intel.suggestions?.length > 0 && (
         <div className="border-t border-gray-100 dark:border-gray-800">
-          <SectionHeader label="Coach Suggestions" sectionKey="suggestions" icon={Lightbulb} count={intel.suggestions.length} />
+          <SectionHeader label={t('ui:MeetingDetailPage.coachSuggestions')} sectionKey="suggestions" icon={Lightbulb} count={intel.suggestions.length} />
           {expandedSections.suggestions && (
             <div className="space-y-1.5 pb-3">
               {intel.suggestions.map((s: string, idx: number) => (
@@ -920,6 +929,7 @@ function MeetingIntelligenceSection({ meetingId }: { meetingId: string }) {
 /* ── Main Page ─────────────────────────────────────────────────────────── */
 
 export default function MeetingDetailPage() {
+  const { t } = useTranslation('ui')
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -970,7 +980,7 @@ export default function MeetingDetailPage() {
   const deleteRecordingMut = useMutation({
     mutationFn: (recordingId: string) => deleteRecording(recordingId),
     onSuccess: () => {
-      toast.success('Recording deleted')
+      toast.success(t('ui:MeetingDetailPage.recordingDeleted'))
       queryClient.invalidateQueries({ queryKey: ['meeting', id] })
       queryClient.invalidateQueries({ queryKey: ['recordings'] })
     },
@@ -992,9 +1002,9 @@ export default function MeetingDetailPage() {
   if (!meeting) {
     return (
       <div className="p-6 text-center">
-        <p className="text-gray-500 dark:text-gray-400">Meeting not found</p>
+        <p className="text-gray-500 dark:text-gray-400">{t('ui:MeetingDetailPage.meetingNotFound')}</p>
         <button onClick={() => navigate('/meetings')} className="text-blue-600 dark:text-blue-400 hover:underline mt-2 text-sm">
-          Back to Meetings
+         {t('ui:MeetingDetailPage.backToMeetings')}
         </button>
       </div>
     )
@@ -1066,15 +1076,15 @@ export default function MeetingDetailPage() {
               className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
             >
               <Video className="h-4 w-4" />
-              Start Meeting
+             {t('ui:MeetingDetailPage.startMeeting')}
             </button>
             <button
-              onClick={() => { if (confirm('Cancel this meeting?')) cancelMut.mutate() }}
+              onClick={() => { if (confirm(t('ui:MeetingDetailPage.cancelThisMeeting'))) cancelMut.mutate() }}
               disabled={cancelMut.isPending}
               className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
             >
               <PhoneOff className="h-4 w-4" />
-              Cancel Meeting
+             {t('ui:MeetingDetailPage.cancelMeeting')}
             </button>
           </>
         )}
@@ -1085,15 +1095,15 @@ export default function MeetingDetailPage() {
               className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors"
             >
               <Phone className="h-4 w-4" />
-              Join Meeting
+             {t('ui:MeetingDetailPage.joinMeeting')}
             </button>
             <button
-              onClick={() => { if (confirm('End this meeting?')) endMut.mutate() }}
+              onClick={() => { if (confirm(t('ui:MeetingDetailPage.endThisMeeting'))) endMut.mutate() }}
               disabled={endMut.isPending}
               className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
             >
               <PhoneOff className="h-4 w-4" />
-              End Meeting
+             {t('ui:MeetingDetailPage.endMeeting')}
             </button>
           </>
         )}
@@ -1101,11 +1111,11 @@ export default function MeetingDetailPage() {
 
       {/* Meeting Info */}
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5 mb-6">
-        <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">Meeting Details</h2>
+        <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">{t('ui:MeetingDetailPage.meetingDetails')}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {meeting.scheduled_start && (
             <div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Scheduled Start</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">{t('ui:MeetingDetailPage.scheduledStart')}</p>
               <p className="text-sm text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
                 <Calendar className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500" />
                 {formatDateTime(meeting.scheduled_start)}
@@ -1114,7 +1124,7 @@ export default function MeetingDetailPage() {
           )}
           {meeting.scheduled_end && (
             <div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Scheduled End</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">{t('ui:MeetingDetailPage.scheduledEnd')}</p>
               <p className="text-sm text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
                 <Clock className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500" />
                 {formatDateTime(meeting.scheduled_end)}
@@ -1123,28 +1133,28 @@ export default function MeetingDetailPage() {
           )}
           {meeting.actual_start && (
             <div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Actual Start</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">{t('ui:MeetingDetailPage.actualStart')}</p>
               <p className="text-sm text-gray-900 dark:text-gray-100">{formatDateTime(meeting.actual_start)}</p>
             </div>
           )}
           {meeting.actual_end && (
             <div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Actual End</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">{t('ui:MeetingDetailPage.actualEnd')}</p>
               <p className="text-sm text-gray-900 dark:text-gray-100">{formatDateTime(meeting.actual_end)}</p>
             </div>
           )}
           <div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Recording</p>
-            <p className="text-sm text-gray-900 dark:text-gray-100">{meeting.record_meeting ? 'Enabled' : 'Disabled'}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">{t('ui:MeetingDetailPage.recording')}</p>
+            <p className="text-sm text-gray-900 dark:text-gray-100">{meeting.record_meeting ? t('ui:MeetingDetailPage.enabled') : t('ui:MeetingDetailPage.disabled')}</p>
           </div>
           <div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Room</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">{t('ui:MeetingDetailPage.room')}</p>
             <p className="text-sm text-gray-600 dark:text-gray-400 font-mono text-xs">{meeting.livekit_room_name}</p>
           </div>
         </div>
         {meeting.description && (
           <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Description</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{t('ui:MeetingDetailPage.description')}</p>
             <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{meeting.description}</p>
           </div>
         )}
@@ -1155,7 +1165,7 @@ export default function MeetingDetailPage() {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
             <Users className="h-4 w-4 text-gray-400 dark:text-gray-500" />
-            Participants ({meeting.participants.length})
+           {t('ui:MeetingDetailPage.participants')}{meeting.participants.length})
           </h2>
           {(meeting.status === 'scheduled' || meeting.status === 'in_progress') && (
             <button
@@ -1163,7 +1173,7 @@ export default function MeetingDetailPage() {
               className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 font-medium"
             >
               <Plus className="h-3.5 w-3.5" />
-              Add Participant
+             {t('ui:MeetingDetailPage.addParticipant')}
             </button>
           )}
         </div>
@@ -1175,7 +1185,7 @@ export default function MeetingDetailPage() {
               value={newParticipantEmail}
               onChange={(e) => setNewParticipantEmail(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addParticipantMut.mutate(newParticipantEmail) } }}
-              placeholder="participant@example.com"
+              placeholder={t('ui:MeetingDetailPage.participantExampleCom')}
               className="flex-1 px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100"
             />
             <button
@@ -1183,13 +1193,13 @@ export default function MeetingDetailPage() {
               disabled={!newParticipantEmail.trim() || addParticipantMut.isPending}
               className="px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
             >
-              {addParticipantMut.isPending ? 'Adding...' : 'Add'}
+              {addParticipantMut.isPending ? t('ui:MeetingDetailPage.adding') : t('ui:MeetingDetailPage.add')}
             </button>
           </div>
         )}
 
         {meeting.participants.length === 0 ? (
-          <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">No participants yet</p>
+          <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">{t('ui:MeetingDetailPage.noParticipantsYet')}</p>
         ) : (
           <div className="space-y-2">
             {meeting.participants.map((p) => (
@@ -1197,7 +1207,7 @@ export default function MeetingDetailPage() {
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                      {p.guest_name || p.guest_email || p.user_id || 'Unknown'}
+                      {p.guest_name || p.guest_email || p.user_id || t('ui:MeetingDetailPage.unknown')}
                     </p>
                     <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
                       p.role === 'host' ? 'bg-purple-100 text-purple-700' : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
@@ -1209,7 +1219,7 @@ export default function MeetingDetailPage() {
                     <p className="text-xs text-gray-500 dark:text-gray-400">{p.guest_email}</p>
                   )}
                   {p.joined_at && (
-                    <p className="text-xs text-gray-400 dark:text-gray-500">Joined {formatDateTime(p.joined_at)}</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500">{t('ui:MeetingDetailPage.joined')} {formatDateTime(p.joined_at)}</p>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
@@ -1217,17 +1227,17 @@ export default function MeetingDetailPage() {
                     <button
                       onClick={() => copyGuestLink(p)}
                       className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700"
-                      title="Copy guest invite link"
+                      title={t('ui:MeetingDetailPage.copyGuestInviteLink')}
                     >
                       <Copy className="h-3.5 w-3.5" />
-                      {copiedToken === p.id ? 'Copied!' : 'Invite Link'}
+                      {copiedToken === p.id ? t('ui:MeetingDetailPage.copied') : t('ui:MeetingDetailPage.inviteLink')}
                     </button>
                   )}
                   {p.role !== 'host' && (meeting.status === 'scheduled' || meeting.status === 'in_progress') && (
                     <button
                       onClick={() => removeParticipantMut.mutate(p.id)}
                       className="p-1 text-gray-400 dark:text-gray-500 hover:text-red-500"
-                      title="Remove participant"
+                      title={t('ui:MeetingDetailPage.removeParticipant')}
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
@@ -1243,11 +1253,11 @@ export default function MeetingDetailPage() {
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
         <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
           <Circle className="h-4 w-4 text-red-400" />
-          Recordings ({meeting.recordings.length})
+         {t('ui:MeetingDetailPage.recordings')}{meeting.recordings.length})
         </h2>
 
         {meeting.recordings.length === 0 ? (
-          <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">No recordings</p>
+          <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">{t('ui:MeetingDetailPage.noRecordings')}</p>
         ) : (
           <div className="space-y-3">
             {meeting.recordings.map((rec) => (
@@ -1275,9 +1285,9 @@ export default function MeetingDetailPage() {
                           className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 font-medium"
                         >
                           {playingRecordingId === rec.id ? (
-                            <><Square className="h-3.5 w-3.5" /> Stop</>
+                            <><Square className="h-3.5 w-3.5" /> {t('ui:MeetingDetailPage.stop')}</>
                           ) : (
-                            <><Play className="h-3.5 w-3.5" /> Play</>
+                            <><Play className="h-3.5 w-3.5" /> {t('ui:MeetingDetailPage.play')}</>
                           )}
                         </button>
                         <a
@@ -1286,17 +1296,17 @@ export default function MeetingDetailPage() {
                           className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 font-medium"
                         >
                           <Download className="h-3.5 w-3.5" />
-                          Download
+                         {t('ui:MeetingDetailPage.download')}
                         </a>
                       </>
                     )}
                     <button
-                      onClick={() => { if (confirm('Delete this recording?')) deleteRecordingMut.mutate(rec.id) }}
+                      onClick={() => { if (confirm(t('ui:MeetingDetailPage.deleteThisRecording'))) deleteRecordingMut.mutate(rec.id) }}
                       disabled={deleteRecordingMut.isPending}
                       className="flex items-center gap-1 text-xs text-red-600 dark:text-red-400 hover:text-red-700 font-medium"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
-                      Delete
+                     {t('ui:MeetingDetailPage.delete')}
                     </button>
                   </div>
                 </div>

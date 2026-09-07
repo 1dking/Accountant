@@ -24,6 +24,7 @@ import { useQuery } from '@tanstack/react-query'
 import { listCalls } from '@/api/communication'
 import { listContacts } from '@/api/contacts'
 import type { CallLogEntry, Contact } from '@/types/models'
+import { useTranslation } from 'react-i18next'
 
 function formatPhone(raw: string): string {
   const digits = raw.replace(/\D/g, '')
@@ -41,6 +42,7 @@ interface Props {
 }
 
 export default function DialerCommandPalette({ onDial }: Props) {
+  const { t } = useTranslation('ui')
   const [query, setQuery] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -121,7 +123,7 @@ export default function DialerCommandPalette({ onDial }: Props) {
     <Command
       shouldFilter={false}
       className="border-b border-white/10 shrink-0"
-      label="Dialer command palette"
+      label={t('ui:DialerCommandPalette.dialerCommandPalette')}
     >
       <div className="px-5 pt-3 pb-3">
         <div className="lg-card flex items-center gap-2 px-3 py-2">
@@ -130,7 +132,7 @@ export default function DialerCommandPalette({ onDial }: Props) {
             ref={inputRef}
             value={query}
             onValueChange={setQuery}
-            placeholder="Search contacts or dial number…   ⌘K"
+            placeholder={t('ui:DialerCommandPalette.searchContactsOrDialNumber')}
             className="flex-1 bg-transparent text-sm text-[color:var(--lg-text-primary)] placeholder:text-[color:var(--lg-text-muted)] outline-none"
           />
         </div>
@@ -152,7 +154,7 @@ export default function DialerCommandPalette({ onDial }: Props) {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="text-sm text-[color:var(--lg-text-primary)]">
-                  Dial <span className="font-mono tabular-nums">{formatPhone(trimmed)}</span>
+                 {t('ui:DialerCommandPalette.dial')} <span className="font-mono tabular-nums">{formatPhone(trimmed)}</span>
                 </div>
               </div>
             </Command.Item>
@@ -213,7 +215,7 @@ export default function DialerCommandPalette({ onDial }: Props) {
           <Command.Empty className="px-3 py-4 text-xs text-[color:var(--lg-text-muted)] text-center">
             {looksDialable
               ? null
-              : 'No matches — try a contact name, company, or phone number.'}
+              : t('ui:DialerCommandPalette.noMatchesTryAContact')}
           </Command.Empty>
         </Command.List>
       )}

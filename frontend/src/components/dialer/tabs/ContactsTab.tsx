@@ -12,6 +12,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Phone, Search, Users } from 'lucide-react'
 import { listContacts } from '@/api/contacts'
 import type { Contact } from '@/types/models'
+import { useTranslation } from 'react-i18next'
 
 function initialsFor(name: string | null, company: string): string {
   const source = name || company || '?'
@@ -40,6 +41,7 @@ interface Props {
 }
 
 export default function ContactsTab({ onDial }: Props) {
+  const { t } = useTranslation('ui')
   const [query, setQuery] = useState('')
 
   const contactsQuery = useQuery({
@@ -80,8 +82,8 @@ export default function ContactsTab({ onDial }: Props) {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search contacts…"
-            aria-label="Search contacts"
+            placeholder={t('ui:ContactsTab.searchContacts')}
+            aria-label={t('ui:ContactsTab.searchContacts_2')}
             className="flex-1 bg-transparent text-sm text-[color:var(--lg-text-primary)] placeholder:text-[color:var(--lg-text-muted)] outline-none"
           />
         </div>
@@ -90,7 +92,7 @@ export default function ContactsTab({ onDial }: Props) {
       {/* Results */}
       <div className="flex-1 overflow-y-auto px-3 pb-3">
         {contactsQuery.isLoading ? (
-          <p className="px-3 py-6 text-sm text-[color:var(--lg-text-muted)]">Loading contacts…</p>
+          <p className="px-3 py-6 text-sm text-[color:var(--lg-text-muted)]">{t('ui:ContactsTab.loadingContacts')}</p>
         ) : contactsQuery.isError ? (
           // Surface fetch errors instead of falling through to the
           // "no contacts" empty state. The audit caught this — when
@@ -98,16 +100,16 @@ export default function ContactsTab({ onDial }: Props) {
           // API failure.
           <div className="px-3 py-12 text-center">
             <Users className="h-8 w-8 mx-auto text-red-400 mb-3" />
-            <p className="text-sm text-red-500 dark:text-red-400">Couldn't load contacts</p>
+            <p className="text-sm text-red-500 dark:text-red-400">{t('ui:ContactsTab.couldnTLoadContacts')}</p>
             <p className="text-xs text-[color:var(--lg-text-muted)] mt-1">
-              {(contactsQuery.error as any)?.message || 'Try refreshing the page'}
+              {(contactsQuery.error as any)?.message || t('ui:ContactsTab.tryRefreshingThePage')}
             </p>
           </div>
         ) : filtered.length === 0 ? (
           <div className="px-3 py-12 text-center">
             <Users className="h-8 w-8 mx-auto text-[color:var(--lg-text-muted)] mb-3" />
             <p className="text-sm text-[color:var(--lg-text-secondary)]">
-              {query ? 'No matches' : 'No contacts with phone numbers'}
+              {query ? t('ui:ContactsTab.noMatches') : t('ui:ContactsTab.noContactsWithPhoneNumbers')}
             </p>
           </div>
         ) : (
@@ -139,7 +141,7 @@ export default function ContactsTab({ onDial }: Props) {
                     </div>
                     <button
                       onClick={() => c.phone && onDial(c.phone)}
-                      aria-label={`Call ${displayName}`}
+                      aria-label={t('ui:ContactsTab.callDisplayname', { displayName })}
                       className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-transform hover:scale-105 active:scale-95"
                       style={{
                         background:

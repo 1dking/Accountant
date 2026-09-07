@@ -19,6 +19,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts'
+import { useTranslation } from 'react-i18next'
 
 interface SheetChartProps {
   chart: ChartConfig
@@ -50,6 +51,7 @@ export default function SheetChart({
   onMove,
   onResize,
 }: SheetChartProps) {
+  const { t } = useTranslation('ui')
   const containerRef = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [isResizing, setIsResizing] = useState(false)
@@ -158,7 +160,7 @@ export default function SheetChart({
     if (data.length === 0) {
       return (
         <div className="flex items-center justify-center h-full text-sm text-gray-400 dark:text-gray-500">
-          No data in selected range
+         {t('ui:SheetChart.noDataInSelectedRange')}
         </div>
       )
     }
@@ -352,7 +354,7 @@ export default function SheetChart({
       >
         <GripHorizontal className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500 shrink-0" />
         <span className="flex-1 text-xs font-medium text-gray-700 dark:text-gray-300 truncate">
-          {chart.title || 'Chart'}
+          {chart.title || t('ui:SheetChart.chart')}
         </span>
 
         {/* Toolbar */}
@@ -362,7 +364,7 @@ export default function SheetChart({
             onEdit()
           }}
           className="p-0.5 rounded text-gray-400 dark:text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:text-blue-400 dark:hover:bg-blue-900/30 transition-colors"
-          title="Edit chart"
+          title={t('ui:SheetChart.editChart')}
           onMouseDown={(e) => e.stopPropagation()}
         >
           <Pencil className="h-3.5 w-3.5" />
@@ -373,7 +375,7 @@ export default function SheetChart({
             onDelete()
           }}
           className="p-0.5 rounded text-gray-400 dark:text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:text-red-400 dark:hover:bg-red-900/30 transition-colors"
-          title="Delete chart"
+          title={t('ui:SheetChart.deleteChart')}
           onMouseDown={(e) => e.stopPropagation()}
         >
           <Trash2 className="h-3.5 w-3.5" />

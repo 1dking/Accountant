@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { CalendarDays, Link2, Unlink, RefreshCw, Check } from 'lucide-react'
 import { googleCalendarApi } from '@/api/googleCalendar'
+import { useTranslation } from 'react-i18next'
 
 interface GCalAccount {
   id: string
@@ -20,6 +21,7 @@ interface GCalendar {
 }
 
 export default function GoogleCalendarSettings() {
+  const { t } = useTranslation('ui')
   const [accounts, setAccounts] = useState<GCalAccount[]>([])
   const [loading, setLoading] = useState(true)
   const [connecting, setConnecting] = useState(false)
@@ -51,7 +53,7 @@ export default function GoogleCalendarSettings() {
         window.location.href = authUrl
       }
     } catch {
-      toast.error('Failed to start Google Calendar connection')
+      toast.error(t('ui:GoogleCalendarSettings.failedToStartGoogleCalendar'))
       setConnecting(false)
     }
   }
@@ -60,9 +62,9 @@ export default function GoogleCalendarSettings() {
     try {
       await googleCalendarApi.disconnectAccount(accountId)
       setAccounts((prev) => prev.filter((a) => a.id !== accountId))
-      toast.success('Google Calendar disconnected')
+      toast.success(t('ui:GoogleCalendarSettings.googleCalendarDisconnected'))
     } catch {
-      toast.error('Failed to disconnect')
+      toast.error(t('ui:GoogleCalendarSettings.failedToDisconnect'))
     }
   }
 
@@ -72,7 +74,7 @@ export default function GoogleCalendarSettings() {
       const res: any = await googleCalendarApi.listCalendars(accountId)
       setCalendars((prev) => ({ ...prev, [accountId]: res.data?.data || [] }))
     } catch {
-      toast.error('Failed to load calendars')
+      toast.error(t('ui:GoogleCalendarSettings.failedToLoadCalendars'))
     } finally {
       setLoadingCalendars(null)
     }
@@ -86,9 +88,9 @@ export default function GoogleCalendarSettings() {
           a.id === accountId ? { ...a, selected_calendar_id: calendarId } : a
         )
       )
-      toast.success('Sync calendar updated')
+      toast.success(t('ui:GoogleCalendarSettings.syncCalendarUpdated'))
     } catch {
-      toast.error('Failed to set sync calendar')
+      toast.error(t('ui:GoogleCalendarSettings.failedToSetSyncCalendar'))
     }
   }
 
@@ -97,39 +99,39 @@ export default function GoogleCalendarSettings() {
     try {
       const res: any = await googleCalendarApi.triggerSync()
       const result = res.data?.data
-      toast.success(`Synced! ${result?.events_pulled || 0} events pulled.`)
+      toast.success(t('ui:GoogleCalendarSettings.syncedV0EventsPulled', { v0: result?.events_pulled || 0 }))
       fetchAccounts()
     } catch {
-      toast.error('Sync failed')
+      toast.error(t('ui:GoogleCalendarSettings.syncFailed'))
     } finally {
       setSyncing(false)
     }
   }
 
   if (loading) {
-    return <div className="text-gray-500 p-4">Loading...</div>
+    return <div className="text-gray-500 p-4">{t('ui:GoogleCalendarSettings.loading')}</div>
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Google Calendar</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('ui:GoogleCalendarSettings.googleCalendar')}</h2>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Connect your Google Calendar to sync events and check availability.
+         {t('ui:GoogleCalendarSettings.connectYourGoogleCalendarTo')}
         </p>
       </div>
 
       {accounts.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-lg border p-6 text-center">
           <CalendarDays className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-          <p className="text-gray-600 dark:text-gray-300 mb-4">No Google Calendar connected yet.</p>
+          <p className="text-gray-600 dark:text-gray-300 mb-4">{t('ui:GoogleCalendarSettings.noGoogleCalendarConnectedYet')}</p>
           <button
             onClick={handleConnect}
             disabled={connecting}
             className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
           >
             <Link2 className="w-4 h-4" />
-            {connecting ? 'Connecting...' : 'Connect Google Calendar'}
+            {connecting ? t('ui:GoogleCalendarSettings.connecting') : t('ui:GoogleCalendarSettings.connectGoogleCalendar')}
           </button>
         </div>
       ) : (
@@ -140,9 +142,9 @@ export default function GoogleCalendarSettings() {
                 <div>
                   <p className="font-medium text-gray-900 dark:text-gray-100">{account.email}</p>
                   <p className="text-xs text-gray-500">
-                    Last synced: {account.last_sync_at
+                   {t('ui:GoogleCalendarSettings.lastSynced')} {account.last_sync_at
                       ? new Date(account.last_sync_at).toLocaleString()
-                      : 'Never'}
+                      : t('ui:GoogleCalendarSettings.never')}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -152,14 +154,14 @@ export default function GoogleCalendarSettings() {
                     className="inline-flex items-center gap-1 px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
-                    Sync
+                   {t('ui:GoogleCalendarSettings.sync')}
                   </button>
                   <button
                     onClick={() => handleDisconnect(account.id)}
                     className="inline-flex items-center gap-1 px-3 py-1.5 text-sm border border-red-200 text-red-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20"
                   >
                     <Unlink className="w-3.5 h-3.5" />
-                    Disconnect
+                   {t('ui:GoogleCalendarSettings.disconnect')}
                   </button>
                 </div>
               </div>
@@ -171,11 +173,11 @@ export default function GoogleCalendarSettings() {
                   disabled={loadingCalendars === account.id}
                   className="text-sm text-blue-600 hover:underline"
                 >
-                  {loadingCalendars === account.id ? 'Loading calendars...' : 'Select sync calendar'}
+                  {loadingCalendars === account.id ? t('ui:GoogleCalendarSettings.loadingCalendars') : t('ui:GoogleCalendarSettings.selectSyncCalendar')}
                 </button>
               ) : (
                 <div className="mt-3 border-t pt-3">
-                  <p className="text-xs font-medium text-gray-500 uppercase mb-2">Sync with:</p>
+                  <p className="text-xs font-medium text-gray-500 uppercase mb-2">{t('ui:GoogleCalendarSettings.syncWith')}</p>
                   <div className="space-y-1">
                     {calendars[account.id].map((cal) => (
                       <button
@@ -194,7 +196,7 @@ export default function GoogleCalendarSettings() {
                           />
                         )}
                         <span className="truncate">{cal.summary}</span>
-                        {cal.primary && <span className="text-xs text-gray-400">(Primary)</span>}
+                        {cal.primary && <span className="text-xs text-gray-400">{t('ui:GoogleCalendarSettings.primary')}</span>}
                         {account.selected_calendar_id === cal.id && (
                           <Check className="w-4 h-4 text-blue-600 ml-auto shrink-0" />
                         )}
@@ -211,7 +213,7 @@ export default function GoogleCalendarSettings() {
             disabled={connecting}
             className="text-sm text-blue-600 hover:underline"
           >
-            + Connect another account
+           {t('ui:GoogleCalendarSettings.connectAnotherAccount')}
           </button>
         </div>
       )}

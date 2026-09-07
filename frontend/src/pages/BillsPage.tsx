@@ -15,6 +15,7 @@ import {
   type ChartAccount,
 } from '@/api/accounting'
 import { formatDate } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
 
 function money(n: string): string {
   return parseFloat(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -29,6 +30,7 @@ const STATUS_STYLE: Record<BillStatus, string> = {
 }
 
 export default function BillsPage() {
+  const { t } = useTranslation('ui')
   const [creating, setCreating] = useState(false)
   const [paying, setPaying] = useState<VendorBill | null>(null)
   const { data, isLoading } = useQuery({ queryKey: ['bills'], queryFn: () => listBills() })
@@ -40,18 +42,17 @@ export default function BillsPage() {
         <div>
           <div className="flex items-center gap-2">
             <ReceiptText className="w-6 h-6 text-gray-700 dark:text-gray-300" />
-            <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Bills (Accounts Payable)</h1>
+            <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">{t('ui:BillsPage.billsAccountsPayable')}</h1>
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Money you owe vendors. Approving a bill posts the expense and the payable; paying it clears
-            the payable against cash.
+           {t('ui:BillsPage.moneyYouOweVendorsApproving')}
           </p>
         </div>
         <button
           onClick={() => setCreating(true)}
           className="flex items-center gap-1.5 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >
-          <Plus className="w-4 h-4" /> New bill
+          <Plus className="w-4 h-4" /> {t('ui:BillsPage.newBill')}
         </button>
       </div>
 
@@ -62,9 +63,9 @@ export default function BillsPage() {
       ) : bills.length === 0 ? (
         <div className="text-center py-16 border border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
           <ReceiptText className="w-10 h-10 mx-auto text-gray-300 dark:text-gray-600" />
-          <p className="mt-3 text-gray-600 dark:text-gray-300 font-medium">No bills yet</p>
+          <p className="mt-3 text-gray-600 dark:text-gray-300 font-medium">{t('ui:BillsPage.noBillsYet')}</p>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Enter a vendor bill to track what you owe and when it's due.
+           {t('ui:BillsPage.enterAVendorBillTo')}
           </p>
         </div>
       ) : (
@@ -82,6 +83,7 @@ export default function BillsPage() {
 }
 
 function BillRow({ bill, onPay }: { bill: VendorBill; onPay: () => void }) {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const [expanded, setExpanded] = useState(false)
   const invalidate = () => {
@@ -91,12 +93,12 @@ function BillRow({ bill, onPay }: { bill: VendorBill; onPay: () => void }) {
   }
   const approve = useMutation({
     mutationFn: () => approveBill(bill.id),
-    onSuccess: () => { invalidate(); toast.success('Bill approved and posted') },
+    onSuccess: () => { invalidate(); toast.success(t('ui:BillsPage.billApprovedAndPosted')) },
     onError: (e: any) => toast.error(e?.message || 'Failed to approve'),
   })
   const voidM = useMutation({
     mutationFn: () => voidBill(bill.id),
-    onSuccess: () => { invalidate(); toast.success('Bill voided') },
+    onSuccess: () => { invalidate(); toast.success(t('ui:BillsPage.billVoided')) },
     onError: (e: any) => toast.error(e?.message || 'Failed to void'),
   })
 
@@ -134,7 +136,7 @@ function BillRow({ bill, onPay }: { bill: VendorBill; onPay: () => void }) {
                 disabled={approve.isPending}
                 className="flex items-center gap-1 text-xs text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 px-2 py-1 rounded disabled:opacity-50"
               >
-                <CheckCircle2 className="w-3.5 h-3.5" /> Approve
+                <CheckCircle2 className="w-3.5 h-3.5" /> {t('ui:BillsPage.approve')}
               </button>
             )}
             {bill.status === 'approved' && (
@@ -142,7 +144,7 @@ function BillRow({ bill, onPay }: { bill: VendorBill; onPay: () => void }) {
                 onClick={onPay}
                 className="flex items-center gap-1 text-xs text-green-600 hover:bg-green-50 dark:hover:bg-green-950 px-2 py-1 rounded"
               >
-                <Banknote className="w-3.5 h-3.5" /> Pay
+                <Banknote className="w-3.5 h-3.5" /> {t('ui:BillsPage.pay')}
               </button>
             )}
             {bill.status !== 'paid' && bill.status !== 'void' && (
@@ -151,7 +153,7 @@ function BillRow({ bill, onPay }: { bill: VendorBill; onPay: () => void }) {
                 disabled={voidM.isPending}
                 className="flex items-center gap-1 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950 px-2 py-1 rounded disabled:opacity-50"
               >
-                <Ban className="w-3.5 h-3.5" /> Void
+                <Ban className="w-3.5 h-3.5" /> {t('ui:BillsPage.void')}
               </button>
             )}
           </div>
@@ -165,6 +167,7 @@ type DraftLine = { account_id: string; description: string; amount: string }
 const emptyLine = (): DraftLine => ({ account_id: '', description: '', amount: '' })
 
 function NewBillModal({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const [vendorName, setVendorName] = useState('')
   const [billNumber, setBillNumber] = useState('')
@@ -197,7 +200,7 @@ function NewBillModal({ onClose }: { onClose: () => void }) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bills'] })
-      toast.success('Bill created')
+      toast.success(t('ui:BillsPage.billCreated'))
       onClose()
     },
     onError: (e: any) => toast.error(e?.message || 'Failed to create bill'),
@@ -209,30 +212,30 @@ function NewBillModal({ onClose }: { onClose: () => void }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between p-4 border-b dark:border-gray-700">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">New Bill</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('ui:BillsPage.newBill_2')}</h2>
           <button onClick={onClose} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"><X className="w-5 h-5" /></button>
         </div>
 
         <div className="p-4 space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Vendor</label>
-              <input type="text" value={vendorName} onChange={(e) => setVendorName(e.target.value)} placeholder="Acme Supplies"
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:BillsPage.vendor')}</label>
+              <input type="text" value={vendorName} onChange={(e) => setVendorName(e.target.value)} placeholder={t('ui:BillsPage.acmeSupplies')}
                 className="w-full px-3 py-2 border rounded-lg text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Bill # (optional)</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:BillsPage.billOptional')}</label>
               <input type="text" value={billNumber} onChange={(e) => setBillNumber(e.target.value)} placeholder="auto"
                 className="w-full px-3 py-2 border rounded-lg text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100" />
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Bill date</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:BillsPage.billDate')}</label>
                 <input type="date" value={billDate} onChange={(e) => setBillDate(e.target.value)}
                   className="w-full px-2 py-2 border rounded-lg text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Due</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:BillsPage.due')}</label>
                 <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)}
                   className="w-full px-2 py-2 border rounded-lg text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100" />
               </div>
@@ -241,16 +244,16 @@ function NewBillModal({ onClose }: { onClose: () => void }) {
 
           <div className="space-y-2">
             <div className="flex items-center text-xs text-gray-400 px-1">
-              <span className="flex-1">Expense account</span>
-              <span className="w-40">Description</span>
-              <span className="w-24 text-right">Amount</span>
+              <span className="flex-1">{t('ui:BillsPage.expenseAccount')}</span>
+              <span className="w-40">{t('ui:BillsPage.description')}</span>
+              <span className="w-24 text-right">{t('ui:BillsPage.amount')}</span>
               <span className="w-8" />
             </div>
             {lines.map((line, i) => (
               <div key={i} className="flex items-center gap-2">
                 <select value={line.account_id} onChange={(e) => setLine(i, { account_id: e.target.value })}
                   className="flex-1 px-2 py-1.5 border rounded-lg text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100">
-                  <option value="">Select account…</option>
+                  <option value="">{t('ui:BillsPage.selectAccount')}</option>
                   {accounts.map((a) => (<option key={a.id} value={a.id}>{a.code} — {a.name}</option>))}
                 </select>
                 <input type="text" value={line.description} onChange={(e) => setLine(i, { description: e.target.value })}
@@ -264,21 +267,21 @@ function NewBillModal({ onClose }: { onClose: () => void }) {
               </div>
             ))}
             <button onClick={() => setLines((p) => [...p, emptyLine()])} className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 px-1 pt-1">
-              <Plus className="w-4 h-4" /> Add line
+              <Plus className="w-4 h-4" /> {t('ui:BillsPage.addLine')}
             </button>
           </div>
 
           <div className="flex items-center justify-end gap-2 text-sm border-t dark:border-gray-700 pt-3">
-            <span className="text-gray-400">Total</span>
+            <span className="text-gray-400">{t('ui:BillsPage.total')}</span>
             <span className="tabular-nums font-medium text-gray-900 dark:text-gray-100">${money(total.toFixed(2))}</span>
           </div>
         </div>
 
         <div className="flex justify-end gap-2 p-4 border-t dark:border-gray-700">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">Cancel</button>
+          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">{t('ui:BillsPage.cancel')}</button>
           <button onClick={() => mutation.mutate()} disabled={mutation.isPending || !canSubmit}
             className="flex items-center gap-1.5 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
-            {mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Create bill
+            {mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} {t('ui:BillsPage.createBill')}
           </button>
         </div>
       </div>
@@ -287,6 +290,7 @@ function NewBillModal({ onClose }: { onClose: () => void }) {
 }
 
 function PayModal({ bill, onClose }: { bill: VendorBill; onClose: () => void }) {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const [cashId, setCashId] = useState('')
   const [payDate, setPayDate] = useState(new Date().toISOString().slice(0, 10))
@@ -300,7 +304,7 @@ function PayModal({ bill, onClose }: { bill: VendorBill; onClose: () => void }) 
       queryClient.invalidateQueries({ queryKey: ['bills'] })
       queryClient.invalidateQueries({ queryKey: ['trial-balance'] })
       queryClient.invalidateQueries({ queryKey: ['general-ledger'] })
-      toast.success('Bill paid')
+      toast.success(t('ui:BillsPage.billPaid'))
       onClose()
     },
     onError: (e: any) => toast.error(e?.message || 'Failed to record payment'),
@@ -310,32 +314,32 @@ function PayModal({ bill, onClose }: { bill: VendorBill; onClose: () => void }) 
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between p-4 border-b dark:border-gray-700">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Pay {bill.bill_number}</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('ui:BillsPage.pay')} {bill.bill_number}</h2>
           <button onClick={onClose} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"><X className="w-5 h-5" /></button>
         </div>
         <div className="p-4 space-y-4">
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Paying <span className="font-medium text-gray-900 dark:text-gray-100">${money(bill.total_amount)}</span> to {bill.vendor_name}.
+           {t('ui:BillsPage.paying')} <span className="font-medium text-gray-900 dark:text-gray-100">${money(bill.total_amount)}</span> to {bill.vendor_name}.
           </p>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Pay from</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:BillsPage.payFrom')}</label>
             <select value={cashId} onChange={(e) => setCashId(e.target.value)}
               className="w-full px-3 py-2 border rounded-lg text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100">
-              <option value="">Select cash / bank account…</option>
+              <option value="">{t('ui:BillsPage.selectCashBankAccount')}</option>
               {assets.map((a) => (<option key={a.id} value={a.id}>{a.code} — {a.name}</option>))}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Payment date</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:BillsPage.paymentDate')}</label>
             <input type="date" value={payDate} onChange={(e) => setPayDate(e.target.value)}
               className="w-full px-3 py-2 border rounded-lg text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100" />
           </div>
         </div>
         <div className="flex justify-end gap-2 p-4 border-t dark:border-gray-700">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">Cancel</button>
+          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">{t('ui:BillsPage.cancel')}</button>
           <button onClick={() => mutation.mutate()} disabled={mutation.isPending || !cashId}
             className="flex items-center gap-1.5 px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50">
-            {mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Banknote className="w-4 h-4" />} Record payment
+            {mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Banknote className="w-4 h-4" />} {t('ui:BillsPage.recordPayment')}
           </button>
         </div>
       </div>

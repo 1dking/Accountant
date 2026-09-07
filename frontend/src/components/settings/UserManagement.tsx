@@ -5,8 +5,10 @@ import { useAuthStore } from '@/stores/authStore'
 import { ROLES } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
 import { UserPlus, Pencil, X } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 export default function UserManagement() {
+  const { t } = useTranslation('ui')
   const { user } = useAuthStore()
   const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
@@ -104,26 +106,26 @@ export default function UserManagement() {
   return (
     <section className="bg-white dark:bg-gray-900 border rounded-lg p-6">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">User Management</h2>
+        <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">{t('ui:UserManagement.userManagement')}</h2>
         <button
           onClick={() => setShowForm(!showForm)}
           className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
         >
           <UserPlus className="w-4 h-4" />
-          Add User
+         {t('ui:UserManagement.addUser')}
         </button>
       </div>
 
       {showForm && (
         <form onSubmit={handleCreate} className="mb-6 p-4 bg-gray-50 dark:bg-gray-950 rounded-lg space-y-3">
-          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Create New User</h3>
+          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('ui:UserManagement.createNewUser')}</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <input
               type="text"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               required
-              placeholder="Full Name"
+              placeholder={t('ui:UserManagement.fullName')}
               className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm text-gray-900 dark:text-gray-100"
             />
             <input
@@ -131,7 +133,7 @@ export default function UserManagement() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              placeholder="Email"
+              placeholder={t('ui:UserManagement.email')}
               className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm text-gray-900 dark:text-gray-100"
             />
             <input
@@ -140,7 +142,7 @@ export default function UserManagement() {
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={8}
-              placeholder="Password (min 8 chars)"
+              placeholder={t('ui:UserManagement.passwordMin8Chars')}
               className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm text-gray-900 dark:text-gray-100"
             />
             <select
@@ -162,14 +164,14 @@ export default function UserManagement() {
               disabled={createMutation.isPending}
               className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
             >
-              {createMutation.isPending ? 'Creating...' : 'Create User'}
+              {createMutation.isPending ? t('ui:UserManagement.creating') : t('ui:UserManagement.createUser')}
             </button>
             <button
               type="button"
               onClick={() => { setShowForm(false); setFormError('') }}
               className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300"
             >
-              Cancel
+             {t('ui:UserManagement.cancel')}
             </button>
           </div>
         </form>
@@ -179,14 +181,14 @@ export default function UserManagement() {
       {editingId && (
         <form onSubmit={handleEdit} className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Edit User</h3>
+            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('ui:UserManagement.editUser')}</h3>
             <button type="button" onClick={() => setEditingId(null)} className="text-gray-400 dark:text-gray-500 hover:text-gray-600">
               <X className="w-4 h-4" />
             </button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
-              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Full Name</label>
+              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">{t('ui:UserManagement.fullName')}</label>
               <input
                 type="text"
                 value={editFullName}
@@ -196,7 +198,7 @@ export default function UserManagement() {
               />
             </div>
             <div>
-              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Email</label>
+              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">{t('ui:UserManagement.email')}</label>
               <input
                 type="email"
                 value={editEmail}
@@ -206,7 +208,7 @@ export default function UserManagement() {
               />
             </div>
             <div>
-              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">New Password (leave blank to keep)</label>
+              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">{t('ui:UserManagement.newPasswordLeaveBlankTo')}</label>
               <input
                 type="password"
                 value={editPassword}
@@ -219,7 +221,7 @@ export default function UserManagement() {
           </div>
           {/* Org Cashbook Access toggle */}
           <div className="flex items-center gap-3">
-            <label className="text-xs text-gray-500 dark:text-gray-400">Org Cashbook Access</label>
+            <label className="text-xs text-gray-500 dark:text-gray-400">{t('ui:UserManagement.orgCashbookAccess')}</label>
             {(() => {
               const editTarget = users.find((u) => u.id === editingId)
               const isAdmin = editTarget?.role === 'admin'
@@ -239,12 +241,12 @@ export default function UserManagement() {
               )
             })()}
             <span className="text-xs text-gray-400">
-              {editCashbookAccess === 'org' ? 'Sees shared org cashbook' : 'Sees personal cashbook only'}
+              {editCashbookAccess === 'org' ? t('ui:UserManagement.seesSharedOrgCashbook') : t('ui:UserManagement.seesPersonalCashbookOnly')}
             </span>
             {(() => {
               const editTarget = users.find((u) => u.id === editingId)
               return editTarget?.role === 'admin' ? (
-                <span className="text-xs text-amber-500">(Admin always has org access)</span>
+                <span className="text-xs text-amber-500">{t('ui:UserManagement.adminAlwaysHasOrgAccess')}</span>
               ) : null
             })()}
           </div>
@@ -257,14 +259,14 @@ export default function UserManagement() {
               disabled={editMutation.isPending}
               className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
             >
-              {editMutation.isPending ? 'Saving...' : 'Save Changes'}
+              {editMutation.isPending ? t('ui:UserManagement.saving') : t('ui:UserManagement.saveChanges')}
             </button>
             <button
               type="button"
               onClick={() => setEditingId(null)}
               className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300"
             >
-              Cancel
+             {t('ui:UserManagement.cancel')}
             </button>
           </div>
         </form>
@@ -274,13 +276,13 @@ export default function UserManagement() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b text-left">
-              <th className="pb-2 font-medium text-gray-500 dark:text-gray-400">Name</th>
-              <th className="pb-2 font-medium text-gray-500 dark:text-gray-400">Email</th>
-              <th className="pb-2 font-medium text-gray-500 dark:text-gray-400">Role</th>
-              <th className="pb-2 font-medium text-gray-500 dark:text-gray-400">Cashbook</th>
-              <th className="pb-2 font-medium text-gray-500 dark:text-gray-400">Joined</th>
-              <th className="pb-2 font-medium text-gray-500 dark:text-gray-400">Status</th>
-              <th className="pb-2 font-medium text-gray-500 dark:text-gray-400">Actions</th>
+              <th className="pb-2 font-medium text-gray-500 dark:text-gray-400">{t('ui:UserManagement.name')}</th>
+              <th className="pb-2 font-medium text-gray-500 dark:text-gray-400">{t('ui:UserManagement.email')}</th>
+              <th className="pb-2 font-medium text-gray-500 dark:text-gray-400">{t('ui:UserManagement.role')}</th>
+              <th className="pb-2 font-medium text-gray-500 dark:text-gray-400">{t('ui:UserManagement.cashbook')}</th>
+              <th className="pb-2 font-medium text-gray-500 dark:text-gray-400">{t('ui:UserManagement.joined')}</th>
+              <th className="pb-2 font-medium text-gray-500 dark:text-gray-400">{t('ui:UserManagement.status')}</th>
+              <th className="pb-2 font-medium text-gray-500 dark:text-gray-400">{t('ui:UserManagement.actions')}</th>
             </tr>
           </thead>
           <tbody>
@@ -304,13 +306,13 @@ export default function UserManagement() {
                   <span className={`px-2 py-0.5 text-xs rounded-full ${
                     u.cashbook_access === 'org' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
                   }`}>
-                    {u.cashbook_access === 'org' ? 'Org' : 'Personal'}
+                    {u.cashbook_access === 'org' ? t('ui:UserManagement.org') : t('ui:UserManagement.personal')}
                   </span>
                 </td>
                 <td className="py-2 text-gray-500 dark:text-gray-400">{formatDate(u.created_at)}</td>
                 <td className="py-2">
                   <span className={`px-2 py-0.5 text-xs rounded-full ${u.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                    {u.is_active ? 'Active' : 'Inactive'}
+                    {u.is_active ? t('ui:UserManagement.active') : t('ui:UserManagement.inactive')}
                   </span>
                 </td>
                 <td className="py-2">
@@ -321,15 +323,15 @@ export default function UserManagement() {
                         className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
                       >
                         <Pencil className="w-3 h-3" />
-                        Edit
+                       {t('ui:UserManagement.edit')}
                       </button>
                     )}
                     {u.id !== user?.id && u.is_active && (
                       <button
-                        onClick={() => { if (confirm(`Deactivate ${u.full_name}?`)) deactivateMutation.mutate(u.id) }}
+                        onClick={() => { if (confirm(t('ui:UserManagement.deactivateFullName', { full_name: u.full_name }))) deactivateMutation.mutate(u.id) }}
                         className="text-xs text-red-600 hover:underline"
                       >
-                        Deactivate
+                       {t('ui:UserManagement.deactivate')}
                       </button>
                     )}
                   </div>

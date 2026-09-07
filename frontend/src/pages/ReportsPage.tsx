@@ -49,9 +49,11 @@ import type {
   YearOverYearComparison,
   TaxDeadline,
 } from '@/types/models'
+import { useTranslation } from 'react-i18next'
+import { uiLocale } from '@/lib/utils'
 
 const formatCurrency = (amount: number): string =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
+  new Intl.NumberFormat(uiLocale(), { style: 'currency', currency: 'USD' }).format(amount)
 
 const tabs = ['Profit & Loss', 'Tax Summary', 'Quarterly Tax', 'Cash Flow', 'Accounts', 'AR Aging', 'AP Aging'] as const
 type Tab = (typeof tabs)[number]
@@ -63,6 +65,7 @@ const today = new Date().toISOString().split('T')[0]
 // ─── Profit & Loss Tab ───────────────────────────────────────────────────────
 
 function ProfitLossTab() {
+  const { t } = useTranslation('ui')
   const [dateFrom, setDateFrom] = useState(yearStart)
   const [dateTo, setDateTo] = useState(today)
 
@@ -92,16 +95,16 @@ function ProfitLossTab() {
   return (
     <div className="space-y-6">
       <div className="rounded-lg border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-900/20 px-4 py-2.5 text-sm text-amber-800 dark:text-amber-300">
-        Legacy report (from expense/income entries). Your{' '}
-        <a href="/accounting/ledger-reports" className="font-semibold underline">Financial Statements → Profit &amp; Loss</a>{' '}
-        is the cashbook-accurate one that ties to your Balance Sheet.
+       {t('ui:ReportsPage.legacyReportFromExpenseIncome')}{' '}
+        <a href="/accounting/ledger-reports" className="font-semibold underline">{t('ui:ReportsPage.financialStatementsProfitLoss')}</a>{' '}
+       {t('ui:ReportsPage.isTheCashbookAccurateOne')}
       </div>
 
       {/* Controls */}
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
         <div className="flex flex-wrap items-end gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">From</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:ReportsPage.from')}</label>
             <input
               type="date"
               value={dateFrom}
@@ -110,7 +113,7 @@ function ProfitLossTab() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">To</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:ReportsPage.to')}</label>
             <input
               type="date"
               value={dateTo}
@@ -126,7 +129,7 @@ function ProfitLossTab() {
               className="inline-flex items-center gap-2 bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors"
             >
               <Download className="w-4 h-4" />
-              Download PDF
+             {t('ui:ReportsPage.downloadPdf')}
             </a>
           )}
         </div>
@@ -140,19 +143,19 @@ function ProfitLossTab() {
           {/* Stat Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <StatCard
-              label="Total Income"
+              label={t('ui:ReportsPage.totalIncome')}
               value={formatCurrency(report.total_income)}
               icon={<TrendingUp className="w-5 h-5" />}
               color="green"
             />
             <StatCard
-              label="Total Expenses"
+              label={t('ui:ReportsPage.totalExpenses')}
               value={formatCurrency(report.total_expenses)}
               icon={<TrendingDown className="w-5 h-5" />}
               color="red"
             />
             <StatCard
-              label="Net Profit"
+              label={t('ui:ReportsPage.netProfit')}
               value={formatCurrency(report.net_profit)}
               icon={<DollarSign className="w-5 h-5" />}
               color={report.net_profit >= 0 ? 'blue' : 'red'}
@@ -162,7 +165,7 @@ function ProfitLossTab() {
           {/* Bar Chart */}
           {chartData.length > 0 && (
             <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
-              <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">Income vs Expenses by Category</h3>
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">{t('ui:ReportsPage.incomeVsExpensesByCategory')}</h3>
               <ResponsiveContainer width="100%" height={350}>
                 <BarChart data={chartData} layout="vertical" margin={{ left: 20, right: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" />
@@ -179,8 +182,8 @@ function ProfitLossTab() {
 
           {/* Breakdown Tables */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <CategoryTable title="Income Breakdown" items={report.income_by_category} color="green" />
-            <CategoryTable title="Expenses Breakdown" items={report.expenses_by_category} color="red" />
+            <CategoryTable title={t('ui:ReportsPage.incomeBreakdown')} items={report.income_by_category} color="green" />
+            <CategoryTable title={t('ui:ReportsPage.expensesBreakdown')} items={report.expenses_by_category} color="red" />
           </div>
         </>
       )}
@@ -197,6 +200,7 @@ function CategoryTable({
   items: CategoryAmount[]
   color: 'green' | 'red'
 }) {
+  const { t } = useTranslation('ui')
   const total = items.reduce((sum, i) => sum + i.amount, 0)
   return (
     <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
@@ -206,8 +210,8 @@ function CategoryTable({
       <table className="w-full">
         <thead>
           <tr className="bg-gray-50 dark:bg-gray-950 text-left text-sm text-gray-500 dark:text-gray-400">
-            <th className="px-5 py-3 font-medium">Category</th>
-            <th className="px-5 py-3 font-medium text-right">Amount</th>
+            <th className="px-5 py-3 font-medium">{t('ui:ReportsPage.category')}</th>
+            <th className="px-5 py-3 font-medium text-right">{t('ui:ReportsPage.amount')}</th>
           </tr>
         </thead>
         <tbody>
@@ -224,7 +228,7 @@ function CategoryTable({
             </tr>
           ))}
           <tr className="border-t-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-950 font-semibold">
-            <td className="px-5 py-3 text-sm text-gray-800 dark:text-gray-200">Total</td>
+            <td className="px-5 py-3 text-sm text-gray-800 dark:text-gray-200">{t('ui:ReportsPage.total')}</td>
             <td
               className={`px-5 py-3 text-sm text-right ${
                 color === 'green' ? 'text-green-700' : 'text-red-700'
@@ -242,6 +246,7 @@ function CategoryTable({
 // ─── Tax Summary Tab ─────────────────────────────────────────────────────────
 
 function TaxSummaryTab() {
+  const { t } = useTranslation('ui')
   const [year, setYear] = useState(currentYear)
 
   const { data, isLoading, isError } = useQuery({
@@ -257,7 +262,7 @@ function TaxSummaryTab() {
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
         <div className="flex flex-wrap items-end gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Year</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:ReportsPage.year')}</label>
             <input
               type="number"
               value={year}
@@ -275,7 +280,7 @@ function TaxSummaryTab() {
               className="inline-flex items-center gap-2 bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors"
             >
               <Download className="w-4 h-4" />
-              Download PDF
+             {t('ui:ReportsPage.downloadPdf')}
             </a>
           )}
         </div>
@@ -287,28 +292,28 @@ function TaxSummaryTab() {
       {summary && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <BorderTopCard
-            label="Taxable Income"
+            label={t('ui:ReportsPage.taxableIncome')}
             value={formatCurrency(summary.taxable_income)}
             icon={<DollarSign className="w-5 h-5" />}
             borderColor="border-blue-500"
             iconBg="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
           />
           <BorderTopCard
-            label="Deductible Expenses"
+            label={t('ui:ReportsPage.deductibleExpenses')}
             value={formatCurrency(summary.deductible_expenses)}
             icon={<Receipt className="w-5 h-5" />}
             borderColor="border-amber-500"
             iconBg="bg-amber-50 text-amber-600"
           />
           <BorderTopCard
-            label="Tax Collected"
+            label={t('ui:ReportsPage.taxCollected')}
             value={formatCurrency(summary.tax_collected)}
             icon={<Calculator className="w-5 h-5" />}
             borderColor="border-green-500"
             iconBg="bg-green-50 dark:bg-green-900/30 text-green-600"
           />
           <BorderTopCard
-            label="Net Taxable"
+            label={t('ui:ReportsPage.netTaxable')}
             value={formatCurrency(summary.net_taxable)}
             icon={<Wallet className="w-5 h-5" />}
             borderColor="border-purple-500"
@@ -347,6 +352,7 @@ function BorderTopCard({
 // ─── Quarterly Tax Tab ───────────────────────────────────────────────────────
 
 function QuarterlyTaxTab() {
+  const { t } = useTranslation('ui')
   const [year, setYear] = useState(currentYear)
   const [taxRate, setTaxRate] = useState(25.0)
 
@@ -377,7 +383,7 @@ function QuarterlyTaxTab() {
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
         <div className="flex flex-wrap items-end gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Year</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:ReportsPage.year')}</label>
             <input
               type="number"
               value={year}
@@ -388,7 +394,7 @@ function QuarterlyTaxTab() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tax Rate (%)</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:ReportsPage.taxRate')}</label>
             <input
               type="number"
               value={taxRate}
@@ -407,7 +413,7 @@ function QuarterlyTaxTab() {
               className="inline-flex items-center gap-2 bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors"
             >
               <Download className="w-4 h-4" />
-              Download PDF
+             {t('ui:ReportsPage.downloadPdf')}
             </a>
           )}
         </div>
@@ -418,14 +424,14 @@ function QuarterlyTaxTab() {
         <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-200 dark:border-amber-800 p-4">
           <div className="flex items-center gap-2 mb-2">
             <AlertTriangle className="w-4 h-4 text-amber-600" />
-            <span className="text-sm font-medium text-amber-800 dark:text-amber-300">Upcoming Tax Deadlines</span>
+            <span className="text-sm font-medium text-amber-800 dark:text-amber-300">{t('ui:ReportsPage.upcomingTaxDeadlines')}</span>
           </div>
           <div className="space-y-1">
             {upcomingDeadlines.map((d) => (
               <p key={d.quarter} className="text-sm text-amber-700 dark:text-amber-400">
                 {d.quarter_label}: {d.deadline_date} — {d.description}
                 {d.days_until != null && (
-                  <span className="ml-1 font-medium">({d.days_until} days away)</span>
+                  <span className="ml-1 font-medium">({d.days_until} {t('ui:ReportsPage.daysAway')}</span>
                 )}
               </p>
             ))}
@@ -440,29 +446,29 @@ function QuarterlyTaxTab() {
         <>
           {/* Annual summary cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            <StatCard label="Annual Income" value={formatCurrency(report.annual_total_income)} icon={<TrendingUp className="w-5 h-5" />} color="green" />
-            <StatCard label="Annual Expenses" value={formatCurrency(report.annual_total_expenses)} icon={<TrendingDown className="w-5 h-5" />} color="red" />
-            <StatCard label="Net Profit" value={formatCurrency(report.annual_net)} icon={<DollarSign className="w-5 h-5" />} color={report.annual_net >= 0 ? 'blue' : 'red'} />
-            <StatCard label="Tax Collected" value={formatCurrency(report.annual_tax_collected)} icon={<Calculator className="w-5 h-5" />} color="green" />
-            <StatCard label="Estimated Tax" value={formatCurrency(report.annual_estimated_tax)} icon={<Receipt className="w-5 h-5" />} color="amber" />
+            <StatCard label={t('ui:ReportsPage.annualIncome')} value={formatCurrency(report.annual_total_income)} icon={<TrendingUp className="w-5 h-5" />} color="green" />
+            <StatCard label={t('ui:ReportsPage.annualExpenses')} value={formatCurrency(report.annual_total_expenses)} icon={<TrendingDown className="w-5 h-5" />} color="red" />
+            <StatCard label={t('ui:ReportsPage.netProfit')} value={formatCurrency(report.annual_net)} icon={<DollarSign className="w-5 h-5" />} color={report.annual_net >= 0 ? 'blue' : 'red'} />
+            <StatCard label={t('ui:ReportsPage.taxCollected')} value={formatCurrency(report.annual_tax_collected)} icon={<Calculator className="w-5 h-5" />} color="green" />
+            <StatCard label={t('ui:ReportsPage.estimatedTax')} value={formatCurrency(report.annual_estimated_tax)} icon={<Receipt className="w-5 h-5" />} color="amber" />
           </div>
 
           {/* Quarterly breakdown table */}
           <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
-              <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">Quarterly Breakdown</h3>
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">{t('ui:ReportsPage.quarterlyBreakdown')}</h3>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="bg-gray-50 dark:bg-gray-950 text-left text-sm text-gray-500 dark:text-gray-400">
-                    <th className="px-5 py-3 font-medium">Quarter</th>
-                    <th className="px-5 py-3 font-medium text-right">Income</th>
-                    <th className="px-5 py-3 font-medium text-right">Expenses</th>
-                    <th className="px-5 py-3 font-medium text-right">Net</th>
-                    <th className="px-5 py-3 font-medium text-right">Tax Collected</th>
-                    <th className="px-5 py-3 font-medium text-right">Est. Tax</th>
-                    <th className="px-5 py-3 font-medium">Deadline</th>
+                    <th className="px-5 py-3 font-medium">{t('ui:ReportsPage.quarter')}</th>
+                    <th className="px-5 py-3 font-medium text-right">{t('ui:ReportsPage.income')}</th>
+                    <th className="px-5 py-3 font-medium text-right">{t('ui:ReportsPage.expenses')}</th>
+                    <th className="px-5 py-3 font-medium text-right">{t('ui:ReportsPage.net')}</th>
+                    <th className="px-5 py-3 font-medium text-right">{t('ui:ReportsPage.taxCollected')}</th>
+                    <th className="px-5 py-3 font-medium text-right">{t('ui:ReportsPage.estTax')}</th>
+                    <th className="px-5 py-3 font-medium">{t('ui:ReportsPage.deadline')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -479,7 +485,7 @@ function QuarterlyTaxTab() {
                       <td className="px-5 py-3 text-sm text-gray-600 dark:text-gray-400">
                         {q.deadline}
                         {q.is_overdue && (
-                          <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">Overdue</span>
+                          <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">{t('ui:ReportsPage.overdue')}</span>
                         )}
                       </td>
                     </tr>
@@ -493,21 +499,21 @@ function QuarterlyTaxTab() {
           {yoy && (
             <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
               <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
-                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">Year-over-Year Comparison</h3>
+                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">{t('ui:ReportsPage.yearOverYearComparison')}</h3>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="bg-gray-50 dark:bg-gray-950 text-left text-sm text-gray-500 dark:text-gray-400">
-                      <th className="px-5 py-3 font-medium">Metric</th>
+                      <th className="px-5 py-3 font-medium">{t('ui:ReportsPage.metric')}</th>
                       <th className="px-5 py-3 font-medium text-right">{yoy.previous_year}</th>
                       <th className="px-5 py-3 font-medium text-right">{yoy.current_year}</th>
-                      <th className="px-5 py-3 font-medium text-right">Change</th>
+                      <th className="px-5 py-3 font-medium text-right">{t('ui:ReportsPage.change')}</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr className="border-t border-gray-50 hover:bg-gray-50 dark:hover:bg-gray-800">
-                      <td className="px-5 py-3 text-sm font-medium text-gray-700 dark:text-gray-300">Income</td>
+                      <td className="px-5 py-3 text-sm font-medium text-gray-700 dark:text-gray-300">{t('ui:ReportsPage.income')}</td>
                       <td className="px-5 py-3 text-sm text-right text-gray-600 dark:text-gray-400">{formatCurrency(yoy.previous_income)}</td>
                       <td className="px-5 py-3 text-sm text-right text-green-600 font-medium">{formatCurrency(yoy.current_income)}</td>
                       <td className="px-5 py-3 text-sm text-right">
@@ -519,7 +525,7 @@ function QuarterlyTaxTab() {
                       </td>
                     </tr>
                     <tr className="border-t border-gray-50 hover:bg-gray-50 dark:hover:bg-gray-800">
-                      <td className="px-5 py-3 text-sm font-medium text-gray-700 dark:text-gray-300">Expenses</td>
+                      <td className="px-5 py-3 text-sm font-medium text-gray-700 dark:text-gray-300">{t('ui:ReportsPage.expenses')}</td>
                       <td className="px-5 py-3 text-sm text-right text-gray-600 dark:text-gray-400">{formatCurrency(yoy.previous_expenses)}</td>
                       <td className="px-5 py-3 text-sm text-right text-red-600 font-medium">{formatCurrency(yoy.current_expenses)}</td>
                       <td className="px-5 py-3 text-sm text-right">
@@ -531,7 +537,7 @@ function QuarterlyTaxTab() {
                       </td>
                     </tr>
                     <tr className="border-t border-gray-50 hover:bg-gray-50 dark:hover:bg-gray-800">
-                      <td className="px-5 py-3 text-sm font-medium text-gray-700 dark:text-gray-300">Net Profit</td>
+                      <td className="px-5 py-3 text-sm font-medium text-gray-700 dark:text-gray-300">{t('ui:ReportsPage.netProfit')}</td>
                       <td className="px-5 py-3 text-sm text-right text-gray-600 dark:text-gray-400">{formatCurrency(yoy.previous_net)}</td>
                       <td className={`px-5 py-3 text-sm text-right font-medium ${yoy.current_net >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
                         {formatCurrency(yoy.current_net)}
@@ -546,8 +552,8 @@ function QuarterlyTaxTab() {
 
           {/* Category breakdowns */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <CategoryTable title="Income by Category" items={report.income_by_category} color="green" />
-            <CategoryTable title="Expenses by Category" items={report.expenses_by_category} color="red" />
+            <CategoryTable title={t('ui:ReportsPage.incomeByCategory')} items={report.income_by_category} color="green" />
+            <CategoryTable title={t('ui:ReportsPage.expensesByCategory')} items={report.expenses_by_category} color="red" />
           </div>
         </>
       )}
@@ -558,6 +564,7 @@ function QuarterlyTaxTab() {
 // ─── Cash Flow Tab ───────────────────────────────────────────────────────────
 
 function CashFlowTab() {
+  const { t } = useTranslation('ui')
   const [dateFrom, setDateFrom] = useState(yearStart)
   const [dateTo, setDateTo] = useState(today)
 
@@ -575,7 +582,7 @@ function CashFlowTab() {
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
         <div className="flex flex-wrap items-end gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">From</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:ReportsPage.from')}</label>
             <input
               type="date"
               value={dateFrom}
@@ -584,7 +591,7 @@ function CashFlowTab() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">To</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:ReportsPage.to')}</label>
             <input
               type="date"
               value={dateTo}
@@ -602,7 +609,7 @@ function CashFlowTab() {
         <>
           {/* Line Chart */}
           <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">Cash Flow Over Time</h3>
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">{t('ui:ReportsPage.cashFlowOverTime')}</h3>
             <ResponsiveContainer width="100%" height={350}>
               <LineChart data={report.periods} margin={{ left: 20, right: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" />
@@ -641,16 +648,16 @@ function CashFlowTab() {
           {/* Cash Flow Table */}
           <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
-              <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">Period Details</h3>
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">{t('ui:ReportsPage.periodDetails')}</h3>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="bg-gray-50 dark:bg-gray-950 text-left text-sm text-gray-500 dark:text-gray-400">
-                    <th className="px-5 py-3 font-medium">Period</th>
-                    <th className="px-5 py-3 font-medium text-right">Income</th>
-                    <th className="px-5 py-3 font-medium text-right">Expenses</th>
-                    <th className="px-5 py-3 font-medium text-right">Net</th>
+                    <th className="px-5 py-3 font-medium">{t('ui:ReportsPage.period')}</th>
+                    <th className="px-5 py-3 font-medium text-right">{t('ui:ReportsPage.income')}</th>
+                    <th className="px-5 py-3 font-medium text-right">{t('ui:ReportsPage.expenses')}</th>
+                    <th className="px-5 py-3 font-medium text-right">{t('ui:ReportsPage.net')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -688,6 +695,7 @@ function CashFlowTab() {
 // ─── Accounts Tab ────────────────────────────────────────────────────────────
 
 function AccountsTab() {
+  const { t } = useTranslation('ui')
   const { data, isLoading, isError } = useQuery({
     queryKey: ['accountsSummary'],
     queryFn: () => getAccountsSummary(),
@@ -703,25 +711,25 @@ function AccountsTab() {
       {summary && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
-            label="Total Receivable"
+            label={t('ui:ReportsPage.totalReceivable')}
             value={formatCurrency(summary.total_receivable)}
             icon={<TrendingUp className="w-5 h-5" />}
             color="green"
           />
           <StatCard
-            label="Total Payable"
+            label={t('ui:ReportsPage.totalPayable')}
             value={formatCurrency(summary.total_payable)}
             icon={<TrendingDown className="w-5 h-5" />}
             color="amber"
           />
           <StatCard
-            label="Overdue Receivable"
+            label={t('ui:ReportsPage.overdueReceivable')}
             value={formatCurrency(summary.overdue_receivable)}
             icon={<AlertTriangle className="w-5 h-5" />}
             color={summary.overdue_receivable > 0 ? 'red' : 'green'}
           />
           <StatCard
-            label="Net Position"
+            label={t('ui:ReportsPage.netPosition')}
             value={formatCurrency(summary.net_position)}
             icon={<Wallet className="w-5 h-5" />}
             color={summary.net_position >= 0 ? 'blue' : 'red'}
@@ -735,6 +743,7 @@ function AccountsTab() {
 // ─── AR Aging Tab ───────────────────────────────────────────────────────────
 
 function ARAgingTab() {
+  const { t } = useTranslation('ui')
   const [asOfDate, setAsOfDate] = useState(today)
 
   const { data, isLoading, isError } = useQuery({
@@ -751,7 +760,7 @@ function ARAgingTab() {
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
         <div className="flex flex-wrap items-end gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">As of Date</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:ReportsPage.asOfDate')}</label>
             <input
               type="date"
               value={asOfDate}
@@ -770,37 +779,37 @@ function ARAgingTab() {
           {/* Summary Cards */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             <StatCard
-              label="Current"
+              label={t('ui:ReportsPage.current')}
               value={formatCurrency(report.grand_totals.current)}
               icon={<DollarSign className="w-5 h-5" />}
               color="green"
             />
             <StatCard
-              label="1-30 Days"
+              label={t('ui:ReportsPage.n130Days')}
               value={formatCurrency(report.grand_totals.days_1_30)}
               icon={<AlertTriangle className="w-5 h-5" />}
               color="amber"
             />
             <StatCard
-              label="31-60 Days"
+              label={t('ui:ReportsPage.n3160Days')}
               value={formatCurrency(report.grand_totals.days_31_60)}
               icon={<AlertTriangle className="w-5 h-5" />}
               color="amber"
             />
             <StatCard
-              label="61-90 Days"
+              label={t('ui:ReportsPage.n6190Days')}
               value={formatCurrency(report.grand_totals.days_61_90)}
               icon={<AlertTriangle className="w-5 h-5" />}
               color="red"
             />
             <StatCard
-              label="90+ Days"
+              label={t('ui:ReportsPage.n90Days')}
               value={formatCurrency(report.grand_totals.days_90_plus)}
               icon={<AlertTriangle className="w-5 h-5" />}
               color="red"
             />
             <StatCard
-              label="Total Outstanding"
+              label={t('ui:ReportsPage.totalOutstanding')}
               value={formatCurrency(report.grand_totals.total)}
               icon={<Wallet className="w-5 h-5" />}
               color="blue"
@@ -809,7 +818,7 @@ function ARAgingTab() {
 
           {/* Aging Table */}
           <AgingTable
-            title="Accounts Receivable Aging"
+            title={t('ui:ReportsPage.accountsReceivableAging')}
             buckets={report.buckets}
             grandTotals={report.grand_totals}
             nameLabel="Customer"
@@ -823,6 +832,7 @@ function ARAgingTab() {
 // ─── AP Aging Tab ───────────────────────────────────────────────────────────
 
 function APAgingTab() {
+  const { t } = useTranslation('ui')
   const [asOfDate, setAsOfDate] = useState(today)
 
   const { data, isLoading, isError } = useQuery({
@@ -839,7 +849,7 @@ function APAgingTab() {
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
         <div className="flex flex-wrap items-end gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">As of Date</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:ReportsPage.asOfDate')}</label>
             <input
               type="date"
               value={asOfDate}
@@ -858,37 +868,37 @@ function APAgingTab() {
           {/* Summary Cards */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             <StatCard
-              label="Current"
+              label={t('ui:ReportsPage.current')}
               value={formatCurrency(report.grand_totals.current)}
               icon={<DollarSign className="w-5 h-5" />}
               color="green"
             />
             <StatCard
-              label="1-30 Days"
+              label={t('ui:ReportsPage.n130Days')}
               value={formatCurrency(report.grand_totals.days_1_30)}
               icon={<AlertTriangle className="w-5 h-5" />}
               color="amber"
             />
             <StatCard
-              label="31-60 Days"
+              label={t('ui:ReportsPage.n3160Days')}
               value={formatCurrency(report.grand_totals.days_31_60)}
               icon={<AlertTriangle className="w-5 h-5" />}
               color="amber"
             />
             <StatCard
-              label="61-90 Days"
+              label={t('ui:ReportsPage.n6190Days')}
               value={formatCurrency(report.grand_totals.days_61_90)}
               icon={<AlertTriangle className="w-5 h-5" />}
               color="red"
             />
             <StatCard
-              label="90+ Days"
+              label={t('ui:ReportsPage.n90Days')}
               value={formatCurrency(report.grand_totals.days_90_plus)}
               icon={<AlertTriangle className="w-5 h-5" />}
               color="red"
             />
             <StatCard
-              label="Total Outstanding"
+              label={t('ui:ReportsPage.totalOutstanding')}
               value={formatCurrency(report.grand_totals.total)}
               icon={<Wallet className="w-5 h-5" />}
               color="blue"
@@ -897,7 +907,7 @@ function APAgingTab() {
 
           {/* Aging Table */}
           <AgingTable
-            title="Accounts Payable Aging"
+            title={t('ui:ReportsPage.accountsPayableAging')}
             buckets={report.buckets}
             grandTotals={report.grand_totals}
             nameLabel="Vendor"
@@ -921,6 +931,7 @@ function AgingTable({
   grandTotals: AgingBucket | { current: number; days_1_30: number; days_31_60: number; days_61_90: number; days_90_plus: number; total: number }
   nameLabel: string
 }) {
+  const { t } = useTranslation('ui')
   return (
     <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
       <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
@@ -931,19 +942,19 @@ function AgingTable({
           <thead>
             <tr className="bg-gray-50 dark:bg-gray-950 text-left text-sm text-gray-500 dark:text-gray-400">
               <th className="px-5 py-3 font-medium">{nameLabel}</th>
-              <th className="px-5 py-3 font-medium text-right">Current</th>
-              <th className="px-5 py-3 font-medium text-right">1-30 Days</th>
-              <th className="px-5 py-3 font-medium text-right">31-60 Days</th>
-              <th className="px-5 py-3 font-medium text-right">61-90 Days</th>
-              <th className="px-5 py-3 font-medium text-right">90+ Days</th>
-              <th className="px-5 py-3 font-medium text-right">Total</th>
+              <th className="px-5 py-3 font-medium text-right">{t('ui:ReportsPage.current')}</th>
+              <th className="px-5 py-3 font-medium text-right">{t('ui:ReportsPage.n130Days')}</th>
+              <th className="px-5 py-3 font-medium text-right">{t('ui:ReportsPage.n3160Days')}</th>
+              <th className="px-5 py-3 font-medium text-right">{t('ui:ReportsPage.n6190Days')}</th>
+              <th className="px-5 py-3 font-medium text-right">{t('ui:ReportsPage.n90Days')}</th>
+              <th className="px-5 py-3 font-medium text-right">{t('ui:ReportsPage.total')}</th>
             </tr>
           </thead>
           <tbody>
             {buckets.length === 0 && (
               <tr>
                 <td colSpan={7} className="px-5 py-8 text-center text-sm text-gray-400 dark:text-gray-500">
-                  No outstanding items found.
+                 {t('ui:ReportsPage.noOutstandingItemsFound')}
                 </td>
               </tr>
             )}
@@ -975,7 +986,7 @@ function AgingTable({
             ))}
             {buckets.length > 0 && (
               <tr className="border-t-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-950 font-semibold">
-                <td className="px-5 py-3 text-sm text-gray-800 dark:text-gray-200">Grand Total</td>
+                <td className="px-5 py-3 text-sm text-gray-800 dark:text-gray-200">{t('ui:ReportsPage.grandTotal')}</td>
                 <td className="px-5 py-3 text-sm text-right text-green-700">
                   {formatCurrency(grandTotals.current)}
                 </td>
@@ -1036,11 +1047,12 @@ function StatCard({
 }
 
 function LoadingState() {
+  const { t } = useTranslation('ui')
   return (
     <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-10 flex items-center justify-center">
       <div className="flex items-center gap-3 text-gray-400 dark:text-gray-500">
         <div className="w-5 h-5 border-2 border-gray-300 dark:border-gray-600 border-t-blue-500 rounded-full animate-spin" />
-        <span className="text-sm">Loading report...</span>
+        <span className="text-sm">{t('ui:ReportsPage.loadingReport')}</span>
       </div>
     </div>
   )
@@ -1058,6 +1070,7 @@ function ErrorState({ message }: { message: string }) {
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 export default function ReportsPage() {
+  const { t } = useTranslation('ui')
   const [activeTab, setActiveTab] = useState<Tab>('Profit & Loss')
 
   return (
@@ -1066,9 +1079,9 @@ export default function ReportsPage() {
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-1">
           <BarChart3 className="w-7 h-7 text-blue-600 dark:text-blue-400" />
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Financial Reports</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('ui:ReportsPage.financialReports')}</h1>
         </div>
-        <p className="text-sm text-gray-500 dark:text-gray-400">Generate and review financial reports for your business.</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">{t('ui:ReportsPage.generateAndReviewFinancialReports')}</p>
       </div>
 
       {/* Tabs */}

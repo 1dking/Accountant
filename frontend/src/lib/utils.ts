@@ -1,5 +1,11 @@
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
+import i18n from '@/i18n'
+
+/** Active UI locale for Intl formatting ('en' | 'fr-CA'). Dates and numbers
+ * follow the language switch; the switch reloads the page, so a module-level
+ * read at call time is always current. */
+export const uiLocale = () => i18n.language || 'en'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -21,7 +27,7 @@ function asLocalDate(date: string | Date): Date {
 }
 
 export function formatDate(date: string | Date): string {
-  return asLocalDate(date).toLocaleDateString('en-US', {
+  return asLocalDate(date).toLocaleDateString(uiLocale(), {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -29,7 +35,7 @@ export function formatDate(date: string | Date): string {
 }
 
 export function formatDateTime(date: string | Date): string {
-  return new Date(date).toLocaleString('en-US', {
+  return new Date(date).toLocaleString(uiLocale(), {
     year: 'numeric',
     month: 'short',
     day: 'numeric',

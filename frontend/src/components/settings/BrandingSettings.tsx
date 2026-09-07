@@ -12,17 +12,20 @@ import {
 } from '@/api/settings'
 import type { CompanySettings } from '@/api/settings'
 import type { BrandingSettings as BrandingModel } from '@/types/models'
+import { useTranslation } from 'react-i18next'
+import i18n from '@/i18n'
 
 const CURRENCY_OPTIONS = [
-  { value: 'CAD', label: 'CAD - Canadian Dollar' },
-  { value: 'USD', label: 'USD - US Dollar' },
-  { value: 'EUR', label: 'EUR - Euro' },
-  { value: 'GBP', label: 'GBP - British Pound' },
+  { value: 'CAD', label: i18n.t('ui:BrandingSettings.cadCanadianDollar') },
+  { value: 'USD', label: i18n.t('ui:BrandingSettings.usdUsDollar') },
+  { value: 'EUR', label: i18n.t('ui:BrandingSettings.eurEuro') },
+  { value: 'GBP', label: i18n.t('ui:BrandingSettings.gbpBritishPound') },
 ]
 
 const ACCEPTED_IMAGE_TYPES = '.png,.jpg,.jpeg,.svg,.webp'
 
 export default function BrandingSettings() {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [msg, setMsg] = useState('')
@@ -224,7 +227,7 @@ export default function BrandingSettings() {
   }
 
   const handleDeleteLogo = () => {
-    if (confirm('Remove the company logo?')) {
+    if (confirm(t('ui:BrandingSettings.removeTheCompanyLogo'))) {
       deleteLogoMutation.mutate()
     }
   }
@@ -248,7 +251,7 @@ export default function BrandingSettings() {
 
   return (
     <section className="bg-white dark:bg-gray-900 border rounded-lg p-6">
-      <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-6">Company Branding</h2>
+      <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-6">{t('ui:BrandingSettings.companyBranding')}</h2>
 
       {msg && (
         <div
@@ -269,17 +272,16 @@ export default function BrandingSettings() {
       <form onSubmit={handleBrandSubmit} className="mb-10 p-5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-950">
         <div className="flex items-center gap-2 mb-4">
           <Palette className="w-4 h-4 text-gray-500" />
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Brand Visual Identity</h3>
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{t('ui:BrandingSettings.brandVisualIdentity')}</h3>
         </div>
         <p className="text-xs text-gray-500 dark:text-gray-400 mb-5">
-          These values theme the whole platform — sidebar wordmark, primary buttons, accents.
-          Guests on your meeting share links also see them. (Tier-gating coming later.)
+         {t('ui:BrandingSettings.theseValuesThemeTheWhole')}
         </p>
 
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Brand Logo
+             {t('ui:BrandingSettings.brandLogo')}
             </label>
             <div className="flex flex-wrap items-center gap-2">
               <input
@@ -298,7 +300,7 @@ export default function BrandingSettings() {
                 {brandLogoUploadMutation.isPending
                   ? <Loader2 className="w-4 h-4 animate-spin" />
                   : <Upload className="w-4 h-4" />}
-                Upload logo
+               {t('ui:BrandingSettings.uploadLogo')}
               </button>
               {brandForm.logo_url && (
                 <button
@@ -307,12 +309,12 @@ export default function BrandingSettings() {
                   className="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-red-600 border border-red-200 dark:border-red-900 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20"
                 >
                   <Trash2 className="w-4 h-4" />
-                  Clear
+                 {t('ui:BrandingSettings.clear')}
                 </button>
               )}
             </div>
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
-              PNG, JPG, SVG, or WebP up to 5 MB. Or paste a URL below.
+             {t('ui:BrandingSettings.pngJpgSvgOrWebp')}
             </p>
             <input
               type="url"
@@ -325,7 +327,7 @@ export default function BrandingSettings() {
               <div className="mt-3 inline-flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-3">
                 <img
                   src={brandForm.logo_url}
-                  alt="Brand logo preview"
+                  alt={t('ui:BrandingSettings.brandLogoPreview')}
                   className="h-10 max-w-[180px] object-contain"
                   onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
                 />
@@ -336,7 +338,7 @@ export default function BrandingSettings() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Primary Color
+               {t('ui:BrandingSettings.primaryColor')}
               </label>
               <div className="flex items-center gap-2">
                 <input
@@ -354,12 +356,12 @@ export default function BrandingSettings() {
                 />
               </div>
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                Sidebar active state, primary buttons, links.
+               {t('ui:BrandingSettings.sidebarActiveStatePrimaryButtons')}
               </p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Accent Color
+               {t('ui:BrandingSettings.accentColor')}
               </label>
               <div className="flex items-center gap-2">
                 <input
@@ -377,27 +379,27 @@ export default function BrandingSettings() {
                 />
               </div>
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                Secondary highlights, badges, hover states.
+               {t('ui:BrandingSettings.secondaryHighlightsBadgesHoverStates')}
               </p>
             </div>
           </div>
 
           {/* Live preview */}
           <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4">
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Preview</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">{t('ui:BrandingSettings.preview')}</p>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 style={{ background: brandForm.primary_color }}
                 className="px-3 py-1.5 text-sm font-medium text-white rounded-md"
               >
-                Primary button
+               {t('ui:BrandingSettings.primaryButton')}
               </button>
               <span
                 style={{ background: brandForm.accent_color, color: 'white' }}
                 className="px-2 py-0.5 text-xs font-medium rounded"
               >
-                Accent badge
+               {t('ui:BrandingSettings.accentBadge')}
               </span>
               <a
                 href="#"
@@ -405,7 +407,7 @@ export default function BrandingSettings() {
                 style={{ color: brandForm.primary_color }}
                 className="text-sm font-medium underline"
               >
-                Themed link
+               {t('ui:BrandingSettings.themedLink')}
               </a>
             </div>
           </div>
@@ -417,20 +419,20 @@ export default function BrandingSettings() {
             className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-md disabled:opacity-50 hover:opacity-90 transition"
           >
             {brandMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-            Save brand visuals
+           {t('ui:BrandingSettings.saveBrandVisuals')}
           </button>
         </div>
       </form>
 
       {/* Logo Section */}
       <div className="mb-8">
-        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Company Logo</h3>
+        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">{t('ui:BrandingSettings.companyLogo')}</h3>
         <div className="flex items-center gap-4">
           <div className="w-24 h-24 rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700 flex items-center justify-center overflow-hidden bg-gray-50 dark:bg-gray-950">
             {hasLogo ? (
               <img
                 src={getLogoUrl()}
-                alt="Company logo"
+                alt={t('ui:BrandingSettings.companyLogo_2')}
                 className="w-full h-full object-contain"
               />
             ) : (
@@ -456,7 +458,7 @@ export default function BrandingSettings() {
               ) : (
                 <Upload className="w-4 h-4" />
               )}
-              {hasLogo ? 'Replace Logo' : 'Upload Logo'}
+              {hasLogo ? t('ui:BrandingSettings.replaceLogo') : t('ui:BrandingSettings.uploadLogo_2')}
             </button>
             {hasLogo && (
               <button
@@ -470,10 +472,10 @@ export default function BrandingSettings() {
                 ) : (
                   <Trash2 className="w-4 h-4" />
                 )}
-                Remove Logo
+               {t('ui:BrandingSettings.removeLogo')}
               </button>
             )}
-            <p className="text-xs text-gray-400 dark:text-gray-500">PNG, JPG, SVG, or WebP. Recommended 200x200px.</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500">{t('ui:BrandingSettings.pngJpgSvgOrWebp_2')}</p>
           </div>
         </div>
       </div>
@@ -482,30 +484,30 @@ export default function BrandingSettings() {
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Company Info */}
         <div>
-          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Company Information</h3>
+          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">{t('ui:BrandingSettings.companyInformation')}</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Company Name</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:BrandingSettings.companyName')}</label>
               <input
                 type="text"
                 value={form.company_name}
                 onChange={(e) => updateField('company_name', e.target.value)}
-                placeholder="Your Company Inc."
+                placeholder={t('ui:BrandingSettings.yourCompanyInc')}
                 className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:BrandingSettings.email')}</label>
               <input
                 type="email"
                 value={form.company_email}
                 onChange={(e) => updateField('company_email', e.target.value)}
-                placeholder="info@company.com"
+                placeholder={t('ui:BrandingSettings.infoCompanyCom')}
                 className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phone</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:BrandingSettings.phone')}</label>
               <input
                 type="tel"
                 value={form.company_phone}
@@ -515,7 +517,7 @@ export default function BrandingSettings() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Website</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:BrandingSettings.website')}</label>
               <input
                 type="url"
                 value={form.company_website}
@@ -529,51 +531,51 @@ export default function BrandingSettings() {
 
         {/* Address */}
         <div>
-          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Address</h3>
+          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">{t('ui:BrandingSettings.address')}</h3>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Address Line 1</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:BrandingSettings.addressLine1')}</label>
               <input
                 type="text"
                 value={form.address_line1}
                 onChange={(e) => updateField('address_line1', e.target.value)}
-                placeholder="123 Main Street"
+                placeholder={t('ui:BrandingSettings.n123MainStreet')}
                 className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Address Line 2</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:BrandingSettings.addressLine2')}</label>
               <input
                 type="text"
                 value={form.address_line2}
                 onChange={(e) => updateField('address_line2', e.target.value)}
-                placeholder="Suite 100"
+                placeholder={t('ui:BrandingSettings.suite100')}
                 className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">City</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:BrandingSettings.city')}</label>
                 <input
                   type="text"
                   value={form.city}
                   onChange={(e) => updateField('city', e.target.value)}
-                  placeholder="Toronto"
+                  placeholder={t('ui:BrandingSettings.toronto')}
                   className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">State / Province</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:BrandingSettings.stateProvince')}</label>
                 <input
                   type="text"
                   value={form.state}
                   onChange={(e) => updateField('state', e.target.value)}
-                  placeholder="Ontario"
+                  placeholder={t('ui:BrandingSettings.ontario')}
                   className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ZIP / Postal Code</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:BrandingSettings.zipPostalCode')}</label>
                 <input
                   type="text"
                   value={form.zip_code}
@@ -583,12 +585,12 @@ export default function BrandingSettings() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Country</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:BrandingSettings.country')}</label>
                 <input
                   type="text"
                   value={form.country}
                   onChange={(e) => updateField('country', e.target.value)}
-                  placeholder="Canada"
+                  placeholder={t('ui:BrandingSettings.canada')}
                   className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -598,10 +600,10 @@ export default function BrandingSettings() {
 
         {/* Defaults */}
         <div>
-          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Defaults</h3>
+          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">{t('ui:BrandingSettings.defaults')}</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Default Currency</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:BrandingSettings.defaultCurrency')}</label>
               <select
                 value={form.default_currency}
                 onChange={(e) => updateField('default_currency', e.target.value)}
@@ -615,13 +617,13 @@ export default function BrandingSettings() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Default Tax Rate</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:BrandingSettings.defaultTaxRate')}</label>
               <select
                 value={form.default_tax_rate_id}
                 onChange={(e) => updateField('default_tax_rate_id', e.target.value)}
                 className="w-full px-3 py-2 border rounded-md bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="">None</option>
+                <option value="">{t('ui:BrandingSettings.none')}</option>
                 {taxRates.map((tr) => (
                   <option key={tr.id} value={tr.id}>
                     {tr.name} ({tr.rate}%)
@@ -639,7 +641,7 @@ export default function BrandingSettings() {
             disabled={saveMutation.isPending}
             className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
           >
-            {saveMutation.isPending ? 'Saving...' : 'Save Changes'}
+            {saveMutation.isPending ? t('ui:BrandingSettings.saving') : t('ui:BrandingSettings.saveChanges')}
           </button>
         </div>
       </form>

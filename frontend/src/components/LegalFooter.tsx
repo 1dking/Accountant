@@ -1,4 +1,5 @@
 import { Link } from 'react-router'
+import { useTranslation } from 'react-i18next'
 
 /** Privacy Policy + Terms links.
  *
@@ -7,13 +8,14 @@ import { Link } from 'react-router'
  * themselves are public, so this works whether or not someone is logged in.
  */
 export default function LegalFooter({ className = '' }: { className?: string }) {
+  const { t } = useTranslation('ui')
   return (
     <footer
       className={`flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-400 dark:text-gray-500 ${className}`}
     >
-      <Link to="/privacy" className="hover:underline">Privacy Policy</Link>
-      <Link to="/terms" className="hover:underline">Terms of Service</Link>
-      <span className="text-gray-300 dark:text-gray-600">© OCIDM</span>
+      <Link to="/privacy" className="hover:underline">{t('ui:LegalFooter.privacyPolicy')}</Link>
+      <Link to="/terms" className="hover:underline">{t('ui:LegalFooter.termsOfService')}</Link>
+      <span className="text-gray-300 dark:text-gray-600">{t('ui:LegalFooter.ocidm')}</span>
     </footer>
   )
 }

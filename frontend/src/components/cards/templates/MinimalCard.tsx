@@ -1,8 +1,10 @@
 import { QrCode } from 'lucide-react'
 import type { CardTemplateProps } from '../types'
+import { useTranslation } from 'react-i18next'
 
 /** Minimal — typographic, no avatar, understated links (Arivio minimal.tsx). */
 export default function MinimalCard({ card, onSaveContact, onShowQr }: CardTemplateProps) {
+  const { t } = useTranslation('ui')
   return (
     <div
       className="min-h-screen flex items-center justify-center px-6 py-10"
@@ -56,17 +58,17 @@ export default function MinimalCard({ card, onSaveContact, onShowQr }: CardTempl
             className="rounded-md px-4 py-2 text-sm font-semibold"
             style={{ background: card.button_color, color: card.button_text_color }}
           >
-            Save Contact
+           {t('ui:MinimalCard.saveContact')}
           </button>
           {card.booking_url && (
             <a href={card.booking_url} className="text-sm font-medium" style={{ color: card.accent_color }}>
-              Book a meeting →
+             {t('ui:MinimalCard.bookAMeeting')}
             </a>
           )}
         </div>
 
         <button onClick={onShowQr} className="mt-10 inline-flex items-center gap-1.5 text-xs opacity-40 hover:opacity-80">
-          <QrCode className="w-3.5 h-3.5" /> Share
+          <QrCode className="w-3.5 h-3.5" /> {t('ui:MinimalCard.share')}
         </button>
       </div>
     </div>

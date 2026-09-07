@@ -9,6 +9,7 @@ import {
   sendTestEmail,
 } from '@/api/integrations'
 import type { SmtpConfig } from '@/types/models'
+import { useTranslation } from 'react-i18next'
 
 interface FormState {
   name: string
@@ -35,6 +36,7 @@ const EMPTY_FORM: FormState = {
 }
 
 export default function SmtpSettings() {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
   // null = add mode; a UUID = edit mode for that config
@@ -64,11 +66,11 @@ export default function SmtpSettings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['smtp-configs'] })
       resetAndClose()
-      setMsg('Configuration added')
+      setMsg(t('ui:SmtpSettings.configurationAdded'))
       setTimeout(() => setMsg(''), 3000)
     },
     onError: () => {
-      setMsg('Save failed')
+      setMsg(t('ui:SmtpSettings.saveFailed'))
       setTimeout(() => setMsg(''), 3000)
     },
   })
@@ -85,11 +87,11 @@ export default function SmtpSettings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['smtp-configs'] })
       resetAndClose()
-      setMsg('Configuration updated')
+      setMsg(t('ui:SmtpSettings.configurationUpdated'))
       setTimeout(() => setMsg(''), 3000)
     },
     onError: () => {
-      setMsg('Update failed')
+      setMsg(t('ui:SmtpSettings.updateFailed'))
       setTimeout(() => setMsg(''), 3000)
     },
   })
@@ -103,13 +105,13 @@ export default function SmtpSettings() {
     mutationFn: ({ configId, email }: { configId: string; email: string }) =>
       sendTestEmail(configId, email),
     onSuccess: () => {
-      setMsg('Test email sent!')
+      setMsg(t('ui:SmtpSettings.testEmailSent'))
       setTestConfigId(null)
       setTestEmail('')
       setTimeout(() => setMsg(''), 3000)
     },
     onError: () => {
-      setMsg('Failed to send test email')
+      setMsg(t('ui:SmtpSettings.failedToSendTestEmail'))
       setTimeout(() => setMsg(''), 3000)
     },
   })
@@ -153,13 +155,13 @@ export default function SmtpSettings() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">SMTP Email Configuration</h2>
+        <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">{t('ui:SmtpSettings.smtpEmailConfiguration')}</h2>
         <button
           onClick={() => (showForm ? resetAndClose() : handleAdd())}
           className="flex items-center gap-1.5 px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >
           <Plus className="w-4 h-4" />
-          Add Config
+         {t('ui:SmtpSettings.addConfig')}
         </button>
       </div>
 
@@ -174,53 +176,53 @@ export default function SmtpSettings() {
         >
           <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">
             {isEditing
-              ? `Edit SMTP Configuration: ${editingUsername}`
-              : 'Add SMTP Configuration'}
+              ? t('ui:SmtpSettings.editSmtpConfigurationEditingusername', { editingUsername })
+              : t('ui:SmtpSettings.addSmtpConfiguration')}
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:SmtpSettings.name')}</label>
               <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
-                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="e.g., Company SMTP" />
+                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder={t('ui:SmtpSettings.eGCompanySmtp')} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Host</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:SmtpSettings.host')}</label>
               <input type="text" required value={form.host} onChange={(e) => setForm({ ...form, host: e.target.value })}
-                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="smtp.gmail.com" />
+                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder={t('ui:SmtpSettings.smtpGmailCom')} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Port</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:SmtpSettings.port')}</label>
               <input type="number" required value={form.port} onChange={(e) => setForm({ ...form, port: parseInt(e.target.value) })}
                 className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Username</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:SmtpSettings.username')}</label>
               <input type="text" required value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })}
                 className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Password</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:SmtpSettings.password')}</label>
               <input
                 type="password"
                 required={!isEditing}
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
-                placeholder={isEditing ? '•••••• (leave blank to keep current)' : ''}
+                placeholder={isEditing ? t('ui:SmtpSettings.leaveBlankToKeepCurrent') : ''}
                 className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               {isEditing && (
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Only fill this in if you want to change the password.
+                 {t('ui:SmtpSettings.onlyFillThisInIf')}
                 </p>
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">From Email</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:SmtpSettings.fromEmail')}</label>
               <input type="email" required value={form.from_email} onChange={(e) => setForm({ ...form, from_email: e.target.value })}
                 className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">From Name</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('ui:SmtpSettings.fromName')}</label>
               <input type="text" required value={form.from_name} onChange={(e) => setForm({ ...form, from_name: e.target.value })}
                 className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
@@ -228,24 +230,24 @@ export default function SmtpSettings() {
           <div className="flex items-center gap-4">
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={form.use_tls} onChange={(e) => setForm({ ...form, use_tls: e.target.checked })} />
-              Use TLS
+             {t('ui:SmtpSettings.useTls')}
             </label>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={form.is_default} onChange={(e) => setForm({ ...form, is_default: e.target.checked })} />
-              Set as default
+             {t('ui:SmtpSettings.setAsDefault')}
             </label>
           </div>
           <div className="flex gap-2">
             <button type="submit" disabled={submitting}
               className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
               {submitting
-                ? 'Saving...'
+                ? t('ui:SmtpSettings.saving')
                 : isEditing
-                  ? 'Save Changes'
-                  : 'Save Configuration'}
+                  ? t('ui:SmtpSettings.saveChanges')
+                  : t('ui:SmtpSettings.saveConfiguration')}
             </button>
             <button type="button" onClick={resetAndClose}
-              className="px-4 py-2 text-sm border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800">Cancel</button>
+              className="px-4 py-2 text-sm border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800">{t('ui:SmtpSettings.cancel')}</button>
           </div>
         </form>
       )}
@@ -260,7 +262,7 @@ export default function SmtpSettings() {
                   <h3 className="font-medium text-gray-900 dark:text-gray-100">{config.name}</h3>
                   {config.is_default && (
                     <span className="flex items-center gap-1 text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">
-                      <Star className="w-3 h-3" /> Default
+                      <Star className="w-3 h-3" /> {t('ui:SmtpSettings.default')}
                     </span>
                   )}
                 </div>
@@ -271,7 +273,7 @@ export default function SmtpSettings() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => handleEdit(config)}
-                  title="Edit configuration"
+                  title={t('ui:SmtpSettings.editConfiguration')}
                   className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
                 >
                   <Pencil className="w-4 h-4" />
@@ -280,10 +282,10 @@ export default function SmtpSettings() {
                   onClick={() => { setTestConfigId(config.id); setTestEmail('') }}
                   className="flex items-center gap-1 px-2 py-1 text-xs border rounded hover:bg-gray-50 dark:hover:bg-gray-800"
                 >
-                  <Send className="w-3 h-3" /> Test
+                  <Send className="w-3 h-3" /> {t('ui:SmtpSettings.test')}
                 </button>
                 <button
-                  onClick={() => { if (confirm('Delete this SMTP config?')) deleteMutation.mutate(config.id) }}
+                  onClick={() => { if (confirm(t('ui:SmtpSettings.deleteThisSmtpConfig'))) deleteMutation.mutate(config.id) }}
                   className="p-1 text-red-500 hover:bg-red-50 rounded"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -297,7 +299,7 @@ export default function SmtpSettings() {
                   type="email"
                   value={testEmail}
                   onChange={(e) => setTestEmail(e.target.value)}
-                  placeholder="test@example.com"
+                  placeholder={t('ui:SmtpSettings.testExampleCom')}
                   className="flex-1 px-3 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <button
@@ -305,10 +307,10 @@ export default function SmtpSettings() {
                   disabled={!testEmail || testMutation.isPending}
                   className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
                 >
-                  {testMutation.isPending ? 'Sending...' : 'Send Test'}
+                  {testMutation.isPending ? t('ui:SmtpSettings.sending') : t('ui:SmtpSettings.sendTest')}
                 </button>
                 <button onClick={() => setTestConfigId(null)} className="px-2 py-1.5 text-sm border rounded-md hover:bg-gray-50 dark:hover:bg-gray-800">
-                  Cancel
+                 {t('ui:SmtpSettings.cancel')}
                 </button>
               </div>
             )}
@@ -317,7 +319,7 @@ export default function SmtpSettings() {
 
         {configs.length === 0 && !showForm && (
           <p className="text-center text-gray-400 dark:text-gray-500 py-8 text-sm">
-            No SMTP configurations yet. Add one to start sending emails.
+           {t('ui:SmtpSettings.noSmtpConfigurationsYetAdd')}
           </p>
         )}
       </div>

@@ -28,35 +28,38 @@ import AutomationSettings from '@/components/settings/AutomationSettings'
 import NotificationPreferencesSettings from '@/components/settings/NotificationPreferencesSettings'
 import EmailTemplatesSettings from '@/components/settings/EmailTemplatesSettings'
 import EmailAbsorptionSettings from '@/components/settings/EmailAbsorptionSettings'
+import { useTranslation } from 'react-i18next'
+import i18n from '@/i18n'
 
 const TABS: { id: string; label: string; icon: typeof User; adminOnly?: boolean }[] = [
-  { id: 'billing', label: 'Plan & Billing', icon: Wallet },
-  { id: 'branding', label: 'Branding', icon: Building2 },
-  { id: 'profile', label: 'Profile', icon: User },
-  { id: 'authenticator', label: 'Authenticator', icon: ShieldCheck },
-  { id: 'passkeys', label: 'Passkeys', icon: Fingerprint },
-  { id: 'users', label: 'Users', icon: User, adminOnly: true },
-  { id: 'email', label: 'Email (SMTP)', icon: Mail },
-  { id: 'email-templates', label: 'Email Templates', icon: FileText, adminOnly: true },
+  { id: 'billing', label: i18n.t('ui:SettingsPage.planBilling'), icon: Wallet },
+  { id: 'branding', label: i18n.t('ui:SettingsPage.branding'), icon: Building2 },
+  { id: 'profile', label: i18n.t('ui:SettingsPage.profile'), icon: User },
+  { id: 'authenticator', label: i18n.t('ui:SettingsPage.authenticator'), icon: ShieldCheck },
+  { id: 'passkeys', label: i18n.t('ui:SettingsPage.passkeys'), icon: Fingerprint },
+  { id: 'users', label: i18n.t('ui:SettingsPage.users'), icon: User, adminOnly: true },
+  { id: 'email', label: i18n.t('ui:SettingsPage.emailSmtp'), icon: Mail },
+  { id: 'email-templates', label: i18n.t('ui:SettingsPage.emailTemplates'), icon: FileText, adminOnly: true },
   { id: 'gmail', label: 'Gmail', icon: Inbox },
-  { id: 'email-absorption', label: 'Email Absorb', icon: Inbox },
-  { id: 'google-calendar', label: 'Google Cal', icon: CalendarDays },
-  { id: 'notifications', label: 'Push Notifs', icon: BellRing },
-  { id: 'notif-prefs', label: 'Notif Prefs', icon: BellRing },
-  { id: 'banking', label: 'Banking', icon: Landmark },
-  { id: 'stripe_connect', label: 'Stripe Connect', icon: CreditCard, adminOnly: true },
-  { id: 'payments', label: 'Platform Stripe (fallback)', icon: CreditCard },
-  { id: 'tax', label: 'Sales Tax', icon: Receipt },
+  { id: 'email-absorption', label: i18n.t('ui:SettingsPage.emailAbsorb'), icon: Inbox },
+  { id: 'google-calendar', label: i18n.t('ui:SettingsPage.googleCal'), icon: CalendarDays },
+  { id: 'notifications', label: i18n.t('ui:SettingsPage.pushNotifs'), icon: BellRing },
+  { id: 'notif-prefs', label: i18n.t('ui:SettingsPage.notifPrefs'), icon: BellRing },
+  { id: 'banking', label: i18n.t('ui:SettingsPage.banking'), icon: Landmark },
+  { id: 'stripe_connect', label: i18n.t('ui:SettingsPage.stripeConnect'), icon: CreditCard, adminOnly: true },
+  { id: 'payments', label: i18n.t('ui:SettingsPage.platformStripeFallback'), icon: CreditCard },
+  { id: 'tax', label: i18n.t('ui:SettingsPage.salesTax'), icon: Receipt },
   { id: 'sms', label: 'SMS', icon: MessageSquare },
-  { id: 'automation', label: 'Automation', icon: Zap },
-  { id: 'widget', label: 'Embed Widget', icon: MessageSquare },
-  { id: 'reminders', label: 'Reminders', icon: Bell },
-  { id: 'news', label: 'News', icon: Newspaper },
-  { id: 'mobile', label: 'Mobile App', icon: Smartphone },
-  { id: 'periods', label: 'Periods', icon: Lock, adminOnly: true },
+  { id: 'automation', label: i18n.t('ui:SettingsPage.automation'), icon: Zap },
+  { id: 'widget', label: i18n.t('ui:SettingsPage.embedWidget'), icon: MessageSquare },
+  { id: 'reminders', label: i18n.t('ui:SettingsPage.reminders'), icon: Bell },
+  { id: 'news', label: i18n.t('ui:SettingsPage.news'), icon: Newspaper },
+  { id: 'mobile', label: i18n.t('ui:SettingsPage.mobileApp'), icon: Smartphone },
+  { id: 'periods', label: i18n.t('ui:SettingsPage.periods'), icon: Lock, adminOnly: true },
 ]
 
 export default function SettingsPage() {
+  const { t } = useTranslation('ui')
   const { user } = useAuthStore()
   const [searchParams, setSearchParams] = useSearchParams()
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'profile')
@@ -75,7 +78,7 @@ export default function SettingsPage() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">Settings</h1>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">{t('ui:SettingsPage.settings')}</h1>
 
       <div className="flex flex-col md:flex-row gap-6">
         {/* Tab nav */}

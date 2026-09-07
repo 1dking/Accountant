@@ -30,13 +30,16 @@ import {
   type FormUpdateData,
 } from '@/api/forms'
 import type { FormListItem, FormDef, FormSubmission } from '@/types/models'
+import { useTranslation } from 'react-i18next'
+import i18n from '@/i18n'
 
 const THANK_YOU_TYPES = [
-  { value: 'message', label: 'Show Message' },
-  { value: 'redirect', label: 'Redirect URL' },
+  { value: 'message', label: i18n.t('ui:FormsPage.showMessage') },
+  { value: 'redirect', label: i18n.t('ui:FormsPage.redirectUrl') },
 ]
 
 export default function FormsPage() {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -74,7 +77,7 @@ export default function FormsPage() {
     mutationFn: (data: FormCreateData) => createForm(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['forms'] })
-      toast.success('Form created')
+      toast.success(t('ui:FormsPage.formCreated'))
       closeDialog()
     },
     onError: (err: any) => toast.error(err.message || 'Failed to create form'),
@@ -85,7 +88,7 @@ export default function FormsPage() {
       updateForm(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['forms'] })
-      toast.success('Form updated')
+      toast.success(t('ui:FormsPage.formUpdated'))
       closeDialog()
     },
     onError: (err: any) => toast.error(err.message || 'Failed to update form'),
@@ -95,7 +98,7 @@ export default function FormsPage() {
     mutationFn: (id: string) => deleteForm(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['forms'] })
-      toast.success('Form deleted')
+      toast.success(t('ui:FormsPage.formDeleted'))
     },
     onError: (err: any) => toast.error(err.message || 'Failed to delete form'),
   })
@@ -137,20 +140,20 @@ export default function FormsPage() {
       setIsActive(form.is_active)
       setDialogOpen(true)
     } catch {
-      toast.error('Failed to load form')
+      toast.error(t('ui:FormsPage.failedToLoadForm'))
     }
   }
 
   function handleSave() {
     if (!name.trim()) {
-      toast.error('Name is required')
+      toast.error(t('ui:FormsPage.nameIsRequired'))
       return
     }
     // Validate JSON
     try {
       JSON.parse(fieldsJson)
     } catch {
-      toast.error('Fields JSON is not valid JSON')
+      toast.error(t('ui:FormsPage.fieldsJsonIsNotValid'))
       return
     }
 
@@ -171,7 +174,7 @@ export default function FormsPage() {
   }
 
   function handleDelete(id: string) {
-    if (confirm('Delete this form? This cannot be undone.')) {
+    if (confirm(t('ui:FormsPage.deleteThisFormThisCannot'))) {
       deleteMutation.mutate(id)
     }
   }
@@ -182,14 +185,14 @@ export default function FormsPage() {
 
   function copyPublicUrl(id: string) {
     navigator.clipboard.writeText(getPublicUrl(id))
-    toast.success('Public URL copied to clipboard')
+    toast.success(t('ui:FormsPage.publicUrlCopiedToClipboard'))
   }
 
   function copyEmbedCode(id: string) {
     const url = getPublicUrl(id)
     const code = `<iframe src="${url}" width="100%" height="600" frameborder="0" style="border: none; border-radius: 8px;"></iframe>`
     navigator.clipboard.writeText(code)
-    toast.success('Embed code copied to clipboard')
+    toast.success(t('ui:FormsPage.embedCodeCopiedToClipboard'))
   }
 
   function parseSubmissionData(jsonStr: string): Record<string, unknown> {
@@ -208,14 +211,14 @@ export default function FormsPage() {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <ClipboardList className="h-6 w-6 text-emerald-500" />
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Forms</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('ui:FormsPage.forms')}</h1>
         </div>
         <button
           onClick={() => setDialogOpen(true)}
           className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
         >
           <Plus className="h-4 w-4" />
-          New Form
+         {t('ui:FormsPage.newForm')}
         </button>
       </div>
 
@@ -227,9 +230,9 @@ export default function FormsPage() {
       ) : forms.length === 0 ? (
         <div className="text-center py-20 text-gray-400 dark:text-gray-500">
           <ClipboardList className="h-12 w-12 mx-auto mb-3 opacity-50" />
-          <p className="text-lg font-medium">No forms yet</p>
+          <p className="text-lg font-medium">{t('ui:FormsPage.noFormsYet')}</p>
           <p className="text-sm mt-1">
-            Create a form to collect data from clients and contacts.
+           {t('ui:FormsPage.createAFormToCollect')}
           </p>
         </div>
       ) : (
@@ -239,22 +242,22 @@ export default function FormsPage() {
               <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
                 <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400 w-8" />
                 <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">
-                  Name
+                 {t('ui:FormsPage.name')}
                 </th>
                 <th className="text-center px-4 py-3 font-medium text-gray-500 dark:text-gray-400">
-                  Status
+                 {t('ui:FormsPage.status')}
                 </th>
                 <th className="text-center px-4 py-3 font-medium text-gray-500 dark:text-gray-400">
-                  Submissions
+                 {t('ui:FormsPage.submissions')}
                 </th>
                 <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">
-                  Last Submission
+                 {t('ui:FormsPage.lastSubmission')}
                 </th>
                 <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">
-                  Created
+                 {t('ui:FormsPage.created')}
                 </th>
                 <th className="text-right px-4 py-3 font-medium text-gray-500 dark:text-gray-400">
-                  Actions
+                 {t('ui:FormsPage.actions')}
                 </th>
               </tr>
             </thead>
@@ -296,7 +299,7 @@ export default function FormsPage() {
             {/* Dialog Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                {editingId ? 'Edit Form' : 'New Form'}
+                {editingId ? t('ui:FormsPage.editForm') : t('ui:FormsPage.newForm')}
               </h2>
               <button
                 onClick={closeDialog}
@@ -310,13 +313,13 @@ export default function FormsPage() {
               {/* Name */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Form Name
+                 {t('ui:FormsPage.formName')}
                 </label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Contact Us"
+                  placeholder={t('ui:FormsPage.eGContactUs')}
                   className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100"
                 />
               </div>
@@ -324,12 +327,12 @@ export default function FormsPage() {
               {/* Description */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Description
+                 {t('ui:FormsPage.description')}
                 </label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Optional description..."
+                  placeholder={t('ui:FormsPage.optionalDescription')}
                   rows={2}
                   className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100 resize-none"
                 />
@@ -350,17 +353,17 @@ export default function FormsPage() {
                   />
                 </button>
                 <span className="text-sm text-gray-700 dark:text-gray-300">
-                  {isActive ? 'Active' : 'Inactive'}
+                  {isActive ? t('ui:FormsPage.active') : t('ui:FormsPage.inactive')}
                 </span>
               </div>
 
               {/* Fields JSON */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Fields (JSON)
+                 {t('ui:FormsPage.fieldsJson')}
                 </label>
                 <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">
-                  Array of objects with name, type (text/email/phone/textarea/select/checkbox/number), label, required, options (for select)
+                 {t('ui:FormsPage.arrayOfObjectsWithName')}
                 </p>
                 <textarea
                   value={fieldsJson}
@@ -374,7 +377,7 @@ export default function FormsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Thank You Action
+                   {t('ui:FormsPage.thankYouAction')}
                   </label>
                   <select
                     value={thankYouType}
@@ -390,13 +393,13 @@ export default function FormsPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Config (JSON)
+                   {t('ui:FormsPage.configJson')}
                   </label>
                   <input
                     type="text"
                     value={thankYouConfigJson}
                     onChange={(e) => setThankYouConfigJson(e.target.value)}
-                    placeholder='{ "message": "Thanks!" }'
+                    placeholder={t('ui:FormsPage.messageThanks')}
                     className="w-full px-3 py-2 text-sm font-mono border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100"
                   />
                 </div>
@@ -405,7 +408,7 @@ export default function FormsPage() {
               {/* Style JSON */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Style Overrides (JSON, optional)
+                 {t('ui:FormsPage.styleOverridesJsonOptional')}
                 </label>
                 <textarea
                   value={styleJson}
@@ -422,7 +425,7 @@ export default function FormsPage() {
                 onClick={closeDialog}
                 className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
               >
-                Cancel
+               {t('ui:FormsPage.cancel')}
               </button>
               <button
                 onClick={handleSave}
@@ -430,7 +433,7 @@ export default function FormsPage() {
                 className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
               >
                 {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
-                {editingId ? 'Save Changes' : 'Create Form'}
+                {editingId ? t('ui:FormsPage.saveChanges') : t('ui:FormsPage.createForm')}
               </button>
             </div>
           </div>
@@ -454,6 +457,7 @@ interface FormRowProps {
 }
 
 function WebhookPanel({ formId }: { formId: string }) {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
 
   // Fetch the form detail (the list item doesn't carry webhook_key).
@@ -470,15 +474,15 @@ function WebhookPanel({ formId }: { formId: string }) {
     mutationFn: () => generateWebhookKey(formId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['form-detail', formId] })
-      toast.success('Webhook URL ready')
+      toast.success(t('ui:FormsPage.webhookUrlReady'))
     },
-    onError: () => toast.error('Could not generate the webhook URL'),
+    onError: () => toast.error(t('ui:FormsPage.couldNotGenerateTheWebhook')),
   })
 
   const copy = () => {
     if (webhookUrl) {
       navigator.clipboard.writeText(webhookUrl)
-      toast.success('Webhook URL copied')
+      toast.success(t('ui:FormsPage.webhookUrlCopied'))
     }
   }
 
@@ -487,14 +491,13 @@ function WebhookPanel({ formId }: { formId: string }) {
       <div className="flex items-center gap-2 mb-2">
         <Webhook className="h-4 w-4 text-indigo-500" />
         <p className="text-xs font-medium text-gray-600 dark:text-gray-300">
-          Website webhook
+         {t('ui:FormsPage.websiteWebhook')}
         </p>
       </div>
       {webhookUrl ? (
         <>
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-            POST your website form&apos;s lead data (any field names) to this URL
-            and it lands in the CRM as a contact:
+           {t('ui:FormsPage.postYourWebsiteFormS')}
           </p>
           <div className="flex items-center gap-2">
             <input
@@ -505,7 +508,7 @@ function WebhookPanel({ formId }: { formId: string }) {
             />
             <button
               onClick={copy}
-              title="Copy URL"
+              title={t('ui:FormsPage.copyUrl')}
               className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
             >
               <Copy className="h-4 w-4" />
@@ -514,13 +517,13 @@ function WebhookPanel({ formId }: { formId: string }) {
               onClick={() => {
                 if (
                   confirm(
-                    'Generate a new URL? The current one will stop working immediately.',
+                    t('ui:FormsPage.generateANewUrlThe'),
                   )
                 )
                   genMutation.mutate()
               }}
               disabled={genMutation.isPending}
-              title="Rotate URL"
+              title={t('ui:FormsPage.rotateUrl')}
               className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
             >
               <RefreshCw className={`h-4 w-4 ${genMutation.isPending ? 'animate-spin' : ''}`} />
@@ -530,8 +533,7 @@ function WebhookPanel({ formId }: { formId: string }) {
       ) : (
         <>
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-            Create a secret URL to receive leads from an external website (Webflow,
-            WordPress, a custom form&hellip;) straight into the CRM.
+           {t('ui:FormsPage.createASecretUrlTo')}
           </p>
           <button
             onClick={() => genMutation.mutate()}
@@ -543,7 +545,7 @@ function WebhookPanel({ formId }: { formId: string }) {
             ) : (
               <Webhook className="h-3.5 w-3.5" />
             )}
-            Create webhook URL
+           {t('ui:FormsPage.createWebhookUrl')}
           </button>
         </>
       )}
@@ -564,6 +566,7 @@ function FormRow({
   onCopyEmbed,
   parseSubmissionData,
 }: FormRowProps) {
+  const { t } = useTranslation('ui')
   return (
     <>
       <tr className="border-b border-gray-50 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/30">
@@ -591,11 +594,11 @@ function FormRow({
           <button onClick={onToggleActive}>
             {form.is_active ? (
               <span className="inline-flex items-center gap-1 text-xs font-medium text-green-600 dark:text-green-400">
-                <Eye className="h-3.5 w-3.5" /> Active
+                <Eye className="h-3.5 w-3.5" /> {t('ui:FormsPage.active')}
               </span>
             ) : (
               <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-400 dark:text-gray-500">
-                <EyeOff className="h-3.5 w-3.5" /> Inactive
+                <EyeOff className="h-3.5 w-3.5" /> {t('ui:FormsPage.inactive')}
               </span>
             )}
           </button>
@@ -621,28 +624,28 @@ function FormRow({
             <button
               onClick={onCopyUrl}
               className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
-              title="Copy public URL"
+              title={t('ui:FormsPage.copyPublicUrl')}
             >
               <ExternalLink className="h-4 w-4" />
             </button>
             <button
               onClick={onCopyEmbed}
               className="p-1.5 rounded-lg text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20"
-              title="Copy embed code"
+              title={t('ui:FormsPage.copyEmbedCode')}
             >
               <Code2 className="h-4 w-4" />
             </button>
             <button
               onClick={onEdit}
               className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-              title="Edit"
+              title={t('ui:FormsPage.edit')}
             >
               <Pencil className="h-4 w-4" />
             </button>
             <button
               onClick={onDelete}
               className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-              title="Delete"
+              title={t('ui:FormsPage.delete')}
             >
               <Trash2 className="h-4 w-4" />
             </button>
@@ -656,11 +659,11 @@ function FormRow({
           <td colSpan={7} className="px-4 py-3 bg-gray-50 dark:bg-gray-800/30">
             <WebhookPanel formId={form.id} />
             <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
-              Submissions ({form.submission_count})
+             {t('ui:FormsPage.submissions_2')}{form.submission_count})
             </p>
             {submissions.length === 0 ? (
               <p className="text-xs text-gray-400 dark:text-gray-500">
-                No submissions yet.
+               {t('ui:FormsPage.noSubmissionsYet')}
               </p>
             ) : (
               <div className="space-y-2 max-h-80 overflow-y-auto">
@@ -677,7 +680,7 @@ function FormRow({
                         </span>
                         {sub.contact_id && (
                           <span className="text-xs text-blue-500">
-                            Contact: {sub.contact_id.slice(0, 8)}...
+                           {t('ui:FormsPage.contact')} {sub.contact_id.slice(0, 8)}...
                           </span>
                         )}
                       </div>

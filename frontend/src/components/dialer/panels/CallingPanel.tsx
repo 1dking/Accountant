@@ -1,5 +1,6 @@
 import { PhoneOff } from 'lucide-react'
 import type { DialerMode } from '../hooks/useTwilioDevice'
+import { useTranslation } from 'react-i18next'
 
 export default function CallingPanel({
   target,
@@ -10,17 +11,18 @@ export default function CallingPanel({
   mode: DialerMode
   onHangup: () => void
 }) {
+  const { t } = useTranslation('ui')
   return (
     <div className="px-6 py-8 space-y-6">
       <div className="text-center">
         <div className="text-xs uppercase tracking-wider text-[color:var(--lg-text-secondary)]">
-          {mode === 'requesting-mic' ? 'Requesting microphone…' : 'Calling'}
+          {mode === 'requesting-mic' ? t('ui:CallingPanel.requestingMicrophone') : t('ui:CallingPanel.calling')}
         </div>
         <div className="font-mono text-2xl mt-3 text-[color:var(--lg-text-primary)] tabular-nums">
           {target}
         </div>
         <div className="text-sm text-[color:var(--lg-text-secondary)] mt-3 lg-breathing">
-          {mode === 'requesting-mic' ? 'Allow microphone access if prompted' : 'Ringing…'}
+          {mode === 'requesting-mic' ? t('ui:CallingPanel.allowMicrophoneAccessIfPrompted') : t('ui:CallingPanel.ringing')}
         </div>
       </div>
       <button
@@ -28,7 +30,7 @@ export default function CallingPanel({
         className="w-full h-12 rounded-xl bg-red-600/90 text-white font-medium flex items-center justify-center gap-2 hover:bg-red-600 transition-colors"
       >
         <PhoneOff className="h-5 w-5" />
-        Cancel
+       {t('ui:CallingPanel.cancel')}
       </button>
     </div>
   )
