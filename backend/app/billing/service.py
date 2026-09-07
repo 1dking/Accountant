@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.models import User
+from app.auth.models import Role, User
 from app.billing.models import AccountSubscription
 from app.core.exceptions import NotFoundError, ValidationError
 
@@ -22,10 +22,22 @@ logger = logging.getLogger(__name__)
 PLAN_KEYS = ("starter", "pro", "business", "enterprise")
 PLAN_NAMES = {
     "starter": "Starter",
-    "pro": "Professional",
+    "pro": "Solo",
     "business": "Business",
     "enterprise": "Enterprise",
 }
+
+
+def _wholesale_pct(pricing: dict[str, str]) -> float:
+    try:
+        return max(0.0, min(90.0, float(pricing.get("accountant_wholesale_pct") or 0)))
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _currency(pricing: dict[str, str]) -> str:
+    cur = (pricing.get("billing_currency") or "cad").strip().lower()
+    return cur if len(cur) == 3 and cur.isalpha() else "cad"
 
 
 async def _pricing(db: AsyncSession) -> dict[str, str]:
@@ -77,6 +89,14 @@ async def create_checkout(
     pricing = await _pricing(db)
     monthly_rate = _plan_amount(pricing, plan_key, period)
 
+    # Accountant wholesale — the channel price. An accountant/bookkeeper buying
+    # a plan gets the published discount (QBO Canada gives ProAdvisors 50%; we
+    # match it). Applied before the $0 / annual sanity checks so a misconfigured
+    # 100% discount still fails loudly instead of billing $0.
+    wholesale = _wholesale_pct(pricing) if user.role == Role.ACCOUNTANT else 0.0
+    if wholesale:
+        monthly_rate = round(monthly_rate * (1 - wholesale / 100), 2)
+
     # Starter is the free tier by design — switch with no payment.
     if plan_key == "starter":
         sub.plan_key = plan_key
@@ -127,8 +147,8 @@ async def create_checkout(
         customer=sub.stripe_customer_id,
         line_items=[{
             "price_data": {
-                "currency": "usd",
-                "product_data": {"name": f"O-Brain {PLAN_NAMES[plan_key]}"},
+                "currency": _currency(pricing),
+                "product_data": {"name": f"O-Brain {PLAN_NAMES[plan_key]}" + (" — accountant wholesale" if wholesale else "")},
                 "unit_amount": int(round(charge * 100)),
                 "recurring": {"interval": interval},
             },

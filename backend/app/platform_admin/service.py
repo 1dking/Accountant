@@ -65,10 +65,18 @@ DEFAULT_FEATURE_FLAGS = [
 DEFAULT_PRICING_SETTINGS = [
     {"key": "plan_starter_price", "value": "0", "category": "pricing",
      "description": "Starter plan monthly price ($)", "value_type": "number"},
-    {"key": "plan_pro_price", "value": "29", "category": "pricing",
-     "description": "Pro plan monthly price ($)", "value_type": "number"},
-    {"key": "plan_business_price", "value": "79", "category": "pricing",
-     "description": "Business plan monthly price ($)", "value_type": "number"},
+    # Canadian pricing (CANADIAN_THESIS_2026.md): C$59 solo / C$99 with phone,
+    # under QBO + a phone line alone and a third of the GHL stack.
+    # NOTE seed_defaults only inserts MISSING keys — an existing install keeps
+    # its current values until they're changed in Platform Admin → Pricing.
+    {"key": "plan_pro_price", "value": "59", "category": "pricing",
+     "description": "Solo plan monthly price (one person, books + CRM + site + meetings)", "value_type": "number"},
+    {"key": "plan_business_price", "value": "99", "category": "pricing",
+     "description": "Business plan monthly price (Solo + phone number + team)", "value_type": "number"},
+    {"key": "billing_currency", "value": "cad", "category": "pricing",
+     "description": "Currency Stripe bills subscriptions in (ISO code, lowercase)", "value_type": "string"},
+    {"key": "accountant_wholesale_pct", "value": "50", "category": "pricing",
+     "description": "Discount an accountant/bookkeeper gets on plans they buy for clients (%)", "value_type": "number"},
     {"key": "plan_enterprise_price", "value": "199", "category": "pricing",
      "description": "Enterprise plan monthly price ($)", "value_type": "number"},
     {"key": "obrain_free_messages", "value": "50", "category": "pricing",
@@ -103,9 +111,9 @@ DEFAULT_PRICING_SETTINGS = [
     # below, which already follows this rule.
     {"key": "plan_starter_annual_price", "value": "0", "category": "pricing",
      "description": "Starter plan annual price ($/mo billed yearly)", "value_type": "number"},
-    {"key": "plan_pro_annual_price", "value": "24", "category": "pricing",
-     "description": "Pro plan annual price ($/mo billed yearly)", "value_type": "number"},
-    {"key": "plan_business_annual_price", "value": "66", "category": "pricing",
+    {"key": "plan_pro_annual_price", "value": "49", "category": "pricing",
+     "description": "Solo plan annual price ($/mo billed yearly)", "value_type": "number"},
+    {"key": "plan_business_annual_price", "value": "83", "category": "pricing",
      "description": "Business plan annual price ($/mo billed yearly)", "value_type": "number"},
     {"key": "plan_enterprise_annual_price", "value": "166", "category": "pricing",
      "description": "Enterprise plan annual price ($/mo billed yearly)", "value_type": "number"},

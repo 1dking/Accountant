@@ -11,7 +11,7 @@ import TelephonyCreditSettings from '@/components/settings/TelephonyCreditSettin
 
 const PLAN_LABELS: Record<string, string> = {
   starter: 'Starter',
-  pro: 'Professional',
+  pro: 'Solo',
   business: 'Business',
   enterprise: 'Enterprise',
 }

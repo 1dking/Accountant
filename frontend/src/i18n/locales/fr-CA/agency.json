@@ -1,0 +1,24 @@
+{
+  "title": "Comptes clients",
+  "subtitle": "Chaque client obtient son propre espace isolé sous votre marque. Choisissez ce avec quoi il commence; déverrouillez ses livres quand son comptable les prend en charge.",
+  "new": "Nouveau compte client",
+  "empty": "Aucun compte client pour l'instant",
+  "emptyHint": "Créez-en un pour chaque client que vous gérez. Il se connectera à son propre espace et ne verra que ses données.",
+  "fields": {
+    "name": "Nom du client / de l'entreprise",
+    "template": "Commencer avec",
+    "clientEmail": "Inviter son premier utilisateur (facultatif)",
+    "clientName": "Son nom",
+    "notes": "Notes"
+  },
+  "columns": { "client": "Client", "template": "Démarré comme", "books": "Livres", "members": "Utilisateurs", "status": "Statut" },
+  "books": { "on": "Livres activés", "off": "Livres désactivés", "unlock": "Déverrouiller les livres", "lock": "Verrouiller les livres",
+             "unlockConfirm": "Activer le livre de caisse, les dépenses, les rapports et la taxe pour ce client ?",
+             "lockConfirm": "Désactiver les modules comptables pour ce client ? Ses données restent; il ne peut simplement plus ouvrir ces sections.",
+             "unlocked": "Livres déverrouillés", "locked": "Livres verrouillés" },
+  "features": { "title": "Modules", "hint": "Tout est activé sauf ce que vous désactivez ici." },
+  "members": { "title": "Utilisateurs", "invite": "Inviter un utilisateur", "email": "Courriel", "fullName": "Nom complet", "role": "Rôle", "password": "Mot de passe temporaire (facultatif)", "invited": "Utilisateur invité", "none": "Aucun utilisateur pour l'instant" },
+  "status": { "active": "Actif", "suspended": "Suspendu", "archived": "Archivé" },
+  "created": "Compte client créé", "createFailed": "Impossible de créer le compte client.",
+  "saved": "Enregistré"
+}

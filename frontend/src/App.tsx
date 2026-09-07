@@ -59,6 +59,7 @@ import PayrollRunsPage from '@/pages/PayrollRunsPage'
 import PayrollRunDetailPage from '@/pages/PayrollRunDetailPage'
 import PayrollEmployeesPage from '@/pages/PayrollEmployeesPage'
 import FilingPage from '@/pages/FilingPage'
+import AgencyPage from '@/pages/AgencyPage'
 import NewCashbookEntryPage from '@/pages/NewCashbookEntryPage'
 import CashbookEntryDetailPage from '@/pages/CashbookEntryDetailPage'
 import DrivePage from '@/pages/DrivePage'
@@ -257,6 +258,7 @@ function AuthenticatedApp() {
         <Route path="/payroll/employees" element={<PayrollEmployeesPage />} />
         <Route path="/payroll/runs/:id" element={<PayrollRunDetailPage />} />
         <Route path="/filing" element={<FilingPage />} />
+        <Route path="/agency" element={<AgencyPage />} />
         <Route path="/expenses" element={<ExpensesPage />} />
         <Route path="/expenses/new" element={<NewExpensePage />} />
         <Route path="/expenses/dashboard" element={<ExpenseDashboardPage />} />

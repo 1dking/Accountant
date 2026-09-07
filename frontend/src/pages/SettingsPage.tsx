@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router'
-import { User, Mail, Inbox, Landmark, CreditCard, MessageSquare, Bell, Lock, Receipt, Building2, CalendarDays, BellRing, Newspaper, Wallet, Smartphone, Zap, FileText, Fingerprint } from 'lucide-react'
+import { User, Mail, Inbox, Landmark, CreditCard, MessageSquare, Bell, Lock, Receipt, Building2, CalendarDays, BellRing, Newspaper, Wallet, Smartphone, Zap, FileText, Fingerprint, ShieldCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/authStore'
 import ProfileSettings from '@/components/settings/ProfileSettings'
 import PasskeySettings from '@/components/settings/PasskeySettings'
+import AuthenticatorSettings from '@/components/settings/AuthenticatorSettings'
 import UserManagement from '@/components/settings/UserManagement'
 import SmtpSettings from '@/components/settings/SmtpSettings'
 import GmailSettings from '@/components/settings/GmailSettings'
@@ -32,6 +33,7 @@ const TABS: { id: string; label: string; icon: typeof User; adminOnly?: boolean 
   { id: 'billing', label: 'Plan & Billing', icon: Wallet },
   { id: 'branding', label: 'Branding', icon: Building2 },
   { id: 'profile', label: 'Profile', icon: User },
+  { id: 'authenticator', label: 'Authenticator', icon: ShieldCheck },
   { id: 'passkeys', label: 'Passkeys', icon: Fingerprint },
   { id: 'users', label: 'Users', icon: User, adminOnly: true },
   { id: 'email', label: 'Email (SMTP)', icon: Mail },
@@ -105,6 +107,7 @@ export default function SettingsPage() {
           {activeTab === 'billing' && <BillingSettings />}
           {activeTab === 'branding' && <BrandingSettings />}
           {activeTab === 'profile' && <ProfileSettings />}
+          {activeTab === 'authenticator' && <AuthenticatorSettings />}
           {activeTab === 'passkeys' && <PasskeySettings />}
           {activeTab === 'users' && user?.role === 'admin' && <UserManagement />}
           {activeTab === 'email' && <SmtpSettings />}

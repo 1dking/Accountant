@@ -49,6 +49,7 @@ import {
   Landmark,
   Wallet,
   Briefcase,
+  Building2,
 } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getTrashCount } from '@/api/cashbook'
@@ -184,6 +185,7 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: 'ADMIN',
     items: [
+      { path: '/agency', label: 'Client Accounts', icon: Building2, featureKey: 'contacts' },
       { path: '/platform-admin', label: 'Platform Admin', icon: Settings, featureKey: 'platform_admin' },
     ],
   },

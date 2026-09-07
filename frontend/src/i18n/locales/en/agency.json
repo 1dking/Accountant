@@ -1,0 +1,24 @@
+{
+  "title": "Client accounts",
+  "subtitle": "Each client gets their own isolated workspace under your brand. Pick what they start with; unlock their books when their accountant takes them on.",
+  "new": "New client account",
+  "empty": "No client accounts yet",
+  "emptyHint": "Create one for each client you manage. They'll log in to their own workspace and see only their own data.",
+  "fields": {
+    "name": "Client / business name",
+    "template": "Start them with",
+    "clientEmail": "Invite their first user (optional)",
+    "clientName": "Their name",
+    "notes": "Notes"
+  },
+  "columns": { "client": "Client", "template": "Started as", "books": "Books", "members": "Users", "status": "Status" },
+  "books": { "on": "Books on", "off": "Books off", "unlock": "Unlock books", "lock": "Lock books",
+             "unlockConfirm": "Turn on cashbook, expenses, reports and tax for this client?",
+             "lockConfirm": "Turn off the accounting modules for this client? Their data stays; they just can't open those sections.",
+             "unlocked": "Books unlocked", "locked": "Books locked" },
+  "features": { "title": "Modules", "hint": "Everything is on unless you switch it off here." },
+  "members": { "title": "Users", "invite": "Invite user", "email": "Email", "fullName": "Full name", "role": "Role", "password": "Temporary password (optional)", "invited": "User invited", "none": "No users yet" },
+  "status": { "active": "Active", "suspended": "Suspended", "archived": "Archived" },
+  "created": "Client account created", "createFailed": "Couldn't create the client account.",
+  "saved": "Saved"
+}
