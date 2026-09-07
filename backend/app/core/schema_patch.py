@@ -112,6 +112,10 @@ _ADDITIVE_COLUMNS: dict[str, dict[str, str]] = {
         "tax_rate_id": "VARCHAR(36)",
         "tax_rate_2_id": "VARCHAR(36)",
     },
+    # Joint filing (alembic k9h0a1b2c3d4): which T1 line a personal category feeds.
+    "personal_categories": {
+        "t1_line": "VARCHAR(10)",
+    },
 }
 
 

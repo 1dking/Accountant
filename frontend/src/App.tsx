@@ -58,6 +58,7 @@ import Tax1099Page from '@/pages/Tax1099Page'
 import PayrollRunsPage from '@/pages/PayrollRunsPage'
 import PayrollRunDetailPage from '@/pages/PayrollRunDetailPage'
 import PayrollEmployeesPage from '@/pages/PayrollEmployeesPage'
+import FilingPage from '@/pages/FilingPage'
 import NewCashbookEntryPage from '@/pages/NewCashbookEntryPage'
 import CashbookEntryDetailPage from '@/pages/CashbookEntryDetailPage'
 import DrivePage from '@/pages/DrivePage'
@@ -255,6 +256,7 @@ function AuthenticatedApp() {
         <Route path="/payroll" element={<PayrollRunsPage />} />
         <Route path="/payroll/employees" element={<PayrollEmployeesPage />} />
         <Route path="/payroll/runs/:id" element={<PayrollRunDetailPage />} />
+        <Route path="/filing" element={<FilingPage />} />
         <Route path="/expenses" element={<ExpensesPage />} />
         <Route path="/expenses/new" element={<NewExpensePage />} />
         <Route path="/expenses/dashboard" element={<ExpenseDashboardPage />} />

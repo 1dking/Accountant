@@ -363,6 +363,7 @@ def create_app() -> FastAPI:
     from app.events.router import router as events_router
     from app.wtp.router import router as wtp_router
     from app.payroll.router import router as payroll_router
+    from app.filing.router import router as filing_router
 
     fastapi_app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
     fastapi_app.include_router(mfa_router, prefix="/api/auth/mfa", tags=["mfa"])
@@ -408,6 +409,8 @@ def create_app() -> FastAPI:
     fastapi_app.include_router(tax1099_router, prefix="/api/accounting", tags=["tax-1099"], dependencies=[Depends(require_feature("expenses")), Depends(require_business_mode)])
     # Payroll (sprint 2) — business-only; role gate (admin/accountant) lives in the router.
     fastapi_app.include_router(payroll_router, prefix="/api/payroll", tags=["payroll"], dependencies=[Depends(require_business_mode)])
+    # Joint filing (sprint 3) — reads BOTH ledgers, so no business-mode gate.
+    fastapi_app.include_router(filing_router, prefix="/api/filing", tags=["filing"])
     fastapi_app.include_router(credit_notes_router, prefix="/api/invoices", tags=["credit-notes"], dependencies=[Depends(require_feature("invoices"))])
     fastapi_app.include_router(tax_router, prefix="/api", tags=["sales-tax"], dependencies=[Depends(require_feature("tax")), Depends(require_business_mode)])
     fastapi_app.include_router(cashbook_router, prefix="/api/cashbook", tags=["cashbook"], dependencies=[Depends(require_feature("cashbook")), Depends(require_business_mode)])

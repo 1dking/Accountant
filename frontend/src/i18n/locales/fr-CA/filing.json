@@ -1,0 +1,34 @@
+{
+  "title": "Déclaration de revenus",
+  "subtitle": "Vos chiffres d'entreprise (T2125) et personnels (T1) dans une seule trousse, directement à partir des livres. Remettez le PDF à votre comptable.",
+  "year": "Année d'imposition",
+  "download": "Télécharger la trousse (PDF)",
+  "personalOnlyOwner": "La partie personnelle n'est visible que par vous. Votre comptable voit la partie entreprise — exportez le PDF pour partager les deux.",
+  "accountantView": "Vous consultez la partie entreprise. Seul le propriétaire peut voir son grand livre personnel.",
+  "readiness": { "title": "Avant de produire", "fix": "Corriger" },
+  "t2125": {
+    "title": "T2125 — Revenus d'entreprise",
+    "subtitle": "Établi à partir de votre plan comptable. Concorde avec la balance de vérification du {{start}} au {{end}}.",
+    "grossSales": "8000 Ventes brutes",
+    "otherIncome": "8230 Autres revenus",
+    "grossIncome": "8299 Revenu brut",
+    "cogs": "8518 Coût des marchandises vendues",
+    "grossProfit": "8519 Bénéfice brut",
+    "expenses": "Dépenses",
+    "line": "Ligne", "books": "Aux livres", "allowable": "Admissible",
+    "computed": "à calculer par le comptable",
+    "totalExpenses": "9368 Total des dépenses",
+    "netIncome": "9369 Revenu net → ligne 13500 de la T1",
+    "excluded": "Exclus comme non déductibles",
+    "unmapped": "Classés à la ligne 9270 Autres — aucune ligne précise ne correspondait",
+    "gst": "GST34 pour la même période"
+  },
+  "t1": {
+    "title": "T1 — Personnel",
+    "subtitle": "Seules les catégories personnelles liées à une ligne de la T1 apparaissent ici. L'épicerie et le loyer restent hors de la déclaration.",
+    "netBusiness": "13500 Revenu net d'entreprise",
+    "noLines": "Aucune catégorie personnelle liée à la T1 utilisée cette année.",
+    "hint": "Étiquetez vos cotisations REER, frais médicaux, dons, frais de garde, frais de scolarité ou cotisations dans votre grand livre personnel et ils apparaîtront ici.",
+    "totals": "Argent personnel entré {{in}} · sorti {{out}} · non catégorisé {{unc}}"
+  }
+}

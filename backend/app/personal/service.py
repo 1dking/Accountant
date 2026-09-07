@@ -35,24 +35,45 @@ DEFAULT_PERSONAL_CATEGORIES = [
     ("Other", "both", 99),
 ]
 
+#: Tax-relevant personal categories — each feeds one T1 line. (name, direction,
+#: order, t1_line). Kept separate so the lifestyle list above stays readable.
+T1_PERSONAL_CATEGORIES = [
+    ("RRSP contributions", "out", 20, "20800"),
+    ("Union / professional dues", "out", 21, "21200"),
+    ("Child care expenses", "out", 22, "21400"),
+    ("Tuition", "out", 23, "32300"),
+    ("Medical expenses", "out", 24, "33099"),
+    ("Charitable donations", "out", 25, "34900"),
+]
+
 
 async def seed_personal_categories(db: AsyncSession) -> None:
-    """Idempotently seed the default (system) personal categories."""
-    existing = (
-        await db.execute(
-            select(PersonalCategory.name).where(PersonalCategory.is_system.is_(True))
-        )
+    """Idempotently seed the default (system) personal categories, including the
+    T1-linked ones. Back-fills t1_line on an existing row whose name matches."""
+    rows = (
+        await db.execute(select(PersonalCategory).where(PersonalCategory.is_system.is_(True)))
     ).scalars().all()
-    have = set(existing)
-    added = False
+    have = {r.name: r for r in rows}
+    changed = False
     for name, direction, order in DEFAULT_PERSONAL_CATEGORIES:
         if name not in have:
             db.add(PersonalCategory(
                 id=uuid.uuid4(), user_id=None, name=name, direction=direction,
                 is_system=True, display_order=order,
             ))
-            added = True
-    if added:
+            changed = True
+    for name, direction, order, t1 in T1_PERSONAL_CATEGORIES:
+        row = have.get(name)
+        if row is None:
+            db.add(PersonalCategory(
+                id=uuid.uuid4(), user_id=None, name=name, direction=direction,
+                is_system=True, display_order=order, t1_line=t1,
+            ))
+            changed = True
+        elif row.t1_line != t1:
+            row.t1_line = t1
+            changed = True
+    if changed:
         await db.commit()
 
 

@@ -71,6 +71,8 @@ class PersonalCategoryResponse(BaseModel):
     id: uuid.UUID
     name: str
     direction: str
+    #: T1 line this category feeds (RRSP → "20800", medical → "33099"…); None for lifestyle.
+    t1_line: str | None = None
 
     model_config = {"from_attributes": True}
 

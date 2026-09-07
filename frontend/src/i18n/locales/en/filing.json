@@ -1,0 +1,34 @@
+{
+  "title": "Tax filing",
+  "subtitle": "Your business (T2125) and personal (T1) numbers in one package, straight from the books. Hand the PDF to your accountant.",
+  "year": "Tax year",
+  "download": "Download package (PDF)",
+  "personalOnlyOwner": "The personal half is only visible to you. Your accountant sees the business half — export the PDF to share both.",
+  "accountantView": "You're viewing the business half. Only the owner can see their personal ledger.",
+  "readiness": { "title": "Before you file", "fix": "Fix" },
+  "t2125": {
+    "title": "T2125 — Business income",
+    "subtitle": "Mapped from your chart of accounts. Ties to the trial balance for {{start}} – {{end}}.",
+    "grossSales": "8000 Gross sales",
+    "otherIncome": "8230 Other income",
+    "grossIncome": "8299 Gross income",
+    "cogs": "8518 Cost of goods sold",
+    "grossProfit": "8519 Gross profit",
+    "expenses": "Expenses",
+    "line": "Line", "books": "In the books", "allowable": "Allowable",
+    "computed": "accountant to compute",
+    "totalExpenses": "9368 Total expenses",
+    "netIncome": "9369 Net income → T1 line 13500",
+    "excluded": "Excluded as non-deductible",
+    "unmapped": "Landed on 9270 Other — no specific line matched",
+    "gst": "GST34 for the same period"
+  },
+  "t1": {
+    "title": "T1 — Personal",
+    "subtitle": "Only personal categories tied to a T1 line appear here. Groceries and rent stay off the return.",
+    "netBusiness": "13500 Net business income",
+    "noLines": "No T1-linked personal categories used this year.",
+    "hint": "Tag RRSP contributions, medical, donations, child care, tuition or dues in your personal ledger and they'll show up here.",
+    "totals": "Personal money in {{in}} · out {{out}} · uncategorized {{unc}}"
+  }
+}

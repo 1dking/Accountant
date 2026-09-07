@@ -119,6 +119,7 @@ const NAV_SECTIONS: NavSection[] = [
       { path: '/accounting/bills', label: 'Bills (A/P)', icon: ReceiptText, featureKey: 'expenses' },
       { path: '/accounting/1099', label: '1099 Contractors', icon: FileBadge, featureKey: 'expenses' },
       { path: '/payroll', label: 'Payroll', icon: Wallet, featureKey: 'expenses' },
+      { path: '/filing', label: 'Tax filing', icon: FileBadge, featureKey: 'expenses' },
       { path: '/accounting/ledger-reports', label: 'Financial Statements', icon: Scale, featureKey: 'expenses' },
       { path: '/cashbook/reconcile', label: 'Reconcile', icon: Scale, featureKey: 'cashbook' },
       { path: '/smart-import', label: 'Smart Import', icon: Zap, featureKey: 'smart_import' },

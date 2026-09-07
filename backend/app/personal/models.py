@@ -71,6 +71,9 @@ class PersonalCategory(TimestampMixin, Base):
     direction: Mapped[str] = mapped_column(String(4), default="both", nullable=False)
     is_system: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     display_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    #: T1 line this category feeds (e.g. "20800" RRSP, "33099" medical). NULL for
+    #: lifestyle categories that never touch the return. Sprint 3 (joint filing).
+    t1_line: Mapped[str | None] = mapped_column(String(10), nullable=True)
 
 
 class PersonalTransaction(TimestampMixin, Base):

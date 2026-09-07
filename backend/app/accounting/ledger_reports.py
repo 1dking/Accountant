@@ -49,6 +49,8 @@ _FALLBACK_ASSET = "1500"
 # Equity accounts for the Owner's Draw / Contribution categories (commingled
 # personal money through a business account). 3xxx = equity range.
 _EQUITY_CODES = {"owner's draw": "3200", "owner's contribution": "3100"}
+#: Seeded liability that carries sales tax collected minus input tax credits.
+_SALES_TAX_CODE = "2100"
 
 
 @dataclass
@@ -132,6 +134,13 @@ class _Resolver:
             return self.by_code[fallback_code]
         label = "Uncategorized Income" if want == AccountType.INCOME else "Uncategorized Expense"
         return self._bucket(f"unmapped:{want.value}", fallback_code, label, want)
+
+    def sales_tax_account(self):
+        """Where collected GST/HST/PST and claimable ITCs post — the seeded
+        2100 Sales Tax Payable, or a liability bucket on an unseeded chart."""
+        if _SALES_TAX_CODE in self.by_code:
+            return self.by_code[_SALES_TAX_CODE]
+        return self._bucket("tax:payable", _SALES_TAX_CODE, "Sales Tax Payable", AccountType.LIABILITY)
 
     def payment_account(self, pa: PaymentAccount | None):
         if pa is not None:
@@ -225,7 +234,24 @@ async def gather_postings(
         total = Decimal(str(e.total_amount))
         ref = f"CB-{str(e.id)[:8]}"
 
-        # Cash (asset) side: income increases cash (debit), expense reduces it (credit).
+        # Sales tax on the entry. The cashbook records tax-INCLUSIVE totals; the
+        # ledger must carry income/expense NET of tax and the tax itself as a
+        # liability, or the P&L (and the T2125 built on it) overstates revenue
+        # by every dollar of GST/HST collected.
+        #   income : all tax collected (GST/HST + PST) → Cr Sales Tax Payable
+        #   expense: only the recoverable GST/HST (the ITC) → Dr Sales Tax Payable;
+        #            PST/RST is a cost and stays in the expense.
+        # Pre-matrix rows (tax_gst_hst_amount NULL) treat tax_amount as all-CRA.
+        tax_total = Decimal(str(e.tax_amount or 0))
+        tax_cra = (
+            Decimal(str(e.tax_gst_hst_amount)) if e.tax_gst_hst_amount is not None else tax_total
+        )
+        tax_to_book = tax_total if is_income else tax_cra
+        if tax_to_book < _ZERO or tax_to_book >= total:
+            tax_to_book = _ZERO  # malformed tax; post gross rather than a negative net
+
+        # Cash (asset) side: income increases cash (debit), expense reduces it
+        # (credit). Cash moved GROSS — the customer paid the tax too.
         postings.append(
             Posting(
                 account_key=ck, code=ccode, name=cname, account_type=ctype,
@@ -236,12 +262,15 @@ async def gather_postings(
             )
         )
 
-        # Category (income/expense) side: split across children if present.
+        # Category (income/expense) side, NET of the tax booked below. Split
+        # across children if present; the entry's tax is prorated by amount.
         breakdown = e.split_children if e.split_children else [e]
         for part in breakdown:
             cat_acct = resolver.category_account(part.category, e.entry_type)
             ak, acode, aname, atype, anb = _acct_fields(cat_acct)
-            amt = Decimal(str(part.total_amount))
+            gross = Decimal(str(part.total_amount))
+            share = (tax_to_book * gross / total).quantize(Decimal("0.01")) if (tax_to_book and total) else _ZERO
+            amt = gross - share
             postings.append(
                 Posting(
                     account_key=ak, code=acode, name=aname, account_type=atype,
@@ -249,6 +278,25 @@ async def gather_postings(
                     debit=(_ZERO if is_income else amt),
                     credit=(amt if is_income else _ZERO),
                     source="cashbook", ref=ref, memo=part.description,
+                )
+            )
+
+        # Sales Tax Payable side. Rounding drift from prorating lands here so
+        # the entry stays balanced: tax posting = total − Σ(net parts).
+        if tax_to_book:
+            tk, tcode, tname, ttype, tnb = _acct_fields(resolver.sales_tax_account())
+            net_sum = sum(
+                (Decimal(str(p.total_amount)) - (tax_to_book * Decimal(str(p.total_amount)) / total).quantize(Decimal("0.01")))
+                for p in breakdown
+            )
+            booked = total - net_sum
+            postings.append(
+                Posting(
+                    account_key=tk, code=tcode, name=tname, account_type=ttype,
+                    normal_balance=tnb, date=e.date,
+                    debit=(_ZERO if is_income else booked),   # ITC reduces the liability
+                    credit=(booked if is_income else _ZERO),  # tax collected increases it
+                    source="cashbook", ref=ref, memo="Sales tax" if is_income else "Input tax credit",
                 )
             )
 
