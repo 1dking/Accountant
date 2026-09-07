@@ -1374,6 +1374,10 @@ function SectionBlock({
         srcDoc={srcdoc}
         title={`section-${sectionId}`}
         sandbox="allow-scripts allow-same-origin"
+        // Delegate autoplay to the nested background player: without it
+        // Chrome blocks muted autoplay in the nested YouTube/Vimeo frame and
+        // the player sits on its paused overlay in the editor preview.
+        allow="autoplay; encrypted-media"
         className="w-full border-0 block"
         style={{ height: `${iframeHeight}px` }}
       />
