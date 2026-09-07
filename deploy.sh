@@ -48,6 +48,10 @@ echo ">>> Building frontend"
 cd frontend
 pnpm install --frozen-lockfile --silent
 pnpm run build
+# Published-page runtime (block model v2). The output is committed under
+# backend/app/pages/static/runtime/<version>/, so this is a safety net that
+# keeps the served bundle in step with the source on this checkout.
+pnpm run build:runtime
 cd ..
 
 echo ">>> Installing Hocuspocus dependencies"

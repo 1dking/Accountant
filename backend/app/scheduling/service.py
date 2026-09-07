@@ -416,6 +416,16 @@ async def get_available_slots(
         }
 
     from datetime import date as date_type
+    from zoneinfo import ZoneInfo
+
+    # Availability hours are the owner's LOCAL hours ("09:00–17:00" in the
+    # calendar's timezone). They used to be interpreted as UTC, so a
+    # Toronto calendar offered 5:00 AM slots on the public page. Build the
+    # candidate slots in the calendar's zone and convert to UTC.
+    try:
+        tz = ZoneInfo(cal.timezone or "UTC")
+    except Exception:  # noqa: BLE001 — unknown tz name on the row
+        tz = timezone.utc
 
     target_date = date_type.fromisoformat(date_str)
     day_name = target_date.strftime("%A").lower()
@@ -424,8 +434,8 @@ async def get_available_slots(
     if not day_slots:
         return []
 
-    # Get existing bookings for that day
-    day_start = datetime(target_date.year, target_date.month, target_date.day, 0, 0, 0, tzinfo=timezone.utc)
+    # Get existing bookings for that (local) day
+    day_start = datetime(target_date.year, target_date.month, target_date.day, 0, 0, 0, tzinfo=tz).astimezone(timezone.utc)
     day_end = day_start + timedelta(days=1)
 
     existing = await db.execute(
@@ -450,6 +460,12 @@ async def get_available_slots(
             be = be.replace(tzinfo=timezone.utc)
         booked_times.append((bs, be))
 
+    # Never offer a slot create_booking would refuse: anything already in
+    # the past or inside the minimum-notice window. (The public booking
+    # page and the pages runtime both showed "10:00 AM" for today and then
+    # got a 409 on confirm.)
+    not_before = datetime.now(timezone.utc) + timedelta(hours=cal.min_notice_hours or 0)
+
     slots = []
     for slot_range in day_slots:
         start_h, start_m = map(int, slot_range["start"].split(":"))
@@ -457,12 +473,12 @@ async def get_available_slots(
 
         current = datetime(
             target_date.year, target_date.month, target_date.day,
-            start_h, start_m, 0, tzinfo=timezone.utc,
-        )
+            start_h, start_m, 0, tzinfo=tz,
+        ).astimezone(timezone.utc)
         range_end = datetime(
             target_date.year, target_date.month, target_date.day,
-            end_h, end_m, 0, tzinfo=timezone.utc,
-        )
+            end_h, end_m, 0, tzinfo=tz,
+        ).astimezone(timezone.utc)
 
         while current + timedelta(minutes=cal.duration_minutes) <= range_end:
             slot_end = current + timedelta(minutes=cal.duration_minutes)
@@ -472,6 +488,8 @@ async def get_available_slots(
                 current < be and slot_end > bs for bs, be in booked_times
             )
 
+            if current < not_before:
+                conflict = True
             if not conflict:
                 # Also check buffer
                 buffer_start = current - timedelta(minutes=cal.buffer_minutes)

@@ -1238,7 +1238,11 @@
     "v0Variants": "{{v0}} variants",
     "noVariantsMatchFilter": "No variants match \"{{filter}}\".",
     "navbar": "Navbar",
-    "stickyHeadersAndMenus": "Sticky headers and menus"
+    "stickyHeadersAndMenus": "Sticky headers and menus",
+    "booking": "Booking",
+    "liveCalendarSlots": "Live calendar slots, booked in place",
+    "location": "Location",
+    "mapHoursAndOpenNow": "Map, hours and “open now”"
   },
   "VisualEditor": {
     "thin": "Thin",

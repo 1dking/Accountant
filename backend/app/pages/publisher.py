@@ -175,6 +175,12 @@ async def publish_page_static(
     extra_body_end += pages_service.build_tracking_body_end(page, website)
     extra_body_end += "\n" + pages_service.build_analytics_script(str(page.id), public_base_url)
 
+    # Block model v2 — compile-time data binding (company, team, …).
+    # Returns a resolved copy of sections_json or None; the stored
+    # sections_json is left untouched so the editor keeps its defaults.
+    from app.pages.data_sources import resolve_page_bindings
+    resolved_sections = await resolve_page_bindings(db, page)
+
     html, content_hash = compile_and_hash(
         page,
         company_settings=company_settings,
@@ -183,6 +189,7 @@ async def publish_page_static(
         extra_head=extra_head,
         extra_body_start=extra_body_start,
         extra_body_end=extra_body_end,
+        sections_json_override=resolved_sections,
     )
 
     # Short-circuit: if compiled_html hash matches what we already have,

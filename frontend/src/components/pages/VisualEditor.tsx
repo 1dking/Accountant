@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import { listForms } from '@/api/forms'
 import { pagesApi } from '@/api/pages'
+import SectionThumb from './SectionThumb'
 import type { FormListItem } from '@/types/models'
 import { useTranslation } from 'react-i18next'
 import i18n from '@/i18n'
@@ -182,7 +183,7 @@ interface LibraryVariantRow {
 const CATEGORY_LABELS: Record<string, string> = {
   nav: 'Navbar', hero: 'Hero', features: 'Features', pricing: 'Pricing',
   testimonials: 'Testimonials', cta: 'CTA', faq: 'FAQ', team: 'Team', stats: 'Stats',
-  contact: 'Contact', footer: 'Footer', gallery: 'Gallery', logos: 'Logos',
+  contact: 'Contact', booking: 'Booking', location: 'Location', footer: 'Footer', gallery: 'Gallery', logos: 'Logos',
 }
 const CATEGORY_ORDER = Object.keys(CATEGORY_LABELS)
 function groupLibrary(rows: LibraryVariantRow[]): LibraryCategory[] {
@@ -227,27 +228,6 @@ const ELEMENT_LIBRARY: ElementDef[] = [
   { key: 'spacer', name: 'Spacer', icon: '⬜', html: `<div style="height:40px"></div>` },
 ]
 
-// Scaled-down live iframe preview of a section snippet — real Tailwind
-// render, not an icon, so the picker shows what the layout actually
-// looks like. Fixed "design width" doc scaled down via CSS transform.
-function SectionThumb({ html, width = 240, height = 150 }: { html: string; width?: number; height?: number }) {
-  const { t } = useTranslation('ui')
-  const docWidth = 1200
-  const scale = width / docWidth
-  const docHeight = Math.round(height / scale)
-  const srcDoc = `<!DOCTYPE html><html><head><script src="https://cdn.tailwindcss.com"></script><style>html,body{margin:0;background:#fff}</style></head><body>${html}</body></html>`
-  return (
-    <div style={{ width, height }} className="relative overflow-hidden rounded-lg bg-white">
-      <iframe
-        srcDoc={srcDoc}
-        title={t('ui:VisualEditor.sectionPreview')}
-        scrolling="no"
-        tabIndex={-1}
-        style={{ width: docWidth, height: docHeight, border: 'none', transform: `scale(${scale})`, transformOrigin: 'top left', pointerEvents: 'none' }}
-      />
-    </div>
-  )
-}
 
 export default function VisualEditor({ html, css, onHtmlChange, onCssChange, onVideoUpload }: VisualEditorProps) {
   const { t } = useTranslation('ui')
@@ -1288,7 +1268,7 @@ export default function VisualEditor({ html, css, onHtmlChange, onCssChange, onV
                       onClick={() => setPickerCategory(cat.key)}
                       className="group relative rounded-xl overflow-hidden border border-white/10 bg-white/[0.03] hover:border-indigo-400/60 hover:bg-white/[0.06] transition-all hover:shadow-[0_0_25px_-5px_rgba(99,102,241,0.5)] text-left">
                       <div className="relative">
-                        <SectionThumb html={cat.variants[0].html} width={252} height={126} />
+                        <SectionThumb html={cat.variants[0].html} width={252} className="rounded-lg" />
                         <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent" />
                       </div>
                       <div className="px-3 py-2.5 flex items-center justify-between">
@@ -1311,7 +1291,7 @@ export default function VisualEditor({ html, css, onHtmlChange, onCssChange, onV
                         setPickerCategory(null)
                       }}
                       className="group relative rounded-xl overflow-hidden border border-white/10 bg-white/[0.03] hover:border-indigo-400/60 hover:bg-white/[0.06] transition-all hover:shadow-[0_0_30px_-5px_rgba(99,102,241,0.5)] text-left">
-                      <SectionThumb html={variant.html} width={368} height={210} />
+                      <SectionThumb html={variant.html} width={368} ratio={368 / 210} className="rounded-lg" />
                       <div className="px-4 py-3 flex items-center justify-between border-t border-white/10">
                         <span className="text-sm font-semibold text-slate-100 flex items-center gap-2">
                           {variant.name}

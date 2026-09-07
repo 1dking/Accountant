@@ -146,6 +146,8 @@ def validate_fields(
                 clean[key] = field["default"]
             elif field.get("required"):
                 errors.append(f"{path}: required")
+            elif raw is not None:
+                clean[key] = raw  # explicit empty is a valid value for an optional field
             continue
         val = _coerce(field, raw, locale, errors, path)
         if val is not None:

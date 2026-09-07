@@ -505,8 +505,15 @@ def effective_props(
         # Non-schema tokens (media, embeds, legacy) pass through untouched;
         # schema fields come only from the validated set (a rejected value
         # leaves its {{TOKEN}} visible rather than injecting raw input).
+        original = props
         props = {k: v for k, v in props.items() if k not in schema_keys}
         props.update(clean)
+        # A schema field with no valid value falls back to the seed's own
+        # default (even "" — e.g. an unconfigured CALENDAR_SLUG) so the
+        # token never leaks into the markup; the error is still reported.
+        for k in schema_keys:
+            if k not in props and k in original:
+                props[k] = original[k]
     return props, errors
 
 
@@ -557,6 +564,12 @@ def variant_to_section(
         val = getattr(variant, attr, None)
         if val:
             section["metadata"][attr] = val
+    schema = getattr(variant, "fields_schema", None)
+    if schema:
+        from app.pages.fields import runtime_fields
+        rt = runtime_fields(schema, props)
+        if rt:
+            section["metadata"]["runtime"] = rt
     # getattr-guarded so test fakes / older variant objects without
     # the field don't blow up (variant.default_animations was added
     # in migration b1c2d3e8).

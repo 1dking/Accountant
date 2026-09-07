@@ -1445,6 +1445,13 @@ async def patch_section(
             variant.jsx_template, merged, skip_tokens=_MT | _ET, escape=is_v2,
         )
         meta["props"] = merged
+        if schema:
+            from app.pages.fields import runtime_fields
+            rt = runtime_fields(schema, merged)
+            if rt:
+                meta["runtime"] = rt
+            else:
+                meta.pop("runtime", None)
         target["metadata"] = meta
         target["edited_html"] = None  # inline edits were against the old render
 

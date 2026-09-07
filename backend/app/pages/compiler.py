@@ -30,6 +30,12 @@ from typing import Any
 from app.pages.models import Page
 from app.pages.motion_presets import build_motion_css, is_valid_motion_preset
 
+# Mirrors RUNTIME_VERSION in frontend/src/pages-runtime/version.ts. The
+# built bundle lives in app/pages/static/runtime/<version>/ (committed;
+# `pnpm run build:runtime` regenerates it) and is served by
+# public_router.serve_runtime with immutable caching.
+PAGES_RUNTIME_VERSION = "2026.09.1"
+
 logger = logging.getLogger(__name__)
 
 TAILWIND_CDN_SCRIPT = (
@@ -814,8 +820,13 @@ def compile_page(
     extra_head: str = "",
     extra_body_start: str = "",
     extra_body_end: str = "",
+    sections_json_override: str | None = None,
 ) -> str:
     """Produce the full <!DOCTYPE html>... document for a page.
+
+    `sections_json_override` (block model v2) is a resolved copy of the
+    page's sections with compile-time data bindings applied; when given
+    it is compiled instead of page.sections_json.
 
     Reads page.sections_json (Pages v2 conversational output); falls
     back to page.html_content for legacy pages that never went through
@@ -863,9 +874,11 @@ def compile_page(
     parsed_sections: list[dict] = []
     any_animations = False
     motion_presets_used: set[str] = set()
-    if page.sections_json:
+    needs_runtime = False
+    sections_source = sections_json_override or page.sections_json
+    if sections_source:
         try:
-            sections = json.loads(page.sections_json)
+            sections = json.loads(sections_source)
             parsed_sections = [s for s in sections if isinstance(s, dict)]
             for i, sec in enumerate(sections):
                 media_props = {
@@ -925,9 +938,14 @@ def compile_page(
                 if motion and is_valid_motion_preset(motion):
                     block_attrs += f' data-motion="{motion}"'
                     motion_presets_used.add(motion)
+                    needs_runtime = True  # IntersectionObserver fallback
                 behaviour = sec_meta.get("behaviour")
                 if behaviour:
+                    needs_runtime = True
                     block_attrs += f' data-block="{html_escape.escape(str(behaviour), quote=True)}"'
+                    runtime_cfg = dict(sec_meta.get("runtime") or {})
+                    runtime_cfg["id"] = sid
+                    block_attrs += f' data-block-config="{_attr_escape_json(runtime_cfg)}"'
                 body_sections.append(
                     f'<section id="section-{sid}" data-pages-section{block_attrs}>{rendered}</section>'
                 )
@@ -986,6 +1004,26 @@ def compile_page(
     page_js = f"<script>{page.js_content}</script>" if getattr(page, "js_content", None) else ""
     motion_css = build_motion_css(motion_presets_used)
 
+    # Block model v2 runtime: linked only when a block needs behaviour (or
+    # a motion preset needs the no-scroll-timeline fallback). Same-origin
+    # path so it works on the app domain and, later, custom domains that
+    # proxy /api.
+    runtime_head = ""
+    runtime_body_end = ""
+    if needs_runtime:
+        base = f"/api/pages/public/runtime/{PAGES_RUNTIME_VERSION}"
+        runtime_head = f'<link rel="stylesheet" href="{base}/runtime.css">'
+        pages_global = {
+            "slug": page.slug,
+            "api": f"/api/pages/public/{page.slug}",
+            "locale": getattr(page, "locale", None) or "en",
+            "version": PAGES_RUNTIME_VERSION,
+        }
+        runtime_body_end = (
+            f"<script>window.__PAGES__={json.dumps(pages_global, separators=(',', ':'))}</script>"
+            f'<script src="{base}/runtime.js" defer></script>'
+        )
+
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1004,6 +1042,7 @@ def compile_page(
   {TAILWIND_CDN_SCRIPT}
   {anim_head}
   {motion_css}
+  {runtime_head}
   {page_css}
   {style_overrides_block}
   {page_head}
@@ -1014,6 +1053,7 @@ def compile_page(
 {extra_body_start}
 {body_html}
 {anim_body_end}
+{runtime_body_end}
 {page_js}
 {extra_body_end}
 </body>
@@ -1030,6 +1070,7 @@ def compile_and_hash(
     extra_head: str = "",
     extra_body_start: str = "",
     extra_body_end: str = "",
+    sections_json_override: str | None = None,
 ) -> tuple[str, str]:
     """Compile + return (html, sha256_hex). The hash is used to
     short-circuit re-uploads when the compiled output hasn't changed."""
@@ -1043,6 +1084,7 @@ def compile_and_hash(
         extra_head=extra_head,
         extra_body_start=extra_body_start,
         extra_body_end=extra_body_end,
+        sections_json_override=sections_json_override,
     )
     digest = hashlib.sha256(html.encode("utf-8")).hexdigest()
     return html, digest

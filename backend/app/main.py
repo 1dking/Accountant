@@ -447,6 +447,12 @@ def create_app() -> FastAPI:
     fastapi_app.include_router(automation_router, prefix="/api/communication", tags=["automation"], dependencies=[Depends(require_feature("phone"))])
     fastapi_app.include_router(tasks_router, prefix="/api/tasks", tags=["tasks"], dependencies=[Depends(require_feature("tasks"))])
     fastapi_app.include_router(workflows_router, prefix="/api/workflows", tags=["workflows"], dependencies=[Depends(require_feature("workflows"))])
+    # Anonymous runtime API for published pages (lead/book/data + the
+    # runtime bundle). Registered BEFORE the authed pages router so
+    # /api/pages/public/... never falls into /{page_id} routes, and
+    # without the feature toggle — a site visitor is not a user.
+    from app.pages.public_router import router as pages_public_router
+    fastapi_app.include_router(pages_public_router, prefix="/api/pages/public", tags=["pages-public"])
     fastapi_app.include_router(pages_router, prefix="/api/pages", tags=["pages"], dependencies=[Depends(require_feature("pages"))])
     fastapi_app.include_router(analytics_router, prefix="/api/analytics", tags=["analytics"])
     fastapi_app.include_router(scheduling_router, prefix="/api/scheduling", tags=["scheduling"], dependencies=[Depends(require_feature("calendar"))])

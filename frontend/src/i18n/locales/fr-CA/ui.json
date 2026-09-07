@@ -1214,7 +1214,11 @@
     "v0Variants": "{{v0}} variantes",
     "noVariantsMatchFilter": "Aucune variante ne correspond à « {{filter}} ».",
     "navbar": "Barre de navigation",
-    "stickyHeadersAndMenus": "En-têtes fixes et menus"
+    "stickyHeadersAndMenus": "En-têtes fixes et menus",
+    "booking": "Réservation",
+    "liveCalendarSlots": "Plages horaires en direct, réservées sur place",
+    "location": "Emplacement",
+    "mapHoursAndOpenNow": "Carte, heures et « ouvert maintenant »"
   },
   "VisualEditor": {
     "thin": "Fin",

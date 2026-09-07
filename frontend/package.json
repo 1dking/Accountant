@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:runtime": "vite build --config vite.runtime.config.ts",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",

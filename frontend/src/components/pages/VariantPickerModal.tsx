@@ -20,10 +20,11 @@ import {
   Layout, Grid3x3, BadgeDollarSign, Quote, Zap, HelpCircle,
   Users, BarChart3, Mail, LayoutTemplate, Image as ImageIcon,
   Hexagon,
-  PanelTop,
+  PanelTop, CalendarDays, MapPin,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { pagesApi } from '@/api/pages'
+import SectionThumb from './SectionThumb'
 import './section-editor.css'
 import { useTranslation } from 'react-i18next'
 import i18n from '@/i18n'
@@ -37,6 +38,9 @@ interface Variant {
   preview_thumbnail_url: string | null
   svg_thumbnail: string | null
   default_props: Record<string, unknown>
+  /** Block model v2 — fully rendered default state (Tailwind HTML). */
+  preview_html?: string
+  capabilities?: string[]
 }
 
 interface VariantsResponse {
@@ -78,6 +82,8 @@ const CATEGORIES: CategoryDef[] = [
   { value: 'team',         label: i18n.t('ui:VariantPickerModal.team'),         subtitle: i18n.t('ui:VariantPickerModal.peopleBehindTheBrand'),            Icon: Users,            gradient: 'linear-gradient(135deg, #10B981, #06B6D4)' },
   { value: 'stats',        label: i18n.t('ui:VariantPickerModal.stats'),        subtitle: i18n.t('ui:VariantPickerModal.numbersThatBuildCredibility'),     Icon: BarChart3,        gradient: 'linear-gradient(135deg, #00D4FF, #10B981)' },
   { value: 'contact',      label: i18n.t('ui:VariantPickerModal.contact'),      subtitle: i18n.t('ui:VariantPickerModal.reachOutPathsAndForms'),          Icon: Mail,             gradient: 'linear-gradient(135deg, #8B5CF6, #06B6D4)' },
+  { value: 'booking',      label: i18n.t('ui:VariantPickerModal.booking'),      subtitle: i18n.t('ui:VariantPickerModal.liveCalendarSlots'),               Icon: CalendarDays,     gradient: 'linear-gradient(135deg, #10B981, #00D4FF)' },
+  { value: 'location',     label: i18n.t('ui:VariantPickerModal.location'),     subtitle: i18n.t('ui:VariantPickerModal.mapHoursAndOpenNow'),              Icon: MapPin,           gradient: 'linear-gradient(135deg, #F59E0B, #10B981)' },
   { value: 'footer',       label: i18n.t('ui:VariantPickerModal.footer'),       subtitle: i18n.t('ui:VariantPickerModal.closingStructureAndLinks'),        Icon: LayoutTemplate,   gradient: 'linear-gradient(135deg, #475569, #8B5CF6)' },
   { value: 'gallery',      label: i18n.t('ui:VariantPickerModal.gallery'),      subtitle: i18n.t('ui:VariantPickerModal.imageVideoShowcases'),            Icon: ImageIcon,        gradient: 'linear-gradient(135deg, #EC4899, #8B5CF6)' },
   { value: 'logos',        label: i18n.t('ui:VariantPickerModal.logos'),        subtitle: i18n.t('ui:VariantPickerModal.brandWallsAndTrustMarks'),        Icon: Hexagon,          gradient: 'linear-gradient(135deg, #06B6D4, #6366F1)' },
@@ -106,6 +112,27 @@ export default function VariantPickerModal({ open, mode, lockedCategory, onClose
     enabled: open && !!category,
     staleTime: 60_000,
   })
+
+  // Whole library once (cached 60 s) so the category grid can show a real
+  // rendered thumbnail of each category's first block instead of an icon.
+  const libraryQuery = useQuery<VariantsResponse>({
+    queryKey: ['section-variants', 'all'],
+    queryFn: () => pagesApi.listVariants() as Promise<VariantsResponse>,
+    enabled: open,
+    staleTime: 60_000,
+  })
+  const firstByCategory = useMemo(() => {
+    const map = new Map<string, Variant>()
+    for (const v of libraryQuery.data?.data ?? []) {
+      if (!map.has(v.category) && v.preview_html) map.set(v.category, v)
+    }
+    return map
+  }, [libraryQuery.data])
+  const countByCategory = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const v of libraryQuery.data?.data ?? []) map.set(v.category, (map.get(v.category) ?? 0) + 1)
+    return map
+  }, [libraryQuery.data])
 
   const variants = variantsQuery.data?.data ?? []
   const filtered = useMemo(() => {
@@ -182,23 +209,43 @@ export default function VariantPickerModal({ open, mode, lockedCategory, onClose
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-6">
           {showingCategoryGrid ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-              {CATEGORIES.map((cat) => (
-                <button
-                  key={cat.value}
-                  onClick={() => setCategory(cat.value)}
-                  className="se-category-card group"
-                >
-                  <div
-                    className="se-category-card-icon"
-                    style={{ backgroundImage: cat.gradient }}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              {CATEGORIES.filter(cat => (countByCategory.get(cat.value) ?? 0) > 0 || !libraryQuery.data).map((cat) => {
+                const first = firstByCategory.get(cat.value)
+                const count = countByCategory.get(cat.value) ?? 0
+                return (
+                  <button
+                    key={cat.value}
+                    onClick={() => setCategory(cat.value)}
+                    className="group relative text-left rounded-xl overflow-hidden border border-white/10 bg-white/[0.03] hover:border-indigo-400/60 hover:bg-white/[0.06] transition-all hover:shadow-[0_0_25px_-5px_rgba(99,102,241,0.5)]"
                   >
-                    <cat.Icon className="h-7 w-7 text-white drop-shadow-sm" strokeWidth={1.75} />
-                  </div>
-                  <div className="se-category-card-title">{cat.label}</div>
-                  <div className="se-category-card-subtitle">{cat.subtitle}</div>
-                </button>
-              ))}
+                    <div className="relative">
+                      {first ? (
+                        <SectionThumb html={first.preview_html!} ratio={2} />
+                      ) : (
+                        <div className="aspect-[2/1] flex items-center justify-center" style={{ backgroundImage: cat.gradient }}>
+                          <cat.Icon className="h-8 w-8 text-white drop-shadow-sm" strokeWidth={1.75} />
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent pointer-events-none" />
+                    </div>
+                    <div className="px-3 py-2.5 flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 text-sm font-semibold text-white/96">
+                          <cat.Icon className="h-3.5 w-3.5 text-indigo-300 shrink-0" strokeWidth={2} />
+                          <span className="truncate">{cat.label}</span>
+                        </div>
+                        <div className="text-[11px] text-white/46 truncate">{cat.subtitle}</div>
+                      </div>
+                      {count > 0 && (
+                        <span className="shrink-0 text-[11px] font-medium text-indigo-300/80">
+                          {count} {t('ui:VisualEditor.layouts')}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                )
+              })}
             </div>
           ) : variantsQuery.isLoading ? (
             <div className="text-center text-white/46 py-12">
@@ -218,7 +265,7 @@ export default function VariantPickerModal({ open, mode, lockedCategory, onClose
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {filtered.map((v) => (
                 <button
                   key={v.id}
@@ -226,7 +273,11 @@ export default function VariantPickerModal({ open, mode, lockedCategory, onClose
                   className="se-picker-card"
                 >
                   <div className="se-picker-card-thumb">
-                    {v.svg_thumbnail ? (
+                    {v.preview_html ? (
+                      // Live render of the block's default state — what
+                      // the visitor will actually see (block model v2).
+                      <SectionThumb html={v.preview_html} ratio={1.6} className="rounded-lg" />
+                    ) : v.svg_thumbnail ? (
                       // Inline SVG schematic — hand-designed per variant,
                       // Liquid Glass palette. Self-contained (no remote
                       // refs). dangerouslySetInnerHTML is safe here:
@@ -247,7 +298,12 @@ export default function VariantPickerModal({ open, mode, lockedCategory, onClose
                       <span>{v.display_name}</span>
                     )}
                   </div>
-                  <div className="se-picker-card-title">{v.display_name}</div>
+                  <div className="se-picker-card-title flex items-center gap-2">
+                    <span>{v.display_name}</span>
+                    {(v.capabilities ?? []).some(c => c !== 'static') && (
+                      <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-200">{t('ui:VisualEditor.dynamic')}</span>
+                    )}
+                  </div>
                   {v.description && (
                     <div className="se-picker-card-desc">{v.description}</div>
                   )}
