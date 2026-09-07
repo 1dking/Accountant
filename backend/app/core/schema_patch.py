@@ -43,6 +43,20 @@ _ADDITIVE_COLUMNS: dict[str, dict[str, str]] = {
         # Back-link when a personal-tagged bank txn is copied to the Personal ledger.
         "matched_personal_transaction_id": "CHAR(32)",
     },
+    # Page builder block model v2 (alembic l0i1b2c3d4e5 on Postgres). All
+    # nullable/defaulted — the 18 v1 seeds keep working with NULLs.
+    "section_variants": {
+        "fields_schema": "JSON",
+        "data_source": "VARCHAR(32)",
+        "data_mode": "VARCHAR(16)",
+        "behaviour": "VARCHAR(64)",
+        "capabilities": "JSON",
+        "motion_preset": "VARCHAR(64)",
+        "locale_props": "JSON",
+        "thumbnail_hash": "VARCHAR(64)",
+        "thumbnail_rendered_at": "DATETIME",
+        "schema_version": "INTEGER NOT NULL DEFAULT 1",
+    },
     # Ties an auto-provisioned personal mirror account to its source bank account.
     "personal_accounts": {
         "external_key": "VARCHAR(255)",

@@ -152,11 +152,37 @@ async def publish_page_static(
     )
 
     public_base_url = settings.public_base_url or "https://accountant.ocidm.io"
+
+    # Tracking pixels, analytics beacon and website-level chrome. The
+    # legacy /public/view route has always emitted these; the static
+    # compiler didn't, so published pages shipped without GA/Meta pixels.
+    from app.pages import service as pages_service
+    website = None
+    if page.website_id:
+        try:
+            website = await pages_service.get_website(db, page.website_id)
+        except Exception:
+            website = None
+    extra_head = pages_service.build_tracking_head(page, website)
+    if website is not None and getattr(website, "global_css", None):
+        extra_head += f"\n<style>{website.global_css}</style>"
+    extra_body_start = pages_service.build_tracking_body_start(page, website)
+    if website is not None and getattr(website, "header_html", None):
+        extra_body_start += "\n" + website.header_html
+    extra_body_end = ""
+    if website is not None and getattr(website, "footer_html", None):
+        extra_body_end += website.footer_html + "\n"
+    extra_body_end += pages_service.build_tracking_body_end(page, website)
+    extra_body_end += "\n" + pages_service.build_analytics_script(str(page.id), public_base_url)
+
     html, content_hash = compile_and_hash(
         page,
         company_settings=company_settings,
         public_base_url=public_base_url,
         variant_animations=variant_animations,
+        extra_head=extra_head,
+        extra_body_start=extra_body_start,
+        extra_body_end=extra_body_end,
     )
 
     # Short-circuit: if compiled_html hash matches what we already have,

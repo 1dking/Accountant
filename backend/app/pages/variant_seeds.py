@@ -1463,11 +1463,62 @@ NAV_VARIANTS = [
 ]
 
 
+_VE_CATEGORY = {
+    "Hero": "hero", "Features": "features", "Pricing": "pricing",
+    "Testimonials": "testimonials", "CTA": "cta", "FAQ": "faq", "Team": "team",
+    "Stats": "stats", "Contact": "contact", "Footer": "footer",
+    "Gallery": "gallery", "Logos": "logos",
+}
+
+
+def visual_editor_variants() -> list[dict]:
+    """The 72 finished layouts that used to live only in the Visual tab
+    (`seeds/visual_editor_layouts.json`), tokenized into block-model-v2
+    seeds by `layout_tokenizer` at import time. Deterministic ids:
+    `var_ve_<sha1[:12]>` (id column is 32 chars) / `ve_<category>_<slug>`."""
+    import hashlib
+    import json
+    from pathlib import Path
+
+    from app.pages.layout_tokenizer import slugify, tokenize_layout
+
+    path = Path(__file__).with_name("seeds") / "visual_editor_layouts.json"
+    if not path.exists():
+        return []
+    layouts = json.loads(path.read_text(encoding="utf-8"))
+    out: list[dict] = []
+    per_cat: dict[str, int] = {}
+    for layout in layouts:
+        category = _VE_CATEGORY.get(layout["category"], layout["category"].lower())
+        slug = slugify(layout["name"])
+        variant_id = f"ve_{category}_{slug}"
+        digest = hashlib.sha1(variant_id.encode()).hexdigest()[:12]
+        per_cat[category] = per_cat.get(category, 0) + 1
+        template, props, schema = tokenize_layout(layout["html"])
+        out.append({
+            "id": f"var_ve_{digest}",
+            "category": category,
+            "variant_id": variant_id,
+            "display_name": layout["name"],
+            "description": f"{layout['name']} — {layout['category']} layout from the visual library.",
+            "sort_order": 200 + per_cat[category] * 10,
+            "default_animations": None,
+            "jsx_template": template,
+            "default_props": props,
+            "fields_schema": schema,
+            "schema_version": 2,
+            "capabilities": ["static"],
+        })
+    return out
+
+
 def all_variants() -> list[dict]:
     """All seed variants across categories. Commit 5 expands beyond
     Hero to flagships across all 12 categories. Commit 6 adds nav
-    as a 13th category."""
+    as a 13th category. Block model v2 (2026-09) folds in the 72
+    Visual-tab layouts via visual_editor_variants()."""
     return [
+        *visual_editor_variants(),
         *HERO_VARIANTS,
         *FEATURES_VARIANTS,
         *CTA_VARIANTS,

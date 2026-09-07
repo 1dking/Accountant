@@ -49,6 +49,7 @@ import SectionEditor, { type PageSection } from '@/components/pages/SectionEdito
 import AnalyticsDashboard from '@/components/pages/AnalyticsDashboard'
 import TrackingPixelsSettings from '@/components/pages/TrackingPixelsSettings'
 import PageAIGenerateModal from '@/components/pages/PageAIGenerateModal'
+import { useTranslation } from 'react-i18next'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -94,6 +95,21 @@ interface PageDetail extends PageItem {
   // discriminator: present → route Visual tab to SectionEditor;
   // absent → keep legacy VisualEditor for v1 pages.
   generation_session_id?: string | null
+}
+
+/** v2 discriminator: a page is section-based when sections_json holds at
+ *  least one section — whether it came from the AI pipeline, a template
+ *  composition or the block library (POST /sections). Block model v2
+ *  (2026-09) dropped the generation_session_id requirement so library-built
+ *  pages reach the SectionEditor (Fields / Change variant / animations). */
+function pageHasSections(detail?: { sections_json?: string | null } | null): boolean {
+  if (!detail?.sections_json) return false
+  try {
+    const parsed = JSON.parse(detail.sections_json)
+    return Array.isArray(parsed) && parsed.length > 0
+  } catch {
+    return false
+  }
 }
 
 interface PublishStaticResponse {
@@ -222,6 +238,7 @@ const RESPONSIVE_WIDTHS: Record<ResponsiveSize, string> = {
 // ---------------------------------------------------------------------------
 
 export default function PageBuilderPage() {
+  const { t: tr } = useTranslation('ui')
   const queryClient = useQueryClient()
   const { user } = useAuthStore()
   // AI page generation is a paid Gemini call — restricted to admin (cost
@@ -407,9 +424,9 @@ export default function PageBuilderPage() {
       }
       setShowCreatePage(false)
       setCreatePageTitle('')
-      toast.success('Page created')
+      toast.success(tr('ui:PageBuilderPage.pageCreated'))
     },
-    onError: () => toast.error('Failed to create page'),
+    onError: () => toast.error(tr('ui:PageBuilderPage.failedToCreatePage')),
   })
 
   const createWebsiteMutation = useMutation({
@@ -418,9 +435,9 @@ export default function PageBuilderPage() {
       queryClient.invalidateQueries({ queryKey: ['websites'] })
       setShowCreateWebsite(false)
       setCreateWebsiteName('')
-      toast.success('Website created')
+      toast.success(tr('ui:PageBuilderPage.websiteCreated'))
     },
-    onError: () => toast.error('Failed to create website'),
+    onError: () => toast.error(tr('ui:PageBuilderPage.failedToCreateWebsite')),
   })
 
   const updateMutation = useMutation({
@@ -450,9 +467,9 @@ export default function PageBuilderPage() {
       queryClient.invalidateQueries({ queryKey: ['pages'] })
       queryClient.invalidateQueries({ queryKey: ['page', selectedPageId] })
       if (data.was_unchanged) {
-        toast.success('No changes to publish — still live')
+        toast.success(tr('ui:PageBuilderPage.noChangesToPublishStill'))
       } else {
-        toast.success('Published! Page is live.')
+        toast.success(tr('ui:PageBuilderPage.publishedPageIsLive'))
       }
     },
     onError: (err: unknown) => {
@@ -469,9 +486,9 @@ export default function PageBuilderPage() {
       if (selectedWebsiteId) {
         queryClient.invalidateQueries({ queryKey: ['website-pages', selectedWebsiteId] })
       }
-      toast.success('Page deleted')
+      toast.success(tr('ui:PageBuilderPage.pageDeleted'))
     },
-    onError: () => toast.error('Failed to delete page'),
+    onError: () => toast.error(tr('ui:PageBuilderPage.failedToDeletePage')),
   })
 
   const deleteWebsiteMutation = useMutation({
@@ -479,9 +496,9 @@ export default function PageBuilderPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['websites'] })
       queryClient.invalidateQueries({ queryKey: ['pages'] })
-      toast.success('Website deleted')
+      toast.success(tr('ui:PageBuilderPage.websiteDeleted'))
     },
-    onError: () => toast.error('Failed to delete website'),
+    onError: () => toast.error(tr('ui:PageBuilderPage.failedToDeleteWebsite')),
   })
 
   const aiChatMutation = useMutation({
@@ -510,7 +527,7 @@ export default function PageBuilderPage() {
       queryClient.invalidateQueries({ queryKey: ['page', selectedPageId] })
     },
     onError: () => {
-      toast.error('AI chat failed')
+      toast.error(tr('ui:PageBuilderPage.aiChatFailed'))
       setChatMessages((prev) => prev.filter((m) => m.content !== '...'))
     },
   })
@@ -527,9 +544,9 @@ export default function PageBuilderPage() {
       setTemplateDesc('')
       setTemplateIndustry('')
       setTemplateType('')
-      toast.success('Template saved!')
+      toast.success(tr('ui:PageBuilderPage.templateSaved'))
     },
-    onError: () => toast.error('Failed to save template'),
+    onError: () => toast.error(tr('ui:PageBuilderPage.failedToSaveTemplate')),
   })
 
   const createFromTemplateMutation = useMutation({
@@ -550,18 +567,18 @@ export default function PageBuilderPage() {
         }
       }
       setShowTemplateBrowser(false)
-      toast.success('Page created from template')
+      toast.success(tr('ui:PageBuilderPage.pageCreatedFromTemplate'))
     },
-    onError: () => toast.error('Failed to create page from template'),
+    onError: () => toast.error(tr('ui:PageBuilderPage.failedToCreatePageFrom')),
   })
 
   const deleteTemplateMutation = useMutation({
     mutationFn: (id: string) => pagesApi.deleteTemplate(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['page-templates'] })
-      toast.success('Template deleted')
+      toast.success(tr('ui:PageBuilderPage.templateDeleted'))
     },
-    onError: () => toast.error('Failed to delete template'),
+    onError: () => toast.error(tr('ui:PageBuilderPage.failedToDeleteTemplate')),
   })
 
   const restoreVersionMutation = useMutation({
@@ -570,9 +587,9 @@ export default function PageBuilderPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['page', selectedPageId] })
       queryClient.invalidateQueries({ queryKey: ['page-versions', selectedPageId] })
-      toast.success('Version restored')
+      toast.success(tr('ui:PageBuilderPage.versionRestored'))
     },
-    onError: () => toast.error('Failed to restore version'),
+    onError: () => toast.error(tr('ui:PageBuilderPage.failedToRestoreVersion')),
   })
 
   const addDomainMutation = useMutation({
@@ -581,16 +598,16 @@ export default function PageBuilderPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['page-domains', selectedPageId] })
       setNewDomain('')
-      toast.success('Domain added')
+      toast.success(tr('ui:PageBuilderPage.domainAdded'))
     },
-    onError: () => toast.error('Failed to add domain'),
+    onError: () => toast.error(tr('ui:PageBuilderPage.failedToAddDomain')),
   })
 
   const verifyDomainMutation = useMutation({
     mutationFn: (domainId: string) => pagesApi.verifyDomain(domainId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['page-domains', selectedPageId] })
-      toast.success('Domain verification updated')
+      toast.success(tr('ui:PageBuilderPage.domainVerificationUpdated'))
     },
   })
 
@@ -598,7 +615,7 @@ export default function PageBuilderPage() {
     mutationFn: (domainId: string) => pagesApi.deleteDomain(domainId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['page-domains', selectedPageId] })
-      toast.success('Domain removed')
+      toast.success(tr('ui:PageBuilderPage.domainRemoved'))
     },
   })
 
@@ -609,9 +626,9 @@ export default function PageBuilderPage() {
       queryClient.invalidateQueries({ queryKey: ['split-tests', selectedPageId] })
       setShowCreateTest(false)
       setNewTestName('')
-      toast.success('Split test created')
+      toast.success(tr('ui:PageBuilderPage.splitTestCreated'))
     },
-    onError: () => toast.error('Failed to create split test'),
+    onError: () => toast.error(tr('ui:PageBuilderPage.failedToCreateSplitTest')),
   })
 
   const duplicateVariationMutation = useMutation({
@@ -619,7 +636,7 @@ export default function PageBuilderPage() {
       pagesApi.duplicateVariation(testId, pageId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['split-tests', selectedPageId] })
-      toast.success('Variation created')
+      toast.success(tr('ui:PageBuilderPage.variationCreated'))
     },
   })
 
@@ -627,7 +644,7 @@ export default function PageBuilderPage() {
     mutationFn: (testId: string) => pagesApi.startTest(testId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['split-tests', selectedPageId] })
-      toast.success('Test started')
+      toast.success(tr('ui:PageBuilderPage.testStarted'))
     },
   })
 
@@ -635,7 +652,7 @@ export default function PageBuilderPage() {
     mutationFn: (testId: string) => pagesApi.pauseTest(testId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['split-tests', selectedPageId] })
-      toast.success('Test paused')
+      toast.success(tr('ui:PageBuilderPage.testPaused'))
     },
   })
 
@@ -643,7 +660,7 @@ export default function PageBuilderPage() {
     mutationFn: (testId: string) => pagesApi.stopTest(testId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['split-tests', selectedPageId] })
-      toast.success('Test stopped')
+      toast.success(tr('ui:PageBuilderPage.testStopped'))
     },
   })
 
@@ -653,7 +670,7 @@ export default function PageBuilderPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['split-tests', selectedPageId] })
       queryClient.invalidateQueries({ queryKey: ['page', selectedPageId] })
-      toast.success('Winner declared!')
+      toast.success(tr('ui:PageBuilderPage.winnerDeclared'))
     },
   })
 
@@ -723,7 +740,7 @@ export default function PageBuilderPage() {
       setPublishedLinkCopied(true)
       setTimeout(() => setPublishedLinkCopied(false), 2000)
     } catch {
-      toast.error('Copy failed — your browser may have blocked clipboard access')
+      toast.error(tr('ui:PageBuilderPage.copyFailedYourBrowserMay'))
     }
   }
 
@@ -815,12 +832,12 @@ export default function PageBuilderPage() {
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Create New Page</h3>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{tr('ui:PageBuilderPage.createNewPage')}</h3>
             <button onClick={() => { setShowCreatePage(false); setCreatePageTitle('') }} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"><X className="h-5 w-5" /></button>
           </div>
           <input
             value={createPageTitle} onChange={(e) => setCreatePageTitle(e.target.value)}
-            placeholder="Page title" autoFocus
+            placeholder={tr('ui:PageBuilderPage.pageTitle')} autoFocus
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
             onKeyDown={(e) => { if (e.key === 'Enter' && createPageTitle.trim()) createPageMutation.mutate({ title: createPageTitle.trim() }) }}
           />
@@ -830,7 +847,7 @@ export default function PageBuilderPage() {
             className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
           >
             {createPageMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-            {createPageMutation.isPending ? 'Creating...' : 'Create Page'}
+            {createPageMutation.isPending ? tr('ui:PageBuilderPage.creating') : tr('ui:PageBuilderPage.createPage')}
           </button>
         </div>
       </div>
@@ -847,12 +864,12 @@ export default function PageBuilderPage() {
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Create New Website</h3>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{tr('ui:PageBuilderPage.createNewWebsite')}</h3>
             <button onClick={() => { setShowCreateWebsite(false); setCreateWebsiteName('') }} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"><X className="h-5 w-5" /></button>
           </div>
           <input
             value={createWebsiteName} onChange={(e) => setCreateWebsiteName(e.target.value)}
-            placeholder="Website name" autoFocus
+            placeholder={tr('ui:PageBuilderPage.websiteName')} autoFocus
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
             onKeyDown={(e) => { if (e.key === 'Enter' && createWebsiteName.trim()) createWebsiteMutation.mutate({ name: createWebsiteName.trim() }) }}
           />
@@ -862,7 +879,7 @@ export default function PageBuilderPage() {
             className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
           >
             {createWebsiteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />}
-            {createWebsiteMutation.isPending ? 'Creating...' : 'Create Website'}
+            {createWebsiteMutation.isPending ? tr('ui:PageBuilderPage.creating') : tr('ui:PageBuilderPage.createWebsite')}
           </button>
         </div>
       </div>
@@ -879,27 +896,27 @@ export default function PageBuilderPage() {
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Save as Template</h3>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{tr('ui:PageBuilderPage.saveAsTemplate')}</h3>
             <button onClick={() => setShowSaveTemplate(false)} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"><X className="h-5 w-5" /></button>
           </div>
           <div className="space-y-3">
-            <input value={templateName} onChange={(e) => setTemplateName(e.target.value)} placeholder="Template name" autoFocus
+            <input value={templateName} onChange={(e) => setTemplateName(e.target.value)} placeholder={tr('ui:PageBuilderPage.templateName')} autoFocus
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            <textarea value={templateDesc} onChange={(e) => setTemplateDesc(e.target.value)} placeholder="Description (optional)" rows={2}
+            <textarea value={templateDesc} onChange={(e) => setTemplateDesc(e.target.value)} placeholder={tr('ui:PageBuilderPage.descriptionOptional')} rows={2}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
             <div className="grid grid-cols-2 gap-3">
               <select value={templateIndustry} onChange={(e) => setTemplateIndustry(e.target.value)}
                 className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="">Industry...</option>
-                <option value="agency">Agency</option><option value="saas">SaaS</option><option value="restaurant">Restaurant</option>
-                <option value="real-estate">Real Estate</option><option value="healthcare">Healthcare</option><option value="portfolio">Portfolio</option>
-                <option value="ecommerce">E-Commerce</option><option value="events">Events</option><option value="professional">Professional Services</option>
+                <option value="">{tr('ui:PageBuilderPage.industry')}</option>
+                <option value="agency">{tr('ui:PageBuilderPage.agency')}</option><option value="saas">{tr('ui:PageBuilderPage.saas')}</option><option value="restaurant">{tr('ui:PageBuilderPage.restaurant')}</option>
+                <option value="real-estate">{tr('ui:PageBuilderPage.realEstate')}</option><option value="healthcare">{tr('ui:PageBuilderPage.healthcare')}</option><option value="portfolio">{tr('ui:PageBuilderPage.portfolio')}</option>
+                <option value="ecommerce">{tr('ui:PageBuilderPage.eCommerce')}</option><option value="events">{tr('ui:PageBuilderPage.events')}</option><option value="professional">{tr('ui:PageBuilderPage.professionalServices')}</option>
               </select>
               <select value={templateType} onChange={(e) => setTemplateType(e.target.value)}
                 className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="">Page type...</option>
-                <option value="landing">Landing Page</option><option value="homepage">Homepage</option><option value="about">About</option>
-                <option value="contact">Contact</option><option value="pricing">Pricing</option><option value="services">Services</option>
+                <option value="">{tr('ui:PageBuilderPage.pageType')}</option>
+                <option value="landing">{tr('ui:PageBuilderPage.landingPage')}</option><option value="homepage">{tr('ui:PageBuilderPage.homepage')}</option><option value="about">{tr('ui:PageBuilderPage.about')}</option>
+                <option value="contact">{tr('ui:PageBuilderPage.contact')}</option><option value="pricing">{tr('ui:PageBuilderPage.pricing')}</option><option value="services">{tr('ui:PageBuilderPage.services')}</option>
               </select>
             </div>
           </div>
@@ -912,7 +929,7 @@ export default function PageBuilderPage() {
             className="w-full mt-4 flex items-center justify-center gap-2 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
           >
             {saveTemplateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bookmark className="h-4 w-4" />}
-            {saveTemplateMutation.isPending ? 'Saving...' : 'Save Template'}
+            {saveTemplateMutation.isPending ? tr('ui:PageBuilderPage.saving') : tr('ui:PageBuilderPage.saveTemplate')}
           </button>
         </div>
       </div>
@@ -934,7 +951,7 @@ export default function PageBuilderPage() {
       const html = (res as any)?.data?.html_content || ''
       setPreviewTemplateHtml(html)
     } catch {
-      toast.error('Failed to load template preview')
+      toast.error(tr('ui:PageBuilderPage.failedToLoadTemplatePreview'))
       setPreviewTemplateId(null)
     } finally {
       setLoadingPreview(false)
@@ -960,7 +977,7 @@ export default function PageBuilderPage() {
               <button onClick={() => setPreviewTemplateId(null)} className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"><ArrowLeft className="h-4 w-4" /></button>
               <div>
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{previewTemplateName}</h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Template Preview</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{tr('ui:PageBuilderPage.templatePreview')}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -975,7 +992,7 @@ export default function PageBuilderPage() {
               <button onClick={() => { const tId = previewTemplateId; setPreviewTemplateId(null); const title = prompt('Page title:'); if (title?.trim()) createFromTemplateMutation.mutate({ templateId: tId, title: title.trim(), websiteId: selectedWebsiteId || undefined }) }}
                 disabled={createFromTemplateMutation.isPending}
                 className="flex items-center gap-1.5 bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition">
-                <Plus className="h-3.5 w-3.5" /> Use This Template
+                <Plus className="h-3.5 w-3.5" /> {tr('ui:PageBuilderPage.useThisTemplate')}
               </button>
               <button onClick={() => setPreviewTemplateId(null)} className="p-1.5 text-gray-400 hover:text-gray-600"><X className="h-5 w-5" /></button>
             </div>
@@ -985,7 +1002,7 @@ export default function PageBuilderPage() {
               <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 text-blue-500 animate-spin" /></div>
             ) : (
               <div style={{ width: previewWidth, maxWidth: '100%', transition: 'width 0.3s ease' }} className="h-full bg-white rounded-lg shadow-lg overflow-hidden">
-                <iframe srcDoc={previewSrc} className="w-full h-full border-0" sandbox="allow-scripts allow-same-origin allow-popups" title="Template preview" />
+                <iframe srcDoc={previewSrc} className="w-full h-full border-0" sandbox="allow-scripts allow-same-origin allow-popups" title={tr('ui:PageBuilderPage.templatePreview_2')} />
               </div>
             )}
           </div>
@@ -1019,18 +1036,18 @@ export default function PageBuilderPage() {
       <div className="p-4">
         <div className="flex items-start justify-between">
           <h4 className="font-semibold text-sm text-gray-900 dark:text-gray-100 truncate">{t.name}</h4>
-          <button onClick={(e) => { e.stopPropagation(); if (confirm('Delete template?')) deleteTemplateMutation.mutate(t.id) }}
+          <button onClick={(e) => { e.stopPropagation(); if (confirm(tr('ui:PageBuilderPage.deleteTemplate'))) deleteTemplateMutation.mutate(t.id) }}
             className="p-0.5 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition flex-shrink-0"><Trash2 className="h-3.5 w-3.5" /></button>
         </div>
         {t.description && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">{t.description}</p>}
         <div className="flex items-center gap-1.5 mt-2">
           {t.category_industry && <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full">{t.category_industry}</span>}
-          {t.scope === 'platform' && <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-full">Starter</span>}
+          {t.scope === 'platform' && <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-full">{tr('ui:PageBuilderPage.starter')}</span>}
         </div>
         <button onClick={() => { const title = prompt('Page title:'); if (title?.trim()) createFromTemplateMutation.mutate({ templateId: t.id, title: title.trim(), websiteId: selectedWebsiteId || undefined }) }}
           disabled={createFromTemplateMutation.isPending}
           className="w-full mt-3 flex items-center justify-center gap-1 bg-blue-600 text-white py-1.5 rounded-lg text-xs hover:bg-blue-700 disabled:opacity-50 transition">
-          <Plus className="h-3 w-3" /> Use Template
+          <Plus className="h-3 w-3" /> {tr('ui:PageBuilderPage.useTemplate')}
         </button>
       </div>
     </div>
@@ -1054,20 +1071,20 @@ export default function PageBuilderPage() {
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-5xl max-h-[85vh] flex flex-col">
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Template Library</h3>
-              <p className="text-xs text-gray-500 mt-0.5">{templates.length} premium templates</p>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{tr('ui:PageBuilderPage.templateLibrary')}</h3>
+              <p className="text-xs text-gray-500 mt-0.5">{templates.length} {tr('ui:PageBuilderPage.premiumTemplates')}</p>
             </div>
             <button onClick={() => { setShowTemplateBrowser(false); setTemplateSearch(''); setTemplateFilterIndustry('') }} className="p-1 text-gray-400 hover:text-gray-600"><X className="h-5 w-5" /></button>
           </div>
           <div className="flex items-center gap-3 px-6 py-3 border-b border-gray-200 dark:border-gray-700">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input value={templateSearch} onChange={(e) => setTemplateSearch(e.target.value)} placeholder="Search templates..."
+              <input value={templateSearch} onChange={(e) => setTemplateSearch(e.target.value)} placeholder={tr('ui:PageBuilderPage.searchTemplates')}
                 className="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
             </div>
             <div className="flex gap-1 flex-wrap">
               <button onClick={() => setTemplateFilterIndustry('')}
-                className={`px-2.5 py-1 rounded-full text-xs font-medium transition ${!templateFilterIndustry ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200'}`}>All</button>
+                className={`px-2.5 py-1 rounded-full text-xs font-medium transition ${!templateFilterIndustry ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200'}`}>{tr('ui:PageBuilderPage.all')}</button>
               {availableIndustries.sort().map((ind) => (
                 <button key={ind} onClick={() => setTemplateFilterIndustry(ind === templateFilterIndustry ? '' : ind!)}
                   className={`px-2.5 py-1 rounded-full text-xs font-medium transition ${templateFilterIndustry === ind ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200'}`}>{INDUSTRY_LABELS[ind!] || ind}</button>
@@ -1076,7 +1093,7 @@ export default function PageBuilderPage() {
           </div>
           <div className="flex-1 overflow-y-auto p-6 space-y-8">
             {filtered.length === 0 ? (
-              <div className="text-center py-12 text-gray-400"><LayoutTemplate className="h-10 w-10 mx-auto mb-3 opacity-40" /><p className="text-sm">No templates found</p></div>
+              <div className="text-center py-12 text-gray-400"><LayoutTemplate className="h-10 w-10 mx-auto mb-3 opacity-40" /><p className="text-sm">{tr('ui:PageBuilderPage.noTemplatesFound')}</p></div>
             ) : templateFilterIndustry ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">{filtered.map((t) => renderTemplateCard(t))}</div>
             ) : (
@@ -1118,47 +1135,47 @@ export default function PageBuilderPage() {
             setSelectedPageId(pageId)
             setView('edit')
             queryClient.invalidateQueries({ queryKey: ['pages'] })
-            toast.success('Page generated — opening editor')
+            toast.success(tr('ui:PageBuilderPage.pageGeneratedOpeningEditor'))
           }}
         />
 
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Page Builder</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{tr('ui:PageBuilderPage.pageBuilder')}</h1>
             <p className="text-gray-500 dark:text-gray-400 mt-1">
-              {isAdmin ? 'Build websites and landing pages with AI' : 'Build websites and landing pages from templates'}
+              {isAdmin ? tr('ui:PageBuilderPage.buildWebsitesAndLandingPages') : tr('ui:PageBuilderPage.buildWebsitesAndLandingPages_2')}
             </p>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => setShowTemplateBrowser(true)} className="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition">
-              <LayoutTemplate className="h-4 w-4" /> From Template
+              <LayoutTemplate className="h-4 w-4" /> {tr('ui:PageBuilderPage.fromTemplate')}
             </button>
             <button onClick={() => setShowCreateWebsite(true)} className="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition">
-              <Globe className="h-4 w-4" /> New Website
+              <Globe className="h-4 w-4" /> {tr('ui:PageBuilderPage.newWebsite')}
             </button>
             {isAdmin && (
               <button
                 onClick={() => setShowAIGenerate(true)}
                 className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-4 py-2 rounded-lg transition shadow-md"
               >
-                <Sparkles className="h-4 w-4" /> Generate with AI
+                <Sparkles className="h-4 w-4" /> {tr('ui:PageBuilderPage.generateWithAi')}
               </button>
             )}
             <button onClick={() => setShowCreatePage(true)} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
-              <Plus className="h-4 w-4" /> New Page
+              <Plus className="h-4 w-4" /> {tr('ui:PageBuilderPage.newPage')}
             </button>
           </div>
         </div>
 
         {/* Websites */}
         <div className="mb-10">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2"><Globe className="h-5 w-5 text-blue-500" /> Websites</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2"><Globe className="h-5 w-5 text-blue-500" /> {tr('ui:PageBuilderPage.websites')}</h2>
           {websitesLoading ? (
-            <div className="flex items-center gap-2 text-gray-400 py-8"><Loader2 className="h-5 w-5 animate-spin" /> Loading...</div>
+            <div className="flex items-center gap-2 text-gray-400 py-8"><Loader2 className="h-5 w-5 animate-spin" /> {tr('ui:PageBuilderPage.loading')}</div>
           ) : websites.length === 0 ? (
             <div className="text-center py-12 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-dashed border-gray-300 dark:border-gray-700">
               <Globe className="h-10 w-10 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
-              <p className="text-gray-500 dark:text-gray-400">No websites yet.</p>
+              <p className="text-gray-500 dark:text-gray-400">{tr('ui:PageBuilderPage.noWebsitesYet')}</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1166,11 +1183,11 @@ export default function PageBuilderPage() {
                 <div key={ws.id} onClick={() => openWebsite(ws)} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 hover:shadow-md transition cursor-pointer group">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-2"><Globe className="h-5 w-5 text-blue-500" /><h3 className="font-semibold text-gray-900 dark:text-gray-100">{ws.name}</h3></div>
-                    <button onClick={(e) => { e.stopPropagation(); if (confirm('Delete this website?')) deleteWebsiteMutation.mutate(ws.id) }} className="p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"><Trash2 className="h-4 w-4" /></button>
+                    <button onClick={(e) => { e.stopPropagation(); if (confirm(tr('ui:PageBuilderPage.deleteThisWebsite'))) deleteWebsiteMutation.mutate(ws.id) }} className="p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"><Trash2 className="h-4 w-4" /></button>
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-500">{ws.page_count} {ws.page_count === 1 ? 'page' : 'pages'}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ws.is_published ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'}`}>{ws.is_published ? 'Published' : 'Draft'}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ws.is_published ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'}`}>{ws.is_published ? tr('ui:PageBuilderPage.published') : tr('ui:PageBuilderPage.draft')}</span>
                   </div>
                 </div>
               ))}
@@ -1180,13 +1197,13 @@ export default function PageBuilderPage() {
 
         {/* Standalone Pages */}
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2"><FileText className="h-5 w-5 text-purple-500" /> Standalone Pages</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2"><FileText className="h-5 w-5 text-purple-500" /> {tr('ui:PageBuilderPage.standalonePages')}</h2>
           {pagesLoading ? (
-            <div className="flex items-center gap-2 text-gray-400 py-8"><Loader2 className="h-5 w-5 animate-spin" /> Loading...</div>
+            <div className="flex items-center gap-2 text-gray-400 py-8"><Loader2 className="h-5 w-5 animate-spin" /> {tr('ui:PageBuilderPage.loading')}</div>
           ) : standalonePages.length === 0 ? (
             <div className="text-center py-12 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-dashed border-gray-300 dark:border-gray-700">
               <FileText className="h-10 w-10 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
-              <p className="text-gray-500 dark:text-gray-400">No standalone pages yet.</p>
+              <p className="text-gray-500 dark:text-gray-400">{tr('ui:PageBuilderPage.noStandalonePagesYet')}</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1194,7 +1211,7 @@ export default function PageBuilderPage() {
                 <div key={p.id} onClick={() => openPage(p)} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 hover:shadow-md transition cursor-pointer group">
                   <div className="flex items-start justify-between mb-3">
                     <h3 className="font-semibold text-gray-900 dark:text-gray-100">{p.title}</h3>
-                    <button onClick={(e) => { e.stopPropagation(); if (confirm('Delete this page?')) deletePageMutation.mutate(p.id) }} className="p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"><Trash2 className="h-4 w-4" /></button>
+                    <button onClick={(e) => { e.stopPropagation(); if (confirm(tr('ui:PageBuilderPage.deleteThisPage'))) deletePageMutation.mutate(p.id) }} className="p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"><Trash2 className="h-4 w-4" /></button>
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-500">/{p.slug}</span>
@@ -1224,18 +1241,18 @@ export default function PageBuilderPage() {
     return (
       <div className="w-[200px] flex-shrink-0 border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex flex-col overflow-hidden">
         <div className="p-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Pages</span>
+          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{tr('ui:PageBuilderPage.pages')}</span>
           <button onClick={() => { if (!selectedWebsiteId) return; const title = prompt('New page title:'); if (title?.trim()) createPageMutation.mutate({ title: title.trim(), website_id: selectedWebsiteId }) }}
-            className="p-1 text-gray-400 hover:text-blue-500 transition" title="Add page"><Plus className="h-4 w-4" /></button>
+            className="p-1 text-gray-400 hover:text-blue-500 transition" title={tr('ui:PageBuilderPage.addPage')}><Plus className="h-4 w-4" /></button>
         </div>
         <div className="flex-1 overflow-y-auto p-2 space-y-1">
           {websitePages.length === 0 ? (
-            <p className="text-xs text-gray-400 text-center py-4">No pages yet</p>
+            <p className="text-xs text-gray-400 text-center py-4">{tr('ui:PageBuilderPage.noPagesYet')}</p>
           ) : websitePages.map((wp) => (
             <button key={wp.id} onClick={() => setSelectedPageId(wp.id)}
               className={`w-full text-left px-3 py-2 rounded-lg text-sm transition truncate ${wp.id === selectedPageId ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
               <div className="flex items-center gap-2"><FileText className="h-3.5 w-3.5 flex-shrink-0" /><span className="truncate">{wp.title}</span></div>
-              {wp.is_homepage && <span className="text-[10px] text-blue-500 ml-5">Home</span>}
+              {wp.is_homepage && <span className="text-[10px] text-blue-500 ml-5">{tr('ui:PageBuilderPage.home')}</span>}
             </button>
           ))}
         </div>
@@ -1258,10 +1275,10 @@ export default function PageBuilderPage() {
         <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">O-Brain</span>
         {aiChatMutation.isPending && (
           <span className="ml-auto flex items-center gap-1 text-xs text-purple-500">
-            <Loader2 className="h-3 w-3 animate-spin" /> Generating...
+            <Loader2 className="h-3 w-3 animate-spin" /> {tr('ui:PageBuilderPage.generating')}
           </span>
         )}
-        <button onClick={() => setChatCollapsed(true)} className="ml-auto p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition" title="Collapse chat">
+        <button onClick={() => setChatCollapsed(true)} className="ml-auto p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition" title={tr('ui:PageBuilderPage.collapseChat')}>
           <PanelLeftClose className="h-4 w-4" />
         </button>
       </div>
@@ -1271,8 +1288,8 @@ export default function PageBuilderPage() {
         {chatMessages.length === 0 && !aiChatMutation.isPending && (
           <div className="text-center py-12 text-gray-400 dark:text-gray-500">
             <Brain className="h-10 w-10 mx-auto mb-3 opacity-40" />
-            <p className="text-sm">Tell O-Brain what you want to build.</p>
-            <p className="text-xs mt-1">Your page will appear in the preview panel.</p>
+            <p className="text-sm">{tr('ui:PageBuilderPage.tellOBrainWhatYou')}</p>
+            <p className="text-xs mt-1">{tr('ui:PageBuilderPage.yourPageWillAppearIn')}</p>
           </div>
         )}
         {chatMessages.map((msg, i) => (
@@ -1286,7 +1303,7 @@ export default function PageBuilderPage() {
         {aiChatMutation.isPending && (
           <div className="flex justify-start">
             <div className="bg-gray-100 dark:bg-gray-800 rounded-2xl rounded-bl-md px-4 py-2.5 text-sm text-gray-500 flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin" /> Generating...
+              <Loader2 className="h-4 w-4 animate-spin" /> {tr('ui:PageBuilderPage.generating')}
             </div>
           </div>
         )}
@@ -1297,7 +1314,7 @@ export default function PageBuilderPage() {
       <div className="p-3 border-t border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="flex gap-2">
           <textarea value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyDown={handleChatKeyDown}
-            placeholder="Tell O-Brain what you want..." rows={2}
+            placeholder={tr('ui:PageBuilderPage.tellOBrainWhatYou_2')} rows={2}
             className="flex-1 min-w-0 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-purple-500" />
           <button onClick={handleSendChat} disabled={!chatInput.trim() || aiChatMutation.isPending || !selectedPageId}
             className="self-end flex-shrink-0 p-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 transition">
@@ -1319,14 +1336,14 @@ export default function PageBuilderPage() {
       <div className="h-full overflow-y-auto p-6 space-y-8">
         {/* Auto-publish toggle */}
         <div>
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Publishing</h3>
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">{tr('ui:PageBuilderPage.publishing')}</h3>
           <label className="flex items-center gap-3 cursor-pointer">
             <input type="checkbox" checked={detail?.auto_publish || false}
               onChange={(e) => updateMutation.mutate({ id: selectedPageId, data: { auto_publish: e.target.checked } })}
               className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
             <div>
-              <p className="text-sm text-gray-900 dark:text-gray-100">Auto-publish changes</p>
-              <p className="text-xs text-gray-500">Changes will go live immediately. Recommended only for low-traffic sites.</p>
+              <p className="text-sm text-gray-900 dark:text-gray-100">{tr('ui:PageBuilderPage.autoPublishChanges')}</p>
+              <p className="text-xs text-gray-500">{tr('ui:PageBuilderPage.changesWillGoLiveImmediately')}</p>
             </div>
           </label>
         </div>
@@ -1334,28 +1351,28 @@ export default function PageBuilderPage() {
         {/* Version History */}
         <div>
           <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
-            <History className="h-4 w-4" /> Version History
+            <History className="h-4 w-4" /> {tr('ui:PageBuilderPage.versionHistory')}
           </h3>
           {versions.length === 0 ? (
-            <p className="text-sm text-gray-400">No versions yet.</p>
+            <p className="text-sm text-gray-400">{tr('ui:PageBuilderPage.noVersionsYet')}</p>
           ) : (
             <div className="space-y-2 max-h-60 overflow-y-auto">
               {versions.slice(0, 50).map((v) => (
                 <div key={v.id} className="flex items-center justify-between py-2 px-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                   <div>
                     <p className="text-sm font-medium text-gray-900 dark:text-gray-100">v{v.version_number}</p>
-                    <p className="text-xs text-gray-500">{v.change_summary || 'No summary'}</p>
+                    <p className="text-xs text-gray-500">{v.change_summary || tr('ui:PageBuilderPage.noSummary')}</p>
                     <p className="text-[10px] text-gray-400">{new Date(v.created_at).toLocaleString()}</p>
                   </div>
                   <div className="flex items-center gap-1">
                     {v.html_content && (
                       <button onClick={() => { setCompareVersionId(v.id); setCompareHtml(v.html_content || '') }}
-                        className="p-1 text-gray-400 hover:text-blue-500 transition" title="Compare">
+                        className="p-1 text-gray-400 hover:text-blue-500 transition" title={tr('ui:PageBuilderPage.compare')}>
                         <Columns2 className="h-3.5 w-3.5" />
                       </button>
                     )}
-                    <button onClick={() => { if (confirm(`Restore to v${v.version_number}?`)) restoreVersionMutation.mutate({ pageId: selectedPageId, versionId: v.id }) }}
-                      className="p-1 text-gray-400 hover:text-green-500 transition" title="Restore">
+                    <button onClick={() => { if (confirm(tr('ui:PageBuilderPage.restoreToVVersionNumber', { version_number: v.version_number }))) restoreVersionMutation.mutate({ pageId: selectedPageId, versionId: v.id }) }}
+                      className="p-1 text-gray-400 hover:text-green-500 transition" title={tr('ui:PageBuilderPage.restore')}>
                       <RotateCcw className="h-3.5 w-3.5" />
                     </button>
                   </div>
@@ -1368,7 +1385,7 @@ export default function PageBuilderPage() {
         {/* Custom Domains */}
         <div>
           <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
-            <Link className="h-4 w-4" /> Custom Domain
+            <Link className="h-4 w-4" /> {tr('ui:PageBuilderPage.customDomain')}
           </h3>
           {domains.map((d) => (
             <div key={d.id} className="flex items-center justify-between py-2 px-3 bg-gray-50 dark:bg-gray-800 rounded-lg mb-2">
@@ -1376,17 +1393,17 @@ export default function PageBuilderPage() {
                 <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{d.domain}</p>
                 <div className="flex items-center gap-2 mt-1">
                   {d.dns_verified ? (
-                    <span className="flex items-center gap-1 text-xs text-green-600"><Shield className="h-3 w-3" /> Connected {d.ssl_status === 'active' ? '(SSL Active)' : ''}</span>
+                    <span className="flex items-center gap-1 text-xs text-green-600"><Shield className="h-3 w-3" /> {tr('ui:PageBuilderPage.connected')} {d.ssl_status === 'active' ? tr('ui:PageBuilderPage.sslActive') : ''}</span>
                   ) : (
-                    <span className="flex items-center gap-1 text-xs text-amber-600"><Clock className="h-3 w-3" /> Pending DNS</span>
+                    <span className="flex items-center gap-1 text-xs text-amber-600"><Clock className="h-3 w-3" /> {tr('ui:PageBuilderPage.pendingDns')}</span>
                   )}
                 </div>
                 {!d.dns_verified && d.dns_target && (
                   <div className="mt-2 p-2 bg-gray-100 dark:bg-gray-900 rounded text-xs">
-                    <p className="font-medium text-gray-700 dark:text-gray-300">Add this {d.dns_record_type} record:</p>
+                    <p className="font-medium text-gray-700 dark:text-gray-300">{tr('ui:PageBuilderPage.addThis')} {d.dns_record_type} {tr('ui:PageBuilderPage.record')}</p>
                     <div className="flex items-center gap-2 mt-1">
                       <code className="text-purple-600 dark:text-purple-400">{d.dns_target}</code>
-                      <button onClick={() => { navigator.clipboard.writeText(d.dns_target || ''); toast.success('Copied!') }} className="p-0.5 text-gray-400 hover:text-blue-500"><Copy className="h-3 w-3" /></button>
+                      <button onClick={() => { navigator.clipboard.writeText(d.dns_target || ''); toast.success(tr('ui:PageBuilderPage.copied')) }} className="p-0.5 text-gray-400 hover:text-blue-500"><Copy className="h-3 w-3" /></button>
                     </div>
                   </div>
                 )}
@@ -1394,27 +1411,27 @@ export default function PageBuilderPage() {
               <div className="flex items-center gap-1">
                 {!d.dns_verified && (
                   <button onClick={() => verifyDomainMutation.mutate(d.id)} disabled={verifyDomainMutation.isPending}
-                    className="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">Verify</button>
+                    className="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">{tr('ui:PageBuilderPage.verify')}</button>
                 )}
-                <button onClick={() => { if (confirm('Remove this domain?')) deleteDomainMutation.mutate(d.id) }}
+                <button onClick={() => { if (confirm(tr('ui:PageBuilderPage.removeThisDomain'))) deleteDomainMutation.mutate(d.id) }}
                   className="p-1 text-gray-400 hover:text-red-500"><Trash2 className="h-3.5 w-3.5" /></button>
               </div>
             </div>
           ))}
           <div className="flex gap-2 mt-2">
-            <input value={newDomain} onChange={(e) => setNewDomain(e.target.value)} placeholder="www.yourdomain.com"
+            <input value={newDomain} onChange={(e) => setNewDomain(e.target.value)} placeholder={tr('ui:PageBuilderPage.wwwYourdomainCom')}
               className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
               onKeyDown={(e) => { if (e.key === 'Enter' && newDomain.trim()) addDomainMutation.mutate({ pageId: selectedPageId, domain: newDomain.trim() }) }} />
             <button onClick={() => { if (newDomain.trim()) addDomainMutation.mutate({ pageId: selectedPageId, domain: newDomain.trim() }) }}
               disabled={!newDomain.trim() || addDomainMutation.isPending}
-              className="px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50 transition">Add</button>
+              className="px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50 transition">{tr('ui:PageBuilderPage.add')}</button>
           </div>
         </div>
 
         {/* Split Testing */}
         <div>
           <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
-            <FlaskConical className="h-4 w-4" /> Split Testing
+            <FlaskConical className="h-4 w-4" /> {tr('ui:PageBuilderPage.splitTesting')}
           </h3>
           {splitTests.map((test) => (
             <div key={test.id} className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg mb-3">
@@ -1432,7 +1449,7 @@ export default function PageBuilderPage() {
                   {test.status === 'draft' && (
                     <>
                       <button onClick={() => duplicateVariationMutation.mutate({ testId: test.id, pageId: selectedPageId })}
-                        className="text-[10px] px-1.5 py-0.5 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded hover:bg-gray-300 transition">+ Variation</button>
+                        className="text-[10px] px-1.5 py-0.5 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded hover:bg-gray-300 transition">{tr('ui:PageBuilderPage.variation')}</button>
                       <button onClick={() => startTestMutation.mutate(test.id)} className="p-1 text-green-500 hover:text-green-600"><Play className="h-3.5 w-3.5" /></button>
                     </>
                   )}
@@ -1451,7 +1468,7 @@ export default function PageBuilderPage() {
               {test.variations.length > 0 && (
                 <div className="text-xs">
                   <div className="grid grid-cols-5 gap-2 text-gray-500 mb-1 font-medium">
-                    <span>Variation</span><span>Traffic</span><span>Visitors</span><span>Conv.</span><span>Rate</span>
+                    <span>{tr('ui:PageBuilderPage.variation_2')}</span><span>{tr('ui:PageBuilderPage.traffic')}</span><span>{tr('ui:PageBuilderPage.visitors')}</span><span>{tr('ui:PageBuilderPage.conv')}</span><span>{tr('ui:PageBuilderPage.rate')}</span>
                   </div>
                   {test.variations.map((v) => {
                     const rate = v.visitors > 0 ? ((v.conversions / v.visitors) * 100).toFixed(1) : '0.0'
@@ -1465,7 +1482,7 @@ export default function PageBuilderPage() {
                           <span>{rate}%</span>
                           {(test.status === 'running' || test.status === 'completed') && !test.winner_variation_id && (
                             <button onClick={() => declareWinnerMutation.mutate({ testId: test.id, variationId: v.id })}
-                              className="p-0.5 text-amber-500 hover:text-amber-600" title="Declare winner"><Trophy className="h-3 w-3" /></button>
+                              className="p-0.5 text-amber-500 hover:text-amber-600" title={tr('ui:PageBuilderPage.declareWinner')}><Trophy className="h-3 w-3" /></button>
                           )}
                           {test.winner_variation_id === v.id && <Trophy className="h-3 w-3 text-amber-500" />}
                         </div>
@@ -1478,15 +1495,15 @@ export default function PageBuilderPage() {
           ))}
           <button onClick={() => setShowCreateTest(true)}
             className="flex items-center gap-1.5 text-xs text-purple-600 hover:text-purple-700 font-medium">
-            <Plus className="h-3.5 w-3.5" /> New Split Test
+            <Plus className="h-3.5 w-3.5" /> {tr('ui:PageBuilderPage.newSplitTest')}
           </button>
           {showCreateTest && (
             <div className="mt-2 flex gap-2">
-              <input value={newTestName} onChange={(e) => setNewTestName(e.target.value)} placeholder="Test name"
+              <input value={newTestName} onChange={(e) => setNewTestName(e.target.value)} placeholder={tr('ui:PageBuilderPage.testName')}
                 className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
                 onKeyDown={(e) => { if (e.key === 'Enter' && newTestName.trim()) createSplitTestMutation.mutate({ pageId: selectedPageId, name: newTestName.trim() }) }} />
               <button onClick={() => { if (newTestName.trim()) createSplitTestMutation.mutate({ pageId: selectedPageId, name: newTestName.trim() }) }}
-                disabled={!newTestName.trim()} className="px-3 py-2 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 disabled:opacity-50">Create</button>
+                disabled={!newTestName.trim()} className="px-3 py-2 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 disabled:opacity-50">{tr('ui:PageBuilderPage.create')}</button>
               <button onClick={() => { setShowCreateTest(false); setNewTestName('') }} className="p-2 text-gray-400 hover:text-gray-600"><X className="h-4 w-4" /></button>
             </div>
           )}
@@ -1518,17 +1535,17 @@ export default function PageBuilderPage() {
       <div className="fixed inset-0 z-[60] flex bg-black/70 p-4">
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full flex flex-col">
           <div className="flex items-center justify-between px-6 py-3 border-b border-gray-200 dark:border-gray-700 shrink-0">
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Compare: Current vs Selected Version</h3>
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{tr('ui:PageBuilderPage.compareCurrentVsSelectedVersion')}</h3>
             <button onClick={() => setCompareVersionId(null)} className="p-1.5 text-gray-400 hover:text-gray-600"><X className="h-5 w-5" /></button>
           </div>
           <div className="flex-1 flex gap-4 p-4 overflow-hidden">
             <div className="flex-1 flex flex-col">
-              <p className="text-xs font-medium text-gray-500 mb-2">Current Draft</p>
-              <iframe srcDoc={previewSrcDoc} className="flex-1 w-full border border-gray-200 dark:border-gray-700 rounded-lg" sandbox="allow-scripts allow-same-origin" title="Current" />
+              <p className="text-xs font-medium text-gray-500 mb-2">{tr('ui:PageBuilderPage.currentDraft')}</p>
+              <iframe srcDoc={previewSrcDoc} className="flex-1 w-full border border-gray-200 dark:border-gray-700 rounded-lg" sandbox="allow-scripts allow-same-origin" title={tr('ui:PageBuilderPage.current')} />
             </div>
             <div className="flex-1 flex flex-col">
-              <p className="text-xs font-medium text-gray-500 mb-2">Selected Version</p>
-              <iframe srcDoc={compareSrc} className="flex-1 w-full border border-gray-200 dark:border-gray-700 rounded-lg" sandbox="allow-scripts allow-same-origin" title="Version" />
+              <p className="text-xs font-medium text-gray-500 mb-2">{tr('ui:PageBuilderPage.selectedVersion')}</p>
+              <iframe srcDoc={compareSrc} className="flex-1 w-full border border-gray-200 dark:border-gray-700 rounded-lg" sandbox="allow-scripts allow-same-origin" title={tr('ui:PageBuilderPage.version')} />
             </div>
           </div>
         </div>
@@ -1546,12 +1563,12 @@ export default function PageBuilderPage() {
       <div className="flex items-center border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2 shrink-0">
         {(
           [
-            { key: 'preview', label: 'Preview', icon: Eye },
-            { key: 'visual', label: 'Visual', icon: Paintbrush },
+            { key: 'preview', label: tr('ui:PageBuilderPage.preview'), icon: Eye },
+            { key: 'visual', label: tr('ui:PageBuilderPage.visual'), icon: Paintbrush },
             { key: 'html', label: 'HTML', icon: Code },
             { key: 'css', label: 'CSS', icon: Code },
-            { key: 'analytics', label: 'Analytics', icon: BarChart3 },
-            { key: 'settings', label: 'Settings', icon: Settings },
+            { key: 'analytics', label: tr('ui:PageBuilderPage.analytics'), icon: BarChart3 },
+            { key: 'settings', label: tr('ui:PageBuilderPage.settings'), icon: Settings },
           ] as { key: EditorTab; label: string; icon: typeof Eye }[]
         ).map(({ key, label, icon: Icon }) => (
           <button key={key} onClick={() => setActiveTab(key)}
@@ -1581,7 +1598,7 @@ export default function PageBuilderPage() {
               {pageDetailLoading ? (
                 <div className="flex items-center justify-center h-full text-gray-400"><Loader2 className="h-6 w-6 animate-spin" /></div>
               ) : (
-                <iframe srcDoc={previewSrcDoc} className="w-full h-full border-0" title="Page preview"
+                <iframe srcDoc={previewSrcDoc} className="w-full h-full border-0" title={tr('ui:PageBuilderPage.pagePreview')}
                   sandbox="allow-scripts allow-same-origin allow-popups" style={{ display: 'block' }} />
               )}
             </div>
@@ -1593,11 +1610,11 @@ export default function PageBuilderPage() {
           // Single source of truth: writes structured edits back to
           // sections_json via PATCH endpoints. Closes bug #10's
           // architecture mismatch where edits went to opaque html_content.
-          // Legacy v1 pages (no generation_session_id) → existing
-          // VisualEditor (iframe-of-the-whole-page editor), rendered
-          // outside this branch (see below) so switching tabs doesn't
-          // unmount it and lose its undo/redo history.
-          const isV2 = !!detail?.generation_session_id && !!detail?.sections_json
+          // Legacy v1 pages (no sections) → existing VisualEditor
+          // (iframe-of-the-whole-page editor), rendered outside this
+          // branch (see below) so switching tabs doesn't unmount it and
+          // lose its undo/redo history.
+          const isV2 = pageHasSections(detail)
           if (isV2 && detail && selectedPageId) {
             let parsed: PageSection[] = []
             try {
@@ -1622,7 +1639,7 @@ export default function PageBuilderPage() {
         {/* Kept mounted across tab switches (display:none when inactive) —
             VisualEditor owns its undo/redo stack in local state; unmounting
             it on every tab switch silently wiped that history. */}
-        {!(!!detail?.generation_session_id && !!detail?.sections_json) && (
+        {!pageHasSections(detail) && (
           <div style={{ display: activeTab === 'visual' ? 'block' : 'none' }} className="h-full">
             <VisualEditor html={editHtml} css={editCss} onHtmlChange={handleHtmlChange} onCssChange={handleCssChange}
               onVideoUpload={async (file: File) => { const res = await pagesApi.uploadVideo(file); return unwrap<{ mp4_url: string; webm_url: string; poster_url: string }>(res) }} />
@@ -1636,7 +1653,7 @@ export default function PageBuilderPage() {
             </div>
             <textarea value={editHtml} onChange={(e) => handleHtmlChange(e.target.value)}
               className="flex-1 w-full p-4 font-mono text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 resize-none focus:outline-none leading-relaxed"
-              spellCheck={false} placeholder="<div>Your HTML content here...</div>" />
+              spellCheck={false} placeholder={tr('ui:PageBuilderPage.divYourHtmlContentHere')} />
           </div>
         )}
 
@@ -1647,7 +1664,7 @@ export default function PageBuilderPage() {
             </div>
             <textarea value={editCss} onChange={(e) => handleCssChange(e.target.value)}
               className="flex-1 w-full p-4 font-mono text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 resize-none focus:outline-none leading-relaxed"
-              spellCheck={false} placeholder="body { font-family: sans-serif; }" />
+              spellCheck={false} placeholder={tr('ui:PageBuilderPage.bodyFontFamilySansSerif')} />
           </div>
         )}
 
@@ -1671,7 +1688,7 @@ export default function PageBuilderPage() {
           <ArrowLeft className="h-5 w-5" />
         </button>
         <h2 className="font-semibold text-gray-900 dark:text-gray-100 truncate">
-          {pageDetailLoading ? 'Loading...' : detail?.title || 'Select a page'}
+          {pageDetailLoading ? tr('ui:PageBuilderPage.loading') : detail?.title || tr('ui:PageBuilderPage.selectAPage')}
         </h2>
         {detail && (
           <span className={`flex-shrink-0 text-xs px-2 py-0.5 rounded-full font-medium ${detail.status === 'published' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'}`}>
@@ -1681,20 +1698,20 @@ export default function PageBuilderPage() {
         {/* Draft saved indicator */}
         {draftSaved && (
           <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
-            <Check className="h-3 w-3" /> Draft saved
+            <Check className="h-3 w-3" /> {tr('ui:PageBuilderPage.draftSaved')}
           </span>
         )}
       </div>
       <div className="flex items-center gap-2 flex-shrink-0">
         <button onClick={() => setShowSaveTemplate(true)} disabled={!selectedPageId}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 transition" title="Save as Template">
-          <Bookmark className="h-4 w-4" /> Template
+          className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 transition" title={tr('ui:PageBuilderPage.saveAsTemplate')}>
+          <Bookmark className="h-4 w-4" /> {tr('ui:PageBuilderPage.template')}
         </button>
 
         {/* Save button */}
         <button onClick={handleSave} disabled={updateMutation.isPending || !selectedPageId}
           className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-gray-800 dark:bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 transition">
-          {updateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save
+          {updateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} {tr('ui:PageBuilderPage.save')}
         </button>
 
         {/* "Last published" timestamp — only shown after at least one
@@ -1702,7 +1719,7 @@ export default function PageBuilderPage() {
             via the View Live link to its right. */}
         {lastPublishedAt && (
           <span className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400" title={new Date(lastPublishedAt).toLocaleString()}>
-            <Clock className="h-3 w-3" /> Last published {formatRelative(lastPublishedAt)}
+            <Clock className="h-3 w-3" /> {tr('ui:PageBuilderPage.lastPublished')} {formatRelative(lastPublishedAt)}
           </span>
         )}
 
@@ -1715,15 +1732,15 @@ export default function PageBuilderPage() {
             onClick={handlePublishStatic}
             disabled={publishStaticMutation.isPending || !selectedPageId}
             className="relative flex items-center gap-1.5 px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition"
-            title={isPublished ? 'Republish — uploads only if content changed' : 'Compile + upload to R2 + go live'}
+            title={isPublished ? tr('ui:PageBuilderPage.republishUploadsOnlyIfContent') : tr('ui:PageBuilderPage.compileUploadToR2Go')}
           >
             {publishStaticMutation.isPending ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin" /> Publishing…
+                <Loader2 className="h-4 w-4 animate-spin" /> {tr('ui:PageBuilderPage.publishing_2')}
               </>
             ) : (
               <>
-                <Upload className="h-4 w-4" /> {isPublished ? 'Republish' : 'Publish'}
+                <Upload className="h-4 w-4" /> {isPublished ? tr('ui:PageBuilderPage.republish') : tr('ui:PageBuilderPage.publish')}
               </>
             )}
             {isPublished && hasUnpublishedChanges && !publishStaticMutation.isPending && (
@@ -1743,12 +1760,12 @@ export default function PageBuilderPage() {
               rel="noopener noreferrer"
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition"
             >
-              <ExternalLink className="h-4 w-4" /> View Live
+              <ExternalLink className="h-4 w-4" /> {tr('ui:PageBuilderPage.viewLive')}
             </a>
             <button
               onClick={handleCopyLiveUrl}
               className="flex items-center gap-1.5 px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition"
-              title="Copy public URL"
+              title={tr('ui:PageBuilderPage.copyPublicUrl')}
             >
               {publishedLinkCopied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
             </button>
@@ -1779,7 +1796,7 @@ export default function PageBuilderPage() {
           setSelectedPageId(pageId)
           setView('edit')
           queryClient.invalidateQueries({ queryKey: ['pages'] })
-          toast.success('Page generated — opening editor')
+          toast.success(tr('ui:PageBuilderPage.pageGeneratedOpeningEditor'))
         }}
       />
 
@@ -1794,13 +1811,13 @@ export default function PageBuilderPage() {
             <div className="text-center">
               <FileText className="h-12 w-12 mx-auto mb-3 opacity-40" />
               {websitePages.length > 0 ? (
-                <p className="text-sm">Select a page from the sidebar.</p>
+                <p className="text-sm">{tr('ui:PageBuilderPage.selectAPageFromThe')}</p>
               ) : (
                 <>
-                  <p className="text-sm">No pages yet.</p>
+                  <p className="text-sm">{tr('ui:PageBuilderPage.noPagesYet_2')}</p>
                   <button onClick={() => { const title = prompt('New page title:'); if (title?.trim() && selectedWebsiteId) createPageMutation.mutate({ title: title.trim(), website_id: selectedWebsiteId }) }}
                     className="mt-3 flex items-center gap-2 mx-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm transition">
-                    <Plus className="h-4 w-4" /> Create First Page
+                    <Plus className="h-4 w-4" /> {tr('ui:PageBuilderPage.createFirstPage')}
                   </button>
                 </>
               )}
@@ -1812,7 +1829,7 @@ export default function PageBuilderPage() {
             {chatCollapsed ? (
               <div className="flex-shrink-0 border-r border-gray-200 dark:border-gray-700 flex flex-col items-center py-3 px-1 bg-white dark:bg-gray-900 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition"
                 onClick={() => setChatCollapsed(false)}>
-                <button className="p-1.5 text-gray-400 hover:text-purple-500 transition rounded-lg" title="Expand O-Brain">
+                <button className="p-1.5 text-gray-400 hover:text-purple-500 transition rounded-lg" title={tr('ui:PageBuilderPage.expandOBrain')}>
                   <PanelLeftOpen className="h-4 w-4" />
                 </button>
                 <div className="mt-2 text-xs text-gray-400 font-medium" style={{ writingMode: 'vertical-rl' }}>O-Brain</div>

@@ -1040,18 +1040,22 @@ async def create_page_from_template(
     brand_email = ""
     brand_color = ""
     brand_logo = ""
+    # NOTE: this used to import a non-existent `CompanySetting` (the class
+    # is `CompanySettings`) inside a bare try/except, so branding was
+    # never applied to any page created from a template.
     try:
-        from app.settings.models import CompanySetting
-        result = await db.execute(select(CompanySetting).limit(1))
-        company = result.scalar_one_or_none()
+        from app.settings.service import get_company_settings
+        company = await get_company_settings(db)
         if company:
             brand_name = brand_name or getattr(company, "company_name", "") or ""
-            brand_phone = getattr(company, "phone", "") or ""
-            brand_email = getattr(company, "email", "") or ""
-            brand_color = getattr(company, "primary_color", "") or ""
-            brand_logo = getattr(company, "logo_url", "") or ""
-    except Exception:
-        pass
+            brand_phone = getattr(company, "company_phone", "") or getattr(company, "phone", "") or ""
+            brand_email = getattr(company, "company_email", "") or getattr(company, "email", "") or ""
+            brand_color = getattr(company, "primary_color", "") or getattr(company, "brand_primary_color", "") or ""
+            brand_logo = getattr(company, "logo_url", "") or (
+                "/api/settings/company/logo" if getattr(company, "logo_storage_path", None) else ""
+            )
+    except Exception as exc:
+        logger.warning("create_page_from_template.branding_lookup_failed err=%s", exc)
 
     # Auto-replace placeholder branding
     if brand_name:
@@ -1223,13 +1227,12 @@ async def ai_chat_generate(
     # Build context with branding info
     branding_context = ""
     try:
-        from app.settings.models import CompanySetting
-        result = await db.execute(select(CompanySetting).limit(1))
-        company = result.scalar_one_or_none()
+        from app.settings.service import get_company_settings
+        company = await get_company_settings(db)
         if company:
             branding_context = f"\nCompany: {company.company_name or ''}"
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("ai_chat.branding_lookup_failed err=%s", exc)
 
     primary_color = page.primary_color or "#2563eb"
     font_family = page.font_family or "Inter, system-ui, sans-serif"

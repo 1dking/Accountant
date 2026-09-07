@@ -522,3 +522,27 @@ class SectionVariant(TimestampMixin, Base):
     )
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, server_default="100")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="1")
+
+    # ---- Block model v2 (2026-09, dynamic blocks) — all additive/nullable ----
+    # Ordered field definitions the editor renders and the AI fills. Null =
+    # legacy v1 variant (fields inferred from default_props). See
+    # app/pages/fields.py for the shape and validation rules.
+    fields_schema: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    # Where bound values come from: none|company|products|users|availability|
+    # bookings|reviews|faqs|pricing|invoices|analytics.
+    data_source: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # compile (baked at publish) | live (fetched by the page runtime).
+    data_mode: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    # Runtime behaviour module id (quote_calc, booking_picker, marquee, …).
+    behaviour: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # ["dynamic","live_data","submits_lead","needs_calendar","motion_css",…]
+    capabilities: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    # CSS scroll-driven motion preset id (no GSAP). Null = none.
+    motion_preset: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # {"fr-CA": {TOKEN: value, …}} — locale overrides for default copy.
+    locale_props: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # sha256(jsx_template + default_props) at last thumbnail render.
+    thumbnail_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    thumbnail_rendered_at: Mapped[_dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # 1 = legacy token template; 2 = fields_schema-driven, values HTML-escaped.
+    schema_version: Mapped[int] = mapped_column(Integer, nullable=False, server_default="1")

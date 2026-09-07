@@ -20,10 +20,13 @@ import {
   Layout, Grid3x3, BadgeDollarSign, Quote, Zap, HelpCircle,
   Users, BarChart3, Mail, LayoutTemplate, Image as ImageIcon,
   Hexagon,
+  PanelTop,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { pagesApi } from '@/api/pages'
 import './section-editor.css'
+import { useTranslation } from 'react-i18next'
+import i18n from '@/i18n'
 
 interface Variant {
   id: string
@@ -63,21 +66,25 @@ interface CategoryDef {
 // section type. Gradients use the OCIDM palette: electric-blue
 // #00D4FF, violet #8B5CF6, magenta #EC4899, plus warm/cool extensions.
 const CATEGORIES: CategoryDef[] = [
-  { value: 'hero',         label: 'Hero',         subtitle: 'Above-the-fold attention grabbers',  Icon: Layout,           gradient: 'linear-gradient(135deg, #00D4FF, #8B5CF6)' },
-  { value: 'features',     label: 'Features',     subtitle: 'Showcase capabilities + benefits',   Icon: Grid3x3,          gradient: 'linear-gradient(135deg, #8B5CF6, #EC4899)' },
-  { value: 'pricing',      label: 'Pricing',      subtitle: 'Plans, tiers, and packages',         Icon: BadgeDollarSign,  gradient: 'linear-gradient(135deg, #EC4899, #F59E0B)' },
-  { value: 'testimonials', label: 'Testimonials', subtitle: 'Social proof and quotes',            Icon: Quote,            gradient: 'linear-gradient(135deg, #06B6D4, #8B5CF6)' },
-  { value: 'cta',          label: 'CTA',          subtitle: 'Action-driving call-outs',           Icon: Zap,              gradient: 'linear-gradient(135deg, #F59E0B, #EC4899)' },
-  { value: 'faq',          label: 'FAQ',          subtitle: 'Common questions answered',          Icon: HelpCircle,       gradient: 'linear-gradient(135deg, #6366F1, #8B5CF6)' },
-  { value: 'team',         label: 'Team',         subtitle: 'People behind the brand',            Icon: Users,            gradient: 'linear-gradient(135deg, #10B981, #06B6D4)' },
-  { value: 'stats',        label: 'Stats',        subtitle: 'Numbers that build credibility',     Icon: BarChart3,        gradient: 'linear-gradient(135deg, #00D4FF, #10B981)' },
-  { value: 'contact',      label: 'Contact',      subtitle: 'Reach-out paths and forms',          Icon: Mail,             gradient: 'linear-gradient(135deg, #8B5CF6, #06B6D4)' },
-  { value: 'footer',       label: 'Footer',       subtitle: 'Closing structure and links',        Icon: LayoutTemplate,   gradient: 'linear-gradient(135deg, #475569, #8B5CF6)' },
-  { value: 'gallery',      label: 'Gallery',      subtitle: 'Image + video showcases',            Icon: ImageIcon,        gradient: 'linear-gradient(135deg, #EC4899, #8B5CF6)' },
-  { value: 'logos',        label: 'Logos',        subtitle: 'Brand walls and trust marks',        Icon: Hexagon,          gradient: 'linear-gradient(135deg, #06B6D4, #6366F1)' },
+  // `nav` was missing here, which made the 3 seeded navbar variants
+  // unreachable from the picker (they only appeared via auto-prepend).
+  { value: 'nav',          label: i18n.t('ui:VariantPickerModal.navbar'),       subtitle: i18n.t('ui:VariantPickerModal.stickyHeadersAndMenus'),          Icon: PanelTop,         gradient: 'linear-gradient(135deg, #475569, #00D4FF)' },
+  { value: 'hero',         label: i18n.t('ui:VariantPickerModal.hero'),         subtitle: i18n.t('ui:VariantPickerModal.aboveTheFoldAttentionGrabbers'),  Icon: Layout,           gradient: 'linear-gradient(135deg, #00D4FF, #8B5CF6)' },
+  { value: 'features',     label: i18n.t('ui:VariantPickerModal.features'),     subtitle: i18n.t('ui:VariantPickerModal.showcaseCapabilitiesBenefits'),   Icon: Grid3x3,          gradient: 'linear-gradient(135deg, #8B5CF6, #EC4899)' },
+  { value: 'pricing',      label: i18n.t('ui:VariantPickerModal.pricing'),      subtitle: i18n.t('ui:VariantPickerModal.plansTiersAndPackages'),         Icon: BadgeDollarSign,  gradient: 'linear-gradient(135deg, #EC4899, #F59E0B)' },
+  { value: 'testimonials', label: i18n.t('ui:VariantPickerModal.testimonials'), subtitle: i18n.t('ui:VariantPickerModal.socialProofAndQuotes'),            Icon: Quote,            gradient: 'linear-gradient(135deg, #06B6D4, #8B5CF6)' },
+  { value: 'cta',          label: 'CTA',          subtitle: i18n.t('ui:VariantPickerModal.actionDrivingCallOuts'),           Icon: Zap,              gradient: 'linear-gradient(135deg, #F59E0B, #EC4899)' },
+  { value: 'faq',          label: 'FAQ',          subtitle: i18n.t('ui:VariantPickerModal.commonQuestionsAnswered'),          Icon: HelpCircle,       gradient: 'linear-gradient(135deg, #6366F1, #8B5CF6)' },
+  { value: 'team',         label: i18n.t('ui:VariantPickerModal.team'),         subtitle: i18n.t('ui:VariantPickerModal.peopleBehindTheBrand'),            Icon: Users,            gradient: 'linear-gradient(135deg, #10B981, #06B6D4)' },
+  { value: 'stats',        label: i18n.t('ui:VariantPickerModal.stats'),        subtitle: i18n.t('ui:VariantPickerModal.numbersThatBuildCredibility'),     Icon: BarChart3,        gradient: 'linear-gradient(135deg, #00D4FF, #10B981)' },
+  { value: 'contact',      label: i18n.t('ui:VariantPickerModal.contact'),      subtitle: i18n.t('ui:VariantPickerModal.reachOutPathsAndForms'),          Icon: Mail,             gradient: 'linear-gradient(135deg, #8B5CF6, #06B6D4)' },
+  { value: 'footer',       label: i18n.t('ui:VariantPickerModal.footer'),       subtitle: i18n.t('ui:VariantPickerModal.closingStructureAndLinks'),        Icon: LayoutTemplate,   gradient: 'linear-gradient(135deg, #475569, #8B5CF6)' },
+  { value: 'gallery',      label: i18n.t('ui:VariantPickerModal.gallery'),      subtitle: i18n.t('ui:VariantPickerModal.imageVideoShowcases'),            Icon: ImageIcon,        gradient: 'linear-gradient(135deg, #EC4899, #8B5CF6)' },
+  { value: 'logos',        label: i18n.t('ui:VariantPickerModal.logos'),        subtitle: i18n.t('ui:VariantPickerModal.brandWallsAndTrustMarks'),        Icon: Hexagon,          gradient: 'linear-gradient(135deg, #06B6D4, #6366F1)' },
 ]
 
 export default function VariantPickerModal({ open, mode, lockedCategory, onClose, onPick }: Props) {
+  const { t } = useTranslation('ui')
   const [category, setCategory] = useState<string | null>(lockedCategory ?? null)
   const [filter, setFilter] = useState('')
 
@@ -130,7 +137,7 @@ export default function VariantPickerModal({ open, mode, lockedCategory, onClose
               <button
                 onClick={() => setCategory(null)}
                 className="p-1.5 rounded-md hover:bg-white/8 text-white/68 hover:text-white/96 transition-colors"
-                title="Back to categories"
+                title={t('ui:VariantPickerModal.backToCategories')}
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
@@ -138,13 +145,13 @@ export default function VariantPickerModal({ open, mode, lockedCategory, onClose
             <div>
               <h2 className="text-base font-semibold text-white/96">
                 {showingCategoryGrid
-                  ? (mode === 'add' ? 'Add a section' : 'Change variant')
-                  : `${CATEGORIES.find(c => c.value === category)?.label || category} variants`}
+                  ? (mode === 'add' ? t('ui:VariantPickerModal.addASection') : t('ui:VariantPickerModal.changeVariant'))
+                  : t('ui:VariantPickerModal.v0Variants', { v0: CATEGORIES.find(c => c.value === category)?.label || category })}
               </h2>
               <p className="text-xs text-white/46 mt-0.5">
                 {showingCategoryGrid
-                  ? 'Pick a category to see available layouts.'
-                  : 'Click any layout to apply it.'}
+                  ? t('ui:VariantPickerModal.pickACategoryToSee')
+                  : t('ui:VariantPickerModal.clickAnyLayoutToApply')}
               </p>
             </div>
           </div>
@@ -165,7 +172,7 @@ export default function VariantPickerModal({ open, mode, lockedCategory, onClose
                 type="text"
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
-                placeholder="Search this category..."
+                placeholder={t('ui:VariantPickerModal.searchThisCategory')}
                 className="flex-1 bg-transparent text-sm text-white/96 placeholder:text-white/46 outline-none"
               />
             </div>
@@ -195,18 +202,18 @@ export default function VariantPickerModal({ open, mode, lockedCategory, onClose
             </div>
           ) : variantsQuery.isLoading ? (
             <div className="text-center text-white/46 py-12">
-              <p className="text-sm">Loading variants…</p>
+              <p className="text-sm">{t('ui:VariantPickerModal.loadingVariants')}</p>
             </div>
           ) : filtered.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-sm text-white/46">
                 {variants.length === 0
-                  ? 'No variants seeded for this category yet — coming soon.'
-                  : `No variants match "${filter}".`}
+                  ? t('ui:VariantPickerModal.noVariantsSeededForThis')
+                  : t('ui:VariantPickerModal.noVariantsMatchFilter', { filter })}
               </p>
               {variants.length === 0 && (
                 <p className="text-xs text-white/30 mt-2">
-                  Hero variants are available in Commit 2; the rest land in Commit 3.
+                 {t('ui:VariantPickerModal.heroVariantsAreAvailableIn')}
                 </p>
               )}
             </div>

@@ -169,6 +169,19 @@ async def lifespan(application: FastAPI):
     except Exception as e:
         logger.warning("Failed to seed templates: %s", e)
 
+    # Seed + resync the section-variant (block) library. Until 2026-09-07
+    # nothing called these, so a fresh deploy had an empty picker. resync
+    # is idempotent and preserves admin `is_active` toggles.
+    try:
+        from app.pages.variants import resync_variants, seed_if_empty
+
+        async with application.state.session_factory() as session:
+            inserted = await seed_if_empty(session)
+            synced = await resync_variants(session)
+            logger.info("Section variants: %d inserted, %d synced", inserted, synced)
+    except Exception as e:
+        logger.warning("Failed to seed section variants: %s", e)
+
     # Seed platform admin defaults (feature flags, pricing settings)
     try:
         from app.platform_admin.service import seed_defaults

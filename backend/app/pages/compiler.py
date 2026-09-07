@@ -28,6 +28,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from app.pages.models import Page
+from app.pages.motion_presets import build_motion_css, is_valid_motion_preset
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +86,11 @@ def _build_jsonld(
         )
         org_email = getattr(company_settings, "company_email", None) or None
         org_phone = getattr(company_settings, "company_phone", None) or None
+        # CompanySettings stores a storage key, not a URL; the public
+        # logo is served by the settings router. Accept either.
         org_logo = getattr(company_settings, "logo_url", None) or None
+        if not org_logo and getattr(company_settings, "logo_storage_path", None):
+            org_logo = f"{public_base_url.rstrip('/')}/api/settings/company/logo"
         # Address: only emit if all three city/state/zip are present
         # (incomplete addresses degrade schema quality).
         addr_line1 = getattr(company_settings, "address_line1", None)
@@ -651,6 +656,90 @@ def _build_animation_init_script() -> str:
 </script>"""
 
 
+_FLAT_ANIM_KEYS = ("scroll_reveal", "counter_up", "parallax")
+
+
+# ---------------------------------------------------------------------------
+# Untrusted-HTML sanitizer (P6)
+# ---------------------------------------------------------------------------
+# Section HTML reaches the compiler from three places: the trusted variant
+# library (our own templates, which legitimately carry a small inline
+# <script> for the sticky nav and <style> for the marquee), user edits
+# (`edited_html`, typed into the visual editor), and AI-generated JSX
+# (sections with no variant_id). The last two are untrusted: a pasted
+# <script> or onclick= would ship verbatim to every visitor. nh3 (ammonia)
+# strips scripts, event handlers and javascript: URLs while keeping the
+# layout vocabulary Tailwind sections use — including inline <style>,
+# style="", SVG icons, video/iframe embeds and plain forms.
+
+_SANITIZE_EXTRA_TAGS = {
+    "section", "nav", "header", "footer", "main", "article", "aside", "figure",
+    "figcaption", "picture", "details", "summary", "address", "time", "mark",
+    "small", "video", "source", "iframe", "button", "form", "input", "label",
+    "textarea", "select", "option", "style",
+    "svg", "path", "circle", "rect", "g", "line", "polyline", "polygon", "defs",
+    "linearGradient", "radialGradient", "stop", "ellipse", "use", "symbol", "clipPath",
+}
+_SANITIZE_ATTRS: dict[str, set[str]] = {
+    "*": {"class", "id", "style", "role", "tabindex", "title", "lang", "dir", "hidden", "loading"},
+    "a": {"href", "target", "rel", "download", "hreflang"},
+    "img": {"src", "srcset", "sizes", "alt", "width", "height", "decoding", "loading"},
+    "iframe": {"src", "allow", "allowfullscreen", "frameborder", "width", "height", "referrerpolicy"},
+    "video": {"src", "poster", "autoplay", "muted", "loop", "playsinline", "controls", "preload", "width", "height"},
+    "source": {"src", "type", "srcset", "media"},
+    "form": {"action", "method", "name", "novalidate"},
+    "input": {"type", "name", "placeholder", "value", "required", "autocomplete", "min", "max", "step", "checked", "disabled", "pattern", "inputmode"},
+    "label": {"for"},
+    "textarea": {"name", "placeholder", "rows", "required", "maxlength"},
+    "select": {"name", "required", "multiple"},
+    "option": {"value", "selected"},
+    "button": {"type", "name", "value", "disabled"},
+    "details": {"open"},
+    "time": {"datetime"},
+    "svg": {"viewBox", "fill", "stroke", "stroke-width", "xmlns", "width", "height", "preserveAspectRatio", "stroke-linecap", "stroke-linejoin"},
+    "path": {"d", "fill", "stroke", "stroke-width", "fill-rule", "clip-rule", "stroke-linecap", "stroke-linejoin", "opacity"},
+    "circle": {"cx", "cy", "r", "fill", "stroke", "stroke-width", "opacity"},
+    "ellipse": {"cx", "cy", "rx", "ry", "fill", "stroke"},
+    "rect": {"x", "y", "width", "height", "rx", "ry", "fill", "stroke", "stroke-width", "opacity"},
+    "line": {"x1", "y1", "x2", "y2", "stroke", "stroke-width"},
+    "polyline": {"points", "fill", "stroke", "stroke-width"},
+    "polygon": {"points", "fill", "stroke"},
+    "g": {"fill", "stroke", "transform", "opacity", "stroke-width"},
+    "linearGradient": {"x1", "y1", "x2", "y2", "gradientUnits", "gradientTransform"},
+    "radialGradient": {"cx", "cy", "r", "fx", "fy", "gradientUnits"},
+    "stop": {"offset", "stop-color", "stop-opacity"},
+    "use": {"href"},
+}
+
+
+def sanitize_untrusted_html(html: str) -> str:
+    """Strip active content from user-edited / AI-generated section HTML.
+    Keeps inline <style>, style="", classes, data-/aria- attributes, SVG,
+    media embeds and forms. Removes <script> (with content), on* handlers
+    and javascript:/data: links. Safe to call on already-clean HTML."""
+    if not html:
+        return html
+    try:
+        import nh3
+    except ImportError:  # pragma: no cover — dependency is declared; degrade loudly
+        logger.error("nh3 not installed — untrusted section HTML shipped unsanitized")
+        return html
+    tags = set(nh3.ALLOWED_TAGS) | _SANITIZE_EXTRA_TAGS
+    attributes: dict[str, set[str]] = {k: set(v) for k, v in nh3.ALLOWED_ATTRIBUTES.items()}
+    for tag, attrs in _SANITIZE_ATTRS.items():
+        attributes.setdefault(tag, set()).update(attrs)
+    return nh3.clean(
+        html,
+        tags=tags,
+        attributes=attributes,
+        generic_attribute_prefixes={"data-", "aria-"},
+        url_schemes={"http", "https", "mailto", "tel", "sms"},
+        clean_content_tags={"script"},
+        link_rel=None,
+        strip_comments=False,
+    )
+
+
 def _wrap_section_with_animation(html: str, anim_config: dict | None) -> str:
     """Wrap a section's HTML so the init script can find and animate
     it. Two attribute paths:
@@ -681,11 +770,22 @@ def _wrap_section_with_animation(html: str, anim_config: dict | None) -> str:
             f' data-anim-mobile-mode="{mobile_mode}"'
             if mobile_mode in ("auto", "disable") else ""
         )
-        return (
+        wrapped = (
             f'<div data-anim-preset="{preset_id}" '
             f'data-anim-config="{cfg_payload}"'
             f'{mobile_attr}>{html}</div>'
         )
+        # A variant may mix a 4B preset with 4A flat arrays (e.g.
+        # stats_4col_horizontal: preset fade_up + counter_up). The 4A
+        # keys were silently dropped here; emit them on an outer wrapper
+        # so the runtime still finds the counters/parallax config.
+        flat = {
+            k: v for k, v in anim_config.items()
+            if k in _FLAT_ANIM_KEYS and v
+        }
+        if flat:
+            wrapped = f'<div data-section-anim="{_attr_escape_json(flat)}">{wrapped}</div>'
+        return wrapped
     # 4A flat shape (variant default / explicit scroll_reveal arrays):
     safe = _attr_escape_json(anim_config)
     return f'<div data-section-anim="{safe}">{html}</div>'
@@ -711,6 +811,9 @@ def compile_page(
     public_base_url: str = "https://accountant.ocidm.io",
     canonical_url: str | None = None,
     variant_animations: dict[str, Any] | None = None,
+    extra_head: str = "",
+    extra_body_start: str = "",
+    extra_body_end: str = "",
 ) -> str:
     """Produce the full <!DOCTYPE html>... document for a page.
 
@@ -759,6 +862,7 @@ def compile_page(
     style_blocks: list[str] = []
     parsed_sections: list[dict] = []
     any_animations = False
+    motion_presets_used: set[str] = set()
     if page.sections_json:
         try:
             sections = json.loads(page.sections_json)
@@ -778,15 +882,22 @@ def compile_page(
                         anim_cfg = variant_animations.get(vid)
 
                 edited = sec.get("edited_html") or ""
+                from_library = bool((sec.get("metadata") or {}).get("variant_id"))
                 if edited:
-                    rendered = substitute_media_tokens(edited, media_props)
+                    # User-typed HTML: always untrusted.
+                    rendered = substitute_media_tokens(
+                        sanitize_untrusted_html(edited), media_props
+                    )
                 else:
                     jsx = sec.get("jsx_content") or ""
                     if not jsx:
                         continue
-                    rendered = substitute_media_tokens(
-                        _jsx_to_html(jsx), media_props
-                    )
+                    html_src = _jsx_to_html(jsx)
+                    # AI-generated sections (no variant_id) are untrusted;
+                    # library-rendered ones are our own templates.
+                    if not from_library:
+                        html_src = sanitize_untrusted_html(html_src)
+                    rendered = substitute_media_tokens(html_src, media_props)
                 if anim_cfg:
                     # "none" preset → no wrapper + no GSAP injection.
                     # Distinct from "default" (variant default behavior)
@@ -805,8 +916,20 @@ def compile_page(
                 # missing one (defensive — every variant_to_section
                 # output sets an id).
                 sid = sec.get("id") or f"sec-{i}"
+                # Block model v2 — CSS motion preset + behaviour hooks on
+                # the wrapper. data-motion drives motion_presets CSS (no
+                # JS); data-block is the S2 runtime's init hook.
+                sec_meta = sec.get("metadata") or {}
+                block_attrs = ""
+                motion = sec_meta.get("motion_preset")
+                if motion and is_valid_motion_preset(motion):
+                    block_attrs += f' data-motion="{motion}"'
+                    motion_presets_used.add(motion)
+                behaviour = sec_meta.get("behaviour")
+                if behaviour:
+                    block_attrs += f' data-block="{html_escape.escape(str(behaviour), quote=True)}"'
                 body_sections.append(
-                    f'<section id="section-{sid}" data-pages-section>{rendered}</section>'
+                    f'<section id="section-{sid}" data-pages-section{block_attrs}>{rendered}</section>'
                 )
 
                 overrides = sec.get("style_overrides") or {}
@@ -852,6 +975,17 @@ def compile_page(
         + "\n</style>"
     ) if style_blocks else ""
 
+    # Page-level CSS / JS / custom head. The legacy /public/view route
+    # always emitted these; the static compiler dropped them, so every
+    # template built from the 9 starter seeds lost its @media rules and
+    # every published page lost its pixels. Now emitted here; the
+    # publisher passes tracking + analytics through extra_* so this
+    # function stays sync and DB-less.
+    page_css = f"<style>{page.css_content}</style>" if getattr(page, "css_content", None) else ""
+    page_head = getattr(page, "custom_head_html", None) or ""
+    page_js = f"<script>{page.js_content}</script>" if getattr(page, "js_content", None) else ""
+    motion_css = build_motion_css(motion_presets_used)
+
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -869,12 +1003,19 @@ def compile_page(
   {google_fonts_link}
   {TAILWIND_CDN_SCRIPT}
   {anim_head}
+  {motion_css}
+  {page_css}
   {style_overrides_block}
+  {page_head}
+  {extra_head}
   {jsonld}
 </head>
 <body class="bg-white text-gray-900 antialiased">
+{extra_body_start}
 {body_html}
 {anim_body_end}
+{page_js}
+{extra_body_end}
 </body>
 </html>
 """
@@ -886,6 +1027,9 @@ def compile_and_hash(
     company_settings: Any | None = None,
     public_base_url: str = "https://accountant.ocidm.io",
     variant_animations: dict[str, Any] | None = None,
+    extra_head: str = "",
+    extra_body_start: str = "",
+    extra_body_end: str = "",
 ) -> tuple[str, str]:
     """Compile + return (html, sha256_hex). The hash is used to
     short-circuit re-uploads when the compiled output hasn't changed."""
@@ -896,6 +1040,9 @@ def compile_and_hash(
         company_settings=company_settings,
         public_base_url=public_base_url,
         variant_animations=variant_animations,
+        extra_head=extra_head,
+        extra_body_start=extra_body_start,
+        extra_body_end=extra_body_end,
     )
     digest = hashlib.sha256(html.encode("utf-8")).hexdigest()
     return html, digest

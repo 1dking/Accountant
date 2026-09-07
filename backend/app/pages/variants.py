@@ -8,6 +8,7 @@ with values from default_props (override-able). Used by:
 """
 from __future__ import annotations
 
+import html as html_escape
 import json
 import logging
 import re
@@ -59,27 +60,123 @@ EMBED_TOKEN_URL_KEY: dict[str, str] = {
 }
 
 
+# Full tag grammar (v2). Matches, in order of alternation:
+#   {{{RAW}}}            raw (unescaped) value
+#   {{#KEY}} … {{/KEY}}  section: list → repeat per item; truthy → once
+#   {{^KEY}} … {{/KEY}}  inverted: render when missing/empty/false
+#   {{KEY}}              value; {{@INDEX}} {{@FIRST}} {{@LAST}} inside loops
+_TAG_RE = re.compile(
+    r"\{\{\{\s*([A-Z0-9_@]+)\s*\}\}\}"            # 1: raw
+    r"|\{\{\s*([#^/])\s*([A-Z0-9_]+)\s*\}\}"      # 2: sigil, 3: block key
+    r"|\{\{\s*([A-Z0-9_@]+)\s*\}\}"                # 4: value
+)
+
+
+def _parse(template: str) -> list:
+    """Parse into a tree: str | ("var", key, raw) | ("section", key, inverted, children).
+    Unmatched closers are kept literal; an unclosed block runs to the end."""
+    root: list = []
+    stack: list[tuple[str, bool, list]] = []  # (key, inverted, children)
+    pos = 0
+    for m in _TAG_RE.finditer(template):
+        if m.start() > pos:
+            (stack[-1][2] if stack else root).append(template[pos:m.start()])
+        pos = m.end()
+        target = stack[-1][2] if stack else root
+        if m.group(1):
+            target.append(("var", m.group(1), True))
+        elif m.group(2):
+            sigil, key = m.group(2), m.group(3)
+            if sigil == "/":
+                if stack and stack[-1][0] == key:
+                    key_, inverted, children = stack.pop()
+                    (stack[-1][2] if stack else root).append(("section", key_, inverted, children))
+                else:
+                    target.append(m.group(0))  # stray closer stays literal
+            else:
+                stack.append((key, sigil == "^", []))
+        else:
+            target.append(("var", m.group(4), False))
+    if pos < len(template):
+        (stack[-1][2] if stack else root).append(template[pos:])
+    while stack:  # unclosed block — treat as closed at end
+        key_, inverted, children = stack.pop()
+        (stack[-1][2] if stack else root).append(("section", key_, inverted, children))
+    return root
+
+
+def _lookup(key: str, ctx: list[dict]) -> Any:
+    for frame in reversed(ctx):
+        if key in frame and frame[key] is not None:
+            return frame[key]
+    return None
+
+
+def _render_nodes(nodes: list, ctx: list[dict], skip: frozenset[str], escape: bool, out: list[str]) -> None:
+    for node in nodes:
+        if isinstance(node, str):
+            out.append(node)
+            continue
+        if node[0] == "var":
+            _, key, raw = node
+            if key in skip:
+                out.append("{{" + key + "}}")  # deferred to compile_page
+                continue
+            val = _lookup(key, ctx)
+            if val is None:
+                out.append("{{" + key + "}}")  # unresolved — keep visible
+                continue
+            if isinstance(val, bool):
+                val = "true" if val else ""
+            text = str(val)
+            out.append(text if (raw or not escape) else html_escape.escape(text, quote=True))
+            continue
+        _, key, inverted, children = node
+        val = _lookup(key, ctx)
+        truthy = bool(val) and val != [] and val != {}
+        if inverted:
+            if not truthy:
+                _render_nodes(children, ctx, skip, escape, out)
+            continue
+        if not truthy:
+            continue
+        if isinstance(val, list):
+            n = len(val)
+            for i, item in enumerate(val):
+                frame = dict(item) if isinstance(item, dict) else {"VALUE": item}
+                frame["@INDEX"] = i + 1
+                frame["@FIRST"] = "true" if i == 0 else ""
+                frame["@LAST"] = "true" if i == n - 1 else ""
+                _render_nodes(children, ctx + [frame], skip, escape, out)
+        elif isinstance(val, dict):
+            _render_nodes(children, ctx + [dict(val)], skip, escape, out)
+        else:
+            _render_nodes(children, ctx, skip, escape, out)
+
+
 def render_template(
     template: str,
     props: dict[str, Any],
     *,
     skip_tokens: frozenset[str] | None = None,
+    escape: bool = False,
 ) -> str:
-    """Substitute {{TOKEN}} occurrences. Tokens in `skip_tokens` are
-    left literal so a downstream pass (compile_page) can substitute
-    them later. Unresolved tokens (missing from props AND not in
-    skip_tokens) also stay literal so the user can fill them in via
-    the inline editor."""
+    """Substitute {{TOKEN}} occurrences (v1) plus, since block model v2,
+    {{#LIST}}…{{/LIST}} loops, {{^KEY}} inverted sections, {{@INDEX}}/
+    {{@FIRST}}/{{@LAST}} loop metadata and {{{RAW}}} unescaped values.
+
+    Tokens in `skip_tokens` are left literal so a downstream pass
+    (compile_page) can substitute them later. Unresolved tokens (missing
+    from props AND not in skip_tokens) also stay literal so the user can
+    fill them in via the inline editor.
+
+    `escape=True` (v2 variants) HTML-escapes every substituted value —
+    field values are copy, never markup. v1 callers keep raw behaviour.
+    """
     skip = skip_tokens or frozenset()
-    def _sub(match: re.Match[str]) -> str:
-        key = match.group(1)
-        if key in skip:
-            return match.group(0)  # deferred to a later pass
-        val = props.get(key)
-        if val is None:
-            return match.group(0)  # unresolved — keep visible
-        return str(val)
-    return _TOKEN_RE.sub(_sub, template or "")
+    out: list[str] = []
+    _render_nodes(_parse(template or ""), [dict(props or {})], skip, escape, out)
+    return "".join(out)
 
 
 def substitute_media_tokens(html: str, media_props: dict[str, Any]) -> str:
@@ -389,8 +486,32 @@ async def list_variants(
     return list(rows.scalars().all())
 
 
+def effective_props(
+    variant: SectionVariant, *, locale: str = "en", prop_overrides: dict | None = None,
+) -> tuple[dict, list[str]]:
+    """default_props ⊕ locale_props[locale] ⊕ overrides, validated against
+    fields_schema when the variant is v2. Returns (props, errors)."""
+    props = dict(variant.default_props or {})
+    locale_props = getattr(variant, "locale_props", None) or {}
+    if locale and locale != "en" and isinstance(locale_props.get(locale), dict):
+        props.update(locale_props[locale])
+    props.update(prop_overrides or {})
+    schema = getattr(variant, "fields_schema", None)
+    errors: list[str] = []
+    if schema:
+        from app.pages.fields import validate_fields
+        clean, errors = validate_fields(schema, props, locale=locale)
+        schema_keys = {f["key"] for f in schema if f.get("key")}
+        # Non-schema tokens (media, embeds, legacy) pass through untouched;
+        # schema fields come only from the validated set (a rejected value
+        # leaves its {{TOKEN}} visible rather than injecting raw input).
+        props = {k: v for k, v in props.items() if k not in schema_keys}
+        props.update(clean)
+    return props, errors
+
+
 def variant_to_section(
-    variant: SectionVariant, *, prop_overrides: dict | None = None,
+    variant: SectionVariant, *, prop_overrides: dict | None = None, locale: str = "en",
 ) -> dict:
     """Build a section dict ready to insert into sections_json from
     a variant + optional prop overrides. The result has:
@@ -401,12 +522,15 @@ def variant_to_section(
       - media_overrides: empty (user-supplied media values, applied
         at compile_page time)
       - metadata: full props snapshot — used by extract_token_values
-        on subsequent variant swaps to migrate user content
+        on subsequent variant swaps to migrate user content; for v2
+        blocks it is the source of truth the fields panel edits.
     """
-    props = {**(variant.default_props or {}), **(prop_overrides or {})}
+    props, _errors = effective_props(variant, locale=locale, prop_overrides=prop_overrides)
+    is_v2 = int(getattr(variant, "schema_version", 1) or 1) >= 2
     rendered = render_template(
         variant.jsx_template, props,
         skip_tokens=MEDIA_TOKENS | EMBED_TOKENS,
+        escape=is_v2,
     )
     # Snapshot the variant's animation config into the section so
     # compile_page (which is sync + DB-less) can read it without a
@@ -423,8 +547,16 @@ def variant_to_section(
         "metadata": {
             "variant_id": variant.variant_id,
             "props": props,
+            "schema_version": 2 if is_v2 else 1,
+            "locale": locale,
         },
     }
+    # v2 block metadata the compiler turns into data-block / data-motion
+    # attributes (the runtime initialises behaviour modules from them).
+    for attr in ("behaviour", "data_source", "data_mode", "motion_preset"):
+        val = getattr(variant, attr, None)
+        if val:
+            section["metadata"][attr] = val
     # getattr-guarded so test fakes / older variant objects without
     # the field don't blow up (variant.default_animations was added
     # in migration b1c2d3e8).
@@ -434,11 +566,39 @@ def variant_to_section(
     return section
 
 
+def _seed_values(v: dict) -> dict:
+    """Column values for one seed dict (shared by seed_if_empty and
+    resync_variants so the two never drift). v1 seeds without an explicit
+    fields_schema get one inferred from default_props and are promoted to
+    schema_version 2 — every library block is fields-driven and escaped."""
+    from app.pages.fields import infer_fields_schema
+    from app.pages.variant_svg_schematics import SCHEMATICS_BY_VARIANT_ID
+
+    default_props = v.get("default_props", {}) or {}
+    fields_schema = v.get("fields_schema") or infer_fields_schema(default_props)
+    return {
+        "display_name": v["display_name"],
+        "description": v.get("description"),
+        "jsx_template": v["jsx_template"],
+        "default_props": default_props,
+        "svg_thumbnail": SCHEMATICS_BY_VARIANT_ID.get(v["variant_id"]),
+        "default_animations": v.get("default_animations"),
+        "sort_order": v.get("sort_order", 100),
+        "fields_schema": fields_schema,
+        "schema_version": int(v.get("schema_version", 2)),
+        "data_source": v.get("data_source"),
+        "data_mode": v.get("data_mode"),
+        "behaviour": v.get("behaviour"),
+        "capabilities": v.get("capabilities"),
+        "motion_preset": v.get("motion_preset"),
+        "locale_props": v.get("locale_props"),
+    }
+
+
 async def seed_if_empty(db: AsyncSession) -> int:
     """Insert seed variants if the table is empty. Idempotent — does
     nothing once any rows exist. Returns count inserted."""
     from app.pages.variant_seeds import all_variants
-    from app.pages.variant_svg_schematics import SCHEMATICS_BY_VARIANT_ID
 
     rows = await db.execute(select(SectionVariant).limit(1))
     if rows.first():
@@ -450,14 +610,8 @@ async def seed_if_empty(db: AsyncSession) -> int:
             id=v["id"],
             category=v["category"],
             variant_id=v["variant_id"],
-            display_name=v["display_name"],
-            description=v.get("description"),
-            jsx_template=v["jsx_template"],
-            default_props=v.get("default_props", {}),
-            svg_thumbnail=SCHEMATICS_BY_VARIANT_ID.get(v["variant_id"]),
-            default_animations=v.get("default_animations"),
-            sort_order=v.get("sort_order", 100),
             is_active=True,
+            **_seed_values(v),
         )
         db.add(row)
         inserted += 1
@@ -513,7 +667,6 @@ async def resync_variants(db: AsyncSession) -> int:
     disables stick. Returns number updated. Use after a code change
     that updates seed templates (e.g. the hero_video v3 video-bg fix)."""
     from app.pages.variant_seeds import all_variants
-    from app.pages.variant_svg_schematics import SCHEMATICS_BY_VARIANT_ID
 
     updated = 0
     for v in all_variants():
@@ -524,28 +677,19 @@ async def resync_variants(db: AsyncSession) -> int:
             )
         )
         row = rows.scalar_one_or_none()
+        values = _seed_values(v)
         if row is None:
             db.add(SectionVariant(
                 id=v["id"],
                 category=v["category"],
                 variant_id=v["variant_id"],
-                display_name=v["display_name"],
-                description=v.get("description"),
-                jsx_template=v["jsx_template"],
-                default_props=v.get("default_props", {}),
-                svg_thumbnail=SCHEMATICS_BY_VARIANT_ID.get(v["variant_id"]),
-                sort_order=v.get("sort_order", 100),
                 is_active=True,
+                **values,
             ))
             updated += 1
             continue
-        row.display_name = v["display_name"]
-        row.description = v.get("description")
-        row.jsx_template = v["jsx_template"]
-        row.default_props = v.get("default_props", {})
-        row.svg_thumbnail = SCHEMATICS_BY_VARIANT_ID.get(v["variant_id"])
-        row.default_animations = v.get("default_animations")
-        row.sort_order = v.get("sort_order", 100)
+        for col, val in values.items():
+            setattr(row, col, val)
         updated += 1
     await db.commit()
     return updated

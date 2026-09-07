@@ -29,7 +29,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
   Loader2, Sparkles, Trash2, Copy, RotateCcw, X, Replace, Plus,
-  Film, Image as ImageIcon, GripVertical, Wand2, Play, Palette,
+  Film, Image as ImageIcon, GripVertical, Wand2, Play, Palette, SlidersHorizontal,
 } from 'lucide-react'
 import {
   DndContext, PointerSensor, KeyboardSensor, useSensor, useSensors,
@@ -45,7 +45,9 @@ import VariantPickerModal from './VariantPickerModal'
 import MediaPickerModal, { type MediaSlotKind } from './MediaPickerModal'
 import AnimationPickerModal from './AnimationPickerModal'
 import StyleEditorDrawer from './StyleEditorDrawer'
+import BlockFieldsPanel from './BlockFieldsPanel'
 import './section-editor.css'
+import { useTranslation } from 'react-i18next'
 
 // Media tokens — kept in sync with backend variants.py MEDIA_TOKENS
 // and EMBED_TOKENS whitelists. When jsx_content contains {{TOKEN}}
@@ -824,6 +826,7 @@ function SortableSectionWrapper(props: SectionBlockProps & { sortId: string }) {
  *  "+" button on hover. Clicking opens the category picker for an
  *  insert-at-position add. */
 function InsertionZone({ onClick }: { onClick: () => void }) {
+  const { t } = useTranslation('ui')
   return (
     <div
       className="se-insertion-zone group"
@@ -836,12 +839,12 @@ function InsertionZone({ onClick }: { onClick: () => void }) {
           onClick()
         }
       }}
-      aria-label="Add section here"
+      aria-label={t('ui:SectionEditor.addSectionHere')}
     >
       <span className="se-insertion-line" />
       <span className="se-insertion-button">
         <Plus className="h-3.5 w-3.5" />
-        <span className="se-tooltip">Add section here</span>
+        <span className="se-tooltip">{t('ui:SectionEditor.addSectionHere')}</span>
       </span>
       <span className="se-insertion-line" />
     </div>
@@ -853,6 +856,7 @@ function SectionBlock({
   pageId, section, index, onChanged, onRequestChangeVariant,
   dragHandleProps, isDragging,
 }: SectionBlockProps) {
+  const { t } = useTranslation('ui')
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const [iframeHeight, setIframeHeight] = useState(240)
   const [hovered, setHovered] = useState(false)
@@ -874,6 +878,9 @@ function SectionBlock({
   //                      Drawer reads this to pre-target the right
   //                      selector when opened via the hover bar icon.
   const [styleOpen, setStyleOpen] = useState(false)
+  // Block model v2 — schema-driven Fields drawer (only for library blocks).
+  const [fieldsOpen, setFieldsOpen] = useState(false)
+  const isLibraryBlock = !!section.metadata?.variant_id
   const [styleSelector, setStyleSelector] = useState<string>('section')
   const selectedElementRef = useRef<string>('section')
 
@@ -1062,39 +1069,39 @@ function SectionBlock({
       media_overrides?: Record<string, string> | null
     }) => pagesApi.patchSection(pageId, index, data as Record<string, unknown>),
     onSuccess: invalidate,
-    onError: (e: any) => toast.error(`Save failed: ${e?.message || 'unknown'}`),
+    onError: (e: any) => toast.error(t('ui:SectionEditor.saveFailedV0', { v0: e?.message || 'unknown' })),
   })
 
   const duplicateMut = useMutation({
     mutationFn: () => pagesApi.duplicateSection(pageId, index),
-    onSuccess: () => { toast.success('Section duplicated'); invalidate() },
-    onError: (e: any) => toast.error(`Duplicate failed: ${e?.message || 'unknown'}`),
+    onSuccess: () => { toast.success(t('ui:SectionEditor.sectionDuplicated')); invalidate() },
+    onError: (e: any) => toast.error(t('ui:SectionEditor.duplicateFailedV0', { v0: e?.message || 'unknown' })),
   })
 
   const deleteMut = useMutation({
     mutationFn: () => pagesApi.deleteSection(pageId, index),
-    onSuccess: () => { toast.success('Section deleted'); invalidate() },
-    onError: (e: any) => toast.error(`Delete failed: ${e?.message || 'unknown'}`),
+    onSuccess: () => { toast.success(t('ui:SectionEditor.sectionDeleted')); invalidate() },
+    onError: (e: any) => toast.error(t('ui:SectionEditor.deleteFailedV0', { v0: e?.message || 'unknown' })),
   })
 
   const revertMut = useMutation({
     mutationFn: () => pagesApi.revertSection(pageId, index),
-    onSuccess: () => { toast.success('Reverted to AI original'); invalidate() },
-    onError: (e: any) => toast.error(`Revert failed: ${e?.message || 'unknown'}`),
+    onSuccess: () => { toast.success(t('ui:SectionEditor.revertedToAiOriginal')); invalidate() },
+    onError: (e: any) => toast.error(t('ui:SectionEditor.revertFailedV0', { v0: e?.message || 'unknown' })),
   })
 
   const refineMut = useMutation({
     mutationFn: (instruction: string) =>
       pagesApi.aiRefineSection(pageId, index, instruction),
     onSuccess: () => {
-      toast.success('Section refined')
+      toast.success(t('ui:SectionEditor.sectionRefined'))
       setShowRefineInput(false)
       setRefineInstruction('')
       setRefining(false)
       invalidate()
     },
     onError: (e: any) => {
-      toast.error(`Refine failed: ${e?.message || 'unknown'}`)
+      toast.error(t('ui:SectionEditor.refineFailedV0', { v0: e?.message || 'unknown' }))
       setRefining(false)
     },
   })
@@ -1124,7 +1131,7 @@ function SectionBlock({
         <button
           type="button"
           className="se-drag-handle"
-          aria-label={`Drag to reorder ${section.type || 'section'} #${index + 1}`}
+          aria-label={t('ui:SectionEditor.dragToReorderV0V1', { v0: section.type || 'section', v1: index + 1 })}
           {...dragHandleProps.attributes}
           {...dragHandleProps.listeners}
         >
@@ -1143,27 +1150,37 @@ function SectionBlock({
           <button
             onClick={openStyleDrawer}
             className="se-control-btn se-ctrl-style"
-            aria-label="Style"
+            aria-label={t('ui:SectionEditor.style')}
           >
             <Palette className="h-4 w-4" />
-            <span className="se-tooltip">Style</span>
+            <span className="se-tooltip">{t('ui:SectionEditor.style')}</span>
           </button>
           <button
             onClick={() => { setStyleOpen(false); setMediaSlot(null); setAnimOpen(true) }}
             className="se-control-btn se-ctrl-anim"
-            aria-label="Animations"
+            aria-label={t('ui:SectionEditor.animations')}
           >
             <Wand2 className="h-4 w-4" />
-            <span className="se-tooltip">Animations</span>
+            <span className="se-tooltip">{t('ui:SectionEditor.animations')}</span>
           </button>
           <button
             onClick={() => onRequestChangeVariant(index, section.type || 'hero')}
             className="se-control-btn se-ctrl-variant"
-            aria-label="Change variant"
+            aria-label={t('ui:SectionEditor.changeVariant')}
           >
             <Replace className="h-4 w-4" />
-            <span className="se-tooltip">Change variant</span>
+            <span className="se-tooltip">{t('ui:SectionEditor.changeVariant')}</span>
           </button>
+          {isLibraryBlock && (
+            <button
+              onClick={() => { setStyleOpen(false); setAnimOpen(false); setMediaSlot(null); setFieldsOpen(true) }}
+              className="se-control-btn se-ctrl-fields"
+              aria-label={t('ui:SectionEditor.fields')}
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              <span className="se-tooltip">{t('ui:SectionEditor.fields')}</span>
+            </button>
+          )}
 
           <span className="se-control-divider" aria-hidden="true" />
 
@@ -1171,47 +1188,47 @@ function SectionBlock({
             onClick={() => setShowRefineInput(true)}
             disabled={refining}
             className="se-control-btn se-ctrl-refine"
-            aria-label="Refine with AI"
+            aria-label={t('ui:SectionEditor.refineWithAi')}
           >
             {refining ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            <span className="se-tooltip">Refine with AI</span>
+            <span className="se-tooltip">{t('ui:SectionEditor.refineWithAi')}</span>
           </button>
           <button
             onClick={() => duplicateMut.mutate()}
             disabled={duplicateMut.isPending}
             className="se-control-btn"
-            aria-label="Duplicate section"
+            aria-label={t('ui:SectionEditor.duplicateSection')}
           >
             <Copy className="h-4 w-4" />
-            <span className="se-tooltip">Duplicate section</span>
+            <span className="se-tooltip">{t('ui:SectionEditor.duplicateSection')}</span>
           </button>
           {hasEdits && (
             <button
               onClick={() => {
-                if (confirm('Revert this section to the AI original? Your edits will be lost.')) {
+                if (confirm(t('ui:SectionEditor.revertThisSectionToThe'))) {
                   revertMut.mutate()
                 }
               }}
               disabled={revertMut.isPending}
               className="se-control-btn se-ctrl-revert"
-              aria-label="Revert to AI original"
+              aria-label={t('ui:SectionEditor.revertToAiOriginal')}
             >
               <RotateCcw className="h-4 w-4" />
-              <span className="se-tooltip">Revert to AI original</span>
+              <span className="se-tooltip">{t('ui:SectionEditor.revertToAiOriginal')}</span>
             </button>
           )}
           <button
             onClick={() => {
-              if (confirm('Delete this section?')) {
+              if (confirm(t('ui:SectionEditor.deleteThisSection'))) {
                 deleteMut.mutate()
               }
             }}
             disabled={deleteMut.isPending}
             className="se-control-btn se-ctrl-delete"
-            aria-label="Delete section"
+            aria-label={t('ui:SectionEditor.deleteSection')}
           >
             <Trash2 className="h-4 w-4" />
-            <span className="se-tooltip">Delete section</span>
+            <span className="se-tooltip">{t('ui:SectionEditor.deleteSection')}</span>
           </button>
         </div>
       )}
@@ -1221,7 +1238,7 @@ function SectionBlock({
         <div className="absolute top-2 left-2 right-12 z-30 bg-white dark:bg-gray-800 border border-indigo-200 dark:border-indigo-700 rounded-lg shadow-xl p-3">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300 uppercase tracking-wider">
-              Refine {section.type || 'section'} with AI
+             {t('ui:SectionEditor.refine')} {section.type || 'section'} {t('ui:SectionEditor.withAi')}
             </span>
             <button onClick={() => { setShowRefineInput(false); setRefineInstruction('') }} className="text-gray-400 hover:text-gray-600">
               <X className="h-3.5 w-3.5" />
@@ -1230,7 +1247,7 @@ function SectionBlock({
           <textarea
             value={refineInstruction}
             onChange={(e) => setRefineInstruction(e.target.value)}
-            placeholder="e.g. 'make the headline more playful' or 'change the color scheme to warm tones'"
+            placeholder={t('ui:SectionEditor.eGMakeTheHeadline')}
             rows={2}
             maxLength={2000}
             autoFocus
@@ -1240,13 +1257,13 @@ function SectionBlock({
             className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
           />
           <div className="flex items-center justify-between mt-1.5">
-            <span className="text-[10px] text-gray-400">⌘↵ to submit</span>
+            <span className="text-[10px] text-gray-400">{t('ui:SectionEditor.toSubmit')}</span>
             <button
               onClick={handleRefine}
               disabled={refining || !refineInstruction.trim()}
               className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded disabled:opacity-50"
             >
-              {refining ? <><Loader2 className="h-3 w-3 animate-spin" /> Working…</> : <><Sparkles className="h-3 w-3" /> Refine</>}
+              {refining ? <><Loader2 className="h-3 w-3 animate-spin" /> {t('ui:SectionEditor.working')}</> : <><Sparkles className="h-3 w-3" /> {t('ui:SectionEditor.refine')}</>}
             </button>
           </div>
         </div>
@@ -1285,8 +1302,8 @@ function SectionBlock({
               <button
                 onClick={(e) => { e.stopPropagation(); replayInIframe() }}
                 className="se-badge-replay"
-                title="Replay animation"
-                aria-label="Replay animation"
+                title={t('ui:SectionEditor.replayAnimation')}
+                aria-label={t('ui:SectionEditor.replayAnimation')}
               >
                 <Play className="h-2.5 w-2.5" fill="currentColor" />
               </button>
@@ -1306,7 +1323,7 @@ function SectionBlock({
                 setStyleOpen(false); setAnimOpen(false); setMediaSlot(tok)
               }}
               className="se-media-pill"
-              title={`Edit ${tokenLabel(tok)}`}
+              title={t('ui:SectionEditor.editV0', { v0: tokenLabel(tok) })}
             >
               {tokenIcon(tok)}
               <span>{tokenLabel(tok)}</span>
@@ -1353,6 +1370,17 @@ function SectionBlock({
         onClose={() => setStyleOpen(false)}
       />
 
+      {/* Fields drawer — block model v2. Edits metadata.props against the
+          variant's fields_schema; the backend re-renders the template. */}
+      <BlockFieldsPanel
+        open={fieldsOpen}
+        pageId={pageId}
+        sectionIndex={index}
+        section={section}
+        onSaved={invalidate}
+        onClose={() => setFieldsOpen(false)}
+      />
+
       {/* Media picker modal — opens when a slot pill is clicked. The
           target URL key may differ from the token name (element tokens
           like VIDEO_EMBED back onto VIDEO_URL in media_overrides). */}
@@ -1385,6 +1413,7 @@ function SectionBlock({
 // ---------------------------------------------------------------------------
 
 export default function SectionEditor({ pageId, sections, onChanged }: SectionEditorProps) {
+  const { t } = useTranslation('ui')
   const queryClient = useQueryClient()
 
   // Picker state: { mode, lockedCategory?, swapIndex? }
@@ -1407,15 +1436,15 @@ export default function SectionEditor({ pageId, sections, onChanged }: SectionEd
   const addMut = useMutation({
     mutationFn: (args: { data: { category: string; variant_id: string }; afterIdx?: number }) =>
       pagesApi.addSection(pageId, args.data, args.afterIdx),
-    onSuccess: () => { toast.success('Section added'); invalidate() },
-    onError: (e: any) => toast.error(`Add failed: ${e?.message || 'unknown'}`),
+    onSuccess: () => { toast.success(t('ui:SectionEditor.sectionAdded')); invalidate() },
+    onError: (e: any) => toast.error(t('ui:SectionEditor.addFailedV0', { v0: e?.message || 'unknown' })),
   })
 
   const reorderMut = useMutation({
     mutationFn: (args: { fromIndex: number; toIndex: number }) =>
       pagesApi.reorderSections(pageId, args.fromIndex, args.toIndex),
     onSuccess: () => { invalidate() },
-    onError: (e: any) => toast.error(`Reorder failed: ${e?.message || 'unknown'}`),
+    onError: (e: any) => toast.error(t('ui:SectionEditor.reorderFailedV0', { v0: e?.message || 'unknown' })),
   })
 
   // Stable sortable IDs for dnd-kit. Falls back to index-based ids
@@ -1469,13 +1498,13 @@ export default function SectionEditor({ pageId, sections, onChanged }: SectionEd
     onSuccess: (resp: any) => {
       const migrated: string[] = resp?.meta?.migrated_tokens ?? []
       if (migrated.length > 0) {
-        toast.success(`Variant swapped — ${migrated.length} field${migrated.length === 1 ? '' : 's'} migrated`)
+        toast.success(t('ui:SectionEditor.variantSwappedLengthFieldV1', { length: migrated.length, v1: migrated.length === 1 ? '' : 's' }))
       } else {
-        toast.success('Variant swapped')
+        toast.success(t('ui:SectionEditor.variantSwapped'))
       }
       invalidate()
     },
-    onError: (e: any) => toast.error(`Swap failed: ${e?.message || 'unknown'}`),
+    onError: (e: any) => toast.error(t('ui:SectionEditor.swapFailedV0', { v0: e?.message || 'unknown' })),
   })
 
   const handlePick = (variant: { category: string; variant_id: string }) => {
@@ -1518,9 +1547,9 @@ export default function SectionEditor({ pageId, sections, onChanged }: SectionEd
         className="se-add-section"
       >
         {addMut.isPending ? (
-          <><Loader2 className="h-4 w-4 animate-spin" /> Adding…</>
+          <><Loader2 className="h-4 w-4 animate-spin" /> {t('ui:SectionEditor.adding')}</>
         ) : (
-          <><Plus className="h-4 w-4" /> Add Section</>
+          <><Plus className="h-4 w-4" /> {t('ui:SectionEditor.addSection')}</>
         )}
       </button>
     </div>
@@ -1531,9 +1560,9 @@ export default function SectionEditor({ pageId, sections, onChanged }: SectionEd
       <div className="p-4 space-y-3 pb-6">
         {empty ? (
           <div className="flex flex-col items-center justify-center text-gray-400 dark:text-gray-500 py-20">
-            <p className="text-sm">No sections yet.</p>
+            <p className="text-sm">{t('ui:SectionEditor.noSectionsYet')}</p>
             <p className="text-xs mt-1 mb-6">
-              Pick a variant below to get started.
+             {t('ui:SectionEditor.pickAVariantBelowTo')}
             </p>
             {addSectionButton}
           </div>
@@ -1567,7 +1596,7 @@ export default function SectionEditor({ pageId, sections, onChanged }: SectionEd
             </SortableContext>
             {addSectionButton}
             <div className="text-center text-xs text-gray-400 dark:text-gray-500">
-              {sections.length} {sections.length === 1 ? 'section' : 'sections'} · click any text to edit
+              {sections.length} {sections.length === 1 ? 'section' : 'sections'} {t('ui:SectionEditor.clickAnyTextToEdit')}
             </div>
           </DndContext>
         )}

@@ -145,12 +145,22 @@ async def list_section_variants(
     """List active variants for the SectionEditor picker. Ordered by
     (sort_order, display_name). Registered above /{page_id} so the
     literal path doesn't get parsed as a UUID."""
-    from app.pages.variants import list_variants
+    from app.pages.variants import list_variants, render_template
+    from app.pages.compiler import _jsx_to_html
     variants = await list_variants(db, category=category)
+
+    def _preview(v) -> str:
+        # Fully-rendered default state (media tokens included) so the
+        # Visual tab's library can show a live Tailwind thumbnail and
+        # insert the block as plain HTML.
+        is_v2 = int(getattr(v, "schema_version", 1) or 1) >= 2
+        return _jsx_to_html(render_template(v.jsx_template, v.default_props or {}, escape=is_v2))
+
     return {
         "data": [
             {
                 "id": v.id,
+                "preview_html": _preview(v),
                 "category": v.category,
                 "variant_id": v.variant_id,
                 "display_name": v.display_name,
@@ -158,9 +168,22 @@ async def list_section_variants(
                 "preview_thumbnail_url": v.preview_thumbnail_url,
                 "svg_thumbnail": v.svg_thumbnail,
                 "default_props": v.default_props or {},
+                # Block model v2 — null/empty for legacy v1 rows.
+                "schema_version": getattr(v, "schema_version", 1) or 1,
+                "fields_schema": getattr(v, "fields_schema", None) or [],
+                "data_source": getattr(v, "data_source", None),
+                "data_mode": getattr(v, "data_mode", None),
+                "behaviour": getattr(v, "behaviour", None),
+                "capabilities": getattr(v, "capabilities", None) or [],
+                "motion_preset": getattr(v, "motion_preset", None),
+                "locales": sorted((getattr(v, "locale_props", None) or {}).keys()),
             }
             for v in variants
-        ]
+        ],
+        "meta": {
+            "categories": sorted({v.category for v in variants}),
+            "total": len(variants),
+        },
     }
 
 
@@ -1350,8 +1373,14 @@ async def patch_section(
     db: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
 ) -> dict:
-    """Update one section's edited_html or style_overrides in place.
-    Body: { edited_html?: str | null, style_overrides?: dict | null }.
+    """Update one section's edited_html, style_overrides, media_overrides
+    or (v2 blocks) props in place.
+    Body: { edited_html?: str | null, style_overrides?: dict | null,
+            media_overrides?: dict | null, props?: dict }.
+    `props` is validated against the variant's fields_schema, merged into
+    metadata.props and the section's jsx_content is re-rendered from the
+    template. Any inline edit (edited_html) is discarded because it was
+    made against the previous render — the editor confirms first.
     Writes to sections_json — NEVER touches css_content (the bug that
     sparked this refactor was font-size adjustments appending nth-child
     !important rules to global CSS; the structured per-section path
@@ -1365,6 +1394,59 @@ async def patch_section(
     target = sections[section_index]
     if not isinstance(target, dict):
         raise HTTPException(status_code=500, detail="Section is malformed")
+
+    field_errors: list[str] = []
+    if "props" in body:
+        props_in = body["props"]
+        if not isinstance(props_in, dict):
+            raise HTTPException(status_code=400, detail="props must be an object")
+        meta = target.get("metadata") or {}
+        variant_id = meta.get("variant_id")
+        if not variant_id:
+            raise HTTPException(
+                status_code=400,
+                detail="This section has no block variant; edit its HTML instead",
+            )
+        from sqlalchemy import select as _select
+        from app.pages.models import SectionVariant as _SV
+        from app.pages.variants import (
+            MEDIA_TOKENS as _MT, EMBED_TOKENS as _ET, render_template,
+            _TOKEN_RE as _TOKEN_RE_FOR_PROPS,
+        )
+        from app.pages.fields import validate_fields
+        rows = await db.execute(
+            _select(_SV).where(_SV.variant_id == variant_id, _SV.is_active.is_(True))
+        )
+        variant = rows.scalar_one_or_none()
+        if variant is None:
+            raise HTTPException(status_code=404, detail=f"Variant {variant_id} not found")
+        locale = meta.get("locale") or "en"
+        prev = meta.get("props") or {}
+        schema = getattr(variant, "fields_schema", None) or []
+        if schema:
+            schema_keys = {f["key"] for f in schema if f.get("key")}
+            clean, field_errors = validate_fields(schema, {**prev, **props_in}, locale=locale)
+            # Non-schema tokens already on the section (media, legacy)
+            # pass through; unknown incoming keys are dropped; a schema
+            # field whose new value failed validation keeps its previous
+            # value rather than the rejected input.
+            merged = {k: v for k, v in prev.items() if k not in schema_keys}
+            merged.update(clean)
+            for k in schema_keys:
+                if k not in clean and k in prev:
+                    merged[k] = prev[k]
+        else:
+            merged = {**prev, **props_in}
+            # v1 variant: only tokens the template actually uses, stringified.
+            allowed = set(_TOKEN_RE_FOR_PROPS.findall(variant.jsx_template or ""))
+            merged = {k: v for k, v in merged.items() if k in allowed}
+        is_v2 = int(getattr(variant, "schema_version", 1) or 1) >= 2
+        target["jsx_content"] = render_template(
+            variant.jsx_template, merged, skip_tokens=_MT | _ET, escape=is_v2,
+        )
+        meta["props"] = merged
+        target["metadata"] = meta
+        target["edited_html"] = None  # inline edits were against the old render
 
     if "edited_html" in body:
         val = body["edited_html"]
@@ -1398,11 +1480,14 @@ async def patch_section(
     await db.commit()
     await db.refresh(page)
     logger.info(
-        "pages.section_patched page_id=%s index=%d edited=%s overrides=%s",
+        "pages.section_patched page_id=%s index=%d edited=%s overrides=%s props=%s",
         page_id, section_index,
-        "edited_html" in body, "style_overrides" in body,
+        "edited_html" in body, "style_overrides" in body, "props" in body,
     )
-    return {"data": PageResponse.model_validate(page).model_dump(mode="json")}
+    out = {"data": PageResponse.model_validate(page).model_dump(mode="json")}
+    if field_errors:
+        out["field_errors"] = field_errors
+    return out
 
 
 @router.post("/{page_id}/sections/{section_index}/duplicate")
@@ -1512,21 +1597,28 @@ async def add_section(
     after_idx: int | None = Query(None, description="Insert after this index; default: append at end"),
 ) -> dict:
     """Add a new section from a variant. Body: { category: str,
-    variant_id: str, prop_overrides?: dict }. Appends by default;
-    insert at a specific position via ?after_idx=N."""
+    variant_id: str, prop_overrides?: dict, locale?: "en"|"fr-CA" }.
+    `locale` picks the block's default copy from locale_props (block
+    model v2). Appends by default; insert at a specific position via
+    ?after_idx=N."""
     from app.pages.variants import get_variant, variant_to_section
 
     category = (body.get("category") or "").strip()
     variant_id = (body.get("variant_id") or "").strip()
     if not category or not variant_id:
         raise HTTPException(status_code=400, detail="category and variant_id are required")
+    locale = (body.get("locale") or "en").strip()
+    if locale not in ("en", "fr-CA"):
+        raise HTTPException(status_code=400, detail="locale must be 'en' or 'fr-CA'")
 
     variant = await get_variant(db, category, variant_id)
     if variant is None:
         raise HTTPException(status_code=404, detail=f"Variant {category}/{variant_id} not found")
 
     page, sections = await _load_sections(db, page_id, user.id)
-    new_section = variant_to_section(variant, prop_overrides=body.get("prop_overrides"))
+    new_section = variant_to_section(
+        variant, prop_overrides=body.get("prop_overrides"), locale=locale,
+    )
 
     if after_idx is None or after_idx >= len(sections):
         sections.append(new_section)
