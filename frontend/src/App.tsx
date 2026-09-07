@@ -55,6 +55,9 @@ import LedgerReportsPage from '@/pages/LedgerReportsPage'
 import PersonalLedgerPage from '@/pages/PersonalLedgerPage'
 import BillsPage from '@/pages/BillsPage'
 import Tax1099Page from '@/pages/Tax1099Page'
+import PayrollRunsPage from '@/pages/PayrollRunsPage'
+import PayrollRunDetailPage from '@/pages/PayrollRunDetailPage'
+import PayrollEmployeesPage from '@/pages/PayrollEmployeesPage'
 import NewCashbookEntryPage from '@/pages/NewCashbookEntryPage'
 import CashbookEntryDetailPage from '@/pages/CashbookEntryDetailPage'
 import DrivePage from '@/pages/DrivePage'
@@ -249,6 +252,9 @@ function AuthenticatedApp() {
         <Route path="/personal" element={<PersonalLedgerPage />} />
         <Route path="/accounting/bills" element={<BillsPage />} />
         <Route path="/accounting/1099" element={<Tax1099Page />} />
+        <Route path="/payroll" element={<PayrollRunsPage />} />
+        <Route path="/payroll/employees" element={<PayrollEmployeesPage />} />
+        <Route path="/payroll/runs/:id" element={<PayrollRunDetailPage />} />
         <Route path="/expenses" element={<ExpensesPage />} />
         <Route path="/expenses/new" element={<NewExpensePage />} />
         <Route path="/expenses/dashboard" element={<ExpenseDashboardPage />} />

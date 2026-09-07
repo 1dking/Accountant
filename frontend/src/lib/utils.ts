@@ -13,8 +13,15 @@ export function formatFileSize(bytes: number): string {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`
 }
 
+/** Parse a date-only ISO string (YYYY-MM-DD) as LOCAL midnight. `new Date("2026-10-15")`
+ * is UTC midnight, which renders as Oct 14 in every Canadian timezone. */
+function asLocalDate(date: string | Date): Date {
+  if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) return new Date(date + 'T00:00:00')
+  return new Date(date)
+}
+
 export function formatDate(date: string | Date): string {
-  return new Date(date).toLocaleDateString('en-US', {
+  return asLocalDate(date).toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',

@@ -1,0 +1,82 @@
+{
+  "title": "Paie",
+  "subtitle": "Traitez la paie, comptabilisez-la et voyez ce que vous devez à l'ARC — à partir des mêmes chiffres.",
+  "tabs": { "runs": "Cycles de paie", "employees": "Employés", "remittance": "Remise" },
+  "employees": {
+    "title": "Employés",
+    "subtitle": "Qui vous payez, à quelle fréquence et où ils travaillent. Les NAS sont chiffrés et n'apparaissent que sur les T4.",
+    "add": "Ajouter un employé",
+    "edit": "Modifier l'employé",
+    "empty": "Aucun employé pour l'instant",
+    "emptyHint": "Ajoutez votre premier employé pour traiter la paie.",
+    "showTerminated": "Afficher les départs",
+    "fields": {
+      "firstName": "Prénom", "lastName": "Nom", "email": "Courriel", "phone": "Téléphone",
+      "sin": "NAS", "sinHint": "9 chiffres. Chiffré au repos; jamais affiché en entier par la suite.",
+      "dob": "Date de naissance", "dobHint": "Détermine la période de cotisation au RPC (18 à 70 ans).",
+      "hireDate": "Date d'embauche", "jobTitle": "Titre du poste",
+      "provinceOfEmployment": "Province d'emploi", "provinceHint": "Détermine la table d'impôt. Le Québec utilise le RRQ et le RQAP.",
+      "payType": "Type de rémunération", "hourly": "Horaire", "salary": "Salaire",
+      "payRate": "Taux", "rateHourly": "de l'heure", "rateSalary": "par année",
+      "frequency": "Fréquence de paie",
+      "weekly": "Hebdomadaire", "biweekly": "Aux deux semaines", "semimonthly": "Deux fois par mois", "monthly": "Mensuelle",
+      "defaultHours": "Heures par période (par défaut)",
+      "vacationPct": "Indemnité de vacances %", "vacationEachPeriod": "Verser les vacances à chaque période",
+      "vacationAccrue": "Accumuler et verser sur demande",
+      "td1Federal": "Crédit TD1 fédéral", "td1Provincial": "Crédit TD1 provincial", "td1Hint": "Laisser vide pour le montant personnel de base.",
+      "additionalTax": "Impôt supplémentaire par période", "cppExempt": "Exempté du RPC", "eiExempt": "Exempté de l'AE",
+      "address": "Adresse du domicile", "city": "Ville", "province": "Province", "postal": "Code postal",
+      "status": "Statut", "active": "Actif", "on_leave": "En congé", "terminated": "Départ",
+      "vacationBalance": "Vacances dues"
+    },
+    "saved": "Employé enregistré", "removed": "Employé retiré", "saveFailed": "Impossible d'enregistrer l'employé."
+  },
+  "runs": {
+    "title": "Cycles de paie",
+    "new": "Nouveau cycle de paie",
+    "empty": "Aucun cycle de paie pour l'instant",
+    "emptyHint": "Créez un cycle pour calculer la paie de tous selon un horaire.",
+    "period": "Période de paie", "payDate": "Date de paie", "frequency": "Fréquence",
+    "employees": "{{count}} employé", "employees_other": "{{count}} employés",
+    "gross": "Brut", "net": "Paie nette", "remittance": "Dû à l'ARC",
+    "status": { "draft": "Brouillon", "approved": "Approuvé", "paid": "Payé", "void": "Annulé" },
+    "create": "Calculer la paie",
+    "created": "Paie calculée — vérifiez les talons, puis approuvez.",
+    "createFailed": "Impossible de créer le cycle de paie.",
+    "overridesHint": "Facultatif : ajustez les heures, le temps supplémentaire ou les primes par personne. Les autres utilisent leurs valeurs par défaut."
+  },
+  "run": {
+    "back": "Tous les cycles",
+    "approve": "Approuver et comptabiliser",
+    "approveConfirm": "L'approbation crée une écriture de journal et fige ces talons. Continuer ?",
+    "approved": "Approuvé et comptabilisé",
+    "markPaid": "Marquer payé",
+    "markPaidConfirm": "Enregistrer la sortie de la paie nette de votre compte bancaire ?",
+    "paid": "Marqué payé",
+    "void": "Annuler le cycle",
+    "voidConfirm": "Ceci renverse les écritures de journal. Continuer ?",
+    "voided": "Cycle annulé",
+    "recalc": "Recalculer",
+    "journal": "Écriture de journal",
+    "totals": { "gross": "Paie brute", "deductions": "Retenues des employés", "employer": "Coût employeur", "net": "Paie nette", "remit": "À remettre à l'ARC" },
+    "stub": {
+      "hours": "Heures", "regular": "Régulier", "overtime": "Temps supp.", "bonus": "Prime", "vacation": "Vacances", "other": "Autre",
+      "cpp": "RPC", "cpp2": "RPC2", "qpp": "RRQ", "ei": "AE", "qpip": "RQAP", "fedTax": "Impôt fédéral", "provTax": "Impôt provincial",
+      "otherDed": "Autres retenues", "net": "Net", "employerCpp": "RPC employeur", "employerEi": "AE employeur",
+      "ytd": "Cumul annuel", "ytdGross": "Brut cumulé", "ytdNet": "Net cumulé", "tables": "Tables d'impôt"
+    }
+  },
+  "remittance": {
+    "title": "Remise à l'ARC (PD7A)",
+    "subtitle": "Ce qu'il faut envoyer à l'ARC pour les dates de paie d'un mois. Les remettants réguliers paient au plus tard le 15 du mois suivant.",
+    "month": "Mois", "runs": "Cycles de paie", "employees": "Employés", "gross": "Paie brute",
+    "cppEmployee": "RPC — employé", "cppEmployer": "RPC — employeur", "eiEmployee": "AE — employé", "eiEmployer": "AE — employeur",
+    "tax": "Impôt sur le revenu", "total": "Total à l'ARC", "quebec": "Total à Revenu Québec", "due": "Échéance"
+  },
+  "preview": {
+    "title": "Combien cela coûtera-t-il ?",
+    "subtitle": "Une estimation rapide avant d'embaucher — première période de l'année, crédits de base.",
+    "run": "Estimer",
+    "employerCost": "Coût réel par période"
+  }
+}

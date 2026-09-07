@@ -76,6 +76,7 @@ export const ROUTE_FEATURES: Array<[string, string]> = [
   ['/cashbook', 'cashbook'],
   ['/reconcile', 'cashbook'],
   ['/accounting', 'expenses'],
+  ['/payroll', 'expenses'],
   ['/expenses', 'expenses'],
   ['/income', 'expenses'],
   ['/budgets', 'expenses'],

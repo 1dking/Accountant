@@ -18,16 +18,18 @@ import { initReactI18next } from 'react-i18next'
 
 import enCommon from './locales/en/common.json'
 import enTax from './locales/en/tax.json'
+import enPayroll from './locales/en/payroll.json'
 import frCommon from './locales/fr-CA/common.json'
 import frTax from './locales/fr-CA/tax.json'
+import frPayroll from './locales/fr-CA/payroll.json'
 
 export const SUPPORTED_LOCALES = ['en', 'fr-CA'] as const
 export type Locale = (typeof SUPPORTED_LOCALES)[number]
 export const LOCALE_STORAGE_KEY = 'locale'
 
 export const resources = {
-  en: { common: enCommon, tax: enTax },
-  'fr-CA': { common: frCommon, tax: frTax },
+  en: { common: enCommon, tax: enTax, payroll: enPayroll },
+  'fr-CA': { common: frCommon, tax: frTax, payroll: frPayroll },
 } as const
 
 i18n
@@ -37,7 +39,7 @@ i18n
     resources,
     fallbackLng: 'en',
     supportedLngs: [...SUPPORTED_LOCALES],
-    ns: ['common', 'tax'],
+    ns: ['common', 'tax', 'payroll'],
     defaultNS: 'common',
     detection: {
       // Explicit choice first; browser language only as a first-run default.

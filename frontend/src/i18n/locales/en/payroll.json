@@ -1,0 +1,82 @@
+{
+  "title": "Payroll",
+  "subtitle": "Run pay, post it to the books, and see what you owe CRA — all from the same numbers.",
+  "tabs": { "runs": "Pay runs", "employees": "Employees", "remittance": "Remittance" },
+  "employees": {
+    "title": "Employees",
+    "subtitle": "Who you pay, how often, and where they work. SINs are encrypted and only printed on T4s.",
+    "add": "Add employee",
+    "edit": "Edit employee",
+    "empty": "No employees yet",
+    "emptyHint": "Add your first employee to run payroll.",
+    "showTerminated": "Show terminated",
+    "fields": {
+      "firstName": "First name", "lastName": "Last name", "email": "Email", "phone": "Phone",
+      "sin": "SIN", "sinHint": "9 digits. Encrypted at rest; never shown again in full.",
+      "dob": "Date of birth", "dobHint": "Sets the CPP 18–70 contribution window.",
+      "hireDate": "Hire date", "jobTitle": "Job title",
+      "provinceOfEmployment": "Province of employment", "provinceHint": "Picks the tax table. Quebec uses QPP + QPIP.",
+      "payType": "Pay type", "hourly": "Hourly", "salary": "Salary",
+      "payRate": "Rate", "rateHourly": "per hour", "rateSalary": "per year",
+      "frequency": "Pay frequency",
+      "weekly": "Weekly", "biweekly": "Every two weeks", "semimonthly": "Twice a month", "monthly": "Monthly",
+      "defaultHours": "Default hours per period",
+      "vacationPct": "Vacation pay %", "vacationEachPeriod": "Pay vacation out every period",
+      "vacationAccrue": "Accrue instead and pay on request",
+      "td1Federal": "TD1 federal claim", "td1Provincial": "TD1 provincial claim", "td1Hint": "Leave blank for the basic personal amount.",
+      "additionalTax": "Extra tax per period", "cppExempt": "CPP exempt", "eiExempt": "EI exempt",
+      "address": "Home address", "city": "City", "province": "Province", "postal": "Postal code",
+      "status": "Status", "active": "Active", "on_leave": "On leave", "terminated": "Terminated",
+      "vacationBalance": "Vacation owed"
+    },
+    "saved": "Employee saved", "removed": "Employee removed", "saveFailed": "Couldn't save the employee."
+  },
+  "runs": {
+    "title": "Pay runs",
+    "new": "New pay run",
+    "empty": "No pay runs yet",
+    "emptyHint": "Create a run to calculate pay for everyone on a schedule.",
+    "period": "Pay period", "payDate": "Pay date", "frequency": "Frequency",
+    "employees": "{{count}} employee", "employees_other": "{{count}} employees",
+    "gross": "Gross", "net": "Net pay", "remittance": "Owed to CRA",
+    "status": { "draft": "Draft", "approved": "Approved", "paid": "Paid", "void": "Void" },
+    "create": "Calculate pay",
+    "created": "Pay run calculated — review the stubs, then approve.",
+    "createFailed": "Couldn't create the pay run.",
+    "overridesHint": "Optional: adjust hours, overtime or bonuses per person. Everyone else uses their defaults."
+  },
+  "run": {
+    "back": "All pay runs",
+    "approve": "Approve & post to books",
+    "approveConfirm": "Approving posts a journal entry and freezes these stubs. Continue?",
+    "approved": "Approved and posted",
+    "markPaid": "Mark paid",
+    "markPaidConfirm": "Record the net pay leaving your bank account?",
+    "paid": "Marked paid",
+    "void": "Void run",
+    "voidConfirm": "This reverses the journal entries. Continue?",
+    "voided": "Run voided",
+    "recalc": "Recalculate",
+    "journal": "Journal entry",
+    "totals": { "gross": "Gross pay", "deductions": "Employee deductions", "employer": "Employer cost", "net": "Net pay", "remit": "Remit to CRA" },
+    "stub": {
+      "hours": "Hours", "regular": "Regular", "overtime": "Overtime", "bonus": "Bonus", "vacation": "Vacation", "other": "Other",
+      "cpp": "CPP", "cpp2": "CPP2", "qpp": "QPP", "ei": "EI", "qpip": "QPIP", "fedTax": "Federal tax", "provTax": "Provincial tax",
+      "otherDed": "Other deductions", "net": "Net", "employerCpp": "Employer CPP", "employerEi": "Employer EI",
+      "ytd": "Year to date", "ytdGross": "YTD gross", "ytdNet": "YTD net", "tables": "Tax tables"
+    }
+  },
+  "remittance": {
+    "title": "CRA remittance (PD7A)",
+    "subtitle": "What to send CRA for a month's pay dates. Regular remitters pay by the 15th of the next month.",
+    "month": "Month", "runs": "Pay runs", "employees": "Employees", "gross": "Gross payroll",
+    "cppEmployee": "CPP — employee", "cppEmployer": "CPP — employer", "eiEmployee": "EI — employee", "eiEmployer": "EI — employer",
+    "tax": "Income tax", "total": "Total to CRA", "quebec": "Total to Revenu Québec", "due": "Due"
+  },
+  "preview": {
+    "title": "What will this cost?",
+    "subtitle": "A quick estimate before you hire — first period of the year, basic claims.",
+    "run": "Estimate",
+    "employerCost": "True cost per period"
+  }
+}
