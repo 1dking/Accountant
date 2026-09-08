@@ -34,6 +34,7 @@ import {
   ChevronDown,
   ChevronRight,
   MailSearch,
+  Mail,
   MessageSquare,
   MessageCircle,
   Kanban,
@@ -147,10 +148,16 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    title: i18n.t('ui:Sidebar.content'),
+    title: 'Website',
     items: [
       { path: '/page-builder', label: i18n.t('ui:Sidebar.pages'), icon: Globe, featureKey: 'pages' },
       { path: '/domains', label: 'Domains', icon: Globe, featureKey: 'pages' },
+      { path: '/email', label: 'Email', icon: Mail, featureKey: 'pages' },
+    ],
+  },
+  {
+    title: 'Documents',
+    items: [
       { path: '/docs', label: i18n.t('ui:Sidebar.docs'), icon: FileEdit, featureKey: 'docs' },
       { path: '/sheets', label: i18n.t('ui:Sidebar.sheets'), icon: Table2, featureKey: 'sheets' },
       { path: '/slides', label: i18n.t('ui:Sidebar.slides'), icon: Presentation, featureKey: 'slides' },

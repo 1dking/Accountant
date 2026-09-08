@@ -101,6 +101,7 @@ import FormsPage from '@/pages/FormsPage'
 import CommunicationPage from '@/pages/CommunicationPage'
 import PageBuilderPage from '@/pages/PageBuilderPage'
 import DomainsPage from '@/pages/DomainsPage'
+import EmailPage from '@/pages/EmailPage'
 import AvailabilityPage from '@/pages/AvailabilityPage'
 import BookingsPage from '@/pages/BookingsPage'
 import PublicBookingPage from '@/pages/PublicBookingPage'
@@ -312,6 +313,7 @@ function AuthenticatedApp() {
         <Route path="/communication" element={<CommunicationPage />} />
         <Route path="/page-builder" element={<PageBuilderPage />} />
         <Route path="/domains" element={<DomainsPage />} />
+        <Route path="/email" element={<EmailPage />} />
         <Route path="/business-card" element={<BusinessCardPage />} />
         <Route path="/availability" element={<AvailabilityPage />} />
         <Route path="/bookings" element={<BookingsPage />} />
