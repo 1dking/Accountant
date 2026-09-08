@@ -77,3 +77,29 @@ class DnsRecord(TimestampMixin, Base):
 
 
 Index("ix_dns_records_domain_type", DnsRecord.domain_id, DnsRecord.type)
+
+
+class MailboxCredential(TimestampMixin, Base):
+    """Encrypted IMAP/SMTP password for a mailbox we manage, so the CRM
+    inbox can connect on the user's behalf. Written whenever we set or
+    reset a mailbox password through our own UI (we know the plaintext at
+    that moment). Migadu is still the source of truth for the mailbox
+    itself; this only stores the credential needed to sync it.
+    """
+    __tablename__ = "mailbox_credentials"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    domain_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("domain_purchases.id", ondelete="CASCADE"), index=True)
+    local_part: Mapped[str] = mapped_column(String(64))
+    address: Mapped[str] = mapped_column(String(320), index=True)
+    # Fernet-encrypted password (app.core.encryption)
+    encrypted_password: Mapped[str] = mapped_column(Text)
+
+    imap_host: Mapped[str] = mapped_column(String(255), default="imap.migadu.com")
+    imap_port: Mapped[int] = mapped_column(Integer, default=993)
+    smtp_host: Mapped[str] = mapped_column(String(255), default="smtp.migadu.com")
+    smtp_port: Mapped[int] = mapped_column(Integer, default=465)
+
+
+Index("ix_mailbox_credentials_domain_local", MailboxCredential.domain_id, MailboxCredential.local_part, unique=True)

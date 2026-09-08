@@ -14,6 +14,7 @@ from app.dependencies import get_current_user, get_db, require_role
 from app.domains import service
 from app.domains.porkbun import PorkbunError
 from app.domains.migadu import MigaduError
+from app.domains.imap_client import MailConnectionError
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -45,6 +46,13 @@ class MailboxReq(BaseModel):
 
 class PasswordReq(BaseModel):
     password: str = Field(..., min_length=12, max_length=256)
+
+
+class SendReq(BaseModel):
+    to: str = Field(..., min_length=3, max_length=320)
+    subject: str = Field(default="", max_length=512)
+    body: str = Field(default="", max_length=100_000)
+    in_reply_to: str | None = None
 
 
 def _settings(request: Request):
@@ -215,6 +223,57 @@ async def reset_mailbox_password(
             local_part=local_part, password=body.password,
         )}
     except MigaduError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+
+@router.get("/{purchase_id}/mailboxes/{local_part}/inbox")
+async def inbox_list(
+    purchase_id: uuid.UUID,
+    local_part: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+    folder: str = "INBOX",
+    limit: int = 30,
+):
+    try:
+        return {"data": await service.inbox_list(
+            db, user, purchase_id, local_part, folder=folder, limit=min(limit, 100),
+        )}
+    except MailConnectionError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+
+@router.get("/{purchase_id}/mailboxes/{local_part}/inbox/{uid}")
+async def inbox_message(
+    purchase_id: uuid.UUID,
+    local_part: str,
+    uid: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+    folder: str = "INBOX",
+):
+    try:
+        return {"data": await service.inbox_message(
+            db, user, purchase_id, local_part, uid, folder=folder,
+        )}
+    except MailConnectionError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+
+@router.post("/{purchase_id}/mailboxes/{local_part}/send")
+async def inbox_send(
+    purchase_id: uuid.UUID,
+    local_part: str,
+    body: SendReq,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
+):
+    try:
+        return {"data": await service.inbox_send(
+            db, user, purchase_id, local_part,
+            to=body.to, subject=body.subject, body=body.body, in_reply_to=body.in_reply_to,
+        )}
+    except MailConnectionError as e:
         raise HTTPException(status_code=502, detail=str(e))
 
 

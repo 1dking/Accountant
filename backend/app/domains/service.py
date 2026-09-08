@@ -21,11 +21,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.models import User
 from app.core.authorization import apply_cashbook_filter
 from app.core.exceptions import ValidationError, NotFoundError
-from app.domains.models import DomainPurchase, DnsRecord
+from app.domains.models import DomainPurchase, DnsRecord, MailboxCredential
 from app.domains.porkbun import PorkbunClient, PorkbunError, build_client
 from app.domains.migadu import (
     MigaduError, build_client as build_migadu_client, migadu_dns_records,
 )
+from app.domains import imap_client
+from app.core.encryption import get_encryption_service
 
 logger = logging.getLogger(__name__)
 
@@ -425,9 +427,11 @@ async def create_mailbox(
     if len(password) < 12:
         raise ValidationError("Password must be at least 12 characters")
     migadu = build_migadu_client(settings)
-    return await migadu.create_mailbox(
+    result = await migadu.create_mailbox(
         row.domain, local_part=local_part.lower(), name=name, password=password,
     )
+    await _store_credential(db, row, local_part.lower(), password)
+    return result
 
 
 async def delete_mailbox(db: AsyncSession, user: User, settings,
@@ -445,4 +449,83 @@ async def reset_mailbox_password(
     if len(password) < 12:
         raise ValidationError("Password must be at least 12 characters")
     migadu = build_migadu_client(settings)
-    return await migadu.update_mailbox_password(row.domain, local_part.lower(), password)
+    result = await migadu.update_mailbox_password(row.domain, local_part.lower(), password)
+    await _store_credential(db, row, local_part.lower(), password)
+    return result
+
+
+async def _store_credential(db: AsyncSession, row: DomainPurchase,
+                            local_part: str, password: str) -> None:
+    """Encrypt + upsert the mailbox password so the CRM inbox can connect."""
+    enc = get_encryption_service()
+    address = f"{local_part}@{row.domain}"
+    q = await db.execute(
+        select(MailboxCredential).where(
+            MailboxCredential.domain_id == row.id,
+            MailboxCredential.local_part == local_part,
+        )
+    )
+    cred = q.scalar_one_or_none()
+    if cred is None:
+        cred = MailboxCredential(
+            domain_id=row.id, local_part=local_part, address=address,
+            encrypted_password=enc.encrypt(password),
+        )
+        db.add(cred)
+    else:
+        cred.encrypted_password = enc.encrypt(password)
+        cred.address = address
+    await db.commit()
+
+
+async def _load_credential(db: AsyncSession, row: DomainPurchase,
+                           local_part: str) -> MailboxCredential:
+    q = await db.execute(
+        select(MailboxCredential).where(
+            MailboxCredential.domain_id == row.id,
+            MailboxCredential.local_part == local_part.lower(),
+        )
+    )
+    cred = q.scalar_one_or_none()
+    if cred is None:
+        raise ValidationError(
+            "This mailbox isn't connected to the inbox yet. Reset its "
+            "password once from the Email page to link it."
+        )
+    return cred
+
+
+# ---------------------------------------------------------------------------
+# CRM inbox — read + send over IMAP/SMTP
+# ---------------------------------------------------------------------------
+
+async def inbox_list(db: AsyncSession, user: User, purchase_id: uuid.UUID,
+                     local_part: str, *, folder: str = "INBOX", limit: int = 30) -> list[dict]:
+    row = await get_purchase(db, user, purchase_id)
+    cred = await _load_credential(db, row, local_part)
+    pw = get_encryption_service().decrypt(cred.encrypted_password)
+    return await imap_client.list_inbox(
+        cred.imap_host, cred.imap_port, cred.address, pw, folder=folder, limit=limit,
+    )
+
+
+async def inbox_message(db: AsyncSession, user: User, purchase_id: uuid.UUID,
+                        local_part: str, uid: str, *, folder: str = "INBOX") -> dict:
+    row = await get_purchase(db, user, purchase_id)
+    cred = await _load_credential(db, row, local_part)
+    pw = get_encryption_service().decrypt(cred.encrypted_password)
+    return await imap_client.get_message(
+        cred.imap_host, cred.imap_port, cred.address, pw, uid, folder=folder,
+    )
+
+
+async def inbox_send(db: AsyncSession, user: User, purchase_id: uuid.UUID,
+                     local_part: str, *, to: str, subject: str, body: str,
+                     in_reply_to: str | None = None) -> dict:
+    row = await get_purchase(db, user, purchase_id)
+    cred = await _load_credential(db, row, local_part)
+    pw = get_encryption_service().decrypt(cred.encrypted_password)
+    return await imap_client.send_message(
+        cred.smtp_host, cred.smtp_port, cred.address, pw,
+        to=to, subject=subject, body=body, in_reply_to=in_reply_to,
+    )
