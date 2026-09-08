@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Mail, Loader2, Plus, Trash2, Check, Sparkles, Globe, ArrowRight, KeyRound, Copy } from 'lucide-react'
+import { Mail, Loader2, Plus, Trash2, Check, Sparkles, Globe, ArrowRight, KeyRound, Copy, Inbox, Send, RefreshCw, ChevronLeft } from 'lucide-react'
 import { toast } from 'sonner'
-import { domainsApi, type DomainPurchase } from '@/api/domains'
+import { domainsApi, type DomainPurchase, type InboxMessageFull } from '@/api/domains'
 import { genPassword } from '@/lib/genPassword'
 
 /**
@@ -186,6 +186,7 @@ function MailboxRow({ domainId, localPart, address, name, onDeleted }: {
   domainId: string; localPart: string; address: string; name?: string; onDeleted: () => void;
 }) {
   const [resetting, setResetting] = useState(false)
+  const [inboxOpen, setInboxOpen] = useState(false)
   const [pw, setPw] = useState('')
   const deleteMut = useMutation({
     mutationFn: () => domainsApi.deleteMailbox(domainId, localPart),
@@ -203,6 +204,10 @@ function MailboxRow({ domainId, localPart, address, name, onDeleted }: {
         <Mail className="h-3.5 w-3.5 text-gray-400 shrink-0" />
         <span className="font-mono flex-1 min-w-0 truncate">{address}</span>
         {name && <span className="text-gray-500 text-xs">{name}</span>}
+        <button onClick={() => setInboxOpen(v => !v)}
+          className={`p-1 ${inboxOpen ? 'text-blue-600' : 'text-gray-500 hover:text-blue-600'}`} title="Open inbox">
+          <Inbox className="h-3.5 w-3.5" />
+        </button>
         <button onClick={() => { setResetting(v => !v); if (!resetting && !pw) setPw(genPassword()) }}
           className="text-gray-500 hover:text-blue-600 p-1" title="Reset password">
           <KeyRound className="h-3.5 w-3.5" />
@@ -232,7 +237,143 @@ function MailboxRow({ domainId, localPart, address, name, onDeleted }: {
           <button type="button" onClick={() => { setResetting(false); setPw('') }} className="text-xs text-gray-500 hover:text-gray-700">Cancel</button>
         </div>
       )}
+      {inboxOpen && <MailboxInbox domainId={domainId} localPart={localPart} address={address} />}
     </li>
+  )
+}
+
+function MailboxInbox({ domainId, localPart, address }: { domainId: string; localPart: string; address: string }) {
+  const [openUid, setOpenUid] = useState<string | null>(null)
+  const [composing, setComposing] = useState(false)
+  const listQ = useQuery({
+    queryKey: ['inbox', domainId, localPart],
+    queryFn: async () => (await domainsApi.inboxList(domainId, localPart, 30)).data,
+  })
+  const msgQ = useQuery({
+    queryKey: ['inbox-msg', domainId, localPart, openUid],
+    queryFn: async () => (await domainsApi.inboxMessage(domainId, localPart, openUid!)).data,
+    enabled: !!openUid,
+  })
+  const messages = listQ.data ?? []
+
+  return (
+    <div className="mt-3 ml-6 rounded-md border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950/50">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 dark:border-gray-800">
+        <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+          <Inbox className="h-3.5 w-3.5" /> Inbox — {address}
+        </span>
+        <div className="flex items-center gap-2">
+          <button onClick={() => listQ.refetch()} className="text-gray-500 hover:text-blue-600 p-1" title="Refresh">
+            <RefreshCw className={`h-3.5 w-3.5 ${listQ.isFetching ? 'animate-spin' : ''}`} />
+          </button>
+          <button onClick={() => { setComposing(true); setOpenUid(null) }}
+            className="text-xs px-2 py-1 rounded bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1">
+            <Send className="h-3 w-3" /> Compose
+          </button>
+        </div>
+      </div>
+
+      {composing ? (
+        <ComposeForm address={address} domainId={domainId} localPart={localPart}
+          onClose={() => setComposing(false)} onSent={() => { setComposing(false); listQ.refetch() }} />
+      ) : openUid ? (
+        <MessageView msg={msgQ.data} loading={msgQ.isLoading} error={msgQ.error as Error | null}
+          onBack={() => setOpenUid(null)}
+          onReply={() => { setComposing(true) }} />
+      ) : listQ.isLoading ? (
+        <div className="py-6 text-center"><Loader2 className="h-4 w-4 animate-spin mx-auto text-gray-400" /></div>
+      ) : listQ.isError ? (
+        <div className="py-4 px-3 text-xs text-rose-600 dark:text-rose-300">
+          Couldn’t load inbox: {(listQ.error as Error)?.message || 'connection error'}
+        </div>
+      ) : messages.length === 0 ? (
+        <div className="py-6 text-center text-xs text-gray-500">No messages yet. Mail sent to {address} will appear here.</div>
+      ) : (
+        <ul className="divide-y divide-gray-200 dark:divide-gray-800 max-h-80 overflow-y-auto">
+          {messages.map(m => (
+            <li key={m.uid}>
+              <button onClick={() => setOpenUid(m.uid)}
+                className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800/50 flex items-center gap-2">
+                {!m.seen && <span className="h-2 w-2 rounded-full bg-blue-600 shrink-0" />}
+                <span className={`text-xs truncate flex-1 ${m.seen ? 'text-gray-600 dark:text-gray-400' : 'font-semibold text-gray-900 dark:text-white'}`}>
+                  {m.from}
+                </span>
+                <span className="text-xs text-gray-800 dark:text-gray-200 truncate flex-[2]">{m.subject}</span>
+                <span className="text-[10px] text-gray-400 shrink-0">{m.date?.replace(/\s*\(.*\)$/, '').slice(0, 22)}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+function MessageView({ msg, loading, error, onBack, onReply }: {
+  msg?: InboxMessageFull; loading: boolean; error: Error | null; onBack: () => void; onReply: () => void;
+}) {
+  return (
+    <div className="p-3">
+      <div className="flex items-center justify-between mb-2">
+        <button onClick={onBack} className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1">
+          <ChevronLeft className="h-3.5 w-3.5" /> Back
+        </button>
+        <button onClick={onReply} className="text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-1">
+          <Send className="h-3 w-3" /> Reply
+        </button>
+      </div>
+      {loading ? (
+        <div className="py-6 text-center"><Loader2 className="h-4 w-4 animate-spin mx-auto text-gray-400" /></div>
+      ) : error ? (
+        <div className="text-xs text-rose-600 dark:text-rose-300">Couldn’t open message: {error.message}</div>
+      ) : msg ? (
+        <div>
+          <div className="text-sm font-semibold text-gray-900 dark:text-white">{msg.subject}</div>
+          <div className="text-xs text-gray-500 mt-0.5">From: <span className="font-mono">{msg.from}</span></div>
+          <div className="text-xs text-gray-500">{msg.date}</div>
+          <div className="mt-3 border-t border-gray-200 dark:border-gray-800 pt-3">
+            {msg.html ? (
+              <div className="prose prose-sm dark:prose-invert max-w-none text-sm overflow-x-auto"
+                dangerouslySetInnerHTML={{ __html: msg.html }} />
+            ) : (
+              <pre className="text-sm whitespace-pre-wrap font-sans text-gray-800 dark:text-gray-200">{msg.text || '(empty message)'}</pre>
+            )}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function ComposeForm({ address, domainId, localPart, onClose, onSent }: {
+  address: string; domainId: string; localPart: string; onClose: () => void; onSent: () => void;
+}) {
+  const [to, setTo] = useState('')
+  const [subject, setSubject] = useState('')
+  const [body, setBody] = useState('')
+  const sendMut = useMutation({
+    mutationFn: () => domainsApi.inboxSend(domainId, localPart, { to, subject, body }),
+    onSuccess: () => { toast.success('Sent'); onSent() },
+    onError: (e: Error) => toast.error(e.message || 'Send failed'),
+  })
+  return (
+    <form className="p-3 space-y-2" onSubmit={e => { e.preventDefault(); if (to.trim()) sendMut.mutate() }}>
+      <div className="text-[11px] text-gray-500">From: <span className="font-mono">{address}</span></div>
+      <input value={to} onChange={e => setTo(e.target.value)} placeholder="To (email address)"
+        className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 text-sm px-2 py-1.5" />
+      <input value={subject} onChange={e => setSubject(e.target.value)} placeholder="Subject"
+        className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 text-sm px-2 py-1.5" />
+      <textarea value={body} onChange={e => setBody(e.target.value)} placeholder="Write your message…" rows={6}
+        className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 text-sm px-2 py-1.5" />
+      <div className="flex items-center gap-2">
+        <button type="submit" disabled={!to.trim() || sendMut.isPending}
+          className="px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm flex items-center gap-1">
+          {sendMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />} Send
+        </button>
+        <button type="button" onClick={onClose} className="text-sm text-gray-500 hover:text-gray-700">Cancel</button>
+        <span className="text-[11px] text-gray-400">Sending activates once the domain finishes outbound verification.</span>
+      </div>
+    </form>
   )
 }
 

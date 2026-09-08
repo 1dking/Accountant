@@ -96,5 +96,20 @@ export const domainsApi = {
     api.get<{ data: { email_enabled: boolean; active: boolean; state: string; can_send?: boolean; can_receive?: boolean } }>(
       `/domains/${id}/email/status`,
     ),
+
+  // CRM inbox (IMAP/SMTP)
+  inboxList: (id: string, localPart: string, limit = 30) =>
+    api.get<{ data: InboxMessage[] }>(`/domains/${id}/mailboxes/${localPart}/inbox?limit=${limit}`),
+
+  inboxMessage: (id: string, localPart: string, uid: string) =>
+    api.get<{ data: InboxMessageFull }>(`/domains/${id}/mailboxes/${localPart}/inbox/${uid}`),
+
+  inboxSend: (id: string, localPart: string, body: { to: string; subject: string; body: string; in_reply_to?: string }) =>
+    api.post<{ data: { sent: boolean; message_id: string } }>(`/domains/${id}/mailboxes/${localPart}/send`, body),
 }
+
+export type InboxMessage = {
+  uid: string; from: string; to: string; subject: string; date: string; message_id: string; seen: boolean
+}
+export type InboxMessageFull = InboxMessage & { text: string; html: string }
 
