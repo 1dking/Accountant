@@ -248,6 +248,39 @@ async def create_portal(db: AsyncSession, user: User, settings, return_url: str)
     return {"url": session.url}
 
 
+async def _hydrate_integration_creds(db: AsyncSession, settings) -> None:
+    """Read encrypted IntegrationConfig rows and set them on `settings`.
+
+    Boot-time equivalent to settings_router.load_integration_configs
+    but runs inside an existing session instead of opening a new one.
+    Needed by webhook handlers that get a fresh Settings() without the
+    DB-loaded keys."""
+    import json
+    from app.core.encryption import get_encryption_service
+    from app.integrations.settings_models import IntegrationConfig
+    from app.integrations.settings_router import SETTINGS_MAP
+    try:
+        enc = get_encryption_service()
+    except RuntimeError:
+        return
+    try:
+        res = await db.execute(select(IntegrationConfig))
+        for cfg in res.scalars():
+            mapping = SETTINGS_MAP.get(cfg.integration_type) or {}
+            if not mapping:
+                continue
+            try:
+                data = json.loads(enc.decrypt(cfg.encrypted_config))
+            except Exception:
+                continue
+            for field, attr in mapping.items():
+                val = data.get(field, "")
+                if val:
+                    setattr(settings, attr, val)
+    except Exception as e:
+        logger.warning("_hydrate_integration_creds: %s", e)
+
+
 async def handle_stripe_event(db: AsyncSession, event_type: str, obj: dict) -> None:
     """Webhook hook for subscription lifecycle. No-ops for anything that
     isn't an account subscription, so it's safe to call for every event."""
@@ -260,18 +293,20 @@ async def handle_stripe_event(db: AsyncSession, event_type: str, obj: dict) -> N
             if not checkout_id:
                 return
             from app.domains import service as domains_service
-            from fastapi import Request  # noqa: F401 — request-less lookup below
-            # settings singleton lives on the app; the caller has none here,
-            # so re-read from environment via Settings().
+            # Env-only Settings() lacks the encrypted Porkbun/Migadu keys
+            # that live in IntegrationConfig; hydrate them here so the
+            # register call has creds. Same routine that runs at boot.
             from app.config import Settings
+            settings = Settings()
+            await _hydrate_integration_creds(db, settings)
             try:
                 await domains_service.finalize_purchase(
-                    db, Settings(),
+                    db, settings,
                     stripe_checkout_id=checkout_id,
                     payment_intent_id=pi,
                 )
             except Exception as e:
-                logger.error("domain_purchase.finalize failed for %s: %s", checkout_id, e)
+                logger.exception("domain_purchase.finalize failed for %s: %s", checkout_id, e)
             return
         if md.get("kind") != "account_subscription":
             return
