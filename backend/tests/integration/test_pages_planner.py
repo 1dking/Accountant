@@ -40,19 +40,22 @@ def _fake_claude(responses: list[dict], captured: list[dict]):
 @pytest.mark.high
 async def test_plan_fill_generate_uses_only_library_templates(client: AsyncClient, app, session_factory, admin_user: User, db: AsyncSession, library, monkeypatch):
     plan = {
-        "title": "Ottawa Bookkeeping Co.",
+        "site_title": "Ottawa Bookkeeping Co.",
         "audience": "Sole proprietors in Ottawa who dread tax season",
         "goals": ["Book a free call", "Show credibility"],
-        "sections": [
-            {"variant_id": NAV_VARIANTS[0]["variant_id"], "brief": "Simple nav"},
-            {"variant_id": HERO_VARIANTS[0]["variant_id"], "brief": "Bold promise about stress-free books"},
-            {"variant_id": "stats_count_up", "brief": "Trust numbers"},
-            {"variant_id": "booking_inline_picker", "brief": "Book a call"},        # no calendar → dropped
-            {"variant_id": "totally_made_up_block", "category": "faq", "brief": "FAQ"},  # unknown → first faq block
-            {"variant_id": "contact_lead_form", "brief": "Lead form"},
-            {"variant_id": "contact_lead_form", "brief": "duplicate"},                # deduped
-            {"variant_id": FOOTER_VARIANTS[0]["variant_id"], "brief": "Footer"},
-        ],
+        "pages": [{
+            "path": "home", "role": "home", "title": "Ottawa Bookkeeping Co.", "nav_label": "Home",
+            "sections": [
+                {"variant_id": NAV_VARIANTS[0]["variant_id"], "brief": "Simple nav"},
+                {"variant_id": HERO_VARIANTS[0]["variant_id"], "brief": "Bold promise about stress-free books"},
+                {"variant_id": "stats_count_up", "brief": "Trust numbers"},
+                {"variant_id": "booking_inline_picker", "brief": "Book a call"},        # no calendar → dropped
+                {"variant_id": "totally_made_up_block", "category": "faq", "brief": "FAQ"},  # unknown → first faq block
+                {"variant_id": "contact_lead_form", "brief": "Lead form"},
+                {"variant_id": "contact_lead_form", "brief": "duplicate"},                # deduped
+                {"variant_id": FOOTER_VARIANTS[0]["variant_id"], "brief": "Footer"},
+            ],
+        }],
     }
     fill = {"sections": {
         "1": {"HEADLINE": "Books done right, <b>every month</b>", "SUBHEADLINE": "We keep your CRA filings on time so you can run the shop.",
@@ -71,18 +74,19 @@ async def test_plan_fill_generate_uses_only_library_templates(client: AsyncClien
                           json={"prompt": "A landing page for my Ottawa bookkeeping business", "locale": "en"})
     assert r.status_code == 200, r.text
     prd = r.json()["data"]["prd"]
-    ids = [s["variant_id"] for s in prd["sections"]]
+    # single-page plan wraps its sections under one home page
+    ids = [s["variant_id"] for s in prd["pages"][0]["sections"]]
     assert ids == [NAV_VARIANTS[0]["variant_id"], HERO_VARIANTS[0]["variant_id"], "stats_count_up", "faq_searchable",
                    "contact_lead_form", FOOTER_VARIANTS[0]["variant_id"]]
     assert prd["provider"] == "claude" and prd["fill_provider"] == "claude"
     # planner prompt carried the catalogue and the profile, never markup instructions
     assert "Block catalogue" in captured[0]["user"] and "never write HTML" in captured[0]["system"]
     assert "Blocks to write" in captured[1]["user"] and "never write HTML" in captured[1]["system"]
-    hero = prd["sections"][1]
+    hero = prd["pages"][0]["sections"][1]
     assert hero["fields"]["HEADLINE"] == "Books done right, every month"       # tags stripped
     assert "IMAGE_URL" not in hero["fields"] and "MADE_UP" not in hero["fields"]  # locked / unknown dropped
     assert hero["thumbnail_url"] is None or isinstance(hero["thumbnail_url"], str)
-    stats = prd["sections"][2]
+    stats = prd["pages"][0]["sections"][2]
     assert stats["fields"]["STATS"][0] == {"VALUE": 120, "SUFFIX": "+", "LABEL": "Ottawa clients"}
 
     r = await client.post(f"/api/pages/ai/sessions/{sid}/approve", headers=auth_header(admin_user))
@@ -117,8 +121,8 @@ async def test_static_plan_when_no_provider(client: AsyncClient, app, admin_user
     assert r.status_code == 200, r.text
     prd = r.json()["data"]["prd"]
     assert prd["provider"] == "static_fallback" and prd["fill_provider"] == "defaults"
-    cats = [s["type"] for s in prd["sections"]]
+    cats = [s["type"] for s in prd["pages"][0]["sections"]]
     assert cats[0] == "nav" and cats[-1] == "footer" and "hero" in cats and "contact" in cats
     assert "booking" not in cats                                                     # no calendar on this account
-    lead = next(s for s in prd["sections"] if s["variant_id"] == "contact_lead_form")
+    lead = next(s for s in prd["pages"][0]["sections"] if s["variant_id"] == "contact_lead_form")
     assert lead["fields"]["HEADLINE"] == "Parlez-nous de votre projet"                # fr-CA defaults

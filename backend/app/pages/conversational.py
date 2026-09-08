@@ -433,6 +433,7 @@ async def submit_prompt(
     settings: Settings,
     *,
     locale: str = "en",
+    confirmed_pages: list[dict] | None = None,
 ) -> PageGenerationSession:
     """Append the user's prompt to the conversation and produce a PLAN
     (block model v2): Sonnet picks blocks from the library and writes
@@ -457,26 +458,42 @@ async def submit_prompt(
     history = list(session.prompt_history or [])
     history.append({"role": "user", "content": prompt, "timestamp": now})
 
-    # Copy-only planner: choose blocks → write their fields. Static
-    # fallback guarantees a usable plan even with no AI provider.
-    from app.pages.planner import fill_fields, plan_page
+    # Copy-only planner: choose blocks → derive nav from pages → write
+    # the copy. Static fallback guarantees a usable plan even with no
+    # AI provider.
+    from app.pages.planner import apply_nav_from_pages, fill_fields, plan_from_sitemap, plan_page
 
-    previous = session.prd if isinstance(session.prd, dict) and session.prd.get("sections") else None
-    prd, provider, _catalogue, profile = await plan_page(
-        db, prompt, settings, user_id=user_id, locale=locale, previous_plan=previous,
-    )
+    previous = session.prd if isinstance(session.prd, dict) and (session.prd.get("pages") or session.prd.get("sections")) else None
+    if confirmed_pages:
+        # The user has already approved a sitemap. Fill in the block
+        # composition for each page directly — one fewer Sonnet call.
+        prd, provider, catalogue, profile = await plan_from_sitemap(
+            db, prompt, settings, user_id=user_id, locale=locale, pages=confirmed_pages,
+        )
+    else:
+        prd, provider, catalogue, profile = await plan_page(
+            db, prompt, settings, user_id=user_id, locale=locale, previous_plan=previous,
+        )
+    # Populate every page's nav (BRAND_NAME + NAV_LINK_*) from the plan
+    # BEFORE fill so the AI knows the site's structure is decided and
+    # only writes copy. Impossible for the menu to disagree with the
+    # generated pages after this.
+    apply_nav_from_pages(prd)
     prd, fill_provider = await fill_fields(db, prd, settings, profile=profile, locale=locale, prompt=prompt)
     prd["locale"] = locale
     prd["provider"] = provider
     prd["fill_provider"] = fill_provider
     history.append({
         "role": "assistant",
-        "content": json.dumps({"title": prd.get("title"), "sections": [s.get("variant_id") for s in prd.get("sections", [])]}),
+        "content": json.dumps({
+            "site_title": prd.get("site_title") or prd.get("title"),
+            "pages": [{"path": p.get("path"), "sections": [s.get("variant_id") for s in p.get("sections", [])]} for p in (prd.get("pages") or [])],
+        }),
         "timestamp": now,
         "provider": f"{provider}+{fill_provider}",
     })
-    sections_list = prd.get("sections") or []
-    sitemap = [s.get("id") for s in sections_list if s.get("id")]
+    pages_list = prd.get("pages") or []
+    sitemap = [p.get("path") for p in pages_list if p.get("path")]
 
     session.prompt_history = history
     session.prd = prd
@@ -485,8 +502,8 @@ async def submit_prompt(
     await db.commit()
     await db.refresh(session)
     logger.info(
-        "pages.prd_generated session_id=%s sections=%d provider=%s",
-        session_id, len(sections_list), provider,
+        "pages.prd_generated session_id=%s pages=%d provider=%s",
+        session_id, len(pages_list), provider,
     )
     return session
 
@@ -552,13 +569,29 @@ async def generate_page_task(
             await db.commit()
 
             prd = session.prd or {}
-            sections_brief = prd.get("sections", [])
-            if not sections_brief:
-                raise ValueError("PRD has no sections to generate")
-
-            generated_sections = []
             locale = prd.get("locale") or "en"
-            planned_ids = [b.get("variant_id") for b in sections_brief if b.get("variant_id")]
+            plan_pages = prd.get("pages")
+            # Back-compat: legacy PRDs (before S4.1) had only `sections`.
+            # Wrap them as a single home page so the new path handles them.
+            if not plan_pages and isinstance(prd.get("sections"), list):
+                plan_pages = [{
+                    "path": "home", "role": "home",
+                    "title": prd.get("title") or "Home", "nav_label": "Home",
+                    "is_home": True, "sections": prd["sections"],
+                }]
+            if not plan_pages:
+                raise ValueError("PRD has no pages to generate")
+
+            from app.pages.compiler import compile_page
+            from app.pages.models import Website
+            from app.pages.planner import rewrite_nav_hrefs
+            from app.pages.variants import variant_to_section
+
+            # Fetch every variant referenced across the whole site in one query.
+            planned_ids = {
+                b.get("variant_id")
+                for p in plan_pages for b in (p.get("sections") or []) if b.get("variant_id")
+            }
             variants_by_id: dict[str, SectionVariant] = {}
             if planned_ids:
                 rows_v = await db.execute(
@@ -568,75 +601,95 @@ async def generate_page_task(
                     )
                 )
                 variants_by_id = {v.variant_id: v for v in rows_v.scalars().all()}
-            from app.pages.variants import variant_to_section
 
-            for brief in sections_brief:
-                variant = variants_by_id.get(brief.get("variant_id") or "")
-                if variant is not None:
-                    # Block model v2: render the library template with the
-                    # planner's copy. No AI markup, ever.
-                    section = variant_to_section(
-                        variant, prop_overrides=brief.get("fields") or {}, locale=locale,
-                    )
-                    if brief.get("id"):
-                        section["id"] = brief["id"]
-                    section["summary"] = brief.get("summary") or section.get("summary")
-                    section["metadata"]["provider"] = prd.get("fill_provider") or "planner"
-                    section["metadata"]["brief"] = (brief.get("brief") or "")[:500]
-                    generated_sections.append(section)
-                    continue
-                # Legacy PRD section (pre-v2 sessions): JSX path.
-                generated, provider = await _generate_section_hybrid(brief, settings)
-                generated_sections.append({
-                    "id": brief.get("id"),
-                    "type": brief.get("type"),
-                    "title": brief.get("title"),
-                    "summary": brief.get("summary"),
-                    "jsx_content": generated.get("jsx_content", ""),
-                    "metadata": {
-                        **(generated.get("metadata") or {}),
-                        "provider": provider,
-                    },
-                })
-
-            # Persist as a new Page row. We also compile sections to
-            # full HTML5 right here so the Preview tab has something to
-            # render immediately — the legacy preview iframe reads from
-            # page.html_content. Same compiler the Publish flow uses,
-            # so Preview and Publish never disagree.
-            from app.pages.compiler import compile_page
-
-            page = Page(
-                id=uuid.uuid4(),
-                title=prd.get("title") or "Untitled page",
-                slug=_slugify(prd.get("title") or "untitled"),
-                description=prd.get("audience") or None,
-                status=PageStatus.DRAFT,
-                sections_json=json.dumps(generated_sections),
-                html_content=None,  # set immediately below
-                css_content=None,
-                generation_session_id=session.id,
-                created_by=user_id,
-            )
-            try:
-                page.html_content = compile_page(page, company_settings=None)
-            except Exception as exc:
-                # Compile failure is non-fatal — the user still has
-                # sections_json and can fix via refine. Log and proceed.
-                logger.warning(
-                    "pages.generate_compile_failed session_id=%s err=%s",
-                    session_id, str(exc)[:200],
+            # Multi-page plan → create a Website. Single-page → skip the
+            # Website and keep the standalone-page shape the UI expects.
+            website: Website | None = None
+            site_title = prd.get("site_title") or prd.get("title") or (plan_pages[0].get("title") or "Site")
+            if len(plan_pages) > 1:
+                website = Website(
+                    id=uuid.uuid4(),
+                    name=site_title[:255],
+                    slug=_slugify(site_title),
+                    created_by=user_id,
+                    is_published=False,
                 )
-            db.add(page)
-            await db.flush()  # need page.id
+                db.add(website)
+                await db.flush()
+                # Rewrite nav path-hrefs to absolute site URLs now that
+                # we know the website slug; both the home nav and any
+                # sibling page's nav (shared block) get pointed correctly.
+                rewrite_nav_hrefs(prd, website.slug)
 
-            session.page_id = page.id
+            created_pages: list[Page] = []
+            for page_index, plan_page in enumerate(plan_pages):
+                sections_out: list[dict] = []
+                for brief in plan_page.get("sections") or []:
+                    variant = variants_by_id.get(brief.get("variant_id") or "")
+                    if variant is not None:
+                        section = variant_to_section(
+                            variant, prop_overrides=brief.get("fields") or {}, locale=locale,
+                        )
+                        if brief.get("id"):
+                            section["id"] = brief["id"]
+                        section["summary"] = brief.get("summary") or section.get("summary")
+                        section["metadata"]["provider"] = prd.get("fill_provider") or "planner"
+                        section["metadata"]["brief"] = (brief.get("brief") or "")[:500]
+                        sections_out.append(section)
+                        continue
+                    # Legacy fallback: JSX path (used only for pre-v2 PRDs).
+                    generated, provider = await _generate_section_hybrid(brief, settings)
+                    sections_out.append({
+                        "id": brief.get("id"),
+                        "type": brief.get("type"),
+                        "title": brief.get("title"),
+                        "summary": brief.get("summary"),
+                        "jsx_content": generated.get("jsx_content", ""),
+                        "metadata": {**(generated.get("metadata") or {}), "provider": provider},
+                    })
+
+                is_home = bool(plan_page.get("is_home")) or page_index == 0
+                page_title = str(plan_page.get("title") or site_title)[:255]
+                # Unique slug: home page keeps site title base, siblings
+                # take the plan's `path` verbatim (already validated as a
+                # slug in normalize_plan).
+                page_slug = _slugify(page_title) if is_home and not website else str(plan_page.get("path") or _slugify(page_title))
+                page = Page(
+                    id=uuid.uuid4(),
+                    title=page_title,
+                    slug=page_slug,
+                    description=(plan_page.get("brief") or prd.get("audience") or None),
+                    status=PageStatus.DRAFT,
+                    sections_json=json.dumps(sections_out),
+                    html_content=None,
+                    css_content=None,
+                    generation_session_id=session.id,
+                    website_id=website.id if website else None,
+                    page_order=page_index,
+                    is_homepage=is_home,
+                    created_by=user_id,
+                )
+                try:
+                    page.html_content = compile_page(page, company_settings=None)
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(
+                        "pages.generate_compile_failed session_id=%s page=%s err=%s",
+                        session_id, page_slug, str(exc)[:200],
+                    )
+                db.add(page)
+                await db.flush()
+                created_pages.append(page)
+
+            # Session bookkeeping: page_id points at the home page (the
+            # UI opens it in the editor); the sitemap records every path.
+            home_page = next((p for p in created_pages if p.is_homepage), created_pages[0])
+            session.page_id = home_page.id
             session.status = "complete"
             await db.commit()
             logger.info(
-                "pages.generate_complete session_id=%s page_id=%s sections=%d compiled=%s",
-                session_id, page.id, len(generated_sections),
-                bool(page.html_content),
+                "pages.generate_complete session_id=%s pages=%d website=%s compiled=%d",
+                session_id, len(created_pages), website.slug if website else "-",
+                sum(1 for p in created_pages if p.html_content),
             )
         except Exception as exc:
             logger.exception(

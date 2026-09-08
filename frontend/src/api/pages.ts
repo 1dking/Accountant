@@ -47,10 +47,14 @@ export const pagesApi = {
   aiCreateSession: () => api.post('/pages/ai/sessions'),
   aiGetSession: (sessionId: string) =>
     api.get(`/pages/ai/sessions/${sessionId}`),
-  aiSubmitPrompt: (sessionId: string, prompt: string, locale: 'en' | 'fr-CA' = 'en') =>
-    api.post(`/pages/ai/sessions/${sessionId}/prompt`, { prompt, locale }),
+  aiSubmitPrompt: (sessionId: string, prompt: string, locale: 'en' | 'fr-CA' = 'en', pages?: unknown[]) =>
+    api.post(`/pages/ai/sessions/${sessionId}/prompt`, { prompt, locale, ...(pages ? { pages } : {}) }),
+  aiSuggestSitemap: (sessionId: string, prompt: string, locale: 'en' | 'fr-CA' = 'en') =>
+    api.post(`/pages/ai/sessions/${sessionId}/sitemap`, { prompt, locale }),
   aiApprovePrd: (sessionId: string) =>
     api.post(`/pages/ai/sessions/${sessionId}/approve`),
+  aiPatchPrd: (sessionId: string, body: { drop_paths?: string[] }) =>
+    api.patch(`/pages/ai/sessions/${sessionId}/prd`, body),
   aiTriggerGenerate: (sessionId: string) =>
     api.post(`/pages/ai/sessions/${sessionId}/generate`),
   aiRefineSection: (pageId: string, sectionIndex: number, instruction: string) =>

@@ -1059,13 +1059,117 @@ async def submit_session_prompt(
     if locale not in ("en", "fr-CA"):
         locale = "en"
 
+    # Optional user-confirmed sitemap (from /sitemap step). When present,
+    # the planner uses these pages verbatim instead of asking Sonnet to
+    # pick — saves a plan call and lets the user delete pages first.
+    confirmed_pages = body.get("pages")
+
     from app.billing.ai_meter import consume
     await consume(db, user, "page_generate")
     settings = request.app.state.settings
     try:
-        session = await submit_prompt(db, session_id, user.id, prompt, settings, locale=locale)
+        session = await submit_prompt(
+            db, session_id, user.id, prompt, settings, locale=locale,
+            confirmed_pages=confirmed_pages if isinstance(confirmed_pages, list) else None,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+    return {"data": _session_to_dict(session)}
+
+
+@router.post("/ai/sessions/{session_id}/sitemap")
+async def suggest_session_sitemap(
+    session_id: uuid.UUID,
+    body: dict,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
+) -> dict:
+    """Cheap first step: propose a page list only (no blocks, no copy)
+    so the user can confirm / edit before we spend fill tokens.
+
+    Body: { prompt: str, locale?: "en"|"fr-CA" }
+    Response: { data: { sitemap: {...}, provider: str } }
+
+    Does NOT touch session.prd — that only changes when /prompt fires
+    with the confirmed pages. Costs one Sonnet call; metered like /prompt.
+    """
+    from sqlalchemy import select
+    from app.pages.models import PageGenerationSession
+    from app.pages.planner import suggest_sitemap
+
+    prompt = (body.get("prompt") or "").strip()
+    if not prompt:
+        raise HTTPException(status_code=400, detail="prompt is required")
+    if len(prompt) > 4000:
+        raise HTTPException(status_code=400, detail="prompt must be <= 4000 chars")
+    locale = (body.get("locale") or "en").strip()
+    if locale not in ("en", "fr-CA"):
+        locale = "en"
+
+    row = await db.execute(
+        select(PageGenerationSession).where(
+            PageGenerationSession.id == session_id,
+            PageGenerationSession.user_id == user.id,
+        )
+    )
+    session = row.scalar_one_or_none()
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    from app.billing.ai_meter import consume
+    await consume(db, user, "page_generate")
+    settings = request.app.state.settings
+    sitemap, provider, _profile = await suggest_sitemap(
+        db, prompt, settings, user_id=user.id, locale=locale,
+    )
+    return {"data": {"sitemap": sitemap, "provider": provider}}
+
+
+@router.patch("/ai/sessions/{session_id}/prd")
+async def patch_session_prd(
+    session_id: uuid.UUID,
+    body: dict,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER]))],
+) -> dict:
+    """Edit the drafted PRD before approval — right now: drop pages the
+    user un-checked in the review step. Body: { drop_paths: [str] }.
+    Never touches copy; only removes whole pages by path. Home is protected."""
+    from sqlalchemy import select
+    from app.pages.models import PageGenerationSession
+
+    row = await db.execute(
+        select(PageGenerationSession).where(
+            PageGenerationSession.id == session_id,
+            PageGenerationSession.user_id == user.id,
+        )
+    )
+    session = row.scalar_one_or_none()
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session.status not in ("drafting", "approved"):
+        raise HTTPException(status_code=400, detail=f"PRD is not editable in status '{session.status}'")
+
+    drop = {str(p).strip() for p in (body.get("drop_paths") or []) if isinstance(p, str)}
+    drop.discard("home")  # can't delete home
+    prd = dict(session.prd or {})
+    pages = list(prd.get("pages") or [])
+    if not pages or not drop:
+        return {"data": _session_to_dict(session)}
+    kept = [p for p in pages if p.get("path") not in drop]
+    if not kept:
+        raise HTTPException(status_code=400, detail="At least one page must remain")
+    prd["pages"] = kept
+    # Re-derive the nav on every remaining page so the menu drops the
+    # removed entries too (nav is a consequence of pages, not vice versa).
+    from app.pages.planner import apply_nav_from_pages
+    apply_nav_from_pages(prd)
+    session.prd = prd
+    session.sitemap = [p.get("path") for p in kept if p.get("path")]
+    await db.commit()
+    await db.refresh(session)
+    logger.info("pages.prd_patched session_id=%s dropped=%d kept=%d", session_id, len(drop), len(kept))
     return {"data": _session_to_dict(session)}
 
 

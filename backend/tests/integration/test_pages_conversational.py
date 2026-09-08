@@ -39,19 +39,36 @@ def _patch_settings_keys(monkeypatch, app, *, gemini: str = "k-gem", anthropic: 
 
 
 def _valid_prd(title: str = "Acme Accounting") -> dict:
-    """A planner reply (block model v2): blocks are chosen by variant_id
-    from the library; the AI writes briefs, never markup."""
+    """A planner reply (block model v2): a full-site plan with a single
+    home page. The AI chooses blocks by variant_id and writes briefs —
+    never markup."""
     return {
-        "title": title,
+        "site_title": title,
         "audience": "Small-business owners in Ontario",
         "goals": ["book a discovery call", "build trust"],
-        "sections": [
-            {"variant_id": "hero_video", "brief": "Bold headline + CTA"},
-            {"variant_id": "features_3col_icon", "brief": "Services list"},
-            {"variant_id": "cta_centered_banner", "brief": "Book a call"},
-            {"variant_id": "footer_4col", "brief": "Links"},
-        ],
+        "pages": [{
+            "path": "home", "role": "home", "title": title, "nav_label": "Home",
+            "sections": [
+                {"variant_id": "hero_video", "brief": "Bold headline + CTA"},
+                {"variant_id": "features_3col_icon", "brief": "Services list"},
+                {"variant_id": "cta_centered_banner", "brief": "Book a call"},
+                {"variant_id": "footer_4col", "brief": "Links"},
+            ],
+        }],
     }
+
+
+def _prd_title(data: dict) -> str:
+    prd = data["prd"] or {}
+    return prd.get("site_title") or prd.get("title") or (prd.get("pages") or [{}])[0].get("title") or ""
+
+
+def _prd_home_section_types(data: dict) -> list[str]:
+    prd = data["prd"] or {}
+    pages = prd.get("pages") or []
+    if pages:
+        return [s.get("type") or s.get("category") for s in (pages[0].get("sections") or [])]
+    return [s.get("type") for s in (prd.get("sections") or [])]
 
 
 @pytest.fixture
@@ -125,9 +142,9 @@ async def test_plan_uses_claude_first(
     assert r2.status_code == 200, r2.text
     data = r2.json()["data"]
     assert data["status"] == "drafting"
-    assert data["prd"]["title"] == "From Claude"
-    assert [s["variant_id"] for s in data["prd"]["sections"]] == ["hero_video", "features_3col_icon", "cta_centered_banner", "footer_4col"]
-    assert all("jsx" not in json.dumps(s).lower() for s in data["prd"]["sections"])
+    assert _prd_title(data) == "From Claude"
+    assert [s["variant_id"] for s in data["prd"]["pages"][0]["sections"]] == ["hero_video", "features_3col_icon", "cta_centered_banner", "footer_4col"]
+    assert all("jsx" not in json.dumps(s).lower() for s in data["prd"]["pages"][0]["sections"])
     assert claude_calls["n"] == 2 and gemini_calls["n"] == 0
 
 
@@ -158,7 +175,7 @@ async def test_plan_falls_back_to_gemini_on_claude_failure(
     )
     assert r2.status_code == 200
     data = r2.json()["data"]
-    assert data["prd"]["title"] == "From Gemini Fallback"
+    assert _prd_title(data) == "From Gemini Fallback"
     assert data["prd"]["provider"] == "gemini_fallback"
     assert gemini_calls["n"] == 2
 
@@ -186,7 +203,7 @@ async def test_plan_falls_back_to_static_when_both_providers_fail(
     )
     assert r2.status_code == 200, r2.text
     data = r2.json()["data"]
-    section_types = [s["type"] for s in data["prd"]["sections"]]
+    section_types = _prd_home_section_types(data)
     assert section_types[0] == "nav" and section_types[-1] == "footer"
     assert "hero" in section_types and "contact" in section_types
     assert data["status"] == "drafting"
@@ -222,7 +239,7 @@ async def test_plan_invalid_shape_from_claude_triggers_gemini_fallback(
     )
     assert r2.status_code == 200
     data = r2.json()["data"]
-    assert data["prd"]["title"] == "Gemini Saves The Day"
+    assert _prd_title(data) == "Gemini Saves The Day"
     # Gemini planned; the fill call still goes Claude-first (it answered, just emptily)
     assert gemini_calls["n"] == 1
     assert data["prd"]["provider"] == "gemini_fallback" and data["prd"]["fill_provider"] == "claude"
