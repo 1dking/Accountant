@@ -1331,6 +1331,7 @@ async def ai_chat_generate(
             logger.warning("Failed to load reference designs: %s", e)
 
     result = None
+    errors: list[str] = []
 
     if gemini_key:
         try:
@@ -1339,17 +1340,23 @@ async def ai_chat_generate(
                 image_parts=image_parts, reference_text=reference_text,
             )
         except Exception as e:
-            logger.warning("Gemini chat failed: %s", e)
+            logger.warning("Gemini chat failed: %s", e, exc_info=True)
+            errors.append(f"Gemini: {type(e).__name__}: {str(e)[:200]}")
 
     if not result and anthropic_key:
         try:
             result = await _chat_with_claude(anthropic_key, system_prompt, chat_history)
         except Exception as e:
-            logger.warning("Claude chat failed: %s", e)
+            logger.warning("Claude chat failed: %s", e, exc_info=True)
+            errors.append(f"Claude: {type(e).__name__}: {str(e)[:200]}")
 
     if not result:
+        if not gemini_key and not anthropic_key:
+            msg = "I need an AI API key (Gemini or Anthropic) to generate pages. Please configure one in settings."
+        else:
+            msg = "AI page generation failed. " + " | ".join(errors) if errors else "AI page generation returned no result."
         result = {
-            "response": "I need an AI API key (Gemini or Anthropic) to generate pages. Please configure one in settings.",
+            "response": msg,
             "html_content": page.html_content or "",
             "css_content": page.css_content or "",
         }
