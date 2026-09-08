@@ -77,13 +77,17 @@ async def register_user(
     if user_count > 0 and not settings.allow_public_registration:
         raise ForbiddenError("Registration is closed. Contact an admin to get an account.")
 
+    # Emails are stored and matched lowercase — normalise so a capitalised
+    # address (mobile autocapitalize) can't create a duplicate or fail login.
+    email_norm = (user_data.email or "").strip().lower()
+
     # Check if email already exists
-    result = await db.execute(select(User).where(User.email == user_data.email))
+    result = await db.execute(select(User).where(func.lower(User.email) == email_norm))
     if result.scalar_one_or_none() is not None:
-        raise ConflictError(f"A user with email {user_data.email} already exists.")
+        raise ConflictError(f"A user with email {email_norm} already exists.")
 
     user = User(
-        email=user_data.email,
+        email=email_norm,
         hashed_password=hash_password(user_data.password),
         full_name=user_data.full_name,
         role=Role.ADMIN,
@@ -121,7 +125,8 @@ async def create_user(
     role: Role,
     feature_access: dict[str, bool] | None = None,
 ) -> User:
-    result = await db.execute(select(User).where(User.email == email))
+    email = (email or "").strip().lower()
+    result = await db.execute(select(User).where(func.lower(User.email) == email))
     if result.scalar_one_or_none() is not None:
         raise ConflictError(f"A user with email {email} already exists.")
 
@@ -151,7 +156,8 @@ async def authenticate_user(
     challenge is returned (``{"mfa_required": True, "mfa_token": ...}``) and the
     caller must finish via ``complete_mfa_login``. Every attempt is audited.
     """
-    result = await db.execute(select(User).where(User.email == email))
+    email = (email or "").strip().lower()
+    result = await db.execute(select(User).where(func.lower(User.email) == email))
     user = result.scalar_one_or_none()
 
     if user is None or not user.hashed_password or not verify_password(password, user.hashed_password):
@@ -359,11 +365,13 @@ async def admin_update_user(
     user = result.scalar_one_or_none()
     if user is None:
         raise NotFoundError("User", user_id)
-    if updates.email is not None and updates.email != user.email:
-        existing = await db.execute(select(User).where(User.email == updates.email))
-        if existing.scalar_one_or_none() is not None:
-            raise ConflictError(f"A user with email {updates.email} already exists.")
-        user.email = updates.email
+    if updates.email is not None:
+        new_email = updates.email.strip().lower()
+        if new_email != user.email:
+            existing = await db.execute(select(User).where(func.lower(User.email) == new_email))
+            if existing.scalar_one_or_none() is not None:
+                raise ConflictError(f"A user with email {new_email} already exists.")
+            user.email = new_email
     if updates.full_name is not None:
         user.full_name = updates.full_name
     if updates.password is not None:
@@ -424,13 +432,14 @@ async def authenticate_google(
     settings: Settings,
 ) -> TokenResponse:
     """Find or create a user from Google OAuth, then issue JWT tokens."""
+    email = (email or "").strip().lower()
     # First try to find by google_id
     result = await db.execute(select(User).where(User.google_id == google_id))
     user = result.scalar_one_or_none()
 
     if user is None:
         # Try to find by email (link existing account)
-        result = await db.execute(select(User).where(User.email == email))
+        result = await db.execute(select(User).where(func.lower(User.email) == email))
         user = result.scalar_one_or_none()
 
         if user is not None:
