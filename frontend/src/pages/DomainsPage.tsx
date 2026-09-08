@@ -273,6 +273,23 @@ function MailboxPanel({ domainId, domain }: { domainId: string; domain: string }
           onDone={() => { setShowAdd(false); qc.invalidateQueries({ queryKey: ['mailboxes', domainId] }) }}
           onCancel={() => setShowAdd(false)} />
       )}
+      {mailboxes.length > 0 && <MailboxAccessHelp />}
+    </div>
+  )
+}
+
+function MailboxAccessHelp() {
+  return (
+    <div className="mt-3 pt-3 border-t border-emerald-200/60 dark:border-emerald-900/60 text-[11px] text-gray-600 dark:text-gray-400 space-y-1">
+      <div className="font-semibold text-gray-700 dark:text-gray-300">How to log in</div>
+      <div><strong>Webmail:</strong> <a href="https://webmail.migadu.com" target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">webmail.migadu.com</a> — sign in with the full email address and its password.</div>
+      <div><strong>Mail apps</strong> (Apple Mail / Outlook / Gmail app) — add an account with these servers:</div>
+      <div className="font-mono pl-3 leading-relaxed">
+        IMAP: imap.migadu.com · port 993 · SSL/TLS<br />
+        SMTP: smtp.migadu.com · port 465 · SSL/TLS<br />
+        Username: the full email address · Password: the mailbox password
+      </div>
+      <div className="text-gray-500">DNS just changed — allow ~15 min before first login while records propagate.</div>
     </div>
   )
 }
@@ -289,22 +306,38 @@ function AddMailboxForm({ domainId, domain, onDone, onCancel }: {
     onError: (e: Error) => toast.error(e.message),
   })
   return (
-    <form className="mt-2 flex flex-wrap gap-2 items-end" onSubmit={e => { e.preventDefault(); if (local && name && password.length >= 12) mut.mutate() }}>
-      <div className="flex items-center gap-1">
-        <input value={local} onChange={e => setLocal(e.target.value.toLowerCase())}
-          placeholder="jane" className="rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 text-xs px-2 py-1 w-24 font-mono" />
-        <span className="text-xs text-gray-500">@{domain}</span>
-      </div>
-      <input value={name} onChange={e => setName(e.target.value)} placeholder="Full name"
-        className="rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 text-xs px-2 py-1 w-36" />
-      <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password (12+ chars)"
-        className="rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 text-xs px-2 py-1 flex-1 min-w-[180px]" />
-      <button type="submit" disabled={!local || !name || password.length < 12 || mut.isPending}
-        className="px-3 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs flex items-center gap-1">
-        {mut.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />} Create
-      </button>
-      <button type="button" onClick={onCancel} className="text-xs text-gray-500 hover:text-gray-700">Cancel</button>
-    </form>
+    <div className="mt-2">
+      <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-2">
+        Create a new inbox. The <strong>address</strong> is what people email; the <strong>display name</strong>
+        {' '}is what shows on messages you send (e.g. “Nathan O”); the <strong>password</strong> is what you’ll
+        {' '}use to log into webmail and mail apps.
+      </p>
+      <form className="flex flex-wrap gap-2 items-end" onSubmit={e => { e.preventDefault(); if (local && name && password.length >= 12) mut.mutate() }}>
+        <label className="flex flex-col gap-0.5">
+          <span className="text-[10px] uppercase tracking-wider text-gray-400">Address</span>
+          <div className="flex items-center gap-1">
+            <input value={local} onChange={e => setLocal(e.target.value.toLowerCase())}
+              placeholder="jane" className="rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 text-xs px-2 py-1 w-24 font-mono" />
+            <span className="text-xs text-gray-500">@{domain}</span>
+          </div>
+        </label>
+        <label className="flex flex-col gap-0.5">
+          <span className="text-[10px] uppercase tracking-wider text-gray-400">Display name</span>
+          <input value={name} onChange={e => setName(e.target.value)} placeholder="Nathan O"
+            className="rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 text-xs px-2 py-1 w-36" />
+        </label>
+        <label className="flex flex-col gap-0.5 flex-1 min-w-[180px]">
+          <span className="text-[10px] uppercase tracking-wider text-gray-400">Password (12+ chars)</span>
+          <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••••••"
+            className="rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 text-xs px-2 py-1" />
+        </label>
+        <button type="submit" disabled={!local || !name || password.length < 12 || mut.isPending}
+          className="px-3 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs flex items-center gap-1">
+          {mut.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />} Create
+        </button>
+        <button type="button" onClick={onCancel} className="text-xs text-gray-500 hover:text-gray-700 pb-1.5">Cancel</button>
+      </form>
+    </div>
   )
 }
 
