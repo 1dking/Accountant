@@ -73,14 +73,26 @@ class PorkbunClient:
             r = await c.get(_BASE + "/pricing/get")
         return r.json()
 
-    async def register(self, domain: str, years: int = 1, *, coupon: str | None = None,
-                       whois_privacy: bool = True) -> dict:
-        extra: dict[str, Any] = {"years": int(years)}
+    async def register(self, domain: str, *, cost_cents: int,
+                       whois_privacy: bool = True, dry_run: bool = False,
+                       coupon: str | None = None) -> dict:
+        """Register a domain. Porkbun's API takes:
+         - cost: exact price in CENTS (must match checkDomain price)
+         - agreeToTerms: "yes"
+         - whoisPrivacy: bool (default enabled where TLD supports it)
+         - dryRun: validate without charging
+        Always 1-year (registry minimum). Multi-year renewals happen separately.
+        Premium names cannot be registered through the API."""
+        extra: dict[str, Any] = {
+            "cost": int(cost_cents),
+            "agreeToTerms": "yes",
+            "whoisPrivacy": bool(whois_privacy),
+        }
+        if dry_run:
+            extra["dryRun"] = True
         if coupon:
             extra["coupon"] = coupon
-        if whois_privacy is False:
-            extra["whoisPrivacy"] = "no"
-        return await self._post(f"/domain/register/{domain}", extra)
+        return await self._post(f"/domain/create/{domain}", extra)
 
     async def list_domains(self, *, start: int = 0) -> dict:
         return await self._post("/domain/listAll", {"start": start})

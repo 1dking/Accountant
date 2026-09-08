@@ -131,6 +131,16 @@ async def create_purchase_checkout(
     quote = await check_domain(domain, settings)
     if not quote.get("available"):
         raise ValidationError(f"{domain} is not available")
+    # Porkbun's API cannot register premium names — reject before charging.
+    if quote.get("premium"):
+        raise ValidationError(
+            f"{domain} is a premium domain and cannot be registered "
+            "through this checkout. Please choose a standard name."
+        )
+    # Porkbun API is 1-year-at-a-time; multi-year at purchase would require
+    # follow-up renew() calls we haven't wired yet, so clamp for honesty.
+    if years != 1:
+        years = 1
 
     wholesale = int(quote["price_cents_wholesale"]) * years
     retail = int(quote["price_cents_retail"]) * years
@@ -206,8 +216,26 @@ async def finalize_purchase(
     await db.commit()
 
     client = build_client(settings)
+    # Porkbun requires exact wholesale price (cents) to accept the buy.
+    # Re-quote right before purchase so a stale price doesn't reject us.
     try:
-        result = await client.register(row.domain, row.years)
+        quote = await client.check_domain(row.domain)
+    except PorkbunError as e:
+        row.status = "failed"
+        row.notes = f"Porkbun re-check failed: {e}"
+        await db.commit()
+        raise
+
+    resp = quote.get("response") or {}
+    wholesale_cents = _dollars_to_cents(resp.get("price"))
+    if wholesale_cents <= 0:
+        row.status = "failed"
+        row.notes = "Porkbun returned no price on re-check"
+        await db.commit()
+        raise PorkbunError("Porkbun returned no price for domain")
+
+    try:
+        result = await client.register(row.domain, cost_cents=wholesale_cents)
     except PorkbunError as e:
         row.status = "failed"
         row.notes = f"Porkbun register failed: {e}"
@@ -218,7 +246,10 @@ async def finalize_purchase(
 
     row.status = "registered"
     row.registered_at = datetime.now(timezone.utc)
-    row.expires_at = row.registered_at + timedelta(days=365 * row.years)
+    # API registrations are always 1 year — override any earlier row.years
+    # so expires_at matches what actually happened at the registry.
+    row.years = 1
+    row.expires_at = row.registered_at + timedelta(days=365)
     row.partner_reference = row.domain
     row.notes = (row.notes or "") + f"\npartner: {result.get('status', 'ok')}"
     await db.commit()
