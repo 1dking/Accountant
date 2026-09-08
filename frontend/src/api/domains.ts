@@ -91,5 +91,10 @@ export const domainsApi = {
 
   resetMailboxPassword: (id: string, localPart: string, password: string) =>
     api.put(`/domains/${id}/mailboxes/${localPart}/password`, { password }),
+
+  emailStatus: (id: string) =>
+    api.get<{ data: { email_enabled: boolean; active: boolean; state: string; can_send?: boolean; can_receive?: boolean } }>(
+      `/domains/${id}/email/status`,
+    ),
 }
 

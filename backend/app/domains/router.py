@@ -160,6 +160,16 @@ async def enable_email(
         raise HTTPException(status_code=502, detail=str(e))
 
 
+@router.get("/{purchase_id}/email/status")
+async def email_status(
+    purchase_id: uuid.UUID,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+):
+    return {"data": await service.email_status(db, user, _settings(request), purchase_id)}
+
+
 @router.get("/{purchase_id}/mailboxes")
 async def list_mailboxes(
     purchase_id: uuid.UUID,

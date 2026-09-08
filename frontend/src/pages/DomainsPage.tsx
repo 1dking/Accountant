@@ -227,6 +227,12 @@ function MailboxPanel({ domainId, domain }: { domainId: string; domain: string }
     queryKey: ['mailboxes', domainId],
     queryFn: async () => (await domainsApi.listMailboxes(domainId)).data,
   })
+  const statusQ = useQuery({
+    queryKey: ['email-status', domainId],
+    queryFn: async () => (await domainsApi.emailStatus(domainId)).data,
+    refetchInterval: (q) => (q.state.data?.active ? false : 60_000),
+  })
+  const activating = statusQ.data ? !statusQ.data.active : false
   const deleteMut = useMutation({
     mutationFn: (local: string) => domainsApi.deleteMailbox(domainId, local),
     onSuccess: () => { toast.success('Mailbox deleted'); qc.invalidateQueries({ queryKey: ['mailboxes', domainId] }) },
@@ -245,6 +251,12 @@ function MailboxPanel({ domainId, domain }: { domainId: string; domain: string }
           </button>
         )}
       </div>
+      {activating && (
+        <div className="mb-3 rounded-md border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-[11px] text-amber-800 dark:text-amber-200 flex items-start gap-2">
+          <Loader2 className="h-3 w-3 animate-spin mt-0.5 shrink-0" />
+          <span><strong>Email is activating.</strong> Migadu is verifying DNS — usually ready within a few hours (up to 24h). Mailboxes can be created now but won’t accept logins until verification finishes. Updates automatically.</span>
+        </div>
+      )}
       {mailQ.isLoading ? (
         <div className="text-center py-3"><Loader2 className="h-4 w-4 animate-spin mx-auto text-gray-400" /></div>
       ) : mailQ.isError ? (

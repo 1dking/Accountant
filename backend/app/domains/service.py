@@ -380,6 +380,30 @@ async def enable_email(
     }
 
 
+async def email_status(db: AsyncSession, user: User, settings,
+                       purchase_id: uuid.UUID) -> dict:
+    """Report whether Migadu has activated the domain yet. Mailboxes can
+    be created while inactive but can't authenticate (webmail/IMAP/SMTP)
+    until Migadu's background DNS verification flips it active — 30 min
+    to 24h after the records go live."""
+    row = await get_purchase(db, user, purchase_id)
+    if not row.email_enabled:
+        return {"email_enabled": False, "active": False, "state": "not_enabled"}
+    migadu = build_migadu_client(settings)
+    try:
+        d = await migadu.get_domain(row.domain)
+    except MigaduError:
+        return {"email_enabled": True, "active": False, "state": "unknown"}
+    active = bool(d.get("can_access")) and str(d.get("state")) == "active"
+    return {
+        "email_enabled": True,
+        "active": active,
+        "state": d.get("state"),
+        "can_send": bool(d.get("can_send")),
+        "can_receive": bool(d.get("can_receive")),
+    }
+
+
 async def list_mailboxes(db: AsyncSession, user: User, settings,
                          purchase_id: uuid.UUID) -> list[dict]:
     row = await get_purchase(db, user, purchase_id)

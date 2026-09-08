@@ -64,6 +64,9 @@ class MigaduClient:
     async def delete_domain(self, name: str) -> dict:
         return await self._req("DELETE", f"/domains/{name}")
 
+    async def get_domain(self, name: str) -> dict:
+        return await self._req("GET", f"/domains/{name}")
+
     # Mailboxes
     async def list_mailboxes(self, domain: str) -> list[dict]:
         r = await self._req("GET", f"/domains/{domain}/mailboxes")
