@@ -253,6 +253,26 @@ async def handle_stripe_event(db: AsyncSession, event_type: str, obj: dict) -> N
     isn't an account subscription, so it's safe to call for every event."""
     if event_type == "checkout.session.completed":
         md = obj.get("metadata") or {}
+        # Domain reseller (S8) — different kind on the same event.
+        if md.get("kind") == "domain_purchase":
+            checkout_id = obj.get("id")
+            pi = obj.get("payment_intent")
+            if not checkout_id:
+                return
+            from app.domains import service as domains_service
+            from fastapi import Request  # noqa: F401 — request-less lookup below
+            # settings singleton lives on the app; the caller has none here,
+            # so re-read from environment via Settings().
+            from app.config import Settings
+            try:
+                await domains_service.finalize_purchase(
+                    db, Settings(),
+                    stripe_checkout_id=checkout_id,
+                    payment_intent_id=pi,
+                )
+            except Exception as e:
+                logger.error("domain_purchase.finalize failed for %s: %s", checkout_id, e)
+            return
         if md.get("kind") != "account_subscription":
             return
         uid = md.get("user_id")

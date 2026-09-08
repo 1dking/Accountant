@@ -225,6 +225,7 @@ class Settings(BaseSettings):
     # Porkbun (domain reseller — S8)
     porkbun_api_key: str = ""
     porkbun_secret_api_key: str = ""
+    porkbun_markup_pct: float = 15.0
 
     # O-Brain settings
     obrain_rate_limit_per_hour: int = 120

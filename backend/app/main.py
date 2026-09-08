@@ -62,6 +62,7 @@ import app.integrations.twilio.models  # noqa: F401
 import app.estimates.models  # noqa: F401
 import app.invoicing.reminder_models  # noqa: F401
 import app.integrations.settings_models  # noqa: F401
+import app.domains.models  # noqa: F401
 import app.accounting.period_models  # noqa: F401
 import app.invoicing.credit_models  # noqa: F401
 import app.accounting.tax_models  # noqa: F401
@@ -469,6 +470,9 @@ def create_app() -> FastAPI:
     # Site catalogue CRUD (services / reviews / faqs) — authed.
     from app.pages.catalog_router import router as catalog_router
     fastapi_app.include_router(catalog_router, prefix="/api/pages/catalog", tags=["pages"], dependencies=[Depends(require_feature("pages"))])
+    # Domain reseller (S8 wave 1 — Porkbun)
+    from app.domains.router import router as domains_router
+    fastapi_app.include_router(domains_router, prefix="/api/domains", tags=["domains"])
     fastapi_app.include_router(events_router, prefix="/api/platform-admin/events", tags=["events"], dependencies=[Depends(require_feature("platform_admin"))])
     fastapi_app.include_router(wtp_router, prefix="/api/platform-admin/wtp", tags=["wtp"], dependencies=[Depends(require_feature("platform_admin"))])
     fastapi_app.include_router(coach_router, prefix="/api/coach", tags=["coach"], dependencies=[Depends(require_feature("obrain_coach"))])

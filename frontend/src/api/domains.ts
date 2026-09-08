@@ -1,0 +1,67 @@
+import { api } from './client'
+
+export type DomainCheck = {
+  domain: string
+  tld: string
+  available: boolean
+  premium?: boolean
+  currency: string
+  price_cents_wholesale: number
+  price_cents_retail: number
+  renewal_cents_wholesale: number
+  renewal_cents_retail: number
+  markup_pct: number
+  error?: string
+}
+
+export type DomainPurchase = {
+  id: string
+  domain: string
+  tld: string
+  status: 'pending' | 'paid' | 'registered' | 'active' | 'expired' | 'failed' | 'refunded'
+  years: number
+  price_cents_paid: number
+  price_cents_wholesale: number
+  currency: string
+  registered_at: string | null
+  expires_at: string | null
+  auto_renew: boolean
+  partner: string
+  notes: string | null
+  created_at: string | null
+}
+
+export type DnsRecord = {
+  id: string
+  name: string
+  type: string
+  content: string
+  ttl: string | number
+  prio?: string | number | null
+  notes?: string | null
+}
+
+export const domainsApi = {
+  check: (domain: string) =>
+    api.post<{ data: DomainCheck }>('/domains/check', { domain }),
+
+  purchase: (domain: string, years = 1) =>
+    api.post<{ data: { checkout_url: string; session_id: string; purchase_id: string } }>(
+      '/domains/purchase', { domain, years },
+    ),
+
+  list: () => api.get<{ data: DomainPurchase[] }>('/domains'),
+
+  get: (id: string) => api.get<{ data: DomainPurchase }>(`/domains/${id}`),
+
+  listDns: (id: string) =>
+    api.get<{ data: DnsRecord[] }>(`/domains/${id}/dns`),
+
+  upsertDns: (id: string, body: {
+    type: string; content: string; name?: string; ttl?: number;
+    priority?: number | null; record_id?: string | null;
+  }) => api.post(`/domains/${id}/dns`, body),
+
+  deleteDns: (id: string, recordId: string) =>
+    api.delete(`/domains/${id}/dns/${recordId}`),
+}
