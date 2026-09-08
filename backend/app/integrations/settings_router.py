@@ -29,6 +29,7 @@ INTEGRATION_FIELDS = {
     "smtp": ["host", "port", "username", "password", "from_email"],
     "cloudflare_r2": ["access_key_id", "secret_access_key", "bucket_name", "endpoint", "account_id"],
     "assemblyai": ["api_key"],
+    "porkbun": ["api_key", "secret_api_key"],
     # Wallet passes for business cards. Deliberately NOT in SETTINGS_MAP:
     # nothing outside app/cards/wallet/ needs these, so they're read from
     # IntegrationConfig directly there instead of polluting the global
@@ -94,6 +95,10 @@ SETTINGS_MAP = {
     },
     "assemblyai": {
         "api_key": "assemblyai_api_key",
+    },
+    "porkbun": {
+        "api_key": "porkbun_api_key",
+        "secret_api_key": "porkbun_secret_api_key",
     },
 }
 

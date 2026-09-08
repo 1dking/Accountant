@@ -1955,6 +1955,7 @@ const INTEGRATION_LABELS: Record<string, string> = {
   smtp: 'SMTP Email',
   cloudflare_r2: 'Cloudflare R2',
   assemblyai: 'AssemblyAI',
+  porkbun: 'Porkbun (Domain Reseller)',
 }
 
 const SECRET_FIELD_KEYWORDS = ['key', 'secret', 'token', 'password', 'sid']

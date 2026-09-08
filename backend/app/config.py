@@ -222,6 +222,10 @@ class Settings(BaseSettings):
     # AssemblyAI (alternative transcription)
     assemblyai_api_key: str = ""
 
+    # Porkbun (domain reseller — S8)
+    porkbun_api_key: str = ""
+    porkbun_secret_api_key: str = ""
+
     # O-Brain settings
     obrain_rate_limit_per_hour: int = 120
 
