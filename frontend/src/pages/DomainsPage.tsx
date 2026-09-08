@@ -247,6 +247,10 @@ function MailboxPanel({ domainId, domain }: { domainId: string; domain: string }
       </div>
       {mailQ.isLoading ? (
         <div className="text-center py-3"><Loader2 className="h-4 w-4 animate-spin mx-auto text-gray-400" /></div>
+      ) : mailQ.isError ? (
+        <div className="text-xs text-rose-600 dark:text-rose-300 py-2">
+          Couldn’t load mailboxes: {(mailQ.error as Error)?.message || 'server error'}
+        </div>
       ) : mailboxes.length === 0 && !showAdd ? (
         <div className="text-xs text-gray-500 py-2">No mailboxes yet.</div>
       ) : (
@@ -323,6 +327,10 @@ function DnsPanel({ domainId }: { domainId: string }) {
     <div className="mt-4 rounded-md border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950/50 p-3">
       {dnsQ.isLoading ? (
         <div className="text-center py-4"><Loader2 className="h-4 w-4 animate-spin mx-auto text-gray-400" /></div>
+      ) : dnsQ.isError ? (
+        <div className="py-3 px-2 text-xs text-rose-600 dark:text-rose-300">
+          Couldn’t load DNS: {(dnsQ.error as Error)?.message || 'server error'}
+        </div>
       ) : (
         <>
           <table className="w-full text-xs">

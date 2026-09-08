@@ -141,6 +141,10 @@ function DomainMailboxes({ d }: { d: DomainPurchase }) {
       <div className="p-4">
         {mailQ.isLoading ? (
           <div className="text-center py-4"><Loader2 className="h-4 w-4 animate-spin mx-auto text-gray-400" /></div>
+        ) : mailQ.isError ? (
+          <div className="text-sm text-rose-600 dark:text-rose-300">
+            Couldn’t load mailboxes: {(mailQ.error as Error)?.message || 'server error'}
+          </div>
         ) : mailboxes.length === 0 && !showAdd ? (
           <div className="text-sm text-gray-500">No mailboxes yet on this domain.</div>
         ) : (
