@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Mail, Loader2, Plus, Trash2, Check, Sparkles, Globe, ArrowRight } from 'lucide-react'
+import { Mail, Loader2, Plus, Trash2, Check, Sparkles, Globe, ArrowRight, KeyRound, Copy } from 'lucide-react'
 import { toast } from 'sonner'
 import { domainsApi, type DomainPurchase } from '@/api/domains'
+import { genPassword } from '@/lib/genPassword'
 
 /**
  * Email — aggregate view across every domain we sold. Rows are
@@ -114,11 +115,6 @@ function DomainMailboxes({ d }: { d: DomainPurchase }) {
     queryKey: ['mailboxes', d.id],
     queryFn: async () => (await domainsApi.listMailboxes(d.id)).data,
   })
-  const deleteMut = useMutation({
-    mutationFn: (local: string) => domainsApi.deleteMailbox(d.id, local),
-    onSuccess: () => { toast.success('Mailbox deleted'); qc.invalidateQueries({ queryKey: ['mailboxes', d.id] }) },
-    onError: (e: Error) => toast.error(e.message),
-  })
   const mailboxes = mailQ.data ?? []
 
   return (
@@ -150,16 +146,10 @@ function DomainMailboxes({ d }: { d: DomainPurchase }) {
         ) : (
           <ul className="divide-y divide-gray-200 dark:divide-gray-800">
             {mailboxes.map(m => (
-              <li key={m.local_part} className="py-2 flex items-center gap-3 text-sm">
-                <Mail className="h-3.5 w-3.5 text-gray-400" />
-                <span className="font-mono flex-1">{m.address || `${m.local_part}@${d.domain}`}</span>
-                {m.name && <span className="text-gray-500 text-xs">{m.name}</span>}
-                <button
-                  onClick={() => { if (confirm(`Delete ${m.local_part}@${d.domain}? Mail cannot be recovered.`)) deleteMut.mutate(m.local_part) }}
-                  className="text-rose-600 hover:text-rose-700 p-1"
-                  title="Delete mailbox"
-                ><Trash2 className="h-3.5 w-3.5" /></button>
-              </li>
+              <MailboxRow key={m.local_part} domainId={d.id}
+                localPart={m.local_part} address={m.address || `${m.local_part}@${d.domain}`}
+                name={m.name}
+                onDeleted={() => qc.invalidateQueries({ queryKey: ['mailboxes', d.id] })} />
             ))}
           </ul>
         )}
@@ -171,6 +161,60 @@ function DomainMailboxes({ d }: { d: DomainPurchase }) {
         {mailboxes.length > 0 && <MailboxAccessHelp />}
       </div>
     </section>
+  )
+}
+
+function MailboxRow({ domainId, localPart, address, name, onDeleted }: {
+  domainId: string; localPart: string; address: string; name?: string; onDeleted: () => void;
+}) {
+  const [resetting, setResetting] = useState(false)
+  const [pw, setPw] = useState('')
+  const deleteMut = useMutation({
+    mutationFn: () => domainsApi.deleteMailbox(domainId, localPart),
+    onSuccess: () => { toast.success('Mailbox deleted'); onDeleted() },
+    onError: (e: Error) => toast.error(e.message),
+  })
+  const resetMut = useMutation({
+    mutationFn: () => domainsApi.resetMailboxPassword(domainId, localPart, pw),
+    onSuccess: () => { toast.success('Password updated'); setResetting(false); setPw('') },
+    onError: (e: Error) => toast.error(e.message),
+  })
+  return (
+    <li className="py-2 text-sm">
+      <div className="flex items-center gap-3">
+        <Mail className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+        <span className="font-mono flex-1 min-w-0 truncate">{address}</span>
+        {name && <span className="text-gray-500 text-xs">{name}</span>}
+        <button onClick={() => { setResetting(v => !v); if (!resetting && !pw) setPw(genPassword()) }}
+          className="text-gray-500 hover:text-blue-600 p-1" title="Reset password">
+          <KeyRound className="h-3.5 w-3.5" />
+        </button>
+        <button
+          onClick={() => { if (confirm(`Delete ${address}? Mail cannot be recovered.`)) deleteMut.mutate() }}
+          className="text-rose-600 hover:text-rose-700 p-1" title="Delete mailbox">
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      {resetting && (
+        <div className="mt-2 ml-6 flex flex-wrap items-center gap-2">
+          <input value={pw} onChange={e => setPw(e.target.value)}
+            className="rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 text-sm px-2 py-1.5 font-mono flex-1 min-w-[220px]" />
+          <button type="button" onClick={() => setPw(genPassword())}
+            className="text-xs px-2 py-1.5 rounded border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-1">
+            <Sparkles className="h-3 w-3" /> Generate
+          </button>
+          <button type="button" onClick={() => { navigator.clipboard?.writeText(pw); toast.success('Copied') }}
+            className="text-xs px-2 py-1.5 rounded border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-1">
+            <Copy className="h-3 w-3" /> Copy
+          </button>
+          <button type="button" disabled={pw.length < 12 || resetMut.isPending} onClick={() => resetMut.mutate()}
+            className="text-xs px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white flex items-center gap-1">
+            {resetMut.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />} Save password
+          </button>
+          <button type="button" onClick={() => { setResetting(false); setPw('') }} className="text-xs text-gray-500 hover:text-gray-700">Cancel</button>
+        </div>
+      )}
+    </li>
   )
 }
 
@@ -225,8 +269,18 @@ function AddForm({ domainId, domain, onDone, onCancel }: {
         </label>
         <label className="flex flex-col gap-0.5 flex-1 min-w-[200px]">
           <span className="text-[10px] uppercase tracking-wider text-gray-400">Password (12+ chars)</span>
-          <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••••••"
-            className="rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 text-sm px-2 py-1.5" />
+          <div className="flex gap-1">
+            <input type="text" value={password} onChange={e => setPassword(e.target.value)} placeholder="click Generate →"
+              className="rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 text-sm px-2 py-1.5 font-mono flex-1" />
+            <button type="button" onClick={() => setPassword(genPassword())}
+              className="text-xs px-2 rounded border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-1" title="Generate strong password">
+              <Sparkles className="h-3 w-3" />
+            </button>
+            <button type="button" onClick={() => { navigator.clipboard?.writeText(password); toast.success('Copied') }}
+              disabled={!password} className="text-xs px-2 rounded border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40 flex items-center gap-1" title="Copy">
+              <Copy className="h-3 w-3" />
+            </button>
+          </div>
         </label>
         <button type="submit" disabled={!canSubmit}
           className="px-3 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm flex items-center gap-1">

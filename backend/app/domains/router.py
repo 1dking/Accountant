@@ -43,6 +43,10 @@ class MailboxReq(BaseModel):
     password: str = Field(..., min_length=12, max_length=256)
 
 
+class PasswordReq(BaseModel):
+    password: str = Field(..., min_length=12, max_length=256)
+
+
 def _settings(request: Request):
     return request.app.state.settings
 
@@ -181,6 +185,24 @@ async def create_mailbox(
         return {"data": await service.create_mailbox(
             db, user, _settings(request), purchase_id,
             local_part=body.local_part, name=body.name, password=body.password,
+        )}
+    except MigaduError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+
+@router.put("/{purchase_id}/mailboxes/{local_part}/password")
+async def reset_mailbox_password(
+    purchase_id: uuid.UUID,
+    local_part: str,
+    body: PasswordReq,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(require_role([Role.ADMIN, Role.TEAM_MEMBER, Role.ACCOUNTANT]))],
+):
+    try:
+        return {"data": await service.reset_mailbox_password(
+            db, user, _settings(request), purchase_id,
+            local_part=local_part, password=body.password,
         )}
     except MigaduError as e:
         raise HTTPException(status_code=502, detail=str(e))

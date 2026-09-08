@@ -411,3 +411,14 @@ async def delete_mailbox(db: AsyncSession, user: User, settings,
     row = await get_purchase(db, user, purchase_id)
     migadu = build_migadu_client(settings)
     return await migadu.delete_mailbox(row.domain, local_part.lower())
+
+
+async def reset_mailbox_password(
+    db: AsyncSession, user: User, settings, purchase_id: uuid.UUID,
+    *, local_part: str, password: str,
+) -> dict:
+    row = await get_purchase(db, user, purchase_id)
+    if len(password) < 12:
+        raise ValidationError("Password must be at least 12 characters")
+    migadu = build_migadu_client(settings)
+    return await migadu.update_mailbox_password(row.domain, local_part.lower(), password)

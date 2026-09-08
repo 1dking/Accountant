@@ -88,4 +88,8 @@ export const domainsApi = {
 
   deleteMailbox: (id: string, localPart: string) =>
     api.delete(`/domains/${id}/mailboxes/${localPart}`),
+
+  resetMailboxPassword: (id: string, localPart: string, password: string) =>
+    api.put(`/domains/${id}/mailboxes/${localPart}/password`, { password }),
 }
+
