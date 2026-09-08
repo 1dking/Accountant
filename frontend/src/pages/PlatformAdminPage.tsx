@@ -1956,6 +1956,7 @@ const INTEGRATION_LABELS: Record<string, string> = {
   cloudflare_r2: 'Cloudflare R2',
   assemblyai: 'AssemblyAI',
   porkbun: 'Porkbun (Domain Reseller)',
+  migadu: 'Migadu (Email Hosting)',
 }
 
 const SECRET_FIELD_KEYWORDS = ['key', 'secret', 'token', 'password', 'sid']

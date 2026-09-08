@@ -30,6 +30,7 @@ INTEGRATION_FIELDS = {
     "cloudflare_r2": ["access_key_id", "secret_access_key", "bucket_name", "endpoint", "account_id"],
     "assemblyai": ["api_key"],
     "porkbun": ["api_key", "secret_api_key"],
+    "migadu": ["admin_email", "api_key"],
     # Wallet passes for business cards. Deliberately NOT in SETTINGS_MAP:
     # nothing outside app/cards/wallet/ needs these, so they're read from
     # IntegrationConfig directly there instead of polluting the global
@@ -100,6 +101,10 @@ SETTINGS_MAP = {
         "api_key": "porkbun_api_key",
         "secret_api_key": "porkbun_secret_api_key",
     },
+    "migadu": {
+        "admin_email": "migadu_admin_email",
+        "api_key": "migadu_api_key",
+    },
 }
 
 # Fields that are NOT secrets (shown unmasked and not encrypted)
@@ -110,6 +115,7 @@ NON_SECRET_FIELDS = {
     "plaid": {"environment"},
     "apple_wallet": {"team_id", "pass_type_identifier"},
     "google_wallet": {"issuer_id"},
+    "migadu": {"admin_email"},
 }
 
 

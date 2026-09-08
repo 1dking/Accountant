@@ -227,6 +227,10 @@ class Settings(BaseSettings):
     porkbun_secret_api_key: str = ""
     porkbun_markup_pct: float = 15.0
 
+    # Migadu (email hosting — S8 wave 3)
+    migadu_admin_email: str = ""
+    migadu_api_key: str = ""
+
     # O-Brain settings
     obrain_rate_limit_per_hour: int = 120
 
