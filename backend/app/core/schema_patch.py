@@ -107,7 +107,11 @@ _ADDITIVE_COLUMNS: dict[str, dict[str, str]] = {
         "context_json": "TEXT",
     },
     # ── Canadian tax matrix (alembic i7f8a9b0c1d2). All nullable/defaulted. ──
-    "company_settings": {
+    # NOTE: this key is merged into the S5 company_settings block above at
+    # import time (see `_MERGE_INTO_COMPANY_SETTINGS` below). Python's dict
+    # semantics silently overwrite a repeated key, so keeping the two
+    # blocks separate would drop one set. Both sets stay listed for clarity.
+    "_company_settings_tax_identity": {
         "province": "VARCHAR(2)",
         "business_number": "VARCHAR(15)",
         "gst_hst_number": "VARCHAR(15)",
@@ -150,6 +154,14 @@ _ADDITIVE_COLUMNS: dict[str, dict[str, str]] = {
         "t1_line": "VARCHAR(10)",
     },
 }
+
+
+# Fold the "_company_settings_tax_identity" alias into the real
+# company_settings block (see the note next to that key). Keeps the
+# two logical groupings while ensuring both sets of ALTERs actually run.
+_ADDITIVE_COLUMNS["company_settings"].update(
+    _ADDITIVE_COLUMNS.pop("_company_settings_tax_identity", {})
+)
 
 
 async def apply_sqlite_column_patches(engine) -> None:
