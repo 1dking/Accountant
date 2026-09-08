@@ -79,15 +79,20 @@ async def check_domain(domain: str, settings) -> dict:
         return {"domain": domain, "available": False, "error": str(e)}
 
     resp = raw.get("response") or {}
-    avail = str(resp.get("avail", "")).lower() == "yes"
+    avail_flag = str(resp.get("avail", "")).lower() == "yes"
+    premium = str(resp.get("premium", "")).lower() == "yes"
     wholesale = _dollars_to_cents(resp.get("price"))
     renewal = _dollars_to_cents(resp.get("regularPrice") or resp.get("renewal"))
+    # Porkbun returns avail="no" for premium names that ARE registerable
+    # (at a premium price). Treat any name with a positive price as
+    # available; the UI badges "premium" separately.
+    available = avail_flag or (wholesale > 0 and premium)
     markup = _markup_pct(settings)
     return {
         "domain": domain,
         "tld": _tld(domain),
-        "available": avail,
-        "premium": bool(resp.get("premium")),
+        "available": available,
+        "premium": premium,
         "currency": "USD",
         "price_cents_wholesale": wholesale,
         "price_cents_retail": _retail_cents(wholesale, markup),
