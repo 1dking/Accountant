@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Globe, Loader2, Search, ShoppingCart, Trash2, Plus, Check, X, ExternalLink } from 'lucide-react'
+import { Globe, Loader2, Search, ShoppingCart, Trash2, Plus, Check, X, ExternalLink, Mail, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 import { domainsApi, type DomainCheck, type DomainPurchase } from '@/api/domains'
 
@@ -170,20 +170,137 @@ function PurchaseRow({ p, open, onToggle, onChange: _onChange }: {
             <div className="text-xs text-rose-600 mt-1 whitespace-pre-wrap">{p.notes}</div>
           )}
         </div>
-        <button
-          onClick={onToggle}
-          className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 flex items-center gap-1"
-          disabled={p.status !== 'registered' && p.status !== 'active'}
-        >
-          {open ? 'Hide DNS' : 'Manage DNS'}
-          {(p.status === 'registered' || p.status === 'active') && <ExternalLink className="h-3 w-3" />}
-        </button>
+        <div className="flex items-center gap-3">
+          <EmailToggle p={p} />
+          <button
+            onClick={onToggle}
+            className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 flex items-center gap-1"
+            disabled={p.status !== 'registered' && p.status !== 'active'}
+          >
+            {open ? 'Hide DNS' : 'Manage DNS'}
+            {(p.status === 'registered' || p.status === 'active') && <ExternalLink className="h-3 w-3" />}
+          </button>
+        </div>
       </div>
 
-      {open && (p.status === 'registered' || p.status === 'active') && (
-        <DnsPanel domainId={p.id} />
+      {(p.status === 'registered' || p.status === 'active') && (
+        <>
+          {p.email_enabled && <MailboxPanel domainId={p.id} domain={p.domain} />}
+          {open && <DnsPanel domainId={p.id} />}
+        </>
       )}
     </li>
+  )
+}
+
+function EmailToggle({ p }: { p: DomainPurchase }) {
+  const qc = useQueryClient()
+  const enableMut = useMutation({
+    mutationFn: () => domainsApi.enableEmail(p.id).then(r => r.data),
+    onSuccess: (r) => {
+      toast.success(`Email enabled — ${r.records_created} DNS records added`)
+      qc.invalidateQueries({ queryKey: ['domains'] })
+    },
+    onError: (e: Error) => toast.error(e.message || 'Enable failed'),
+  })
+  if (p.status !== 'registered' && p.status !== 'active') return null
+  if (p.email_enabled) {
+    return <span className="text-xs text-emerald-600 flex items-center gap-1"><Mail className="h-3 w-3" /> Email on</span>
+  }
+  return (
+    <button
+      onClick={() => enableMut.mutate()}
+      disabled={enableMut.isPending}
+      className="text-xs px-2 py-1 rounded bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white flex items-center gap-1"
+      title="Adds this domain to Migadu and writes MX/SPF/DKIM/DMARC to Porkbun DNS"
+    >
+      {enableMut.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+      Enable email
+    </button>
+  )
+}
+
+function MailboxPanel({ domainId, domain }: { domainId: string; domain: string }) {
+  const qc = useQueryClient()
+  const [showAdd, setShowAdd] = useState(false)
+  const mailQ = useQuery({
+    queryKey: ['mailboxes', domainId],
+    queryFn: async () => (await domainsApi.listMailboxes(domainId)).data,
+  })
+  const deleteMut = useMutation({
+    mutationFn: (local: string) => domainsApi.deleteMailbox(domainId, local),
+    onSuccess: () => { toast.success('Mailbox deleted'); qc.invalidateQueries({ queryKey: ['mailboxes', domainId] }) },
+    onError: (e: Error) => toast.error(e.message),
+  })
+  const mailboxes = mailQ.data ?? []
+  return (
+    <div className="mt-3 rounded-md border border-emerald-200 dark:border-emerald-900 bg-emerald-50/40 dark:bg-emerald-950/20 p-3">
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-xs font-semibold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
+          <Mail className="h-3.5 w-3.5" /> Mailboxes on {domain}
+        </div>
+        {!showAdd && (
+          <button onClick={() => setShowAdd(true)} className="text-xs text-emerald-700 hover:text-emerald-800 dark:text-emerald-300 flex items-center gap-1">
+            <Plus className="h-3 w-3" /> Add mailbox
+          </button>
+        )}
+      </div>
+      {mailQ.isLoading ? (
+        <div className="text-center py-3"><Loader2 className="h-4 w-4 animate-spin mx-auto text-gray-400" /></div>
+      ) : mailboxes.length === 0 && !showAdd ? (
+        <div className="text-xs text-gray-500 py-2">No mailboxes yet.</div>
+      ) : (
+        <ul className="divide-y divide-emerald-200/60 dark:divide-emerald-900/60 text-xs">
+          {mailboxes.map(m => (
+            <li key={m.local_part} className="py-1.5 flex items-center gap-3">
+              <span className="font-mono flex-1">{m.address || `${m.local_part}@${domain}`}</span>
+              {m.name && <span className="text-gray-500">{m.name}</span>}
+              <button
+                onClick={() => { if (confirm(`Delete ${m.local_part}@${domain}? Mail cannot be recovered.`)) deleteMut.mutate(m.local_part) }}
+                className="text-rose-600 hover:text-rose-700 p-1"
+                title="Delete mailbox"
+              ><Trash2 className="h-3 w-3" /></button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {showAdd && (
+        <AddMailboxForm domainId={domainId} domain={domain}
+          onDone={() => { setShowAdd(false); qc.invalidateQueries({ queryKey: ['mailboxes', domainId] }) }}
+          onCancel={() => setShowAdd(false)} />
+      )}
+    </div>
+  )
+}
+
+function AddMailboxForm({ domainId, domain, onDone, onCancel }: {
+  domainId: string; domain: string; onDone: () => void; onCancel: () => void;
+}) {
+  const [local, setLocal] = useState('')
+  const [name, setName] = useState('')
+  const [password, setPassword] = useState('')
+  const mut = useMutation({
+    mutationFn: () => domainsApi.createMailbox(domainId, { local_part: local, name, password }),
+    onSuccess: () => { toast.success('Mailbox created'); onDone() },
+    onError: (e: Error) => toast.error(e.message),
+  })
+  return (
+    <form className="mt-2 flex flex-wrap gap-2 items-end" onSubmit={e => { e.preventDefault(); if (local && name && password.length >= 12) mut.mutate() }}>
+      <div className="flex items-center gap-1">
+        <input value={local} onChange={e => setLocal(e.target.value.toLowerCase())}
+          placeholder="jane" className="rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 text-xs px-2 py-1 w-24 font-mono" />
+        <span className="text-xs text-gray-500">@{domain}</span>
+      </div>
+      <input value={name} onChange={e => setName(e.target.value)} placeholder="Full name"
+        className="rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 text-xs px-2 py-1 w-36" />
+      <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password (12+ chars)"
+        className="rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 text-xs px-2 py-1 flex-1 min-w-[180px]" />
+      <button type="submit" disabled={!local || !name || password.length < 12 || mut.isPending}
+        className="px-3 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs flex items-center gap-1">
+        {mut.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />} Create
+      </button>
+      <button type="button" onClick={onCancel} className="text-xs text-gray-500 hover:text-gray-700">Cancel</button>
+    </form>
   )
 }
 

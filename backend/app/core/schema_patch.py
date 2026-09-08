@@ -163,6 +163,11 @@ _ADDITIVE_COLUMNS["company_settings"].update(
     _ADDITIVE_COLUMNS.pop("_company_settings_tax_identity", {})
 )
 
+# Wave-2 domains (S8): email_enabled on already-created domain_purchases
+_ADDITIVE_COLUMNS["domain_purchases"] = {
+    "email_enabled": "BOOLEAN DEFAULT 0 NOT NULL",
+}
+
 
 async def apply_sqlite_column_patches(engine) -> None:
     async with engine.begin() as conn:

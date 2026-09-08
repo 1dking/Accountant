@@ -27,8 +27,17 @@ export type DomainPurchase = {
   expires_at: string | null
   auto_renew: boolean
   partner: string
+  email_enabled: boolean
   notes: string | null
   created_at: string | null
+}
+
+export type Mailbox = {
+  local_part: string
+  address: string
+  name: string
+  is_internal?: boolean
+  storage_usage?: number
 }
 
 export type DnsRecord = {
@@ -64,4 +73,19 @@ export const domainsApi = {
 
   deleteDns: (id: string, recordId: string) =>
     api.delete(`/domains/${id}/dns/${recordId}`),
+
+  // Email hosting (Migadu)
+  enableEmail: (id: string) =>
+    api.post<{ data: { enabled: boolean; records_created: number; records_skipped: number; note: string } }>(
+      `/domains/${id}/email/enable`,
+    ),
+
+  listMailboxes: (id: string) =>
+    api.get<{ data: Mailbox[] }>(`/domains/${id}/mailboxes`),
+
+  createMailbox: (id: string, body: { local_part: string; name: string; password: string }) =>
+    api.post<{ data: Mailbox }>(`/domains/${id}/mailboxes`, body),
+
+  deleteMailbox: (id: string, localPart: string) =>
+    api.delete(`/domains/${id}/mailboxes/${localPart}`),
 }

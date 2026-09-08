@@ -51,6 +51,10 @@ class DomainPurchase(TimestampMixin, Base):
     # partner-side error message on failure, freeform notes otherwise
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # Email hosting (Migadu). Flipped True by service.enable_email() once
+    # the domain has been added to Migadu AND the DNS records are in place.
+    email_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+
 
 class DnsRecord(TimestampMixin, Base):
     __tablename__ = "dns_records"

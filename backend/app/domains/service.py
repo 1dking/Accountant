@@ -23,6 +23,9 @@ from app.core.authorization import apply_cashbook_filter
 from app.core.exceptions import ValidationError, NotFoundError
 from app.domains.models import DomainPurchase, DnsRecord
 from app.domains.porkbun import PorkbunClient, PorkbunError, build_client
+from app.domains.migadu import (
+    MigaduError, build_client as build_migadu_client, migadu_dns_records,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -279,3 +282,101 @@ async def delete_dns(db: AsyncSession, user: User, settings,
     row = await get_purchase(db, user, purchase_id)
     client = build_client(settings)
     return await client.dns_delete(row.domain, record_id)
+
+
+# ---------------------------------------------------------------------------
+# Email hosting (Migadu). One-click "Enable email" adds the domain to
+# Migadu AND writes the required MX/SPF/DKIM/DMARC records into the
+# registrar's DNS so mail Just Works after propagation.
+# ---------------------------------------------------------------------------
+
+async def enable_email(
+    db: AsyncSession, user: User, settings, purchase_id: uuid.UUID,
+) -> dict:
+    row = await get_purchase(db, user, purchase_id)
+    if row.status not in ("registered", "active"):
+        raise ValidationError("Domain must be registered before enabling email")
+
+    migadu = build_migadu_client(settings)
+    porkbun = build_client(settings)
+
+    # 1. Add domain to Migadu (idempotent — 200 if it already exists,
+    #    or the API returns "already exists" which we tolerate).
+    try:
+        await migadu.add_domain(row.domain)
+    except MigaduError as e:
+        if "exist" not in str(e).lower():
+            raise
+        logger.info("migadu.add_domain %s already existed, continuing", row.domain)
+
+    # 2. Write DNS records via Porkbun. We skip any record whose (type,
+    #    name, content) tuple already exists — some customers add MX by
+    #    hand before clicking Enable and we don't want duplicates.
+    existing_raw = await porkbun.dns_list(row.domain)
+    existing = existing_raw.get("records") or []
+    seen: set[tuple[str, str, str]] = {
+        (str(r.get("type", "")).upper(), str(r.get("name", "")), str(r.get("content", "")))
+        for r in existing
+    }
+
+    created, skipped = [], []
+    for rec in migadu_dns_records(row.domain):
+        # Porkbun stores names as the subdomain WITHOUT the base domain,
+        # but returns them fully-qualified — normalise for the dedup check.
+        fq_name = f"{rec['name']}.{row.domain}".lstrip(".") if rec["name"] else row.domain
+        key = (rec["type"].upper(), fq_name, rec["content"])
+        if key in seen or (rec["type"].upper(), rec["name"], rec["content"]) in seen:
+            skipped.append(rec)
+            continue
+        try:
+            await porkbun.dns_create(
+                row.domain, type=rec["type"], content=rec["content"],
+                name=rec["name"], ttl=rec.get("ttl", 3600),
+                priority=rec.get("priority"),
+            )
+            created.append(rec)
+        except PorkbunError as e:
+            logger.warning("porkbun.dns_create %s %s failed: %s",
+                           rec["type"], rec["name"], e)
+
+    row.email_enabled = True
+    await db.commit()
+    return {
+        "enabled": True,
+        "records_created": len(created),
+        "records_skipped": len(skipped),
+        "note": "DNS propagates in ~15 minutes. Then add mailboxes.",
+    }
+
+
+async def list_mailboxes(db: AsyncSession, user: User, settings,
+                         purchase_id: uuid.UUID) -> list[dict]:
+    row = await get_purchase(db, user, purchase_id)
+    if not row.email_enabled:
+        return []
+    migadu = build_migadu_client(settings)
+    return await migadu.list_mailboxes(row.domain)
+
+
+async def create_mailbox(
+    db: AsyncSession, user: User, settings, purchase_id: uuid.UUID,
+    *, local_part: str, name: str, password: str,
+) -> dict:
+    row = await get_purchase(db, user, purchase_id)
+    if not row.email_enabled:
+        raise ValidationError("Enable email on this domain first")
+    if not local_part or "@" in local_part or " " in local_part:
+        raise ValidationError("Invalid mailbox name")
+    if len(password) < 12:
+        raise ValidationError("Password must be at least 12 characters")
+    migadu = build_migadu_client(settings)
+    return await migadu.create_mailbox(
+        row.domain, local_part=local_part.lower(), name=name, password=password,
+    )
+
+
+async def delete_mailbox(db: AsyncSession, user: User, settings,
+                         purchase_id: uuid.UUID, local_part: str) -> dict:
+    row = await get_purchase(db, user, purchase_id)
+    migadu = build_migadu_client(settings)
+    return await migadu.delete_mailbox(row.domain, local_part.lower())
